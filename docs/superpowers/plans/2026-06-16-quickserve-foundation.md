@@ -1451,10 +1451,15 @@ Run: `npm start`. Confirm only the **Home** tab shows and the app loads to the H
 
 - [ ] **Step 5: Commit**
 
+Stage only this task's explicit paths — do NOT use `git add -A` / `git add .`, which would sweep in unrelated untracked entries at the repo root (e.g. the `Claude/` folder).
+
 ```bash
-git add -A
+git add src/components/app-tabs.tsx src/app/explore.tsx _parked/ src/components/hint-row.tsx src/components/web-badge.tsx
+git status   # verify ONLY the intended renames/edits are staged before committing
 git commit -m "chore: single Home tab; park demo screens"
 ```
+
+> The `git mv` operations in Step 1 already stage the renames; the explicit `git add` above re-stages them plus the `app-tabs.tsx` edit. `git status` must show no stray paths (no `Claude/`, no other untracked dirs) before you commit.
 
 ---
 
