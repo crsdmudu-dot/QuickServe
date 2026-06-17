@@ -17,8 +17,8 @@ export const CATEGORY_ORDER: ServiceCategory[] = ['home', 'auto', 'delivery', 'p
 
 export const CATEGORY_LABELS: Record<ServiceCategory, string> = {
   home: 'Home Services',
-  auto: 'Auto',
-  delivery: 'Delivery',
+  auto: 'Auto Services',
+  delivery: 'Delivery Services',
   personal: 'Personal Care',
 };
 
