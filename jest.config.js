@@ -11,4 +11,8 @@ module.exports = {
   // Also prevent jest's haste module map from crawling the nested project's
   // node_modules and source, which would cause a "module naming collision" error.
   modulePathIgnorePatterns: ['<rootDir>/QuickServe/'],
+  moduleNameMapper: {
+    '^@/(.+\\.css)$': '<rootDir>/test/cssStub.js',
+    '^@/(.*)$': '<rootDir>/src/$1',
+  },
 };
