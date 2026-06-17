@@ -13,4 +13,9 @@ describe('Card', () => {
     fireEvent.press(screen.getByText('Tap me'));
     expect(onPress).toHaveBeenCalledTimes(1);
   });
+  it('spreads rest props onto pressable Card', () => {
+    const onPress = jest.fn();
+    render(<Card onPress={onPress} testID="svc-card"><Text>Pressable</Text></Card>);
+    expect(screen.getByTestId('svc-card')).toBeOnTheScreen();
+  });
 });

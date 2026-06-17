@@ -17,7 +17,7 @@ export function Card({ style, onPress, children, ...rest }: CardProps) {
 
   if (onPress) {
     return (
-      <Pressable onPress={onPress} style={({ pressed }) => [base, pressed && styles.pressed]}>
+      <Pressable onPress={onPress} {...rest} style={({ pressed }) => [base, pressed && styles.pressed]}>
         {children}
       </Pressable>
     );
