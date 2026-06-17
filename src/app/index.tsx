@@ -129,10 +129,10 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: Spacing.three,
   },
-  // Each grid cell is just under half-width; flexGrow lets it fill
-  // the row in case of an odd last item.
+  // Each grid cell is just under half-width; maxWidth prevents stretching
+  // when a row has an odd last item.
   gridItem: {
     width: '47%',
-    flexGrow: 1,
+    maxWidth: '47%',
   },
 });
