@@ -1,98 +1,138 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
+import {
+  CATEGORY_LABELS,
+  CATEGORY_ORDER,
+  getPopularServices,
+  getServicesByCategory,
+  type Service,
+} from '@/constants/services';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { getGreeting } from '@/lib/greeting';
+import { useTheme } from '@/hooks/use-theme';
+import { SearchBar } from '@/components/ui/search-bar';
+import { SectionHeader } from '@/components/ui/section-header';
+import { ServiceCard } from '@/components/ui/service-card';
+import { Text } from '@/components/ui/text';
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
+// Placeholder navigation handler — service detail screen is a later slice.
+function handleServicePress(service: Service) {
+  console.log('Selected service:', service.id);
 }
 
 export default function HomeScreen() {
+  const theme = useTheme();
+  const popular = getPopularServices();
+
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+    <ScrollView
+      style={{ backgroundColor: theme.background }}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
+      <SafeAreaView edges={['top']} style={styles.safeArea}>
+        {/* ── Header ───────────────────────────────────────────────── */}
+        <View style={styles.header}>
+          <Text variant="title">{getGreeting()}</Text>
+          <Text variant="body" color="textSecondary">
+            What service do you need today?
+          </Text>
+        </View>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+        {/* ── Search bar ───────────────────────────────────────────── */}
+        <SearchBar />
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+        {/* ── Popular (horizontal scroll) ──────────────────────────── */}
+        <View style={styles.section}>
+          <SectionHeader title="Popular" />
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.popularRow}
+          >
+            {popular.map((service) => (
+              <View key={service.id} style={styles.popularItem}>
+                <ServiceCard
+                  icon={service.icon}
+                  title={service.title}
+                  subtitle={service.subtitle}
+                  startingPrice={service.startingPrice}
+                  badge={service.badge}
+                  onPress={() => handleServicePress(service)}
+                />
+              </View>
+            ))}
+          </ScrollView>
+        </View>
 
-        {Platform.OS === 'web' && <WebBadge />}
+        {/* ── Category grids (one section per category) ────────────── */}
+        {CATEGORY_ORDER.map((category) => (
+          <View key={category} style={styles.section}>
+            <SectionHeader title={CATEGORY_LABELS[category]} />
+            <View style={styles.grid}>
+              {getServicesByCategory(category).map((service) => (
+                <View key={service.id} style={styles.gridItem}>
+                  <ServiceCard
+                    icon={service.icon}
+                    title={service.title}
+                    subtitle={service.subtitle}
+                    startingPrice={service.startingPrice}
+                    badge={service.badge}
+                    onPress={() => handleServicePress(service)}
+                  />
+                </View>
+              ))}
+            </View>
+          </View>
+        ))}
       </SafeAreaView>
-    </ThemedView>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
+  // Outer ScrollView contentContainerStyle — centres content on wide screens.
+  content: {
+    alignItems: 'center',
+    paddingBottom: BottomTabInset + Spacing.four,
   },
+  // SafeAreaView controls max-width and horizontal padding.
   safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
+    width: '100%',
     maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
     paddingHorizontal: Spacing.four,
     gap: Spacing.four,
   },
-  title: {
-    textAlign: 'center',
+  // Greeting + subtitle block.
+  header: {
+    paddingTop: Spacing.three,
+    gap: Spacing.one,
   },
-  code: {
-    textTransform: 'uppercase',
+  // Each named section (Popular, Home Services, etc.).
+  section: {
+    gap: Spacing.two,
   },
-  stepContainer: {
+  // Horizontal popular row padding.
+  popularRow: {
     gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+    paddingRight: Spacing.four,
+  },
+  // Each popular card is fixed-width so the badge (top-right) never
+  // overlaps the IconChip (top-left).
+  popularItem: {
+    width: 220,
+  },
+  // Two-column responsive grid.
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.three,
+  },
+  // Each grid cell is just under half-width; maxWidth prevents stretching
+  // when a row has an odd last item.
+  gridItem: {
+    width: '47%',
+    maxWidth: '47%',
   },
 });

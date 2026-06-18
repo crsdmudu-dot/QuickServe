@@ -1,8 +1,11 @@
 import { Image } from 'expo-image';
+import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
+import { Dimensions, Platform, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, Keyframe } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
+
+import { Colors, Typography } from '@/constants/theme';
 
 const INITIAL_SCALE_FACTOR = Dimensions.get('screen').height / 90;
 const DURATION = 600;
@@ -12,35 +15,29 @@ export function AnimatedSplashOverlay() {
 
   if (!visible) return null;
 
-  const splashKeyframe = new Keyframe({
-    0: {
-      transform: [{ scale: INITIAL_SCALE_FACTOR }],
-      opacity: 1,
-    },
-    20: {
-      opacity: 1,
-    },
-    70: {
-      opacity: 0,
-      easing: Easing.elastic(0.7),
-    },
-    100: {
-      opacity: 0,
-      transform: [{ scale: 1 }],
-      easing: Easing.elastic(0.7),
-    },
+  const markKeyframe = new Keyframe({
+    0: { opacity: 0, transform: [{ scale: 0.8 }] },
+    40: { opacity: 1, transform: [{ scale: 1 }] },
+    75: { opacity: 1, transform: [{ scale: 1 }] },
+    100: { opacity: 0, transform: [{ scale: 1 }] },
   });
 
   return (
     <Animated.View
-      entering={splashKeyframe.duration(DURATION).withCallback((finished) => {
+      entering={markKeyframe.duration(1400).withCallback((finished) => {
         'worklet';
         if (finished) {
           scheduleOnRN(setVisible, false);
         }
       })}
-      style={styles.backgroundSolidColor}
-    />
+      style={styles.splash}>
+      {Platform.OS === 'ios' ? (
+        <SymbolView name={'bolt.shield.fill' as never} size={84} tintColor={Colors.light.primary} fallback={null} />
+      ) : (
+        <Text style={styles.splashEmoji}>⚡</Text>
+      )}
+      <Text style={styles.splashWordmark}>QuickServe</Text>
+    </Animated.View>
   );
 }
 
@@ -124,9 +121,19 @@ const styles = StyleSheet.create({
     height: 128,
     position: 'absolute',
   },
-  backgroundSolidColor: {
+  splash: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: '#208AEF',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
     zIndex: 1000,
+  },
+  splashEmoji: {
+    fontSize: 72,
+  },
+  splashWordmark: {
+    ...Typography.title,
+    color: Colors.light.ink,
   },
 });
