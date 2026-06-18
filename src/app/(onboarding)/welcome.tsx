@@ -18,7 +18,7 @@ export default function WelcomeScreen() {
           Premium services, on demand.
         </Text>
       </View>
-      <Button label="Get Started" fullWidth onPress={() => router.push('/role-select' as any)} />
+      <Button label="Get Started" fullWidth onPress={() => router.push('/role-select')} />
     </SafeAreaView>
   );
 }
