@@ -60,6 +60,46 @@ onboarded into the platform.
 
 ---
 
+## In-App Payments (Glovo-style)
+
+**Status:** Planned — a later slice, **after** the booking flow exists.
+**Do not implement in Slice 1.** This does not change the current Slice 1 spec or plan.
+
+### Purpose
+
+Let customers pay for services inside the app (like Glovo Kenya), rather than only
+arranging payment off-platform. Kenya-first, so **M-Pesa is the priority** payment method.
+
+### Payment modes
+1. **M-Pesa** (priority for Kenya — likely Daraja STK Push / mobile money).
+2. **Card payments** (debit/credit).
+3. **Cash** option, if needed for early launch (pay the provider directly).
+
+### Behaviour
+- Customers can pay **inside the app**, either **before** or **after** booking
+  confirmation, **depending on the service type** (e.g. prepaid delivery vs. pay-after
+  for on-site services). The booking/service model should carry a "payment timing"
+  notion (pay-before vs pay-after) per service type.
+- Payment status becomes part of the booking lifecycle (e.g. pending → paid → refunded).
+
+### Dependencies (sequencing)
+- Requires the **booking flow** (a booking/order entity to attach a payment to).
+- Requires a **backend** (per project brief, Supabase) and secure server-side handling of
+  payment provider callbacks/webhooks (M-Pesa confirmation, card processor).
+- Auth/identity for receipts and payment history.
+
+### Design notes (for the future spec — not decisions yet)
+- Treat the payment provider behind an interface so M-Pesa, card, and cash are
+  interchangeable payment strategies against one booking.
+- M-Pesa STK Push is asynchronous — design around a callback/poll for confirmation; the
+  customer-facing UI shows a "confirming payment" state.
+- Never handle raw card data client-side; use a PCI-compliant processor (hosted
+  fields / SDK). Keep secrets server-side only.
+- Cash mode = record an intent to pay on delivery/completion; reconciled by the
+  provider/admin (ties into [[#admin-dispatch-mode]] for manually managed jobs).
+
+---
+
 ## Other future slices (high level)
 
 Tracked for sequencing; each gets its own spec later.
