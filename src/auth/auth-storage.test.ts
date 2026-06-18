@@ -22,4 +22,8 @@ describe('auth-storage', () => {
     await AsyncStorage.setItem('quickserve.auth', 'not json');
     expect(await loadAuth()).toEqual({ role: null, signedIn: false });
   });
+  it('returns defaults on wrong-shape data', async () => {
+    await AsyncStorage.setItem('quickserve.auth', JSON.stringify({ role: 'hacker', signedIn: 1 }));
+    expect(await loadAuth()).toEqual({ role: null, signedIn: false });
+  });
 });

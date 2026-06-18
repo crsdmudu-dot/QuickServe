@@ -1,13 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import type { Role } from '@/constants/roles';
+import { ROLES, type Role } from '@/constants/roles';
 
 const KEY = 'quickserve.auth';
 
 export type StoredAuth = { role: Role | null; signedIn: boolean };
 const DEFAULT: StoredAuth = { role: null, signedIn: false };
 
-const VALID_ROLES: Role[] = ['customer', 'provider', 'admin'];
+const VALID_ROLES: Role[] = ROLES.map((r) => r.id);
 
 export async function loadAuth(): Promise<StoredAuth> {
   try {
