@@ -39,7 +39,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
   async function signIn() {
     setSignedIn(true);
-    await saveAuth({ role, signedIn: true });
+    const current = await loadAuth();
+    await saveAuth({ role: current.role, signedIn: true });
   }
   async function signOut() {
     setRole(null);

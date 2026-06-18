@@ -51,3 +51,23 @@ it('loads defaults then supports select/sign-in/sign-out with persistence', asyn
   await waitFor(() => expect(screen.getByText('ready:none:false')).toBeOnTheScreen());
   expect(await AsyncStorage.getItem('quickserve.auth')).toBeNull();
 });
+
+it('signIn persists the currently stored role, not a closure value', async () => {
+  render(
+    <AuthProvider>
+      <Probe />
+    </AuthProvider>,
+  );
+  await waitFor(() => expect(screen.getByText('ready:none:false')).toBeOnTheScreen());
+
+  fireEvent.press(screen.getByText('select'));
+  await waitFor(() => expect(screen.getByText('ready:provider:false')).toBeOnTheScreen());
+
+  fireEvent.press(screen.getByText('signin'));
+  await waitFor(() => expect(screen.getByText('ready:provider:true')).toBeOnTheScreen());
+
+  expect(JSON.parse((await AsyncStorage.getItem('quickserve.auth')) ?? '{}')).toEqual({
+    role: 'provider',
+    signedIn: true,
+  });
+});
