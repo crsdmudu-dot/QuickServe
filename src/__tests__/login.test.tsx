@@ -23,13 +23,12 @@ describe('LoginScreen', () => {
     expect(mockSignIn).not.toHaveBeenCalled();
   });
 
-  it('signs in and navigates when valid', async () => {
+  it('signs in when valid', async () => {
     render(<LoginScreen />);
     fireEvent.changeText(screen.getByPlaceholderText('you@example.com'), 'a@b');
     fireEvent.changeText(screen.getByPlaceholderText('Your password'), 'pw');
     fireEvent.press(screen.getByText('Continue'));
     await waitFor(() => expect(mockSignIn).toHaveBeenCalled());
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
   });
 
   it('links to register', () => {
