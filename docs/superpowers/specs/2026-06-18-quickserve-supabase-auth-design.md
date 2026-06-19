@@ -33,6 +33,19 @@ current UI and flow as much as possible.
 - **Profile row created by a DB trigger** from sign-up metadata (atomic; no orphaned users).
 - **Preserve current UI** as much as possible.
 
+### Amendment — provider approval & role security (post security review)
+- Public self-signup is allowed only for **customer** or **provider**. **Admin is never
+  created via public signup** (admins are inserted manually in Supabase). The `handle_new_user`
+  trigger forces any non-`provider` metadata role to `customer`.
+- `profiles` gains `approval_status` ∈ `pending|approved|rejected`. **Customer → `approved`**
+  automatically; **provider → `pending`** by default. Admin (manual) → `approved`.
+- RLS `update` policy has a `WITH CHECK` that **pins `role` and `approval_status`** to their
+  current values, so a user can edit name/phone but cannot self-elevate.
+- `AuthProvider` loads and exposes `approvalStatus` alongside `role` for **future** provider-
+  approval routing (pending/approved/rejected screens). **Slice 3 does NOT build approval UI** —
+  provider still routes to its placeholder regardless of status; the data + plumbing just exist
+  so it's easy to add later.
+
 ---
 
 ## 2. Supabase Setup & Environment
