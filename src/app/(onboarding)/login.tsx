@@ -13,7 +13,7 @@ import { Text } from '@/components/ui/text';
 
 export default function LoginScreen() {
   const theme = useTheme();
-  const { signIn } = useAuth();
+  const { signIn, authError } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -22,7 +22,7 @@ export default function LoginScreen() {
     const e = validateLogin({ email, password });
     setErrors(e);
     if (Object.keys(e).length > 0) return;
-    await signIn();
+    await signIn(email, password); // gating routes on success
   }
 
   return (
@@ -32,6 +32,7 @@ export default function LoginScreen() {
         <Input label="Email" value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" autoCapitalize="none" error={errors.email} />
         <Input label="Password" value={password} onChangeText={setPassword} placeholder="Your password" secureTextEntry autoCapitalize="none" error={errors.password} />
         <Button label="Continue" fullWidth onPress={submit} />
+        {authError ? <Text variant="caption" color="error">{authError}</Text> : null}
         <View style={styles.linkRow}>
           <Text variant="body" color="textSecondary">New here? </Text>
           <Text variant="label" color="primary" onPress={() => router.push('/register')}>
