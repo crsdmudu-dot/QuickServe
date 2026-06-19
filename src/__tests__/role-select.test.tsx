@@ -15,10 +15,10 @@ describe('RoleSelectScreen', () => {
     expect(screen.getByText('Service Provider')).toBeOnTheScreen();
     expect(screen.getByText('Admin')).toBeOnTheScreen();
   });
-  it('selects a role and navigates to login', async () => {
+  it('selects a role and navigates to register', async () => {
     render(<RoleSelectScreen />);
     fireEvent.press(screen.getByText('Customer'));
     await waitFor(() => expect(mockSelectRole).toHaveBeenCalledWith('customer'));
-    expect(mockPush).toHaveBeenCalledWith('/login');
+    expect(mockPush).toHaveBeenCalledWith('/register');
   });
 });

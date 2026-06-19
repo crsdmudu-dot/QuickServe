@@ -14,9 +14,9 @@ export default function RoleSelectScreen() {
   const theme = useTheme();
   const { selectRole } = useAuth();
 
-  async function choose(role: Role) {
-    await selectRole(role);
-    router.push('/login');
+  function choose(role: Role) {
+    selectRole(role);
+    router.push('/register');
   }
 
   return (
