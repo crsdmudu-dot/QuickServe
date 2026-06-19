@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react-native';
 
-import HomeScreen from '@/app/index';
+import HomeScreen from '@/app/(customer)/index';
 
 describe('HomeScreen', () => {
   it('renders the search bar placeholder', () => {
