@@ -19,6 +19,10 @@ export default function WelcomeScreen() {
         </Text>
       </View>
       <Button label="Get Started" fullWidth onPress={() => router.push('/role-select')} />
+      <View style={styles.loginRow}>
+        <Text variant="body" color="textSecondary">Already have an account? </Text>
+        <Text variant="label" color="primary" onPress={() => router.push('/login')}>Log in</Text>
+      </View>
     </SafeAreaView>
   );
 }
@@ -28,4 +32,5 @@ const styles = StyleSheet.create({
   hero: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.two },
   mark: { fontSize: 64 },
   tagline: { textAlign: 'center' },
+  loginRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: Spacing.three },
 });

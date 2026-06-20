@@ -194,7 +194,7 @@ git commit -m "feat: add Supabase client, env, profiles migration, error mapping
 
 **Files:** Modify `src/auth/auth-context.tsx`, `src/auth/auth-context.test.tsx`, `src/app/(onboarding)/login.tsx`, `src/app/(onboarding)/register.tsx`, `src/__tests__/login.test.tsx`, `src/__tests__/register.test.tsx`; Delete `src/auth/auth-storage.ts`, `src/auth/auth-storage.test.ts`.
 
-**Interfaces — Produces:** `useAuth(): { session, role, isLoading, pendingRole, signedIn, authError, selectRole(role), signUp({fullName,email,phone,password}): Promise<boolean>, signIn(email,password): Promise<boolean>, signOut(): Promise<void> }`.
+**Interfaces — Produces:** `useAuth(): { session, role, approvalStatus, isLoading, pendingRole, signedIn, authError, selectRole(role), signUp({fullName,email,phone,password}): Promise<boolean>, signIn(email,password): Promise<boolean>, signOut(): Promise<void> }`. `approvalStatus: 'pending'|'approved'|'rejected'|null` is loaded from `profiles` and exposed for future provider-approval routing (NOT acted on in Slice 3 — provider still routes to its placeholder regardless).
 
 - [ ] **Step 1: Delete fake storage**
 ```bash
@@ -212,9 +212,12 @@ import { mapAuthError } from '@/lib/auth-errors';
 
 type SignUpValues = { fullName: string; email: string; phone: string; password: string };
 
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+
 type AuthState = {
   session: Session | null;
   role: Role | null;
+  approvalStatus: ApprovalStatus | null;   // from profiles; exposed for future provider-approval routing
   isLoading: boolean;
   pendingRole: Role | null;
   signedIn: boolean;
@@ -227,14 +230,24 @@ type AuthState = {
 
 const AuthContext = createContext<AuthState | null>(null);
 
-async function fetchRole(userId: string): Promise<Role | null> {
-  const { data } = await supabase.from('profiles').select('role').eq('id', userId).single();
-  return (data?.role as Role | undefined) ?? null;
+type ProfileInfo = { role: Role | null; approvalStatus: ApprovalStatus | null };
+
+async function fetchProfile(userId: string): Promise<ProfileInfo> {
+  const { data } = await supabase
+    .from('profiles')
+    .select('role, approval_status')
+    .eq('id', userId)
+    .single();
+  return {
+    role: (data?.role as Role | undefined) ?? null,
+    approvalStatus: (data?.approval_status as ApprovalStatus | undefined) ?? null,
+  };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<Role | null>(null);
+  const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [pendingRole, setPendingRole] = useState<Role | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -244,7 +257,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function applySession(s: Session | null) {
       if (!active) return;
       setSession(s);
-      setRole(s ? await fetchRole(s.user.id) : null);
+      if (s) {
+        const p = await fetchProfile(s.user.id);
+        if (!active) return;
+        setRole(p.role);
+        setApprovalStatus(p.approvalStatus);
+      } else {
+        setRole(null);
+        setApprovalStatus(null);
+      }
       if (active) setIsLoading(false);
     }
     supabase.auth.getSession().then(({ data }) => applySession(data.session));
@@ -295,6 +316,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         session,
         role,
+        approvalStatus,
         isLoading,
         pendingRole,
         signedIn: session != null,
@@ -368,7 +390,7 @@ it('loads with no session', async () => {
 
 it('loads role from profile when a session exists', async () => {
   getSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } });
-  single.mockResolvedValue({ data: { role: 'customer' }, error: null });
+  single.mockResolvedValue({ data: { role: 'customer', approval_status: 'approved' }, error: null });
   render(<AuthProvider><Probe /></AuthProvider>);
   await waitFor(() => expect(screen.getByText('ready:customer:true:-')).toBeOnTheScreen());
 });

@@ -19,4 +19,9 @@ describe('WelcomeScreen', () => {
     fireEvent.press(screen.getByText('Get Started'));
     expect(mockPush).toHaveBeenCalledWith('/role-select');
   });
+  it('pressing Log in navigates to login', () => {
+    render(<WelcomeScreen />);
+    fireEvent.press(screen.getByText('Log in'));
+    expect(mockPush).toHaveBeenCalledWith('/login');
+  });
 });
