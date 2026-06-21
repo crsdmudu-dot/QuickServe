@@ -14,6 +14,7 @@ export type InputProps = {
   secureTextEntry?: boolean;
   keyboardType?: 'default' | 'email-address' | 'phone-pad';
   autoCapitalize?: 'none' | 'sentences' | 'words';
+  multiline?: boolean;
 };
 
 export function Input({
@@ -25,6 +26,7 @@ export function Input({
   secureTextEntry,
   keyboardType = 'default',
   autoCapitalize = 'sentences',
+  multiline = false,
 }: InputProps) {
   const theme = useTheme();
   const [focused, setFocused] = useState(false);
@@ -36,7 +38,11 @@ export function Input({
         {label}
       </Text>
       <TextInput
-        style={[styles.input, { borderColor, color: theme.text, backgroundColor: theme.background }]}
+        style={[
+          styles.input,
+          { borderColor, color: theme.text, backgroundColor: theme.background },
+          multiline && styles.multiline,
+        ]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
@@ -44,6 +50,7 @@ export function Input({
         secureTextEntry={secureTextEntry}
         keyboardType={keyboardType as KeyboardTypeOptions}
         autoCapitalize={autoCapitalize}
+        multiline={multiline}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
       />
@@ -64,5 +71,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     height: 52,
     fontSize: 16,
+  },
+  multiline: {
+    height: 100,
+    paddingTop: Spacing.two,
+    textAlignVertical: 'top',
   },
 });
