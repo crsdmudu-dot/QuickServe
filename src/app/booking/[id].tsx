@@ -5,7 +5,7 @@
  * BookingSummaryCard with service details and a StatusBadge.  If a provider
  * has been assigned, their name and phone are shown in a Card; otherwise a
  * muted message is displayed instead.  No mutations are exposed here — admin
- * actions live in src/app/(admin)/booking/[id].tsx.
+ * actions live in src/app/admin/booking/[id].tsx.
  */
 
 import { useLocalSearchParams } from 'expo-router';

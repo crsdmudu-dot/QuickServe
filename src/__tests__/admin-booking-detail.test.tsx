@@ -1,5 +1,5 @@
 /**
- * Tests for src/app/(admin)/booking/[id].tsx
+ * Tests for src/app/admin/booking/[id].tsx
  *
  * Mocks expo-router, @/lib/bookings so no network calls are made.
  * Uses findBy* for async data loads after getBookingById resolves.
@@ -35,7 +35,7 @@ jest.mock('@/lib/bookings', () => ({
 }));
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import AdminBookingDetailScreen from '@/app/(admin)/booking/[id]';
+import AdminBookingDetailScreen from '@/app/admin/booking/[id]';
 
 describe('AdminBookingDetailScreen', () => {
   beforeEach(() => {

@@ -1,5 +1,5 @@
 /**
- * Tests for src/app/(admin)/admin.tsx
+ * Tests for src/app/admin/index.tsx
  *
  * Mocks expo-router, @/lib/bookings, @/lib/providers and @/auth/auth-context
  * so no network calls are made.  Uses findBy* for async data loads.
@@ -38,7 +38,7 @@ jest.mock('@/auth/auth-context', () => ({
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
-import AdminScreen from '@/app/(admin)/admin';
+import AdminScreen from '@/app/admin/index';
 
 describe('AdminScreen', () => {
   beforeEach(() => {
