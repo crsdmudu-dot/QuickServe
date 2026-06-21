@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -11,18 +12,20 @@ import {
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { getGreeting } from '@/lib/greeting';
 import { useTheme } from '@/hooks/use-theme';
+import { useBookingDraft } from '@/booking/booking-draft';
 import { SearchBar } from '@/components/ui/search-bar';
 import { SectionHeader } from '@/components/ui/section-header';
 import { ServiceCard } from '@/components/ui/service-card';
 import { Text } from '@/components/ui/text';
 
-// Placeholder navigation handler — service detail screen is a later slice.
-function handleServicePress(service: Service) {
-  console.log('Selected service:', service.id);
-}
-
 export default function HomeScreen() {
   const theme = useTheme();
+  const { start } = useBookingDraft();
+
+  function handleServicePress(service: Service) {
+    start(service.id);
+    router.push('/booking/address');
+  }
   const popular = getPopularServices();
 
   return (

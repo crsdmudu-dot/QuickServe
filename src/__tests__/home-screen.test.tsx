@@ -1,29 +1,38 @@
 import { render, screen } from '@testing-library/react-native';
 
 import HomeScreen from '@/app/(customer)/index';
+import { BookingDraftProvider } from '@/booking/booking-draft';
+
+function renderHome() {
+  return render(
+    <BookingDraftProvider>
+      <HomeScreen />
+    </BookingDraftProvider>,
+  );
+}
 
 describe('HomeScreen', () => {
   it('renders the search bar placeholder', () => {
-    render(<HomeScreen />);
+    renderHome();
     expect(screen.getByPlaceholderText('Search services')).toBeOnTheScreen();
   });
 
   it('renders a time-based greeting', () => {
-    render(<HomeScreen />);
+    renderHome();
     expect(
       screen.getByText(/Good (Morning|Afternoon|Evening)/),
     ).toBeOnTheScreen();
   });
 
   it('renders the subtitle', () => {
-    render(<HomeScreen />);
+    renderHome();
     expect(
       screen.getByText('What service do you need today?'),
     ).toBeOnTheScreen();
   });
 
   it('renders the four category section titles', () => {
-    render(<HomeScreen />);
+    renderHome();
     expect(screen.getByText('Home Services')).toBeOnTheScreen();
     expect(screen.getByText('Auto Services')).toBeOnTheScreen();
     expect(screen.getByText('Delivery Services')).toBeOnTheScreen();
@@ -31,7 +40,7 @@ describe('HomeScreen', () => {
   });
 
   it('renders a Popular section', () => {
-    render(<HomeScreen />);
+    renderHome();
     // Multiple elements can match "Popular" (section header + card badges).
     const matches = screen.getAllByText('Popular');
     expect(matches.length).toBeGreaterThan(0);

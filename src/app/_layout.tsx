@@ -4,6 +4,7 @@ import { useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AuthProvider, useAuth } from '@/auth/auth-context';
+import { BookingDraftProvider } from '@/booking/booking-draft';
 import { roleHref } from '@/constants/roles';
 
 function RootNavigator() {
@@ -30,7 +31,9 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
       <AuthProvider>
-        <RootNavigator />
+        <BookingDraftProvider>
+          <RootNavigator />
+        </BookingDraftProvider>
       </AuthProvider>
     </ThemeProvider>
   );
