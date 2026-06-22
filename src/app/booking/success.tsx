@@ -3,9 +3,11 @@
  *
  * Confirms the booking and offers a single way back to Home.  We use
  * router.replace so the back gesture can't return into the booking flow.
+ * If the photoWarning param is '1', a muted notice is shown telling the
+ * customer that some issue photos failed to upload and can be added later.
  */
 
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -16,6 +18,7 @@ import { Text } from '@/components/ui/text';
 
 export default function SuccessScreen() {
   const theme = useTheme();
+  const { photoWarning } = useLocalSearchParams<{ photoWarning?: string }>();
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
@@ -27,6 +30,12 @@ export default function SuccessScreen() {
         <Text variant="body" color="textSecondary" style={styles.center}>
           We&apos;ve received your request and will be in touch shortly.
         </Text>
+        {photoWarning === '1' && (
+          <Text variant="caption" color="textSecondary" style={styles.center}>
+            Booking created — some photos couldn&apos;t be uploaded. You can add them from the
+            booking later.
+          </Text>
+        )}
       </View>
 
       <Button label="Back to Home" fullWidth onPress={() => router.replace('/')} />

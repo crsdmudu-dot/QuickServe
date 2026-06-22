@@ -1,10 +1,10 @@
 /**
  * Admin booking detail screen — lets an admin view a booking's summary,
- * change its status, assign a provider, and add internal notes.
+ * change its status, assign a provider, add internal notes, and manage photos.
  */
 
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -20,12 +20,19 @@ import {
   type Booking,
 } from '@/lib/bookings';
 import { getApprovedProviders, type ProviderProfile } from '@/lib/providers';
+import {
+  getBookingPhotos,
+  deleteBookingPhoto,
+  setPhotoVerified,
+  type BookingPhotoView,
+} from '@/lib/photos';
 import { BookingSummaryCard } from '@/components/ui/booking-summary-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
+import { PhotoGallery } from '@/components/ui/photo-gallery';
 
 export default function AdminBookingDetailScreen() {
   const theme = useTheme();
@@ -47,6 +54,15 @@ export default function AdminBookingDetailScreen() {
   // Admin notes form state
   const [adminNotes, setAdminNotes] = useState('');
 
+  // Photos state
+  const [photos, setPhotos] = useState<BookingPhotoView[]>([]);
+
+  const loadPhotos = useCallback(() => {
+    if (id) {
+      getBookingPhotos(id).then(setPhotos);
+    }
+  }, [id]);
+
   useEffect(() => {
     if (id) {
       getBookingById(id).then((b) => {
@@ -55,10 +71,11 @@ export default function AdminBookingDetailScreen() {
           setAdminNotes(b.admin_notes ?? '');
         }
       });
+      loadPhotos();
     }
     // Load approved providers on mount so the in-app list is ready immediately
     getApprovedProviders().then(setApprovedProviders);
-  }, [id]);
+  }, [id, loadPhotos]);
 
   async function handleStatusPress(status: BookingStatus) {
     if (!id) return;
@@ -123,6 +140,26 @@ export default function AdminBookingDetailScreen() {
     const result = await updateAdminNotes(id, adminNotes);
     if (!result.ok) {
       setError(result.error ?? 'Could not save notes.');
+    }
+  }
+
+  async function handleDelete(p: BookingPhotoView) {
+    setError('');
+    const result = await deleteBookingPhoto({ id: p.id, photo_url: p.photo_url });
+    if (result.ok) {
+      loadPhotos();
+    } else {
+      setError(result.error ?? 'Could not delete photo.');
+    }
+  }
+
+  async function handleVerify(p: BookingPhotoView) {
+    setError('');
+    const result = await setPhotoVerified(p.id, !p.is_verified);
+    if (result.ok) {
+      loadPhotos();
+    } else {
+      setError(result.error ?? 'Could not update photo.');
     }
   }
 
@@ -237,6 +274,21 @@ export default function AdminBookingDetailScreen() {
           multiline
         />
         <Button label="Save notes" onPress={handleSaveNotes} />
+
+        {/* Photos section — admin can view, verify, and delete any photo */}
+        <Text variant="heading">Photos</Text>
+        <PhotoGallery
+          photos={photos}
+          renderActions={(p) => (
+            <>
+              <Button label="Delete" variant="ghost" onPress={() => handleDelete(p)} />
+              <Button
+                label={p.is_verified ? 'Unverify' : 'Verify'}
+                onPress={() => handleVerify(p)}
+              />
+            </>
+          )}
+        />
       </ScrollView>
     </SafeAreaView>
   );

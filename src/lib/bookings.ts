@@ -35,18 +35,18 @@ export type Booking = {
 
 // ── Customer mutations ─────────────────────────────────────────────────────
 
-export async function createBooking(input: NewBooking): Promise<{ ok: boolean; error?: string }> {
+export async function createBooking(input: NewBooking): Promise<{ ok: boolean; id?: string; error?: string }> {
   const { data } = await supabase.auth.getUser();
   if (!data.user) return { ok: false, error: 'You must be signed in to book.' };
-  const { error } = await supabase.from('bookings').insert({
+  const { data: row, error } = await supabase.from('bookings').insert({
     customer_id: data.user.id,
     service_id: input.serviceId,
     address: input.address,
     scheduled_for: input.scheduledFor,
     notes: input.notes ?? null,
-  });
+  }).select('id').single();
   if (error) return { ok: false, error: 'Could not create booking. Please try again.' };
-  return { ok: true };
+  return { ok: true, id: row.id };
 }
 
 // ── Customer queries ───────────────────────────────────────────────────────

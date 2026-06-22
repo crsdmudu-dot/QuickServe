@@ -2,9 +2,11 @@
  * Review screen — final step of the booking flow.
  *
  * Shows a summary of the draft and lets the customer place the booking.  On
- * success we clear the draft and replace the route with the success screen so
- * the back gesture can't return into the flow; on failure we show an inline
- * error and stay put.
+ * success we upload any issue photos best-effort, then clear the draft and
+ * replace the route with the success screen (with a photoWarning param if any
+ * upload failed).  On booking creation failure we show an inline error and
+ * stay put — no photos are uploaded.  The booking is always created regardless
+ * of photo upload outcome.
  */
 
 import { router } from 'expo-router';
@@ -17,13 +19,14 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useBookingDraft } from '@/booking/booking-draft';
 import { createBooking } from '@/lib/bookings';
+import { uploadBookingPhoto } from '@/lib/photos';
 import { BookingSummaryCard } from '@/components/ui/booking-summary-card';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 
 export default function ReviewScreen() {
   const theme = useTheme();
-  const { serviceId, address, scheduledFor, notes, reset } = useBookingDraft();
+  const { serviceId, address, scheduledFor, notes, issuePhotos, reset } = useBookingDraft();
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -34,14 +37,28 @@ export default function ReviewScreen() {
     if (!ready || !serviceId || !scheduledFor) return;
     setSubmitting(true);
     setError('');
-    const result = await createBooking({ serviceId, address, scheduledFor, notes });
-    setSubmitting(false);
-    if (result.ok) {
-      reset();
-      router.replace('/booking/success');
+
+    const res = await createBooking({ serviceId, address, scheduledFor, notes });
+
+    if (!res.ok) {
+      setSubmitting(false);
+      setError(res.error ?? 'Could not create booking. Please try again.');
       return;
     }
-    setError(result.error ?? 'Could not create booking. Please try again.');
+
+    // Booking created — now upload issue photos best-effort
+    let anyFailed = false;
+    for (const uri of issuePhotos) {
+      const r = await uploadBookingPhoto({ bookingId: res.id!, uri, photoType: 'issue' });
+      if (!r.ok) anyFailed = true;
+    }
+
+    setSubmitting(false);
+    reset();
+    router.replace({
+      pathname: '/booking/success',
+      params: anyFailed ? { photoWarning: '1' } : {},
+    });
   }
 
   return (

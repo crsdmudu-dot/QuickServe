@@ -35,7 +35,11 @@
           }
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      ["expo-image-picker", {
+        "photosPermission": "QuickServe needs photo access to attach job photos.",
+        "cameraPermission": "QuickServe needs camera access to take job photos."
+      }]
     ],
     "experiments": {
       "typedRoutes": true,

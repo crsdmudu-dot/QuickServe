@@ -7,12 +7,13 @@
  * getBookingProfessional() and renders a ProfessionalCard (no phone shown).
  * If only assigned_provider_name is set (manual/off-platform dispatch), shows
  * the name in a simple Card (no phone, no verified/skills).  Otherwise a muted
- * "No provider assigned yet" message is shown.  No mutations are exposed here —
- * admin actions live in src/app/admin/booking/[id].tsx.
+ * "No provider assigned yet" message is shown.
+ * A "Photos" section at the bottom shows uploaded booking photos and lets the
+ * customer add new issue photos via PhotoUploadButton.
  */
 
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -20,11 +21,14 @@ import { SERVICES } from '@/constants/services';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getBookingById, getBookingProfessional, type Booking, type Professional } from '@/lib/bookings';
+import { getBookingPhotos, type BookingPhotoView } from '@/lib/photos';
 import { BookingSummaryCard } from '@/components/ui/booking-summary-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { ProfessionalCard } from '@/components/ui/professional-card';
+import { PhotoGallery } from '@/components/ui/photo-gallery';
+import { PhotoUploadButton } from '@/components/ui/photo-upload-button';
 
 export default function BookingDetailScreen() {
   const theme = useTheme();
@@ -32,6 +36,13 @@ export default function BookingDetailScreen() {
 
   const [booking, setBooking] = useState<Booking | null>(null);
   const [professional, setProfessional] = useState<Professional | null>(null);
+  const [photos, setPhotos] = useState<BookingPhotoView[]>([]);
+
+  const loadPhotos = useCallback(() => {
+    if (id) {
+      getBookingPhotos(id).then(setPhotos);
+    }
+  }, [id]);
 
   useEffect(() => {
     if (id) {
@@ -43,8 +54,9 @@ export default function BookingDetailScreen() {
           }
         }
       });
+      loadPhotos();
     }
-  }, [id]);
+  }, [id, loadPhotos]);
 
   if (!booking) {
     return (
@@ -90,6 +102,16 @@ export default function BookingDetailScreen() {
             No provider assigned yet
           </Text>
         )}
+
+        {/* Photos section */}
+        <Text variant="heading">Photos</Text>
+        <PhotoGallery photos={photos} />
+        <PhotoUploadButton
+          bookingId={id}
+          photoType="issue"
+          label="Add issue photos"
+          onUploaded={loadPhotos}
+        />
       </ScrollView>
     </SafeAreaView>
   );

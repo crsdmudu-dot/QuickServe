@@ -49,9 +49,9 @@ describe('createBooking', () => {
   });
   it('inserts with customer_id and returns ok', async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
-    mockInsert.mockResolvedValue({ error: null });
+    mockInsert.mockReturnValue({ select: () => ({ single: () => Promise.resolve({ data: { id: 'bk1' }, error: null }) }) });
     const res = await createBooking({ serviceId: 'house-cleaning', address: 'Nairobi', scheduledFor: '2026-07-01T10:00:00Z', notes: 'gate code 12' });
-    expect(res).toEqual({ ok: true });
+    expect(res).toEqual({ ok: true, id: 'bk1' });
     expect(mockInsert).toHaveBeenCalledWith({
       customer_id: 'u1', service_id: 'house-cleaning', address: 'Nairobi',
       scheduled_for: '2026-07-01T10:00:00Z', notes: 'gate code 12',
@@ -59,10 +59,16 @@ describe('createBooking', () => {
   });
   it('maps insert error', async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
-    mockInsert.mockResolvedValue({ error: { message: 'boom' } });
+    mockInsert.mockReturnValue({ select: () => ({ single: () => Promise.resolve({ data: null, error: { message: 'boom' } }) }) });
     expect(await createBooking({ serviceId: 's', address: 'a', scheduledFor: 't' })).toEqual({
       ok: false, error: 'Could not create booking. Please try again.',
     });
+  });
+  it('createBooking returns the new id on success', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    mockInsert.mockReturnValue({ select: () => ({ single: () => Promise.resolve({ data: { id: 'bk1' }, error: null }) }) });
+    const res = await createBooking({ serviceId: 's', address: 'a', scheduledFor: 't' });
+    expect(res).toEqual({ ok: true, id: 'bk1' });
   });
 });
 

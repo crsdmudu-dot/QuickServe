@@ -1,10 +1,10 @@
 /**
- * Provider job detail screen — shows booking info and lets the provider
- * advance the status forward one step at a time (read-only otherwise).
+ * Provider job detail screen — shows booking info, lets the provider
+ * advance the status forward one step at a time, and add before/after photos.
  */
 
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -13,10 +13,13 @@ import { PROVIDER_NEXT_STATUSES, STATUS_LABELS } from '@/constants/booking-statu
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getBookingById, updateBookingStatus, type Booking } from '@/lib/bookings';
+import { getBookingPhotos, type BookingPhotoView } from '@/lib/photos';
 import { BookingSummaryCard } from '@/components/ui/booking-summary-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
+import { PhotoGallery } from '@/components/ui/photo-gallery';
+import { PhotoUploadButton } from '@/components/ui/photo-upload-button';
 
 export default function ProviderJobDetailScreen() {
   const theme = useTheme();
@@ -24,14 +27,22 @@ export default function ProviderJobDetailScreen() {
 
   const [booking, setBooking] = useState<Booking | null>(null);
   const [error, setError] = useState('');
+  const [photos, setPhotos] = useState<BookingPhotoView[]>([]);
+
+  const loadPhotos = useCallback(() => {
+    if (id) {
+      getBookingPhotos(id).then(setPhotos);
+    }
+  }, [id]);
 
   useEffect(() => {
     if (id) {
       getBookingById(id).then((b) => {
         if (b) setBooking(b);
       });
+      loadPhotos();
     }
-  }, [id]);
+  }, [id, loadPhotos]);
 
   async function handleAdvance(nextStatus: Booking['status']) {
     if (!id) return;
@@ -106,6 +117,22 @@ export default function ProviderJobDetailScreen() {
             No further action
           </Text>
         )}
+
+        {/* Photos section — providers can add before/after photos; view only (no delete). */}
+        <Text variant="heading">Photos</Text>
+        <PhotoGallery photos={photos} />
+        <PhotoUploadButton
+          bookingId={id}
+          photoType="before"
+          label="Add before photo"
+          onUploaded={loadPhotos}
+        />
+        <PhotoUploadButton
+          bookingId={id}
+          photoType="after"
+          label="Add after / completion photo"
+          onUploaded={loadPhotos}
+        />
       </ScrollView>
     </SafeAreaView>
   );
