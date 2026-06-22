@@ -12,11 +12,14 @@ function Probe() {
       <Text testID="address">{draft.address}</Text>
       <Text testID="scheduledFor">{draft.scheduledFor ?? 'null'}</Text>
       <Text testID="notes">{draft.notes}</Text>
+      <Text testID="issuePhotos">{draft.issuePhotos.join(',')}</Text>
 
       <TouchableOpacity testID="btn-start" onPress={() => draft.start('s1')} />
       <TouchableOpacity testID="btn-setAddress" onPress={() => draft.setAddress('123 Main St')} />
       <TouchableOpacity testID="btn-setScheduledFor" onPress={() => draft.setScheduledFor('2026-07-01T10:00:00Z')} />
       <TouchableOpacity testID="btn-setNotes" onPress={() => draft.setNotes('Ring doorbell')} />
+      <TouchableOpacity testID="btn-addIssuePhoto" onPress={() => draft.addIssuePhoto('file://a')} />
+      <TouchableOpacity testID="btn-removeIssuePhoto" onPress={() => draft.removeIssuePhoto('file://a')} />
       <TouchableOpacity testID="btn-reset" onPress={() => draft.reset()} />
     </>
   );
@@ -78,6 +81,33 @@ describe('BookingDraftProvider', () => {
     expect(screen.getByTestId('serviceId').props.children).toBe('null');
     expect(screen.getByTestId('address').props.children).toBe('');
     expect(screen.getByTestId('notes').props.children).toBe('');
+  });
+
+  it('addIssuePhoto() appends a URI to issuePhotos', () => {
+    renderProbe();
+    fireEvent.press(screen.getByTestId('btn-addIssuePhoto'));
+    expect(screen.getByTestId('issuePhotos').props.children).toBe('file://a');
+  });
+
+  it('removeIssuePhoto() removes a URI from issuePhotos', () => {
+    renderProbe();
+    fireEvent.press(screen.getByTestId('btn-addIssuePhoto'));
+    fireEvent.press(screen.getByTestId('btn-removeIssuePhoto'));
+    expect(screen.getByTestId('issuePhotos').props.children).toBe('');
+  });
+
+  it('reset() clears issuePhotos', () => {
+    renderProbe();
+    fireEvent.press(screen.getByTestId('btn-addIssuePhoto'));
+    fireEvent.press(screen.getByTestId('btn-reset'));
+    expect(screen.getByTestId('issuePhotos').props.children).toBe('');
+  });
+
+  it('start() clears issuePhotos', () => {
+    renderProbe();
+    fireEvent.press(screen.getByTestId('btn-addIssuePhoto'));
+    fireEvent.press(screen.getByTestId('btn-start'));
+    expect(screen.getByTestId('issuePhotos').props.children).toBe('');
   });
 
   it('throws when used outside provider', () => {

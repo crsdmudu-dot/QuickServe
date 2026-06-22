@@ -1,13 +1,15 @@
 /**
  * Notes screen — step 4 of the booking flow.
  *
- * The user can optionally add extra notes for the service provider.  This step
- * is always skippable — pressing Continue advances to the review screen even if
- * the field is empty.
+ * The user can optionally add extra notes for the service provider and attach
+ * issue photos from their library (local only — not uploaded until review).
+ * This step is always skippable — pressing Continue advances to the review
+ * screen even if the fields are empty.
  */
 
 import { router } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Spacing } from '@/constants/theme';
@@ -19,10 +21,20 @@ import { Text } from '@/components/ui/text';
 
 export default function NotesScreen() {
   const theme = useTheme();
-  const { notes, setNotes } = useBookingDraft();
+  const { notes, setNotes, issuePhotos, addIssuePhoto, removeIssuePhoto } = useBookingDraft();
 
   function handleContinue() {
     router.push('/booking/review');
+  }
+
+  async function handlePickPhoto() {
+    const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!granted) return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'] });
+    if (result.canceled) return;
+
+    addIssuePhoto(result.assets[0].uri);
   }
 
   return (
@@ -36,6 +48,30 @@ export default function NotesScreen() {
           placeholder="E.g. use the back entrance, bring your own supplies…"
           multiline
         />
+
+        {/* Issue photos section */}
+        <View style={styles.photosSection}>
+          <Text variant="heading">Add issue photos (optional)</Text>
+          <Button label="Pick photo from library" onPress={handlePickPhoto} />
+          {issuePhotos.length > 0 && (
+            <Text variant="caption" color="textSecondary">
+              {issuePhotos.length} photo{issuePhotos.length !== 1 ? 's' : ''} selected
+            </Text>
+          )}
+          {issuePhotos.map((uri) => (
+            <View key={uri} style={styles.photoRow}>
+              <Text variant="caption" numberOfLines={1} style={styles.photoUri}>
+                {uri}
+              </Text>
+              <TouchableOpacity onPress={() => removeIssuePhoto(uri)} testID={`remove-photo-${uri}`}>
+                <Text variant="caption" color="error">
+                  Remove
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+
         <Button label="Continue" fullWidth onPress={handleContinue} />
       </View>
     </SafeAreaView>
@@ -45,4 +81,7 @@ export default function NotesScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, padding: Spacing.four, gap: Spacing.four },
   form: { gap: Spacing.three },
+  photosSection: { gap: Spacing.two },
+  photoRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  photoUri: { flex: 1 },
 });
