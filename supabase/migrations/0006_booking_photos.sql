@@ -33,6 +33,8 @@ create policy "booking_photos_select" on public.booking_photos
 create policy "booking_photos_insert" on public.booking_photos
   for insert with check (
     uploaded_by = auth.uid()
+    -- only admin may create an already-verified photo (verification is admin-only)
+    and (is_verified = false or public.is_admin())
     and exists (select 1 from public.bookings b where b.id = booking_id and (
       (b.customer_id = auth.uid() and photo_type = 'issue')
       or (b.assigned_provider_id = auth.uid() and photo_type in ('before','after','completion'))
