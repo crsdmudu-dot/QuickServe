@@ -20,6 +20,8 @@ export type Booking = {
   assigned_provider_name: string | null;
   assigned_provider_phone: string | null;
   admin_notes: string | null;
+  // Slice 6 provider fields
+  assigned_provider_id: string | null;
 };
 
 // ── Customer mutations ─────────────────────────────────────────────────────
@@ -59,6 +61,17 @@ export async function getAllBookings(): Promise<Booking[]> {
   return (data as Booking[] | null) ?? [];
 }
 
+// ── Provider queries ───────────────────────────────────────────────────────
+
+/** Returns bookings assigned to the signed-in provider, newest first. */
+export async function getProviderJobs(): Promise<Booking[]> {
+  const { data } = await supabase
+    .from('bookings')
+    .select('*')
+    .order('created_at', { ascending: false });
+  return (data as Booking[] | null) ?? [];
+}
+
 /** Returns a single booking by id, or null if not found. */
 export async function getBookingById(id: string): Promise<Booking | null> {
   const { data, error } = await supabase
@@ -85,14 +98,16 @@ export async function updateBookingStatus(
   return { ok: true };
 }
 
-/** Assigns a provider and sets status to provider_assigned. */
+/** Assigns a provider and sets status to provider_assigned.
+ *  Pass providerId when dispatching an in-app provider; omit for manual dispatch. */
 export async function assignProvider(
   id: string,
-  p: { name: string; phone: string },
+  p: { name: string; phone: string; providerId?: string },
 ): Promise<{ ok: boolean; error?: string }> {
   const { error } = await supabase
     .from('bookings')
     .update({
+      assigned_provider_id: p.providerId ?? null,
       assigned_provider_name: p.name,
       assigned_provider_phone: p.phone,
       status: 'provider_assigned' as BookingStatus,

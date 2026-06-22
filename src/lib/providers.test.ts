@@ -1,4 +1,4 @@
-import { getPendingProviders, setProviderApproval } from '@/lib/providers';
+import { getPendingProviders, setProviderApproval, getApprovedProviders } from '@/lib/providers';
 
 const mockUpdate = jest.fn();
 const mockUpdateEq = jest.fn();
@@ -32,6 +32,18 @@ describe('getPendingProviders', () => {
     expect(await getPendingProviders()).toEqual([{ id: 'p1' }]);
     expect(mockSelectEq).toHaveBeenCalledWith('role', 'provider');
     expect(mockInnerEq).toHaveBeenCalledWith('approval_status', 'pending');
+  });
+});
+
+describe('getApprovedProviders', () => {
+  it('getApprovedProviders filters provider+approved', async () => {
+    // select().eq('role','provider') returns object with another .eq()
+    // .eq('approval_status','approved') resolves to { data, error }
+    const mockInnerEq = jest.fn().mockResolvedValue({ data: [{ id: 'p1' }], error: null });
+    mockSelectEq.mockReturnValue({ eq: mockInnerEq });
+    expect(await getApprovedProviders()).toEqual([{ id: 'p1' }]);
+    expect(mockSelectEq).toHaveBeenCalledWith('role', 'provider');
+    expect(mockInnerEq).toHaveBeenCalledWith('approval_status', 'approved');
   });
 });
 
