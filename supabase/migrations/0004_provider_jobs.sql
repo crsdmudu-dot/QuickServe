@@ -18,6 +18,7 @@ create policy "bookings_update_provider" on public.bookings
     and service_id    = (select b.service_id    from public.bookings b where b.id = bookings.id)
     and address       = (select b.address       from public.bookings b where b.id = bookings.id)
     and scheduled_for = (select b.scheduled_for  from public.bookings b where b.id = bookings.id)
+    and notes is not distinct from (select b.notes from public.bookings b where b.id = bookings.id)
     and assigned_provider_id    = (select b.assigned_provider_id    from public.bookings b where b.id = bookings.id)
     and assigned_provider_name  is not distinct from (select b.assigned_provider_name  from public.bookings b where b.id = bookings.id)
     and assigned_provider_phone is not distinct from (select b.assigned_provider_phone from public.bookings b where b.id = bookings.id)
