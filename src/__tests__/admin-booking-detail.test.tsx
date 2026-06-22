@@ -43,6 +43,28 @@ jest.mock('@/lib/providers', () => ({
   getApprovedProviders: (...args: unknown[]) => mockGetApprovedProviders(...args),
 }));
 
+const mockGetBookingPhotos = jest.fn().mockResolvedValue([
+  {
+    id: 'ph1',
+    booking_id: 'b1',
+    uploaded_by: 'u1',
+    photo_url: 'bk1/a.jpg',
+    photo_type: 'issue',
+    caption: null,
+    is_verified: false,
+    created_at: '2026-06-21T00:00:00Z',
+    signedUrl: 'https://x',
+  },
+]);
+const mockDeleteBookingPhoto = jest.fn().mockResolvedValue({ ok: true });
+const mockSetPhotoVerified = jest.fn().mockResolvedValue({ ok: true });
+
+jest.mock('@/lib/photos', () => ({
+  getBookingPhotos: (...args: unknown[]) => mockGetBookingPhotos(...args),
+  deleteBookingPhoto: (...args: unknown[]) => mockDeleteBookingPhoto(...args),
+  setPhotoVerified: (...args: unknown[]) => mockSetPhotoVerified(...args),
+}));
+
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import AdminBookingDetailScreen from '@/app/admin/booking/[id]';
 
@@ -53,6 +75,9 @@ describe('AdminBookingDetailScreen', () => {
     mockAssignProvider.mockClear();
     mockUpdateAdminNotes.mockClear();
     mockGetApprovedProviders.mockClear();
+    mockGetBookingPhotos.mockClear();
+    mockDeleteBookingPhoto.mockClear();
+    mockSetPhotoVerified.mockClear();
   });
 
   it('renders service title, address, and status badge after data loads', async () => {
@@ -124,6 +149,41 @@ describe('AdminBookingDetailScreen', () => {
     fireEvent.press(screen.getByText('Save notes'));
     await waitFor(() =>
       expect(mockUpdateAdminNotes).toHaveBeenCalledWith('b1', 'call gate'),
+    );
+  });
+
+  it('renders the photo image in the Photos section', async () => {
+    render(<AdminBookingDetailScreen />);
+    // Wait for booking + photos to load
+    await screen.findByText('House Cleaning');
+    // PhotoThumb renders an Image with testID="photo-image"
+    expect(await screen.findByTestId('photo-image')).toBeOnTheScreen();
+  });
+
+  it('pressing Delete calls deleteBookingPhoto with the photo id and path', async () => {
+    render(<AdminBookingDetailScreen />);
+    await screen.findByText('House Cleaning');
+    // Wait for the photo to appear
+    await screen.findByTestId('photo-image');
+
+    fireEvent.press(screen.getByText('Delete'));
+    await waitFor(() =>
+      expect(mockDeleteBookingPhoto).toHaveBeenCalledWith({
+        id: 'ph1',
+        photo_url: 'bk1/a.jpg',
+      }),
+    );
+  });
+
+  it('pressing Verify calls setPhotoVerified with id and true (toggling from false)', async () => {
+    render(<AdminBookingDetailScreen />);
+    await screen.findByText('House Cleaning');
+    // Wait for the photo to appear
+    await screen.findByTestId('photo-image');
+
+    fireEvent.press(screen.getByText('Verify'));
+    await waitFor(() =>
+      expect(mockSetPhotoVerified).toHaveBeenCalledWith('ph1', true),
     );
   });
 });
