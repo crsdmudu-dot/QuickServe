@@ -74,4 +74,15 @@ describe('AdminScreen', () => {
     fireEvent.press(await screen.findByText('Approve'));
     expect(mockSetProviderApproval).toHaveBeenCalledWith('p1', 'approved');
   });
+
+  it('navigates to provider detail when a provider card is pressed', async () => {
+    render(<AdminScreen />);
+    fireEvent.press(await screen.findByText('Providers'));
+    // Wait for provider name to appear then press the card (press the name text inside the card)
+    const providerName = await screen.findByText('Jane');
+    fireEvent.press(providerName);
+    await waitFor(() =>
+      expect(router.push).toHaveBeenCalledWith('/admin/provider/p1'),
+    );
+  });
 });

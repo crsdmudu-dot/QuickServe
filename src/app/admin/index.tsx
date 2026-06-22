@@ -117,7 +117,7 @@ export default function AdminScreen() {
             keyExtractor={(p) => p.id}
             contentContainerStyle={styles.list}
             renderItem={({ item: p }) => (
-              <Card style={styles.card}>
+              <Card onPress={() => router.push(`/admin/provider/${p.id}`)} style={styles.card}>
                 <Text variant="heading">{p.full_name ?? 'Unknown'}</Text>
                 <Text variant="caption" color="textSecondary">{p.phone ?? '—'}</Text>
                 <View style={styles.actions}>

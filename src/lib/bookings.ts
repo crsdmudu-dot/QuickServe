@@ -1,6 +1,15 @@
 // bookings.ts — Supabase helpers for creating and reading bookings.
 import { supabase } from '@/lib/supabase';
 
+/** Curated provider details returned for a booking's assigned professional. */
+export type Professional = {
+  full_name: string | null;
+  skills: string[] | null;
+  is_verified: boolean;
+  completed_jobs_count: number;
+  profile_photo_url: string | null;
+};
+
 // BookingStatus lives in booking-status.ts; re-export it from here so
 // other files only need one import path.
 export type { BookingStatus } from '@/constants/booking-status';
@@ -115,6 +124,17 @@ export async function assignProvider(
     .eq('id', id);
   if (error) return { ok: false, error: 'Could not assign provider. Please try again.' };
   return { ok: true };
+}
+
+// ── Professional card ──────────────────────────────────────────────────────
+
+/** Returns curated professional details for a booking's assigned provider,
+ *  or null if not assigned / caller is not the booking owner or admin. */
+export async function getBookingProfessional(bookingId: string): Promise<Professional | null> {
+  const { data, error } = await supabase.rpc('get_booking_professional', { p_booking_id: bookingId });
+  if (error) return null;
+  const rows = data as Professional[] | null;
+  return rows?.[0] ?? null;
 }
 
 /** Saves admin notes on a booking. */
