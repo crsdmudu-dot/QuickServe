@@ -7,6 +7,7 @@ import {
   updateBookingStatus,
   assignProvider,
   updateAdminNotes,
+  getBookingProfessional,
 } from '@/lib/bookings';
 
 const mockGetUser = jest.fn();
@@ -16,6 +17,7 @@ const mockUpdate = jest.fn();
 const mockUpdateEq = jest.fn();
 const mockSingle = jest.fn();
 const mockSelectEq = jest.fn();
+const mockRpc = jest.fn();
 
 jest.mock('@/lib/supabase', () => ({
   supabase: {
@@ -28,6 +30,7 @@ jest.mock('@/lib/supabase', () => ({
       }),
       update: (...a: unknown[]) => mockUpdate(...a),
     }),
+    rpc: (...a: unknown[]) => mockRpc(...a),
   },
 }));
 
@@ -138,5 +141,15 @@ describe('getBookingById', () => {
     expect(await getBookingById('b1')).toEqual({ id: 'b1' });
     mockSingle.mockResolvedValue({ data: null, error: { message: 'x' } });
     expect(await getBookingById('b1')).toBeNull();
+  });
+});
+
+describe('getBookingProfessional', () => {
+  it('returns the first rpc row or null', async () => {
+    mockRpc.mockResolvedValue({ data: [{ full_name: 'Jane', skills: ['Plumbing'], is_verified: true, completed_jobs_count: 5, profile_photo_url: null }], error: null });
+    expect(await getBookingProfessional('b1')).toEqual({ full_name: 'Jane', skills: ['Plumbing'], is_verified: true, completed_jobs_count: 5, profile_photo_url: null });
+    expect(mockRpc).toHaveBeenCalledWith('get_booking_professional', { p_booking_id: 'b1' });
+    mockRpc.mockResolvedValue({ data: [], error: null });
+    expect(await getBookingProfessional('b1')).toBeNull();
   });
 });
