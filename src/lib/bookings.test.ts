@@ -2,6 +2,7 @@ import {
   createBooking,
   getCustomerBookings,
   getAllBookings,
+  getProviderJobs,
   getBookingById,
   updateBookingStatus,
   assignProvider,
@@ -94,7 +95,30 @@ describe('assignProvider', () => {
     mockUpdateEq.mockResolvedValue({ error: null });
     expect(await assignProvider('b1', { name: 'Jane', phone: '0700' })).toEqual({ ok: true });
     expect(mockUpdate).toHaveBeenCalledWith({
-      assigned_provider_name: 'Jane', assigned_provider_phone: '0700', status: 'provider_assigned',
+      assigned_provider_id: null, assigned_provider_name: 'Jane',
+      assigned_provider_phone: '0700', status: 'provider_assigned',
+    });
+  });
+  it('getProviderJobs returns rows newest-first', async () => {
+    mockOrder.mockResolvedValue({ data: [{ id: 'j1' }], error: null });
+    expect(await getProviderJobs()).toEqual([{ id: 'j1' }]);
+  });
+  it('assignProvider (manual) clears assigned_provider_id', async () => {
+    mockUpdate.mockReturnValue({ eq: (...a: unknown[]) => mockUpdateEq(...a) });
+    mockUpdateEq.mockResolvedValue({ error: null });
+    await assignProvider('b1', { name: 'Jane', phone: '0700' });
+    expect(mockUpdate).toHaveBeenCalledWith({
+      assigned_provider_id: null, assigned_provider_name: 'Jane',
+      assigned_provider_phone: '0700', status: 'provider_assigned',
+    });
+  });
+  it('assignProvider (in-app) sets assigned_provider_id', async () => {
+    mockUpdate.mockReturnValue({ eq: (...a: unknown[]) => mockUpdateEq(...a) });
+    mockUpdateEq.mockResolvedValue({ error: null });
+    await assignProvider('b1', { name: 'Jane', phone: '0700', providerId: 'p1' });
+    expect(mockUpdate).toHaveBeenCalledWith({
+      assigned_provider_id: 'p1', assigned_provider_name: 'Jane',
+      assigned_provider_phone: '0700', status: 'provider_assigned',
     });
   });
 });

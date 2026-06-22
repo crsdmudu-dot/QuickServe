@@ -50,3 +50,15 @@ export const STATUS_COLORS: Record<BookingStatus, ThemeColor> = {
   completed: 'success',
   cancelled: 'error',
 };
+
+// Forward-only provider progression: each status maps to the single next step
+// a provider may move to. Empty array = no provider action available.
+export const PROVIDER_NEXT_STATUSES: Record<BookingStatus, BookingStatus[]> = {
+  pending: [],
+  accepted: [],
+  provider_assigned: ['on_the_way'],
+  on_the_way: ['in_progress'],
+  in_progress: ['completed'],
+  completed: [],
+  cancelled: [],
+};

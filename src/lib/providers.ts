@@ -20,6 +20,16 @@ export async function getPendingProviders(): Promise<ProviderProfile[]> {
   return (data as ProviderProfile[] | null) ?? [];
 }
 
+/** Returns all approved provider profiles available for dispatch. */
+export async function getApprovedProviders(): Promise<ProviderProfile[]> {
+  const { data } = await supabase
+    .from('profiles')
+    .select('id, full_name, phone, approval_status')
+    .eq('role', 'provider')
+    .eq('approval_status', 'approved');
+  return (data as ProviderProfile[] | null) ?? [];
+}
+
 // ── Mutations ──────────────────────────────────────────────────────────────
 
 /** Approves or rejects a provider account. */
