@@ -1,12 +1,20 @@
 /**
  * Schedule screen — step 3 of the booking flow.
  *
- * A button opens the native DateTimePicker.  Once the user picks a date/time
- * we store it in the booking draft as an ISO string and show a human-readable
- * summary.  Continue is only allowed when a date has been chosen.
+ * Lets the user pick a date and time for their booking, stored in the booking
+ * draft as an ISO string.  Continue is only allowed once a date has been chosen.
+ *
+ * Platform note: Android has no single "datetime" picker (only "date" or
+ * "time"), so we open the native date dialog and then the time dialog
+ * imperatively via DateTimePickerAndroid and combine the result.  iOS shows the
+ * inline datetime picker.  Both use the current `onValueChange` API — the old
+ * `onChange` prop is deprecated, and passing `mode="datetime"` to the Android
+ * component used to crash it ("Cannot read property 'dismiss' of undefined").
  */
 
-import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import DateTimePicker, {
+  DateTimePickerAndroid,
+} from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
@@ -21,15 +29,41 @@ import { Text } from '@/components/ui/text';
 export default function ScheduleScreen() {
   const theme = useTheme();
   const { scheduledFor, setScheduledFor } = useBookingDraft();
-  const [showPicker, setShowPicker] = useState(false);
+  const [showIosPicker, setShowIosPicker] = useState(false);
   const [error, setError] = useState('');
 
-  function handlePickerChange(_event: DateTimePickerEvent, date?: Date) {
-    // On Android the picker closes automatically; on iOS keep it open.
-    if (Platform.OS !== 'ios') setShowPicker(false);
-    if (date) {
-      setScheduledFor(date.toISOString());
-      setError('');
+  function saveDate(date: Date) {
+    setScheduledFor(date.toISOString());
+    setError('');
+  }
+
+  // Android: open the date dialog, then the time dialog, then combine the two
+  // selections into a single Date.  Each dialog dismisses itself; we never call
+  // dismiss() manually.
+  function openAndroidPicker() {
+    const current = scheduledFor ? new Date(scheduledFor) : new Date();
+    DateTimePickerAndroid.open({
+      value: current,
+      mode: 'date',
+      onValueChange: (_dateEvent, pickedDate) => {
+        DateTimePickerAndroid.open({
+          value: pickedDate,
+          mode: 'time',
+          onValueChange: (_timeEvent, pickedTime) => {
+            const combined = new Date(pickedDate);
+            combined.setHours(pickedTime.getHours(), pickedTime.getMinutes(), 0, 0);
+            saveDate(combined);
+          },
+        });
+      },
+    });
+  }
+
+  function handlePickPress() {
+    if (Platform.OS === 'android') {
+      openAndroidPicker();
+    } else {
+      setShowIosPicker(true);
     }
   }
 
@@ -46,7 +80,7 @@ export default function ScheduleScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
       <Text variant="title">When do you need it?</Text>
       <View style={styles.form}>
-        <Button label="Pick date & time" onPress={() => setShowPicker(true)} variant="secondary" />
+        <Button label="Pick date & time" onPress={handlePickPress} variant="secondary" />
 
         {scheduledFor ? (
           <Text variant="body" color="textSecondary">
@@ -54,12 +88,14 @@ export default function ScheduleScreen() {
           </Text>
         ) : null}
 
-        {showPicker ? (
+        {showIosPicker ? (
           <DateTimePicker
             value={scheduledFor ? new Date(scheduledFor) : new Date()}
             mode="datetime"
             display="default"
-            onChange={handlePickerChange}
+            onValueChange={(_event, date) => {
+              if (date) saveDate(date);
+            }}
           />
         ) : null}
 
