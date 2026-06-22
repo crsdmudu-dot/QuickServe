@@ -1,8 +1,8 @@
 /**
  * Tests for src/app/admin/booking/[id].tsx
  *
- * Mocks expo-router, @/lib/bookings so no network calls are made.
- * Uses findBy* for async data loads after getBookingById resolves.
+ * Mocks expo-router, @/lib/bookings, and @/lib/providers so no network calls
+ * are made. Uses findBy* for async data loads after getBookingById resolves.
  */
 
 jest.mock('expo-router', () => ({
@@ -19,6 +19,7 @@ const mockGetBookingById = jest.fn().mockResolvedValue({
   status: 'pending' as const,
   assigned_provider_name: null,
   assigned_provider_phone: null,
+  assigned_provider_id: null,
   admin_notes: null,
   created_at: '2026-06-21T00:00:00Z',
 });
@@ -34,6 +35,14 @@ jest.mock('@/lib/bookings', () => ({
   updateAdminNotes: (...args: unknown[]) => mockUpdateAdminNotes(...args),
 }));
 
+const mockGetApprovedProviders = jest.fn().mockResolvedValue([
+  { id: 'p1', full_name: 'Jane', phone: '0700', approval_status: 'approved' },
+]);
+
+jest.mock('@/lib/providers', () => ({
+  getApprovedProviders: (...args: unknown[]) => mockGetApprovedProviders(...args),
+}));
+
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import AdminBookingDetailScreen from '@/app/admin/booking/[id]';
 
@@ -43,6 +52,7 @@ describe('AdminBookingDetailScreen', () => {
     mockUpdateBookingStatus.mockClear();
     mockAssignProvider.mockClear();
     mockUpdateAdminNotes.mockClear();
+    mockGetApprovedProviders.mockClear();
   });
 
   it('renders service title, address, and status badge after data loads', async () => {
@@ -66,10 +76,11 @@ describe('AdminBookingDetailScreen', () => {
     );
   });
 
-  it('calls assignProvider with name and phone when Assign is pressed', async () => {
+  it('Manual mode (default): calls assignProvider with name and phone when Assign is pressed', async () => {
     render(<AdminBookingDetailScreen />);
     await screen.findByText('House Cleaning');
 
+    // Manual is the default mode — inputs should be visible
     const nameInput = screen.getByPlaceholderText('Full name');
     fireEvent.changeText(nameInput, 'Jane');
     const phoneInput = screen.getByPlaceholderText('Phone number');
@@ -78,6 +89,28 @@ describe('AdminBookingDetailScreen', () => {
     fireEvent.press(screen.getByText('Assign'));
     await waitFor(() =>
       expect(mockAssignProvider).toHaveBeenCalledWith('b1', { name: 'Jane', phone: '0700' }),
+    );
+  });
+
+  it('In-app mode: shows approved provider and calls assignProvider with providerId when tapped', async () => {
+    render(<AdminBookingDetailScreen />);
+    await screen.findByText('House Cleaning');
+
+    // Switch to In-app mode
+    fireEvent.press(screen.getByText('In-app'));
+
+    // The approved provider 'Jane' should appear
+    expect(await screen.findByText('Jane')).toBeOnTheScreen();
+
+    // Tap the provider card
+    fireEvent.press(screen.getByText('Jane'));
+
+    await waitFor(() =>
+      expect(mockAssignProvider).toHaveBeenCalledWith('b1', {
+        providerId: 'p1',
+        name: 'Jane',
+        phone: '0700',
+      }),
     );
   });
 

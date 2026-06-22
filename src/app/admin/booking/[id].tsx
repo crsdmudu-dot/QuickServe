@@ -19,9 +19,11 @@ import {
   updateAdminNotes,
   type Booking,
 } from '@/lib/bookings';
+import { getApprovedProviders, type ProviderProfile } from '@/lib/providers';
 import { BookingSummaryCard } from '@/components/ui/booking-summary-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 
@@ -36,6 +38,12 @@ export default function AdminBookingDetailScreen() {
   const [providerName, setProviderName] = useState('');
   const [providerPhone, setProviderPhone] = useState('');
 
+  // Assign-provider mode toggle: 'manual' = type name/phone; 'inApp' = pick from approved providers
+  const [assignMode, setAssignMode] = useState<'manual' | 'inApp'>('manual');
+
+  // Approved providers loaded for in-app assignment mode
+  const [approvedProviders, setApprovedProviders] = useState<ProviderProfile[]>([]);
+
   // Admin notes form state
   const [adminNotes, setAdminNotes] = useState('');
 
@@ -48,6 +56,8 @@ export default function AdminBookingDetailScreen() {
         }
       });
     }
+    // Load approved providers on mount so the in-app list is ready immediately
+    getApprovedProviders().then(setApprovedProviders);
   }, [id]);
 
   async function handleStatusPress(status: BookingStatus) {
@@ -73,6 +83,32 @@ export default function AdminBookingDetailScreen() {
               status: 'provider_assigned',
               assigned_provider_name: providerName,
               assigned_provider_phone: providerPhone,
+            }
+          : prev,
+      );
+    } else {
+      setError(result.error ?? 'Could not assign provider.');
+    }
+  }
+
+  // In-app mode: called when admin taps a provider card to assign them
+  async function handleAssignInApp(p: ProviderProfile) {
+    if (!id) return;
+    setError('');
+    const result = await assignProvider(id, {
+      providerId: p.id,
+      name: p.full_name ?? '',
+      phone: p.phone ?? '',
+    });
+    if (result.ok) {
+      setBooking((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: 'provider_assigned',
+              assigned_provider_id: p.id,
+              assigned_provider_name: p.full_name ?? '',
+              assigned_provider_phone: p.phone ?? '',
             }
           : prev,
       );
@@ -139,20 +175,57 @@ export default function AdminBookingDetailScreen() {
 
         {/* Assign provider */}
         <Text variant="heading">Assign Provider</Text>
-        <Input
-          label="Provider name"
-          value={providerName}
-          onChangeText={setProviderName}
-          placeholder="Full name"
-        />
-        <Input
-          label="Provider phone"
-          value={providerPhone}
-          onChangeText={setProviderPhone}
-          placeholder="Phone number"
-          keyboardType="phone-pad"
-        />
-        <Button label="Assign" onPress={handleAssign} />
+
+        {/* Mode toggle: Manual | In-app */}
+        <View style={styles.toggleRow}>
+          <Button
+            label="Manual"
+            variant={assignMode === 'manual' ? 'secondary' : 'ghost'}
+            onPress={() => setAssignMode('manual')}
+          />
+          <Button
+            label="In-app"
+            variant={assignMode === 'inApp' ? 'secondary' : 'ghost'}
+            onPress={() => setAssignMode('inApp')}
+          />
+        </View>
+
+        {/* Manual mode: type name + phone */}
+        {assignMode === 'manual' && (
+          <>
+            <Input
+              label="Provider name"
+              value={providerName}
+              onChangeText={setProviderName}
+              placeholder="Full name"
+            />
+            <Input
+              label="Provider phone"
+              value={providerPhone}
+              onChangeText={setProviderPhone}
+              placeholder="Phone number"
+              keyboardType="phone-pad"
+            />
+            <Button label="Assign" onPress={handleAssign} />
+          </>
+        )}
+
+        {/* In-app mode: pick from approved providers */}
+        {assignMode === 'inApp' && (
+          <>
+            {approvedProviders.length === 0 && (
+              <Text variant="caption" color="textSecondary">
+                No approved providers available.
+              </Text>
+            )}
+            {approvedProviders.map((p) => (
+              <Card key={p.id} onPress={() => handleAssignInApp(p)} style={styles.providerCard}>
+                <Text variant="heading">{p.full_name ?? 'Unknown'}</Text>
+                <Text variant="caption" color="textSecondary">{p.phone ?? '—'}</Text>
+              </Card>
+            ))}
+          </>
+        )}
 
         {/* Admin notes */}
         <Text variant="heading">Admin Notes</Text>
@@ -173,4 +246,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { padding: Spacing.four, gap: Spacing.three },
   statusRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  toggleRow: { flexDirection: 'row', gap: Spacing.two },
+  providerCard: { gap: Spacing.one },
 });
