@@ -1,7 +1,7 @@
 /**
  * Tests for src/app/provider/job/[id].tsx
  *
- * Mocks expo-router, @/lib/bookings so no network calls are made.
+ * Mocks expo-router, @/lib/bookings, @/lib/photos so no network calls are made.
  * Uses findBy* for async data loads after getBookingById resolves.
  */
 
@@ -36,6 +36,37 @@ jest.mock('@/lib/bookings', () => ({
   updateBookingStatus: (...args: unknown[]) => mockUpdateBookingStatus(...args),
 }));
 
+// Mock photos lib — default: one 'before' photo with a signedUrl.
+const mockGetBookingPhotos = jest.fn().mockResolvedValue([
+  {
+    id: 'ph1',
+    booking_id: 'j1',
+    uploaded_by: 'u1',
+    photo_url: 'path/to/before.jpg',
+    photo_type: 'before',
+    caption: null,
+    is_verified: false,
+    created_at: '2026-06-21T00:00:00Z',
+    signedUrl: 'https://example.com/signed-before.jpg',
+  },
+]);
+const mockUploadBookingPhoto = jest.fn().mockResolvedValue({ ok: true });
+
+jest.mock('@/lib/photos', () => ({
+  getBookingPhotos: (...args: unknown[]) => mockGetBookingPhotos(...args),
+  uploadBookingPhoto: (...args: unknown[]) => mockUploadBookingPhoto(...args),
+}));
+
+// Mock expo-image-picker — permission granted, returns one asset URI.
+jest.mock('expo-image-picker', () => ({
+  requestMediaLibraryPermissionsAsync: jest.fn().mockResolvedValue({ granted: true }),
+  launchImageLibraryAsync: jest.fn().mockResolvedValue({
+    canceled: false,
+    assets: [{ uri: 'file:///test-image.jpg' }],
+  }),
+}));
+
+import * as ImagePicker from 'expo-image-picker';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import ProviderJobDetailScreen from '@/app/provider/job/[id]';
 
@@ -43,7 +74,25 @@ describe('ProviderJobDetailScreen', () => {
   beforeEach(() => {
     mockGetBookingById.mockClear();
     mockUpdateBookingStatus.mockClear();
+    mockGetBookingPhotos.mockClear();
+    mockUploadBookingPhoto.mockClear();
+    // Restore default photo mock (one before photo)
+    mockGetBookingPhotos.mockResolvedValue([
+      {
+        id: 'ph1',
+        booking_id: 'j1',
+        uploaded_by: 'u1',
+        photo_url: 'path/to/before.jpg',
+        photo_type: 'before',
+        caption: null,
+        is_verified: false,
+        created_at: '2026-06-21T00:00:00Z',
+        signedUrl: 'https://example.com/signed-before.jpg',
+      },
+    ]);
   });
+
+  // ── Existing forward-only status tests ──────────────────────────────────
 
   it('shows only "On the way" button for provider_assigned status', async () => {
     mockBookingStatus = 'provider_assigned';
@@ -74,5 +123,54 @@ describe('ProviderJobDetailScreen', () => {
     // No action buttons should be present
     expect(screen.queryByText('On the way')).toBeNull();
     expect(screen.queryByText('In progress')).toBeNull();
+  });
+
+  // ── Photo section tests ─────────────────────────────────────────────────
+
+  it('renders the before photo image (testID photo-image)', async () => {
+    mockBookingStatus = 'provider_assigned';
+    render(<ProviderJobDetailScreen />);
+    await screen.findByText('House Cleaning');
+    // The photo-thumb renders an <Image testID="photo-image"> when signedUrl is set
+    const photoImage = await screen.findByTestId('photo-image');
+    expect(photoImage).toBeOnTheScreen();
+  });
+
+  it('calls uploadBookingPhoto with photoType "before" when "Add before photo" is pressed', async () => {
+    mockBookingStatus = 'provider_assigned';
+    render(<ProviderJobDetailScreen />);
+    await screen.findByText('House Cleaning');
+
+    fireEvent.press(screen.getByText('Add before photo'));
+
+    await waitFor(() =>
+      expect(mockUploadBookingPhoto).toHaveBeenCalledWith(
+        expect.objectContaining({ photoType: 'before' }),
+      ),
+    );
+  });
+
+  it('calls uploadBookingPhoto with photoType "after" when "Add after / completion photo" is pressed', async () => {
+    mockBookingStatus = 'provider_assigned';
+    render(<ProviderJobDetailScreen />);
+    await screen.findByText('House Cleaning');
+
+    fireEvent.press(screen.getByText('Add after / completion photo'));
+
+    await waitFor(() =>
+      expect(mockUploadBookingPhoto).toHaveBeenCalledWith(
+        expect.objectContaining({ photoType: 'after' }),
+      ),
+    );
+  });
+
+  it('does NOT render any delete or verify controls (no renderActions)', async () => {
+    mockBookingStatus = 'provider_assigned';
+    render(<ProviderJobDetailScreen />);
+    await screen.findByText('House Cleaning');
+    // Verify Verified badge is absent (no admin actions)
+    expect(screen.queryByText('✓ Verified')).toBeNull();
+    // No delete button
+    expect(screen.queryByText('Delete')).toBeNull();
   });
 });
