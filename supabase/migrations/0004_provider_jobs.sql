@@ -21,6 +21,7 @@ create policy "bookings_update_provider" on public.bookings
     and assigned_provider_id    = (select b.assigned_provider_id    from public.bookings b where b.id = bookings.id)
     and assigned_provider_name  is not distinct from (select b.assigned_provider_name  from public.bookings b where b.id = bookings.id)
     and assigned_provider_phone is not distinct from (select b.assigned_provider_phone from public.bookings b where b.id = bookings.id)
+    and admin_notes is not distinct from (select b.admin_notes from public.bookings b where b.id = bookings.id)
     and status in ('on_the_way','in_progress','completed')
     and (case status
             when 'on_the_way' then 1 when 'in_progress' then 2 when 'completed' then 3 else 0 end)
