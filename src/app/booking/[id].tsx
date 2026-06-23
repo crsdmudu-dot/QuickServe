@@ -10,6 +10,9 @@
  * "No provider assigned yet" message is shown.
  * A "Photos" section at the bottom shows uploaded booking photos and lets the
  * customer add new issue photos via PhotoUploadButton.
+ * When the booking is completed and has an assigned provider, a "Your review"
+ * section lets the customer submit a star rating + comment, or view their
+ * existing review via ReviewCard.
  */
 
 import { useLocalSearchParams } from 'expo-router';
@@ -23,6 +26,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { getBookingById, getBookingProfessional, type Booking, type Professional } from '@/lib/bookings';
 import { getBookingPhotos, type BookingPhotoView } from '@/lib/photos';
 import { getBookingActivity, type BookingActivity } from '@/lib/activity';
+import { getMyReviewForBooking, submitReview, type Review } from '@/lib/reviews';
 import { BookingSummaryCard } from '@/components/ui/booking-summary-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Card } from '@/components/ui/card';
@@ -31,6 +35,10 @@ import { ProfessionalCard } from '@/components/ui/professional-card';
 import { PhotoGallery } from '@/components/ui/photo-gallery';
 import { PhotoUploadButton } from '@/components/ui/photo-upload-button';
 import { ActivityTimeline } from '@/components/ui/activity-timeline';
+import { StarInput } from '@/components/ui/star-input';
+import { ReviewCard } from '@/components/ui/review-card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 export default function BookingDetailScreen() {
   const theme = useTheme();
@@ -40,6 +48,10 @@ export default function BookingDetailScreen() {
   const [professional, setProfessional] = useState<Professional | null>(null);
   const [photos, setPhotos] = useState<BookingPhotoView[]>([]);
   const [activity, setActivity] = useState<BookingActivity[]>([]);
+  const [review, setReview] = useState<Review | null>(null);
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState('');
+  const [reviewError, setReviewError] = useState<string | null>(null);
 
   const loadPhotos = useCallback(() => {
     if (id) {
@@ -55,12 +67,35 @@ export default function BookingDetailScreen() {
           if (b.assigned_provider_id) {
             getBookingProfessional(id).then(setProfessional);
           }
+          // Load the customer's existing review only when the booking is completed
+          // and has an assigned in-app provider.
+          if (b.status === 'completed' && b.assigned_provider_id) {
+            getMyReviewForBooking(id).then(setReview);
+          }
         }
       });
       loadPhotos();
       getBookingActivity(id).then(setActivity);
     }
   }, [id, loadPhotos]);
+
+  async function handleSubmitReview() {
+    if (!booking || !booking.assigned_provider_id || rating === 0) return;
+    setReviewError(null);
+    const result = await submitReview({
+      bookingId: id,
+      providerId: booking.assigned_provider_id,
+      rating,
+      comment,
+    });
+    if (result.ok) {
+      // Re-fetch the review so the ReviewCard replaces the form.
+      const updated = await getMyReviewForBooking(id);
+      setReview(updated);
+    } else {
+      setReviewError(result.error ?? 'Could not submit review.');
+    }
+  }
 
   if (!booking) {
     return (
@@ -120,6 +155,38 @@ export default function BookingDetailScreen() {
         {/* Activity section */}
         <Text variant="heading">Activity</Text>
         <ActivityTimeline events={activity} />
+
+        {/* Review section — only shown for completed bookings with an in-app provider */}
+        {booking.status === 'completed' && booking.assigned_provider_id ? (
+          review ? (
+            <>
+              <Text variant="heading">Your review</Text>
+              <ReviewCard review={review} />
+            </>
+          ) : (
+            <>
+              <Text variant="heading">Your review</Text>
+              <StarInput value={rating} onChange={setRating} />
+              <Input
+                label="Comment (optional)"
+                value={comment}
+                onChangeText={setComment}
+                placeholder="Share your experience…"
+                multiline
+              />
+              {reviewError ? (
+                <Text variant="caption" color="error">
+                  {reviewError}
+                </Text>
+              ) : null}
+              <Button
+                label="Submit review"
+                onPress={handleSubmitReview}
+                disabled={rating === 0}
+              />
+            </>
+          )
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
