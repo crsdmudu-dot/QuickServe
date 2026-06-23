@@ -1,6 +1,7 @@
 /**
  * Provider My Profile screen — lets approved providers view and edit their
  * public profile: bio, skills, years of experience, photo URL, and availability.
+ * Also shows the provider's rating summary and their received reviews (read-only).
  */
 
 import { useEffect, useState } from 'react';
@@ -11,12 +12,15 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/auth/auth-context';
 import { getProviderProfile, updateMyProviderProfile, type ProviderProfile } from '@/lib/providers';
+import { getProviderReviews, type Review } from '@/lib/reviews';
 import { Avatar } from '@/components/ui/avatar';
 import { VerifiedBadge } from '@/components/ui/verified-badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Text } from '@/components/ui/text';
+import { RatingStars } from '@/components/ui/rating-stars';
+import { ReviewCard } from '@/components/ui/review-card';
 
 // Combined state: read-only profile metadata + editable form fields in one object.
 // A single setState call avoids multiple act() warnings in tests.
@@ -55,14 +59,19 @@ export default function ProviderProfileScreen() {
 
   const [state, setState] = useState<ScreenState>(initial);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // Reviews are loaded separately and are read-only — providers cannot edit or hide them.
+  const [reviews, setReviews] = useState<Review[]>([]);
 
   useEffect(() => {
-    // Load profile only when approved and session exists.
+    // Load profile and reviews only when approved and session exists.
     if (approvalStatus === 'approved' && session?.user?.id) {
-      getProviderProfile(session.user.id).then((p) => {
+      const userId = session.user.id;
+      getProviderProfile(userId).then((p) => {
         // Single setState keeps all updates in one render, avoiding act() warnings.
         if (p) setState(fromProfile(p));
       });
+      // RLS ensures only non-hidden reviews are returned for the provider.
+      getProviderReviews(userId).then((r) => setReviews(r));
     }
   }, [approvalStatus, session]);
 
@@ -146,6 +155,18 @@ export default function ProviderProfileScreen() {
           </Text>
         </View>
 
+        {/* Ratings section — read-only; providers cannot edit or hide reviews */}
+        <View style={styles.section}>
+          <Text variant="heading">Ratings</Text>
+          <RatingStars
+            value={state.profile?.average_rating ?? null}
+            count={state.profile?.review_count}
+          />
+          {reviews.map((r) => (
+            <ReviewCard key={r.id} review={r} />
+          ))}
+        </View>
+
         {/* Editable fields */}
         <View style={styles.fields}>
           <Input
@@ -203,5 +224,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   scroll: { padding: Spacing.four, gap: Spacing.three },
   hero: { alignItems: 'center', gap: Spacing.two, paddingBottom: Spacing.three },
+  section: { gap: Spacing.two },
   fields: { gap: Spacing.three },
 });

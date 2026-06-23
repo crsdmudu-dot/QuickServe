@@ -37,6 +37,14 @@ jest.mock('@/lib/activity', () => ({
   getBookingActivity: (...args: unknown[]) => mockGetBookingActivity(...args),
 }));
 
+const mockGetMyReviewForBooking = jest.fn();
+const mockSubmitReview = jest.fn();
+
+jest.mock('@/lib/reviews', () => ({
+  getMyReviewForBooking: (...args: unknown[]) => mockGetMyReviewForBooking(...args),
+  submitReview: (...args: unknown[]) => mockSubmitReview(...args),
+}));
+
 // Mock the PhotoUploadButton so it renders a simple testable placeholder
 jest.mock('@/components/ui/photo-upload-button', () => ({
   PhotoUploadButton: ({ label }: { label: string }) => {
@@ -45,7 +53,7 @@ jest.mock('@/components/ui/photo-upload-button', () => ({
   },
 }));
 
-import { render, screen } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import BookingDetailScreen from '@/app/booking/[id]';
 
 const BASE_BOOKING = {
@@ -68,6 +76,9 @@ describe('BookingDetailScreen', () => {
     mockGetBookingProfessional.mockClear();
     mockGetBookingPhotos.mockResolvedValue([]);
     mockGetBookingActivity.mockResolvedValue([]);
+    // Default: no existing review so existing cases keep passing without change.
+    mockGetMyReviewForBooking.mockResolvedValue(null);
+    mockSubmitReview.mockResolvedValue({ ok: true });
   });
 
   it('Case A: in-app provider shows ProfessionalCard; phone is NOT rendered', async () => {
@@ -162,5 +173,72 @@ describe('BookingDetailScreen', () => {
     render(<BookingDetailScreen />);
 
     expect(await screen.findByText('Booking created.')).toBeOnTheScreen();
+  });
+
+  it('Case F: completed + assigned_provider_id + no review -> tap star 5 + submit calls submitReview', async () => {
+    mockGetBookingById.mockResolvedValue({
+      ...BASE_BOOKING,
+      status: 'completed' as const,
+      assigned_provider_id: 'p1',
+    });
+    // No existing review initially; after submit return null (form stays).
+    mockGetMyReviewForBooking.mockResolvedValue(null);
+    mockSubmitReview.mockResolvedValue({ ok: true });
+
+    render(<BookingDetailScreen />);
+
+    // Wait for the review form to appear.
+    const star5 = await screen.findByTestId('star-5');
+    fireEvent.press(star5);
+
+    const submitBtn = screen.getByText('Submit review');
+    fireEvent.press(submitBtn);
+
+    await waitFor(() => {
+      expect(mockSubmitReview).toHaveBeenCalledWith({
+        bookingId: 'b1',
+        providerId: 'p1',
+        rating: 5,
+        comment: '',
+      });
+    });
+  });
+
+  it('Case G: existing review renders comment and hides submit button', async () => {
+    mockGetBookingById.mockResolvedValue({
+      ...BASE_BOOKING,
+      status: 'completed' as const,
+      assigned_provider_id: 'p1',
+    });
+    mockGetMyReviewForBooking.mockResolvedValue({
+      id: 'r1',
+      rating: 4,
+      comment: 'Good',
+      is_hidden: false,
+      booking_id: 'b1',
+      customer_id: 'c1',
+      provider_id: 'p1',
+      created_at: '2026-07-01T10:00:00Z',
+    });
+
+    render(<BookingDetailScreen />);
+
+    expect(await screen.findByText('Good')).toBeOnTheScreen();
+    expect(screen.queryByText('Submit review')).toBeNull();
+  });
+
+  it('Case H: non-completed booking shows no review UI (no star-1 testID)', async () => {
+    mockGetBookingById.mockResolvedValue({
+      ...BASE_BOOKING,
+      status: 'provider_assigned' as const,
+      assigned_provider_id: null,
+    });
+
+    render(<BookingDetailScreen />);
+
+    // Wait for booking to load.
+    await screen.findByText('Booking Detail');
+
+    expect(screen.queryByTestId('star-1')).toBeNull();
   });
 });

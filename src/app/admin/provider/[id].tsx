@@ -1,7 +1,7 @@
 /**
- * Admin provider profile detail screen — view, edit, and verify a provider.
+ * Admin provider profile detail screen — view, edit, verify, and manage reviews.
  * Admins can update bio, years_experience, skills, profile_photo_url,
- * toggle availability, and grant/revoke the Verified badge.
+ * toggle availability, grant/revoke the Verified badge, and hide/unhide reviews.
  */
 
 import { router, useLocalSearchParams } from 'expo-router';
@@ -16,11 +16,14 @@ import {
   adminUpdateProviderProfile,
   type ProviderProfile,
 } from '@/lib/providers';
+import { getProviderReviews, setReviewHidden, type Review } from '@/lib/reviews';
 import { Avatar } from '@/components/ui/avatar';
 import { VerifiedBadge } from '@/components/ui/verified-badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { RatingStars } from '@/components/ui/rating-stars';
+import { ReviewCard } from '@/components/ui/review-card';
 import { Text } from '@/components/ui/text';
 
 export default function AdminProviderDetailScreen() {
@@ -39,7 +42,10 @@ export default function AdminProviderDetailScreen() {
   // Inline error shown below actions
   const [error, setError] = useState('');
 
-  // Load provider on mount (or whenever id changes)
+  // Reviews loaded by admin (includes hidden ones)
+  const [reviews, setReviews] = useState<Review[]>([]);
+
+  // Load provider profile and reviews on mount (or whenever id changes)
   useEffect(() => {
     if (id) {
       getProviderProfile(id).then((p) => {
@@ -51,8 +57,20 @@ export default function AdminProviderDetailScreen() {
           setPhotoUrl(p.profile_photo_url ?? '');
         }
       });
+      getProviderReviews(id).then((list) => setReviews(list));
     }
   }, [id]);
+
+  // Toggle a review's hidden state, then reload the reviews list
+  async function handleToggleHidden(review: Review) {
+    if (!id) return;
+    const result = await setReviewHidden(review.id, !review.is_hidden);
+    if (result.ok) {
+      getProviderReviews(id).then((list) => setReviews(list));
+    } else {
+      setError(result.error ?? 'Could not update review.');
+    }
+  }
 
   // Toggle availability_status between 'available' and 'unavailable'
   async function handleAvailabilityToggle() {
@@ -190,6 +208,20 @@ export default function AdminProviderDetailScreen() {
 
         {/* Save all editable fields */}
         <Button label="Save" onPress={handleSave} />
+
+        {/* Reviews section — admin sees all reviews including hidden ones */}
+        <Text variant="heading">Reviews</Text>
+        <RatingStars value={profile.average_rating} count={profile.review_count} />
+        {reviews.map((r) => (
+          <View key={r.id} style={styles.reviewRow}>
+            <ReviewCard review={r} />
+            <Button
+              label={r.is_hidden ? 'Unhide' : 'Hide'}
+              variant="secondary"
+              onPress={() => handleToggleHidden(r)}
+            />
+          </View>
+        ))}
       </ScrollView>
     </SafeAreaView>
   );
@@ -199,4 +231,5 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { padding: Spacing.four, gap: Spacing.three },
   profileCard: { gap: Spacing.two, alignItems: 'flex-start' },
+  reviewRow: { gap: Spacing.two },
 });
