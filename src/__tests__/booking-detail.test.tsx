@@ -21,6 +21,7 @@ jest.mock('expo-router', () => ({
 const mockGetBookingById = jest.fn();
 const mockGetBookingProfessional = jest.fn();
 const mockGetBookingPhotos = jest.fn();
+const mockGetBookingActivity = jest.fn();
 
 jest.mock('@/lib/bookings', () => ({
   getBookingById: (...args: unknown[]) => mockGetBookingById(...args),
@@ -30,6 +31,10 @@ jest.mock('@/lib/bookings', () => ({
 jest.mock('@/lib/photos', () => ({
   getBookingPhotos: (...args: unknown[]) => mockGetBookingPhotos(...args),
   uploadBookingPhoto: jest.fn().mockResolvedValue({ ok: true }),
+}));
+
+jest.mock('@/lib/activity', () => ({
+  getBookingActivity: (...args: unknown[]) => mockGetBookingActivity(...args),
 }));
 
 // Mock the PhotoUploadButton so it renders a simple testable placeholder
@@ -62,6 +67,7 @@ describe('BookingDetailScreen', () => {
     mockGetBookingById.mockClear();
     mockGetBookingProfessional.mockClear();
     mockGetBookingPhotos.mockResolvedValue([]);
+    mockGetBookingActivity.mockResolvedValue([]);
   });
 
   it('Case A: in-app provider shows ProfessionalCard; phone is NOT rendered', async () => {
@@ -137,5 +143,24 @@ describe('BookingDetailScreen', () => {
 
     // Upload button label should be present
     expect(screen.getByText('Add issue photos')).toBeOnTheScreen();
+  });
+
+  it('Case E: shows activity timeline event message', async () => {
+    mockGetBookingById.mockResolvedValue(BASE_BOOKING);
+    mockGetBookingActivity.mockResolvedValue([
+      {
+        id: 'a1',
+        booking_id: 'bk1',
+        actor_id: null,
+        event_type: 'booking_created',
+        message: 'Booking created.',
+        metadata: null,
+        created_at: '2026-07-01T10:00:00Z',
+      },
+    ]);
+
+    render(<BookingDetailScreen />);
+
+    expect(await screen.findByText('Booking created.')).toBeOnTheScreen();
   });
 });

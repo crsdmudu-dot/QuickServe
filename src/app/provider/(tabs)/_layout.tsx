@@ -1,4 +1,4 @@
-// Provider tabs layout — two tabs: My Jobs and My Profile.
+// Provider tabs layout — three tabs: My Jobs, Notifications, My Profile.
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useColorScheme } from 'react-native';
 
@@ -17,6 +17,13 @@ export default function ProviderTabsLayout() {
         <NativeTabs.Trigger.Label>My Jobs</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
           src={require('@/assets/images/tabIcons/home.png')}
+          renderingMode="template"
+        />
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="notifications">
+        <NativeTabs.Trigger.Label>Notifications</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          src={require('@/assets/images/tabIcons/explore.png')}
           renderingMode="template"
         />
       </NativeTabs.Trigger>

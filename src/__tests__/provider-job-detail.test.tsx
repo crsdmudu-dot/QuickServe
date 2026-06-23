@@ -57,6 +57,23 @@ jest.mock('@/lib/photos', () => ({
   uploadBookingPhoto: (...args: unknown[]) => mockUploadBookingPhoto(...args),
 }));
 
+// Mock activity lib — default: one provider_assigned event.
+const mockGetBookingActivity = jest.fn().mockResolvedValue([
+  {
+    id: 'a1',
+    booking_id: 'bk1',
+    actor_id: null,
+    event_type: 'provider_assigned',
+    message: 'A professional has been assigned to your booking.',
+    metadata: null,
+    created_at: '2026-07-01T10:00:00Z',
+  },
+]);
+
+jest.mock('@/lib/activity', () => ({
+  getBookingActivity: (...args: unknown[]) => mockGetBookingActivity(...args),
+}));
+
 // Mock expo-image-picker — permission granted, returns one asset URI.
 jest.mock('expo-image-picker', () => ({
   requestMediaLibraryPermissionsAsync: jest.fn().mockResolvedValue({ granted: true }),
@@ -76,6 +93,7 @@ describe('ProviderJobDetailScreen', () => {
     mockUpdateBookingStatus.mockClear();
     mockGetBookingPhotos.mockClear();
     mockUploadBookingPhoto.mockClear();
+    mockGetBookingActivity.mockClear();
     // Restore default photo mock (one before photo)
     mockGetBookingPhotos.mockResolvedValue([
       {
@@ -172,5 +190,17 @@ describe('ProviderJobDetailScreen', () => {
     expect(screen.queryByText('✓ Verified')).toBeNull();
     // No delete button
     expect(screen.queryByText('Delete')).toBeNull();
+  });
+
+  // ── Activity timeline tests ─────────────────────────────────────────────
+
+  it('renders the activity event message from getBookingActivity', async () => {
+    mockBookingStatus = 'provider_assigned';
+    render(<ProviderJobDetailScreen />);
+    await screen.findByText('House Cleaning');
+    const activityMsg = await screen.findByText(
+      'A professional has been assigned to your booking.',
+    );
+    expect(activityMsg).toBeOnTheScreen();
   });
 });

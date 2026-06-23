@@ -22,6 +22,7 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getBookingById, getBookingProfessional, type Booking, type Professional } from '@/lib/bookings';
 import { getBookingPhotos, type BookingPhotoView } from '@/lib/photos';
+import { getBookingActivity, type BookingActivity } from '@/lib/activity';
 import { BookingSummaryCard } from '@/components/ui/booking-summary-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Card } from '@/components/ui/card';
@@ -29,6 +30,7 @@ import { Text } from '@/components/ui/text';
 import { ProfessionalCard } from '@/components/ui/professional-card';
 import { PhotoGallery } from '@/components/ui/photo-gallery';
 import { PhotoUploadButton } from '@/components/ui/photo-upload-button';
+import { ActivityTimeline } from '@/components/ui/activity-timeline';
 
 export default function BookingDetailScreen() {
   const theme = useTheme();
@@ -37,6 +39,7 @@ export default function BookingDetailScreen() {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [professional, setProfessional] = useState<Professional | null>(null);
   const [photos, setPhotos] = useState<BookingPhotoView[]>([]);
+  const [activity, setActivity] = useState<BookingActivity[]>([]);
 
   const loadPhotos = useCallback(() => {
     if (id) {
@@ -55,6 +58,7 @@ export default function BookingDetailScreen() {
         }
       });
       loadPhotos();
+      getBookingActivity(id).then(setActivity);
     }
   }, [id, loadPhotos]);
 
@@ -112,6 +116,10 @@ export default function BookingDetailScreen() {
           label="Add issue photos"
           onUploaded={loadPhotos}
         />
+
+        {/* Activity section */}
+        <Text variant="heading">Activity</Text>
+        <ActivityTimeline events={activity} />
       </ScrollView>
     </SafeAreaView>
   );
