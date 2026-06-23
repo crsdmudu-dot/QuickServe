@@ -14,12 +14,14 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getBookingById, updateBookingStatus, type Booking } from '@/lib/bookings';
 import { getBookingPhotos, type BookingPhotoView } from '@/lib/photos';
+import { getBookingActivity, type BookingActivity } from '@/lib/activity';
 import { BookingSummaryCard } from '@/components/ui/booking-summary-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { PhotoGallery } from '@/components/ui/photo-gallery';
 import { PhotoUploadButton } from '@/components/ui/photo-upload-button';
+import { ActivityTimeline } from '@/components/ui/activity-timeline';
 
 export default function ProviderJobDetailScreen() {
   const theme = useTheme();
@@ -28,6 +30,7 @@ export default function ProviderJobDetailScreen() {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [error, setError] = useState('');
   const [photos, setPhotos] = useState<BookingPhotoView[]>([]);
+  const [activity, setActivity] = useState<BookingActivity[]>([]);
 
   const loadPhotos = useCallback(() => {
     if (id) {
@@ -41,6 +44,7 @@ export default function ProviderJobDetailScreen() {
         if (b) setBooking(b);
       });
       loadPhotos();
+      getBookingActivity(id).then(setActivity);
     }
   }, [id, loadPhotos]);
 
@@ -133,6 +137,10 @@ export default function ProviderJobDetailScreen() {
           label="Add after / completion photo"
           onUploaded={loadPhotos}
         />
+
+        {/* Activity section — chronological log of booking events. */}
+        <Text variant="heading">Activity</Text>
+        <ActivityTimeline events={activity} />
       </ScrollView>
     </SafeAreaView>
   );
