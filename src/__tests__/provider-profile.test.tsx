@@ -1,8 +1,8 @@
 /**
  * Tests for src/app/provider/(tabs)/profile.tsx
  *
- * Mocks expo-router, @/auth/auth-context, and @/lib/providers so no network
- * calls are made. Uses findBy* for async data loads.
+ * Mocks expo-router, @/auth/auth-context, @/lib/providers, and @/lib/reviews
+ * so no network calls are made. Uses findBy* for async data loads.
  */
 
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
@@ -18,7 +18,8 @@ const mockGetProviderProfile = jest.fn().mockResolvedValue({
   skills: ['Plumbing', 'Tiling'],
   is_verified: true,
   completed_jobs_count: 5,
-  average_rating: 4.8,
+  average_rating: 4.5,
+  review_count: 2,
   availability_status: 'available' as const,
 });
 
@@ -27,6 +28,23 @@ const mockUpdateMyProviderProfile = jest.fn().mockResolvedValue({ ok: true });
 jest.mock('@/lib/providers', () => ({
   getProviderProfile: (...args: unknown[]) => mockGetProviderProfile(...args),
   updateMyProviderProfile: (...args: unknown[]) => mockUpdateMyProviderProfile(...args),
+}));
+
+const mockGetProviderReviews = jest.fn().mockResolvedValue([
+  {
+    id: 'r1',
+    rating: 5,
+    comment: 'Great',
+    created_at: '2026-07-01T10:00:00Z',
+    booking_id: 'bk1',
+    customer_id: 'c1',
+    provider_id: 'p1',
+    is_hidden: false,
+  },
+]);
+
+jest.mock('@/lib/reviews', () => ({
+  getProviderReviews: (...args: unknown[]) => mockGetProviderReviews(...args),
 }));
 
 const mockSignOut = jest.fn().mockResolvedValue(undefined);
@@ -50,6 +68,7 @@ describe('ProviderProfileScreen — approved', () => {
     mockApprovalStatus = 'approved';
     mockGetProviderProfile.mockClear();
     mockUpdateMyProviderProfile.mockClear();
+    mockGetProviderReviews.mockClear();
     mockSignOut.mockClear();
   });
 
@@ -74,6 +93,16 @@ describe('ProviderProfileScreen — approved', () => {
         availability_status: 'unavailable',
       }),
     );
+  });
+
+  it('shows review count "(2)" and review comment "Great" in the Ratings section', async () => {
+    render(<ProviderProfileScreen />);
+    // Wait for profile to load first, then reviews appear.
+    await screen.findByText('Jane Smith');
+    // The count label rendered by RatingStars is "(2)".
+    expect(await screen.findByText('(2)')).toBeOnTheScreen();
+    // The review comment from the ReviewCard.
+    expect(await screen.findByText('Great')).toBeOnTheScreen();
   });
 });
 
