@@ -65,6 +65,22 @@ jest.mock('@/lib/photos', () => ({
   setPhotoVerified: (...args: unknown[]) => mockSetPhotoVerified(...args),
 }));
 
+const mockGetBookingActivity = jest.fn().mockResolvedValue([
+  {
+    id: 'a1',
+    booking_id: 'b1',
+    actor_id: null,
+    event_type: 'booking_created',
+    message: 'Booking created.',
+    metadata: null,
+    created_at: '2026-07-01T10:00:00Z',
+  },
+]);
+
+jest.mock('@/lib/activity', () => ({
+  getBookingActivity: (...args: unknown[]) => mockGetBookingActivity(...args),
+}));
+
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import AdminBookingDetailScreen from '@/app/admin/booking/[id]';
 
@@ -78,6 +94,7 @@ describe('AdminBookingDetailScreen', () => {
     mockGetBookingPhotos.mockClear();
     mockDeleteBookingPhoto.mockClear();
     mockSetPhotoVerified.mockClear();
+    mockGetBookingActivity.mockClear();
   });
 
   it('renders service title, address, and status badge after data loads', async () => {
@@ -185,5 +202,13 @@ describe('AdminBookingDetailScreen', () => {
     await waitFor(() =>
       expect(mockSetPhotoVerified).toHaveBeenCalledWith('ph1', true),
     );
+  });
+
+  it('renders the activity timeline with the booking_created event message', async () => {
+    render(<AdminBookingDetailScreen />);
+    // Wait for booking to load first
+    await screen.findByText('House Cleaning');
+    // Activity message should appear in the timeline
+    expect(await screen.findByText('Booking created.')).toBeOnTheScreen();
   });
 });

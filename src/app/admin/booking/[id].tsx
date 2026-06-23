@@ -26,6 +26,7 @@ import {
   setPhotoVerified,
   type BookingPhotoView,
 } from '@/lib/photos';
+import { getBookingActivity, type BookingActivity } from '@/lib/activity';
 import { BookingSummaryCard } from '@/components/ui/booking-summary-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
@@ -33,6 +34,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { PhotoGallery } from '@/components/ui/photo-gallery';
+import { ActivityTimeline } from '@/components/ui/activity-timeline';
 
 export default function AdminBookingDetailScreen() {
   const theme = useTheme();
@@ -57,6 +59,9 @@ export default function AdminBookingDetailScreen() {
   // Photos state
   const [photos, setPhotos] = useState<BookingPhotoView[]>([]);
 
+  // Activity timeline state
+  const [activity, setActivity] = useState<BookingActivity[]>([]);
+
   const loadPhotos = useCallback(() => {
     if (id) {
       getBookingPhotos(id).then(setPhotos);
@@ -72,6 +77,7 @@ export default function AdminBookingDetailScreen() {
         }
       });
       loadPhotos();
+      getBookingActivity(id).then(setActivity);
     }
     // Load approved providers on mount so the in-app list is ready immediately
     getApprovedProviders().then(setApprovedProviders);
@@ -289,6 +295,10 @@ export default function AdminBookingDetailScreen() {
             </>
           )}
         />
+
+        {/* Activity section — chronological log of booking events. */}
+        <Text variant="heading">Activity</Text>
+        <ActivityTimeline events={activity} />
       </ScrollView>
     </SafeAreaView>
   );
