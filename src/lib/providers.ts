@@ -13,6 +13,7 @@ export type ProviderProfile = {
   is_verified: boolean;
   completed_jobs_count: number;
   average_rating: number | null;
+  review_count: number;
   availability_status: 'available' | 'unavailable';
 };
 
