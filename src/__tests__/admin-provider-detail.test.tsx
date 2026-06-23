@@ -1,8 +1,8 @@
 /**
  * Tests for src/app/admin/provider/[id].tsx
  *
- * Mocks expo-router, @/lib/providers so no real network calls are made.
- * Uses findBy* for async data loads after getProviderProfile resolves.
+ * Mocks expo-router, @/lib/providers, and @/lib/reviews so no real network
+ * calls are made. Uses findBy* for async data loads after promises resolve.
  */
 
 jest.mock('expo-router', () => ({
@@ -22,6 +22,7 @@ const mockProfile = {
   is_verified: false,
   completed_jobs_count: 3,
   average_rating: null,
+  review_count: 0,
   availability_status: 'available' as const,
 };
 
@@ -33,6 +34,27 @@ jest.mock('@/lib/providers', () => ({
   adminUpdateProviderProfile: (...args: unknown[]) => mockAdminUpdateProviderProfile(...args),
 }));
 
+const mockReviews = [
+  {
+    id: 'r1',
+    rating: 2,
+    comment: 'Bad',
+    is_hidden: false,
+    created_at: '2026-07-01T10:00:00Z',
+    booking_id: 'bk1',
+    customer_id: 'c1',
+    provider_id: 'p1',
+  },
+];
+
+const mockGetProviderReviews = jest.fn().mockResolvedValue(mockReviews);
+const mockSetReviewHidden = jest.fn().mockResolvedValue({ ok: true });
+
+jest.mock('@/lib/reviews', () => ({
+  getProviderReviews: (...args: unknown[]) => mockGetProviderReviews(...args),
+  setReviewHidden: (...args: unknown[]) => mockSetReviewHidden(...args),
+}));
+
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import AdminProviderDetailScreen from '@/app/admin/provider/[id]';
 
@@ -40,6 +62,11 @@ describe('AdminProviderDetailScreen', () => {
   beforeEach(() => {
     mockGetProviderProfile.mockClear();
     mockAdminUpdateProviderProfile.mockClear();
+    mockGetProviderReviews.mockClear();
+    mockSetReviewHidden.mockClear();
+    // Restore default return values after any per-test overrides
+    mockGetProviderReviews.mockResolvedValue(mockReviews);
+    mockSetReviewHidden.mockResolvedValue({ ok: true });
   });
 
   it('renders provider name and completed jobs count after data loads', async () => {
@@ -84,5 +111,22 @@ describe('AdminProviderDetailScreen', () => {
       );
       expect(saveCall).toBeDefined();
     });
+  });
+
+  it('renders the review comment "Bad" in the Reviews section', async () => {
+    render(<AdminProviderDetailScreen />);
+    // Wait for the review comment to appear asynchronously
+    expect(await screen.findByText('Bad')).toBeOnTheScreen();
+  });
+
+  it('pressing Hide calls setReviewHidden with the review id and true', async () => {
+    render(<AdminProviderDetailScreen />);
+    // Wait for the review to appear, then press Hide
+    await screen.findByText('Bad');
+    fireEvent.press(screen.getByText('Hide'));
+
+    await waitFor(() =>
+      expect(mockSetReviewHidden).toHaveBeenCalledWith('r1', true),
+    );
   });
 });
