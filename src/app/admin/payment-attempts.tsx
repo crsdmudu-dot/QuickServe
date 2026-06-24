@@ -89,6 +89,16 @@ export default function AdminPaymentAttemptsScreen() {
               {`Ref: ${a.external_reference ?? '—'}`}
             </Text>
 
+            {a.checkout_request_id ? (
+              <Text variant="caption" color="textSecondary">{`Checkout: ${a.checkout_request_id}`}</Text>
+            ) : null}
+            {a.result_code != null ? (
+              <Text variant="caption" color="textSecondary">{`Result: ${a.result_code} · ${a.result_desc ?? ''}`}</Text>
+            ) : null}
+            {a.callback_received_at ? (
+              <Text variant="caption" color="textSecondary">{`Callback: ${new Date(a.callback_received_at).toLocaleString()}`}</Text>
+            ) : null}
+
             {/* Payment ID + date */}
             <Text variant="caption" color="textSecondary">
               {`#${a.payment_id.slice(0, 8)} · ${new Date(a.created_at).toLocaleDateString()}`}

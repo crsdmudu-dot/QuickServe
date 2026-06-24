@@ -17,6 +17,11 @@ export type PaymentAttempt = {
   external_reference: string | null;
   raw_response: unknown | null;
   created_at: string;
+  merchant_request_id: string | null;
+  checkout_request_id: string | null;
+  result_code: number | null;
+  result_desc: string | null;
+  callback_received_at: string | null;
 };
 
 // ── Customer Mutations ─────────────────────────────────────────────────────

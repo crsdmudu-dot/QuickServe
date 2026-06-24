@@ -21,6 +21,11 @@ const mockAdminGetPaymentAttempts = jest.fn().mockResolvedValue([
     external_reference: 'MOCK-x',
     raw_response: null,
     created_at: '2026-06-24T00:00:00Z',
+    merchant_request_id: 'MR-1',
+    checkout_request_id: 'ws_CO_123',
+    result_code: null,
+    result_desc: null,
+    callback_received_at: null,
   },
 ]);
 
@@ -46,6 +51,11 @@ const MOCK_ATTEMPT = {
   external_reference: 'MOCK-x',
   raw_response: null,
   created_at: '2026-06-24T00:00:00Z',
+  merchant_request_id: 'MR-1',
+  checkout_request_id: 'ws_CO_123',
+  result_code: null,
+  result_desc: null,
+  callback_received_at: null,
 };
 
 describe('AdminPaymentAttemptsScreen', () => {
@@ -86,5 +96,10 @@ describe('AdminPaymentAttemptsScreen', () => {
     mockAdminGetPaymentAttempts.mockResolvedValueOnce([]);
     render(<AdminPaymentAttemptsScreen />);
     expect(await screen.findByText('No payment attempts')).toBeOnTheScreen();
+  });
+
+  it('renders the checkout request id when present', async () => {
+    render(<AdminPaymentAttemptsScreen />);
+    expect(await screen.findByText('Checkout: ws_CO_123')).toBeTruthy();
   });
 });
