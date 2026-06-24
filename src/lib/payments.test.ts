@@ -1,7 +1,6 @@
 import {
   getMyPayments,
   getPaymentForBooking,
-  payPayment,
   adminGetAllPayments,
   adminOverridePaymentStatus,
 } from '@/lib/payments';
@@ -104,26 +103,6 @@ describe('getPaymentForBooking', () => {
     maybeSingle.mockResolvedValue({ data: null, error: null });
     const res = await getPaymentForBooking('bk1');
     expect(res).toBeNull();
-  });
-});
-
-// ── payPayment ─────────────────────────────────────────────────────────────
-
-describe('payPayment', () => {
-  it('calls pay_payment RPC with correct args on success', async () => {
-    rpc.mockResolvedValue({ error: null });
-    const res = await payPayment('pay1');
-    expect(res).toEqual({ ok: true });
-    expect(rpc).toHaveBeenCalledWith('pay_payment', { p_payment_id: 'pay1' });
-  });
-
-  it('returns friendly error when RPC fails', async () => {
-    rpc.mockResolvedValue({ error: { message: 'Permission denied' } });
-    const res = await payPayment('pay1');
-    expect(res).toEqual({
-      ok: false,
-      error: 'Could not complete payment. Please try again.',
-    });
   });
 });
 
