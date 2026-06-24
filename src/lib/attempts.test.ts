@@ -12,12 +12,14 @@ const rpc = jest.fn();
 const select = jest.fn();
 const order = jest.fn();
 const eq = jest.fn();
+const invoke = jest.fn();
 
 // Note: variables used inside jest.mock() factory must be prefixed with "mock" (Jest rule).
 const mockRpc = rpc;
 const mockSelect = select;
 const mockOrder = order;
 const mockEq = eq;
+const mockInvoke = invoke;
 
 jest.mock('@/lib/supabase', () => ({
   supabase: {
@@ -36,6 +38,7 @@ jest.mock('@/lib/supabase', () => ({
         };
       },
     }),
+    functions: { invoke: (...a: unknown[]) => mockInvoke(...a) },
   },
 }));
 
@@ -62,50 +65,51 @@ const mockAttempt = {
 // ── initiateMpesaPayment ───────────────────────────────────────────────────
 
 describe('initiateMpesaPayment', () => {
-  it('returns error and does NOT call supabase.rpc for a bad phone number', async () => {
+  it('returns error and does NOT call functions.invoke for a bad phone number', async () => {
     const res = await initiateMpesaPayment({
       paymentId: 'pay1',
-      amount: 500,
+      amount: 1500,
       phone: '12345',
       accountReference: 'bk1',
     });
     expect(res).toEqual({ ok: false, error: 'Enter a valid M-Pesa phone number.' });
-    expect(mockRpc).not.toHaveBeenCalled();
+    expect(mockInvoke).not.toHaveBeenCalled();
   });
 
-  it('calls initiate_payment_attempt RPC with correct args on success', async () => {
-    rpc.mockResolvedValue({ error: null });
+  it('calls mpesa-stk-push with normalized phone and returns ok:true on success', async () => {
+    invoke.mockResolvedValue({ data: { ok: true, checkoutRequestId: 'ws_CO_1' }, error: null });
     const res = await initiateMpesaPayment({
       paymentId: 'pay1',
-      amount: 500,
+      amount: 1500,
       phone: '0712345678',
       accountReference: 'bk1',
     });
     expect(res).toEqual({ ok: true });
-    expect(mockRpc).toHaveBeenCalledWith(
-      'initiate_payment_attempt',
-      expect.objectContaining({
-        p_payment_id: 'pay1',
-        p_provider: 'mpesa',
-        p_phone: '254712345678',
-        p_external_reference: expect.stringMatching(/^MOCK-/),
-        p_raw_response: expect.any(Object),
-      }),
-    );
+    expect(mockInvoke).toHaveBeenCalledWith('mpesa-stk-push', {
+      body: { payment_id: 'pay1', phone: '254712345678' },
+    });
   });
 
-  it('returns friendly error when RPC fails', async () => {
-    rpc.mockResolvedValue({ error: { message: 'db error' } });
+  it('returns friendly error when invoke transport fails', async () => {
+    invoke.mockResolvedValue({ data: null, error: { message: 'boom' } });
     const res = await initiateMpesaPayment({
       paymentId: 'pay1',
-      amount: 500,
+      amount: 1500,
       phone: '0712345678',
       accountReference: 'bk1',
     });
-    expect(res).toEqual({
-      ok: false,
-      error: 'Could not start payment. Please try again.',
+    expect(res).toEqual({ ok: false, error: 'Could not start payment. Please try again.' });
+  });
+
+  it('surfaces server business error string when data.ok is false', async () => {
+    invoke.mockResolvedValue({ data: { ok: false, error: 'Payment is not pending.' }, error: null });
+    const res = await initiateMpesaPayment({
+      paymentId: 'pay1',
+      amount: 1500,
+      phone: '0712345678',
+      accountReference: 'bk1',
     });
+    expect(res).toEqual({ ok: false, error: 'Payment is not pending.' });
   });
 });
 
