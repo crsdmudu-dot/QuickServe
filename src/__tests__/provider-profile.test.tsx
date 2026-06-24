@@ -47,6 +47,16 @@ jest.mock('@/lib/reviews', () => ({
   getProviderReviews: (...args: unknown[]) => mockGetProviderReviews(...args),
 }));
 
+const mockGetProviderEarningsSummary = jest
+  .fn()
+  .mockResolvedValue({ pending: 0, paid: 0 });
+const mockGetMyEarnings = jest.fn().mockResolvedValue([]);
+
+jest.mock('@/lib/earnings', () => ({
+  getProviderEarningsSummary: (...args: unknown[]) => mockGetProviderEarningsSummary(...args),
+  getMyEarnings: (...args: unknown[]) => mockGetMyEarnings(...args),
+}));
+
 const mockSignOut = jest.fn().mockResolvedValue(undefined);
 
 // approvalStatus is controlled per describe block via this variable.
@@ -70,6 +80,11 @@ describe('ProviderProfileScreen — approved', () => {
     mockUpdateMyProviderProfile.mockClear();
     mockGetProviderReviews.mockClear();
     mockSignOut.mockClear();
+    mockGetProviderEarningsSummary.mockClear();
+    mockGetMyEarnings.mockClear();
+    // Restore default empty responses for earnings.
+    mockGetProviderEarningsSummary.mockResolvedValue({ pending: 0, paid: 0 });
+    mockGetMyEarnings.mockResolvedValue([]);
   });
 
   it('shows name, verified badge and completed jobs count after data loads', async () => {
@@ -103,6 +118,28 @@ describe('ProviderProfileScreen — approved', () => {
     expect(await screen.findByText('(2)')).toBeOnTheScreen();
     // The review comment from the ReviewCard.
     expect(await screen.findByText('Great')).toBeOnTheScreen();
+  });
+
+  it('shows earnings summary with pending and paid totals in the Earnings section', async () => {
+    // Override defaults so this test has non-zero earnings data.
+    mockGetProviderEarningsSummary.mockResolvedValue({ pending: 2100, paid: 5000 });
+    mockGetMyEarnings.mockResolvedValue([
+      {
+        id: 'e1',
+        provider_id: 'p1',
+        booking_id: 'bk1',
+        amount: 2100,
+        payout_status: 'pending' as const,
+        created_at: '2026-06-01T10:00:00Z',
+      },
+    ]);
+
+    render(<ProviderProfileScreen />);
+    // Wait for profile to load first (mirrors existing approved-profile pattern).
+    await screen.findByText('Jane Smith');
+    // Earnings summary card should show formatted KES amounts.
+    expect(await screen.findByText('Pending: KES 2,100')).toBeOnTheScreen();
+    expect(await screen.findByText('Paid: KES 5,000')).toBeOnTheScreen();
   });
 });
 

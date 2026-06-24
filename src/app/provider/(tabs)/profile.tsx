@@ -1,7 +1,8 @@
 /**
  * Provider My Profile screen — lets approved providers view and edit their
  * public profile: bio, skills, years of experience, photo URL, and availability.
- * Also shows the provider's rating summary and their received reviews (read-only).
+ * Also shows the provider's rating summary, received reviews (read-only), and
+ * a read-only Earnings section summarising pending and paid earnings.
  */
 
 import { useEffect, useState } from 'react';
@@ -13,6 +14,13 @@ import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/auth/auth-context';
 import { getProviderProfile, updateMyProviderProfile, type ProviderProfile } from '@/lib/providers';
 import { getProviderReviews, type Review } from '@/lib/reviews';
+import {
+  getMyEarnings,
+  getProviderEarningsSummary,
+  type ProviderEarning,
+  type EarningsSummary,
+} from '@/lib/earnings';
+import { formatKes } from '@/lib/currency';
 import { Avatar } from '@/components/ui/avatar';
 import { VerifiedBadge } from '@/components/ui/verified-badge';
 import { Button } from '@/components/ui/button';
@@ -21,6 +29,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Text } from '@/components/ui/text';
 import { RatingStars } from '@/components/ui/rating-stars';
 import { ReviewCard } from '@/components/ui/review-card';
+import { Card } from '@/components/ui/card';
 
 // Combined state: read-only profile metadata + editable form fields in one object.
 // A single setState call avoids multiple act() warnings in tests.
@@ -61,6 +70,9 @@ export default function ProviderProfileScreen() {
   const [saveError, setSaveError] = useState<string | null>(null);
   // Reviews are loaded separately and are read-only — providers cannot edit or hide them.
   const [reviews, setReviews] = useState<Review[]>([]);
+  // Earnings are read-only — providers view only; no payout actions here.
+  const [earnings, setEarnings] = useState<ProviderEarning[]>([]);
+  const [earningsSummary, setEarningsSummary] = useState<EarningsSummary>({ pending: 0, paid: 0 });
 
   useEffect(() => {
     // Load profile and reviews only when approved and session exists.
@@ -72,6 +84,9 @@ export default function ProviderProfileScreen() {
       });
       // RLS ensures only non-hidden reviews are returned for the provider.
       getProviderReviews(userId).then((r) => setReviews(r));
+      // Earnings are self-scoped via RLS — no provider ID argument needed.
+      getProviderEarningsSummary().then(setEarningsSummary);
+      getMyEarnings().then(setEarnings);
     }
   }, [approvalStatus, session]);
 
@@ -165,6 +180,32 @@ export default function ProviderProfileScreen() {
           {reviews.map((r) => (
             <ReviewCard key={r.id} review={r} />
           ))}
+        </View>
+
+        {/* Earnings section — read-only; providers cannot trigger payouts here */}
+        <View style={styles.section}>
+          <Text variant="heading">Earnings</Text>
+          <Card style={styles.section}>
+            <Text variant="body">Pending: {formatKes(earningsSummary.pending)}</Text>
+            <Text variant="body">Paid: {formatKes(earningsSummary.paid)}</Text>
+          </Card>
+          {earnings.length === 0 ? (
+            <Text variant="caption" color="textSecondary">No earnings yet.</Text>
+          ) : (
+            earnings.map((e) => (
+              <Card key={e.id} style={styles.section}>
+                <Text variant="heading">{formatKes(e.amount)}</Text>
+                <Text
+                  variant="caption"
+                  color={e.payout_status === 'paid' ? 'success' : 'warning'}>
+                  {e.payout_status === 'paid' ? 'Paid out' : 'Pending payout'}
+                </Text>
+                <Text variant="caption" color="textSecondary">
+                  {new Date(e.created_at).toLocaleDateString()}
+                </Text>
+              </Card>
+            ))
+          )}
         </View>
 
         {/* Editable fields */}
