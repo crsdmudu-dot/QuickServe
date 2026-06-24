@@ -18,5 +18,10 @@
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
   ],
-  "exclude": ["_parked"]
+  "exclude": [
+    "_parked",
+    "supabase/functions/mpesa-stk-push/index.ts",
+    "supabase/functions/mpesa-callback/index.ts",
+    "supabase/functions/_shared/daraja-client.ts"
+  ]
 }

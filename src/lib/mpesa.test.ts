@@ -1,8 +1,4 @@
-import {
-  normalizeKenyanPhone,
-  isValidKenyanPhone,
-  initiateStkPushMock,
-} from '@/lib/mpesa';
+import { normalizeKenyanPhone, isValidKenyanPhone } from '@/lib/mpesa';
 
 describe('normalizeKenyanPhone', () => {
   it('normalizes 07XXXXXXXX to 2547XXXXXXXX', () => {
@@ -52,30 +48,3 @@ describe('isValidKenyanPhone', () => {
   });
 });
 
-describe('initiateStkPushMock', () => {
-  const params = { phone: '254712345678', amount: 1500, accountReference: 'BK1' };
-
-  it('returns ok === true', () => {
-    expect(initiateStkPushMock(params).ok).toBe(true);
-  });
-
-  it('returns externalReference starting with MOCK-', () => {
-    const result = initiateStkPushMock(params);
-    expect(result.externalReference).toMatch(/^MOCK-/);
-  });
-
-  it('returns a raw object with ResponseCode === "0"', () => {
-    const result = initiateStkPushMock(params);
-    expect(typeof result.raw).toBe('object');
-    expect(result.raw.ResponseCode).toBe('0');
-  });
-
-  it('does not throw and returns synchronously (no promise)', () => {
-    let result: ReturnType<typeof initiateStkPushMock> | undefined;
-    expect(() => {
-      result = initiateStkPushMock(params);
-    }).not.toThrow();
-    // must be a plain object, not a Promise
-    expect(result).not.toBeInstanceOf(Promise);
-  });
-});

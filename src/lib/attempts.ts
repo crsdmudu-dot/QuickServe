@@ -1,6 +1,6 @@
 // attempts.ts — Supabase helpers for payment attempts + M-Pesa STK Push.
 import { supabase } from '@/lib/supabase';
-import { initiateStkPushMock, isValidKenyanPhone, normalizeKenyanPhone } from '@/lib/mpesa';
+import { isValidKenyanPhone, normalizeKenyanPhone } from '@/lib/mpesa';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -17,18 +17,27 @@ export type PaymentAttempt = {
   external_reference: string | null;
   raw_response: unknown | null;
   created_at: string;
+  merchant_request_id: string | null;
+  checkout_request_id: string | null;
+  result_code: number | null;
+  result_desc: string | null;
+  callback_received_at: string | null;
 };
 
 // ── Customer Mutations ─────────────────────────────────────────────────────
 
 /**
- * Customer: validate phone, run the mock STK Push, then create the attempt via RPC.
+ * Customer: validate phone then invoke the `mpesa-stk-push` Edge Function.
  *
  * Steps:
- *  1. Reject invalid phone numbers immediately — never calls Supabase.
+ *  1. Reject invalid phone numbers immediately — never calls any network.
  *  2. Normalize the phone to 12-digit international format (254XXXXXXXXX).
- *  3. Call the mock STK Push (pure, no network).
- *  4. Persist the attempt via the `initiate_payment_attempt` RPC.
+ *  3. Invoke the backend `mpesa-stk-push` Edge Function, which holds Daraja
+ *     credentials and MPESA_MODE server-side. The client is mode-agnostic.
+ *
+ * Note: `amount` and `accountReference` are kept in the signature so the
+ * caller in `booking/[id].tsx` is untouched; the server derives them from
+ * the payment and booking records.
  */
 export async function initiateMpesaPayment(input: {
   paymentId: string;
@@ -36,31 +45,23 @@ export async function initiateMpesaPayment(input: {
   phone: string;
   accountReference: string;
 }): Promise<{ ok: boolean; error?: string }> {
-  // Step 1: Validate phone before touching Supabase.
+  // 1. Validate phone before any network call.
   if (!isValidKenyanPhone(input.phone)) {
     return { ok: false, error: 'Enter a valid M-Pesa phone number.' };
   }
-
-  // Step 2: Normalize to 254XXXXXXXXX.
+  // 2. Normalize to 254XXXXXXXXX.
   const normalized = normalizeKenyanPhone(input.phone)!;
-
-  // Step 3: Run the mock STK Push (pure, synchronous).
-  const stk = initiateStkPushMock({
-    phone: normalized,
-    amount: input.amount,
-    accountReference: input.accountReference,
+  // 3. Invoke the backend Edge Function (holds Daraja creds + MPESA_MODE; never the app).
+  const { data, error } = await supabase.functions.invoke('mpesa-stk-push', {
+    body: { payment_id: input.paymentId, phone: normalized },
   });
-
-  // Step 4: Persist the attempt via RPC.
-  const { error } = await supabase.rpc('initiate_payment_attempt', {
-    p_payment_id: input.paymentId,
-    p_provider: 'mpesa',
-    p_phone: normalized,
-    p_external_reference: stk.externalReference,
-    p_raw_response: stk.raw,
-  });
-
   if (error) return { ok: false, error: 'Could not start payment. Please try again.' };
+  if (!data?.ok) {
+    return {
+      ok: false,
+      error: typeof data?.error === 'string' ? data.error : 'Could not start payment. Please try again.',
+    };
+  }
   return { ok: true };
 }
 
