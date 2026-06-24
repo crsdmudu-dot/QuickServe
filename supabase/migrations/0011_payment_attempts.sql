@@ -117,7 +117,6 @@ create or replace function public.confirm_payment_attempt(p_attempt_id uuid)
 returns void language plpgsql security definer set search_path = public as $$
 declare
   v_attempt  public.payment_attempts%rowtype;
-  v_payment  public.payments%rowtype;
 begin
   if not public.is_admin() then
     raise exception 'Permission denied';
@@ -141,19 +140,13 @@ begin
     set status = 'successful'
     where id = p_attempt_id;
 
-  -- Load the associated payment
-  select * into v_payment
-    from public.payments
-    where id = v_attempt.payment_id;
-
-  -- If payment is still pending, confirm it (fires trg_create_earning_on_paid)
-  if v_payment.status = 'pending' then
-    update public.payments
-      set status         = 'paid',
-          paid_at        = now(),
-          payment_method = v_attempt.provider
-      where id = v_attempt.payment_id;
-  end if;
+  -- Atomically confirm the payment only if still pending (fires trg_create_earning_on_paid).
+  update public.payments
+    set status         = 'paid',
+        paid_at        = now(),
+        payment_method = v_attempt.provider
+    where id     = v_attempt.payment_id
+      and status = 'pending';
 
   -- Cancel all other open attempts on the same payment
   update public.payment_attempts
@@ -168,11 +161,19 @@ end; $$;
 -- ----------------------------------------------------------------
 create or replace function public.cancel_payment_attempt(p_attempt_id uuid)
 returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_attempt public.payment_attempts%rowtype;
 begin
   if not public.is_admin() then
     raise exception 'Permission denied';
   end if;
-
+  select * into v_attempt from public.payment_attempts where id = p_attempt_id;
+  if not found then
+    raise exception 'Payment attempt not found';
+  end if;
+  if v_attempt.status in ('successful','failed','cancelled') then
+    raise exception 'Attempt is already in a terminal state';
+  end if;
   update public.payment_attempts
     set status = 'cancelled'
     where id = p_attempt_id;
