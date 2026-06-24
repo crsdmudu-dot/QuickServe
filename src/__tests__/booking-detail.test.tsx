@@ -56,6 +56,14 @@ jest.mock('@/lib/payments', () => ({
   getPaymentForBooking: (...args: unknown[]) => mockGetPaymentForBooking(...args),
 }));
 
+const mockInitiateMpesaPayment = jest.fn().mockResolvedValue({ ok: true });
+const mockGetPaymentAttempts = jest.fn().mockResolvedValue([]);
+
+jest.mock('@/lib/attempts', () => ({
+  initiateMpesaPayment: (...args: unknown[]) => mockInitiateMpesaPayment(...args),
+  getPaymentAttempts: (...args: unknown[]) => mockGetPaymentAttempts(...args),
+}));
+
 // Mock the PhotoUploadButton so it renders a simple testable placeholder
 jest.mock('@/components/ui/photo-upload-button', () => ({
   PhotoUploadButton: ({ label }: { label: string }) => {
@@ -95,6 +103,9 @@ describe('BookingDetailScreen', () => {
     mockSubmitReview.mockResolvedValue({ ok: true });
     // Default: no payment for this booking.
     mockGetPaymentForBooking.mockResolvedValue(null);
+    // Default: M-Pesa mocks reset.
+    mockInitiateMpesaPayment.mockResolvedValue({ ok: true });
+    mockGetPaymentAttempts.mockResolvedValue([]);
   });
 
   it('Case A: in-app provider shows ProfessionalCard; phone is NOT rendered', async () => {
@@ -256,5 +267,41 @@ describe('BookingDetailScreen', () => {
     await screen.findByText('Booking Detail');
 
     expect(screen.queryByTestId('star-1')).toBeNull();
+  });
+
+  it('Case I: completed booking with pending payment shows M-Pesa form and calls initiateMpesaPayment', async () => {
+    const pendingPayment = {
+      id: 'pay1',
+      booking_id: 'b1',
+      amount: 1500,
+      status: 'pending' as const,
+      created_at: '2026-06-21T00:00:00Z',
+    };
+
+    mockGetBookingById.mockResolvedValue({
+      ...BASE_BOOKING,
+      status: 'completed' as const,
+      quote_status: 'accepted' as const,
+    });
+    mockGetPaymentForBooking.mockResolvedValue(pendingPayment);
+    mockGetPaymentAttempts.mockResolvedValue([]);
+
+    render(<BookingDetailScreen />);
+
+    // Wait for the M-Pesa form to appear.
+    const payBtn = await screen.findByText('Pay with M-Pesa');
+
+    // Type a phone number into the input.
+    const phoneInput = screen.getByDisplayValue('');
+    fireEvent.changeText(phoneInput, '0712345678');
+
+    // Press pay.
+    fireEvent.press(payBtn);
+
+    await waitFor(() => {
+      expect(mockInitiateMpesaPayment).toHaveBeenCalledWith(
+        expect.objectContaining({ paymentId: 'pay1', phone: '0712345678' }),
+      );
+    });
   });
 });

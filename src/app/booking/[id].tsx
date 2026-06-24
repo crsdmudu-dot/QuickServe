@@ -29,6 +29,8 @@ import { getBookingActivity, type BookingActivity } from '@/lib/activity';
 import { getMyReviewForBooking, submitReview, type Review } from '@/lib/reviews';
 import { acceptQuote, declineQuote } from '@/lib/quotes';
 import { getPaymentForBooking, type Payment } from '@/lib/payments';
+import { initiateMpesaPayment, getPaymentAttempts, type PaymentAttempt } from '@/lib/attempts';
+import { AttemptStatusBadge } from '@/components/ui/attempt-status-badge';
 import { BookingSummaryCard } from '@/components/ui/booking-summary-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Card } from '@/components/ui/card';
@@ -53,6 +55,9 @@ export default function BookingDetailScreen() {
   const [activity, setActivity] = useState<BookingActivity[]>([]);
   const [review, setReview] = useState<Review | null>(null);
   const [payment, setPayment] = useState<Payment | null>(null);
+  const [attempts, setAttempts] = useState<PaymentAttempt[]>([]);
+  const [phone, setPhone] = useState('');
+  const [payError, setPayError] = useState<string | null>(null);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [reviewError, setReviewError] = useState<string | null>(null);
@@ -78,7 +83,10 @@ export default function BookingDetailScreen() {
             getMyReviewForBooking(id).then(setReview);
           }
         }
-        getPaymentForBooking(id).then(setPayment);
+        getPaymentForBooking(id).then((p) => {
+          setPayment(p);
+          if (p) getPaymentAttempts(p.id).then(setAttempts);
+        });
       });
       loadPhotos();
       getBookingActivity(id).then(setActivity);
@@ -87,7 +95,9 @@ export default function BookingDetailScreen() {
 
   async function reload() {
     const b = await getBookingById(id); if (b) setBooking(b);
-    setPayment(await getPaymentForBooking(id));
+    const p = await getPaymentForBooking(id);
+    setPayment(p);
+    if (p) setAttempts(await getPaymentAttempts(p.id));
   }
 
   async function handleAccept() {
@@ -100,6 +110,22 @@ export default function BookingDetailScreen() {
     setQuoteError(null);
     const r = await declineQuote(id);
     if (r.ok) await reload(); else setQuoteError(r.error ?? 'Could not decline quote.');
+  }
+
+  async function handlePayMpesa() {
+    if (!payment) return;
+    setPayError(null);
+    const r = await initiateMpesaPayment({
+      paymentId: payment.id,
+      amount: payment.amount,
+      phone,
+      accountReference: booking!.id,
+    });
+    if (r.ok) {
+      setAttempts(await getPaymentAttempts(payment.id));
+    } else {
+      setPayError(r.error ?? 'Could not start payment.');
+    }
   }
 
   async function handleSubmitReview() {
@@ -158,11 +184,34 @@ export default function BookingDetailScreen() {
             onDecline={handleDecline}
           />
         ) : payment != null ? (
-          <QuoteCard
-            amount={payment.amount}
-            quoteStatus={booking.quote_status}
-            paymentStatus={payment.status}
-          />
+          <>
+            <QuoteCard amount={payment.amount} quoteStatus={booking.quote_status} paymentStatus={payment.status} />
+            {attempts.length > 0 && (
+              <>
+                <AttemptStatusBadge status={attempts[0].status} />
+                {(attempts[0].status === 'pending' || attempts[0].status === 'initiated') && (
+                  <Text variant="caption" color="textSecondary">
+                    Payment request sent. Awaiting confirmation.
+                  </Text>
+                )}
+              </>
+            )}
+            {payment.status === 'pending' && booking.status === 'completed' && (
+              <>
+                <Input
+                  label="M-Pesa phone number"
+                  value={phone}
+                  onChangeText={setPhone}
+                  placeholder="07XX XXX XXX"
+                  keyboardType="phone-pad"
+                  autoCapitalize="none"
+                />
+                <Button label="Pay with M-Pesa" onPress={handlePayMpesa} />
+                <Button label="Card — coming soon" variant="ghost" disabled />
+                {payError ? <Text variant="caption" color="error">{payError}</Text> : null}
+              </>
+            )}
+          </>
         ) : booking.quote_status === 'pending' ? (
           <Text variant="body" color="textSecondary">
             No quote yet.
