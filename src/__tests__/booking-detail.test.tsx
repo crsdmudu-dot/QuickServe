@@ -54,7 +54,6 @@ const mockGetPaymentForBooking = jest.fn().mockResolvedValue(null);
 
 jest.mock('@/lib/payments', () => ({
   getPaymentForBooking: (...args: unknown[]) => mockGetPaymentForBooking(...args),
-  payPayment: jest.fn().mockResolvedValue({ ok: true }),
 }));
 
 // Mock the PhotoUploadButton so it renders a simple testable placeholder

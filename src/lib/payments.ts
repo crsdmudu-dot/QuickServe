@@ -14,6 +14,7 @@ export type Payment = {
   status: PaymentStatus;
   provider_share: number;
   quickserve_share: number;
+  payment_method: 'mpesa' | 'card' | 'cash' | null;
   paid_at: string | null;
   created_at: string;
 };
@@ -42,15 +43,6 @@ export async function getPaymentForBooking(bookingId: string): Promise<Payment |
 }
 
 // ── Mutations ──────────────────────────────────────────────────────────────
-
-/** Customer: pay a pending payment for a completed booking via the pay_payment RPC. */
-export async function payPayment(
-  paymentId: string,
-): Promise<{ ok: boolean; error?: string }> {
-  const { error } = await supabase.rpc('pay_payment', { p_payment_id: paymentId });
-  if (error) return { ok: false, error: 'Could not complete payment. Please try again.' };
-  return { ok: true };
-}
 
 /** Admin: returns all payments, newest first. */
 export async function adminGetAllPayments(): Promise<Payment[]> {

@@ -28,8 +28,7 @@ import { getBookingPhotos, type BookingPhotoView } from '@/lib/photos';
 import { getBookingActivity, type BookingActivity } from '@/lib/activity';
 import { getMyReviewForBooking, submitReview, type Review } from '@/lib/reviews';
 import { acceptQuote, declineQuote } from '@/lib/quotes';
-import { getPaymentForBooking, payPayment, type Payment } from '@/lib/payments';
-import { formatKes } from '@/lib/currency';
+import { getPaymentForBooking, type Payment } from '@/lib/payments';
 import { BookingSummaryCard } from '@/components/ui/booking-summary-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Card } from '@/components/ui/card';
@@ -103,14 +102,6 @@ export default function BookingDetailScreen() {
     if (r.ok) await reload(); else setQuoteError(r.error ?? 'Could not decline quote.');
   }
 
-  async function handlePay() {
-    if (!payment) return;
-    setQuoteError(null);
-    const r = await payPayment(payment.id);
-    if (r.ok) setPayment(await getPaymentForBooking(id));
-    else setQuoteError(r.error ?? 'Could not complete payment.');
-  }
-
   async function handleSubmitReview() {
     if (!booking || !booking.assigned_provider_id || rating === 0) return;
     setReviewError(null);
@@ -167,20 +158,11 @@ export default function BookingDetailScreen() {
             onDecline={handleDecline}
           />
         ) : payment != null ? (
-          <>
-            <QuoteCard
-              amount={payment.amount}
-              quoteStatus={booking.quote_status}
-              paymentStatus={payment.status}
-            />
-            {payment.status === 'pending' && booking.status === 'completed' ? (
-              <Button label={`Pay ${formatKes(payment.amount)}`} onPress={handlePay} />
-            ) : payment.status === 'pending' ? (
-              <Text variant="caption" color="textSecondary">
-                You can pay once the job is completed.
-              </Text>
-            ) : null}
-          </>
+          <QuoteCard
+            amount={payment.amount}
+            quoteStatus={booking.quote_status}
+            paymentStatus={payment.status}
+          />
         ) : booking.quote_status === 'pending' ? (
           <Text variant="body" color="textSecondary">
             No quote yet.
