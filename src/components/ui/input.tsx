@@ -12,7 +12,7 @@ export type InputProps = {
   placeholder?: string;
   error?: string;
   secureTextEntry?: boolean;
-  keyboardType?: 'default' | 'email-address' | 'phone-pad';
+  keyboardType?: 'default' | 'email-address' | 'phone-pad' | 'numeric';
   autoCapitalize?: 'none' | 'sentences' | 'words';
   multiline?: boolean;
 };

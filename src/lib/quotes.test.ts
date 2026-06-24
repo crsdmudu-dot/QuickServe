@@ -123,3 +123,61 @@ describe('getQuoteForBooking', () => {
     expect(selectArg).not.toContain('provider_share');
   });
 });
+
+// ── Pure helper tests (Part C) ─────────────────────────────────────────────
+
+import {
+  computeQuickServeShare,
+  validateQuoteInput,
+  canEditQuote,
+} from '@/lib/quotes';
+
+describe('computeQuickServeShare', () => {
+  it('returns amount minus providerShare (3000, 2100) === 900', () => {
+    expect(computeQuickServeShare(3000, 2100)).toBe(900);
+  });
+
+  it('returns amount minus providerShare (15000, 12500) === 2500', () => {
+    expect(computeQuickServeShare(15000, 12500)).toBe(2500);
+  });
+});
+
+describe('validateQuoteInput', () => {
+  it('returns null for a valid input', () => {
+    expect(validateQuoteInput(3000, 2100)).toBeNull();
+  });
+
+  it('returns error for a negative amount', () => {
+    expect(validateQuoteInput(-1, 0)).toBe('Enter a valid amount.');
+  });
+
+  it('returns error for a NaN amount', () => {
+    expect(validateQuoteInput(NaN, 0)).toBe('Enter a valid amount.');
+  });
+
+  it('returns error for a negative provider share', () => {
+    expect(validateQuoteInput(3000, -1)).toBe('Enter a valid provider share.');
+  });
+
+  it('returns error when provider share exceeds amount', () => {
+    expect(validateQuoteInput(1000, 1500)).toBe('Provider share cannot exceed the amount.');
+  });
+});
+
+describe('canEditQuote', () => {
+  it('returns true for pending', () => {
+    expect(canEditQuote('pending')).toBe(true);
+  });
+
+  it('returns true for sent', () => {
+    expect(canEditQuote('sent')).toBe(true);
+  });
+
+  it('returns false for accepted', () => {
+    expect(canEditQuote('accepted')).toBe(false);
+  });
+
+  it('returns false for declined', () => {
+    expect(canEditQuote('declined')).toBe(false);
+  });
+});

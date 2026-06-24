@@ -52,6 +52,28 @@ export async function declineQuote(
 
 // ── Queries ────────────────────────────────────────────────────────────────
 
+// ── Pure helpers ───────────────────────────────────────────────────────────
+
+/** QuickServe's cut for a quote: amount minus the provider's share. */
+export function computeQuickServeShare(amount: number, providerShare: number): number {
+  return amount - providerShare;
+}
+
+/** Returns an error message if a quote input is invalid, else null. */
+export function validateQuoteInput(amount: number, providerShare: number): string | null {
+  if (Number.isNaN(amount) || amount < 0) return 'Enter a valid amount.';
+  if (Number.isNaN(providerShare) || providerShare < 0) return 'Enter a valid provider share.';
+  if (providerShare > amount) return 'Provider share cannot exceed the amount.';
+  return null;
+}
+
+/** Admin may set/replace a quote only before the customer has acted on it. */
+export function canEditQuote(status: QuoteStatus): boolean {
+  return status === 'pending' || status === 'sent';
+}
+
+// ── Queries ────────────────────────────────────────────────────────────────
+
 /**
  * Returns the quote amount and status for a booking.
  * NOTE: provider_share is intentionally excluded — customers must never see the split.

@@ -1,5 +1,6 @@
 // bookings.ts — Supabase helpers for creating and reading bookings.
 import { supabase } from '@/lib/supabase';
+import type { QuoteStatus } from '@/lib/quotes';
 
 /** Curated provider details returned for a booking's assigned professional. */
 export type Professional = {
@@ -31,6 +32,10 @@ export type Booking = {
   admin_notes: string | null;
   // Slice 6 provider fields
   assigned_provider_id: string | null;
+  // Slice 11 quote fields
+  quoted_amount: number | null;
+  provider_share: number | null;
+  quote_status: QuoteStatus;
 };
 
 // ── Customer mutations ─────────────────────────────────────────────────────

@@ -22,6 +22,9 @@ const mockGetBookingById = jest.fn().mockResolvedValue({
   assigned_provider_id: null,
   admin_notes: null,
   created_at: '2026-06-21T00:00:00Z',
+  quoted_amount: null,
+  provider_share: null,
+  quote_status: 'pending' as const,
 });
 
 const mockUpdateBookingStatus = jest.fn().mockResolvedValue({ ok: true });
@@ -79,6 +82,13 @@ const mockGetBookingActivity = jest.fn().mockResolvedValue([
 
 jest.mock('@/lib/activity', () => ({
   getBookingActivity: (...args: unknown[]) => mockGetBookingActivity(...args),
+}));
+
+jest.mock('@/lib/quotes', () => ({
+  setBookingQuote: jest.fn().mockResolvedValue({ ok: true }),
+  computeQuickServeShare: (amount: number, providerShare: number) => amount - providerShare,
+  validateQuoteInput: () => null,
+  canEditQuote: () => true,
 }));
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
