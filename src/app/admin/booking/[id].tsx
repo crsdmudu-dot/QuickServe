@@ -19,6 +19,14 @@ import {
   updateAdminNotes,
   type Booking,
 } from '@/lib/bookings';
+import {
+  setBookingQuote,
+  computeQuickServeShare,
+  validateQuoteInput,
+  canEditQuote,
+} from '@/lib/quotes';
+import { QuoteCard } from '@/components/ui/quote-card';
+import { formatKes } from '@/lib/currency';
 import { getApprovedProviders, type ProviderProfile } from '@/lib/providers';
 import {
   getBookingPhotos,
@@ -56,6 +64,10 @@ export default function AdminBookingDetailScreen() {
   // Admin notes form state
   const [adminNotes, setAdminNotes] = useState('');
 
+  // Quote form state
+  const [amountInput, setAmountInput] = useState('');
+  const [shareInput, setShareInput] = useState('');
+
   // Photos state
   const [photos, setPhotos] = useState<BookingPhotoView[]>([]);
 
@@ -74,6 +86,12 @@ export default function AdminBookingDetailScreen() {
         if (b) {
           setBooking(b);
           setAdminNotes(b.admin_notes ?? '');
+          setAmountInput(
+            b.quoted_amount?.toString() ??
+              SERVICES.find((s) => s.id === b.service_id)?.startingPrice?.toString() ??
+              '',
+          );
+          setShareInput(b.provider_share?.toString() ?? '');
         }
       });
       loadPhotos();
@@ -149,6 +167,28 @@ export default function AdminBookingDetailScreen() {
     }
   }
 
+  async function handleSendQuote() {
+    if (!booking) return;
+    const amount = Number(amountInput);
+    const share = Number(shareInput);
+    const validationError = validateQuoteInput(amount, share);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    setError('');
+    const result = await setBookingQuote(booking.id, amount, share);
+    if (result.ok) {
+      setBooking((prev) =>
+        prev
+          ? { ...prev, quoted_amount: amount, provider_share: share, quote_status: 'sent' }
+          : prev,
+      );
+    } else {
+      setError(result.error ?? 'Could not send quote.');
+    }
+  }
+
   async function handleDelete(p: BookingPhotoView) {
     setError('');
     const result = await deleteBookingPhoto({ id: p.id, photo_url: p.photo_url });
@@ -202,6 +242,51 @@ export default function AdminBookingDetailScreen() {
             {error}
           </Text>
         ) : null}
+
+        {/* Quote section */}
+        <Text variant="heading">Quote</Text>
+        <QuoteCard
+          amount={booking.quoted_amount}
+          quoteStatus={booking.quote_status}
+          split={
+            booking.quoted_amount != null && booking.provider_share != null
+              ? {
+                  providerShare: booking.provider_share,
+                  quickserveShare: computeQuickServeShare(
+                    booking.quoted_amount,
+                    booking.provider_share,
+                  ),
+                }
+              : undefined
+          }
+        />
+        {canEditQuote(booking.quote_status) && (
+          <>
+            <Input
+              label="Amount (KES)"
+              value={amountInput}
+              onChangeText={setAmountInput}
+              placeholder="e.g. 3000"
+              keyboardType="numeric"
+            />
+            <Input
+              label="Provider share (KES)"
+              value={shareInput}
+              onChangeText={setShareInput}
+              placeholder="e.g. 2100"
+              keyboardType="numeric"
+            />
+            {Number.isFinite(Number(amountInput)) &&
+              Number.isFinite(Number(shareInput)) &&
+              amountInput !== '' &&
+              shareInput !== '' && (
+                <Text variant="caption" color="textSecondary">
+                  {`QuickServe: ${formatKes(computeQuickServeShare(Number(amountInput), Number(shareInput)))}`}
+                </Text>
+              )}
+            <Button label="Send quote" onPress={handleSendQuote} />
+          </>
+        )}
 
         {/* Status picker */}
         <Text variant="heading">Update Status</Text>
