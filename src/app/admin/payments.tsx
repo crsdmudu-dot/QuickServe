@@ -9,6 +9,7 @@
 import { useEffect, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -54,6 +55,11 @@ export default function AdminPaymentsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text variant="title">Payments</Text>
+        <Button
+          label="Payment attempts"
+          variant="ghost"
+          onPress={() => router.push('/admin/payment-attempts')}
+        />
       </View>
 
       {error ? (
@@ -82,6 +88,11 @@ export default function AdminPaymentsScreen() {
               {/* Split breakdown */}
               <Text variant="caption" color="textSecondary">
                 {`Provider ${formatKes(p.provider_share)} · QuickServe ${formatKes(p.quickserve_share)}`}
+              </Text>
+
+              {/* Payment method */}
+              <Text variant="caption" color="textSecondary">
+                {`Method: ${p.payment_method ?? '—'}`}
               </Text>
 
               {/* Ref + date */}
