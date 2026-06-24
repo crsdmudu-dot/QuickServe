@@ -82,6 +82,9 @@ begin
         provider_share  = p_provider_share,
         quote_status    = 'sent'
     where id = p_booking_id;
+  if not found then
+    raise exception 'Booking not found';
+  end if;
 end; $$;
 
 -- ----------------------------------------------------------------
@@ -120,27 +123,20 @@ create trigger trg_create_payment_on_accept
 create or replace function public.pay_payment(p_payment_id uuid)
 returns void language plpgsql security definer set search_path = public as $$
 declare
-  v_payment public.payments%rowtype;
-  v_booking public.bookings%rowtype;
+  v_count int;
 begin
-  select * into v_payment from public.payments where id = p_payment_id;
-  if not found then
-    raise exception 'Payment not found';
-  end if;
-  select * into v_booking from public.bookings where id = v_payment.booking_id;
-  if v_payment.customer_id <> auth.uid() then
-    raise exception 'Permission denied';
-  end if;
-  if v_payment.status <> 'pending' then
-    raise exception 'Payment is not in pending status';
-  end if;
-  if v_booking.status <> 'completed' then
-    raise exception 'Booking is not completed';
-  end if;
-  update public.payments
+  update public.payments p
     set status  = 'paid',
         paid_at = now()
-    where id = p_payment_id;
+    where p.id          = p_payment_id
+      and p.customer_id = auth.uid()
+      and p.status      = 'pending'
+      and exists (select 1 from public.bookings b
+                  where b.id = p.booking_id and b.status = 'completed');
+  get diagnostics v_count = row_count;
+  if v_count = 0 then
+    raise exception 'Payment cannot be completed (not found, not yours, not pending, or booking not completed)';
+  end if;
 end; $$;
 
 -- ----------------------------------------------------------------
