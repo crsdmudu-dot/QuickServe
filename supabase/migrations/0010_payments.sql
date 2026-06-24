@@ -206,3 +206,42 @@ begin
     set payout_status = 'paid'
     where id = p_earning_id;
 end; $$;
+
+-- ----------------------------------------------------------------
+-- 5g. Function: accept_quote (customer only)
+-- Bypasses RLS UPDATE restriction on bookings for customers.
+-- The trg_create_payment_on_accept trigger fires after this update.
+-- ----------------------------------------------------------------
+create or replace function public.accept_quote(p_booking_id uuid)
+returns void language plpgsql security definer set search_path = public as $$
+declare v_count int;
+begin
+  update public.bookings
+    set quote_status = 'accepted'
+    where id = p_booking_id
+      and customer_id = auth.uid()
+      and quote_status = 'sent';
+  get diagnostics v_count = row_count;
+  if v_count = 0 then
+    raise exception 'Quote cannot be accepted (not found, not yours, or not awaiting your response)';
+  end if;
+end; $$;
+
+-- ----------------------------------------------------------------
+-- 5h. Function: decline_quote (customer only)
+-- Bypasses RLS UPDATE restriction on bookings for customers.
+-- ----------------------------------------------------------------
+create or replace function public.decline_quote(p_booking_id uuid)
+returns void language plpgsql security definer set search_path = public as $$
+declare v_count int;
+begin
+  update public.bookings
+    set quote_status = 'declined'
+    where id = p_booking_id
+      and customer_id = auth.uid()
+      and quote_status = 'sent';
+  get diagnostics v_count = row_count;
+  if v_count = 0 then
+    raise exception 'Quote cannot be declined (not found, not yours, or not awaiting your response)';
+  end if;
+end; $$;
