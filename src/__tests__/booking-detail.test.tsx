@@ -45,6 +45,18 @@ jest.mock('@/lib/reviews', () => ({
   submitReview: (...args: unknown[]) => mockSubmitReview(...args),
 }));
 
+jest.mock('@/lib/quotes', () => ({
+  acceptQuote: jest.fn().mockResolvedValue({ ok: true }),
+  declineQuote: jest.fn().mockResolvedValue({ ok: true }),
+}));
+
+const mockGetPaymentForBooking = jest.fn().mockResolvedValue(null);
+
+jest.mock('@/lib/payments', () => ({
+  getPaymentForBooking: (...args: unknown[]) => mockGetPaymentForBooking(...args),
+  payPayment: jest.fn().mockResolvedValue({ ok: true }),
+}));
+
 // Mock the PhotoUploadButton so it renders a simple testable placeholder
 jest.mock('@/components/ui/photo-upload-button', () => ({
   PhotoUploadButton: ({ label }: { label: string }) => {
@@ -68,6 +80,9 @@ const BASE_BOOKING = {
   assigned_provider_phone: null,
   admin_notes: null,
   created_at: '2026-06-21T00:00:00Z',
+  quoted_amount: null,
+  provider_share: null,
+  quote_status: 'pending' as const,
 };
 
 describe('BookingDetailScreen', () => {
@@ -79,6 +94,8 @@ describe('BookingDetailScreen', () => {
     // Default: no existing review so existing cases keep passing without change.
     mockGetMyReviewForBooking.mockResolvedValue(null);
     mockSubmitReview.mockResolvedValue({ ok: true });
+    // Default: no payment for this booking.
+    mockGetPaymentForBooking.mockResolvedValue(null);
   });
 
   it('Case A: in-app provider shows ProfessionalCard; phone is NOT rendered', async () => {

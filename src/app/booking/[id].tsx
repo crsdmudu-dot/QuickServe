@@ -27,6 +27,9 @@ import { getBookingById, getBookingProfessional, type Booking, type Professional
 import { getBookingPhotos, type BookingPhotoView } from '@/lib/photos';
 import { getBookingActivity, type BookingActivity } from '@/lib/activity';
 import { getMyReviewForBooking, submitReview, type Review } from '@/lib/reviews';
+import { acceptQuote, declineQuote } from '@/lib/quotes';
+import { getPaymentForBooking, payPayment, type Payment } from '@/lib/payments';
+import { formatKes } from '@/lib/currency';
 import { BookingSummaryCard } from '@/components/ui/booking-summary-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Card } from '@/components/ui/card';
@@ -39,6 +42,7 @@ import { StarInput } from '@/components/ui/star-input';
 import { ReviewCard } from '@/components/ui/review-card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { QuoteCard } from '@/components/ui/quote-card';
 
 export default function BookingDetailScreen() {
   const theme = useTheme();
@@ -49,9 +53,11 @@ export default function BookingDetailScreen() {
   const [photos, setPhotos] = useState<BookingPhotoView[]>([]);
   const [activity, setActivity] = useState<BookingActivity[]>([]);
   const [review, setReview] = useState<Review | null>(null);
+  const [payment, setPayment] = useState<Payment | null>(null);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
 
   const loadPhotos = useCallback(() => {
     if (id) {
@@ -73,11 +79,37 @@ export default function BookingDetailScreen() {
             getMyReviewForBooking(id).then(setReview);
           }
         }
+        getPaymentForBooking(id).then(setPayment);
       });
       loadPhotos();
       getBookingActivity(id).then(setActivity);
     }
   }, [id, loadPhotos]);
+
+  async function reload() {
+    const b = await getBookingById(id); if (b) setBooking(b);
+    setPayment(await getPaymentForBooking(id));
+  }
+
+  async function handleAccept() {
+    setQuoteError(null);
+    const r = await acceptQuote(id);
+    if (r.ok) await reload(); else setQuoteError(r.error ?? 'Could not accept quote.');
+  }
+
+  async function handleDecline() {
+    setQuoteError(null);
+    const r = await declineQuote(id);
+    if (r.ok) await reload(); else setQuoteError(r.error ?? 'Could not decline quote.');
+  }
+
+  async function handlePay() {
+    if (!payment) return;
+    setQuoteError(null);
+    const r = await payPayment(payment.id);
+    if (r.ok) setPayment(await getPaymentForBooking(id));
+    else setQuoteError(r.error ?? 'Could not complete payment.');
+  }
 
   async function handleSubmitReview() {
     if (!booking || !booking.assigned_provider_id || rating === 0) return;
@@ -124,6 +156,41 @@ export default function BookingDetailScreen() {
 
         {/* Current status */}
         <StatusBadge status={booking.status} />
+
+        {/* Payment section */}
+        <Text variant="heading">Payment</Text>
+        {booking.quote_status === 'sent' ? (
+          <QuoteCard
+            amount={booking.quoted_amount}
+            quoteStatus="sent"
+            onAccept={handleAccept}
+            onDecline={handleDecline}
+          />
+        ) : payment != null ? (
+          <>
+            <QuoteCard
+              amount={payment.amount}
+              quoteStatus={booking.quote_status}
+              paymentStatus={payment.status}
+            />
+            {payment.status === 'pending' && booking.status === 'completed' ? (
+              <Button label={`Pay ${formatKes(payment.amount)}`} onPress={handlePay} />
+            ) : payment.status === 'pending' ? (
+              <Text variant="caption" color="textSecondary">
+                You can pay once the job is completed.
+              </Text>
+            ) : null}
+          </>
+        ) : booking.quote_status === 'pending' ? (
+          <Text variant="body" color="textSecondary">
+            No quote yet.
+          </Text>
+        ) : null}
+        {quoteError ? (
+          <Text variant="caption" color="error">
+            {quoteError}
+          </Text>
+        ) : null}
 
         {/* Assigned professional — shown when a provider has been assigned */}
         {professional ? (
