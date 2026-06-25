@@ -36,6 +36,8 @@ export type Booking = {
   quoted_amount: number | null;
   provider_share: number | null;
   quote_status: QuoteStatus;
+  // Slice 14 chat field
+  customer_id: string;
 };
 
 // ── Customer mutations ─────────────────────────────────────────────────────
