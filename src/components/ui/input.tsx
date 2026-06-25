@@ -11,6 +11,7 @@ export type InputProps = {
   onChangeText: (text: string) => void;
   placeholder?: string;
   error?: string;
+  helperText?: string;
   secureTextEntry?: boolean;
   keyboardType?: 'default' | 'email-address' | 'phone-pad' | 'numeric';
   autoCapitalize?: 'none' | 'sentences' | 'words';
@@ -23,6 +24,7 @@ export function Input({
   onChangeText,
   placeholder,
   error,
+  helperText,
   secureTextEntry,
   keyboardType = 'default',
   autoCapitalize = 'sentences',
@@ -30,7 +32,14 @@ export function Input({
 }: InputProps) {
   const theme = useTheme();
   const [focused, setFocused] = useState(false);
-  const borderColor = error ? theme.error : focused ? theme.primary : theme.border;
+
+  const borderColor = error
+    ? theme.error
+    : focused
+      ? theme.primary
+      : theme.border;
+
+  const borderWidth = focused || error ? 1.5 : 1;
 
   return (
     <View style={styles.container}>
@@ -40,13 +49,18 @@ export function Input({
       <TextInput
         style={[
           styles.input,
-          { borderColor, color: theme.text, backgroundColor: theme.background },
+          {
+            borderColor,
+            borderWidth,
+            color: theme.text,
+            backgroundColor: theme.surface,
+          },
           multiline && styles.multiline,
         ]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={theme.textSecondary}
+        placeholderTextColor={theme.textTertiary}
         secureTextEntry={secureTextEntry}
         keyboardType={keyboardType as KeyboardTypeOptions}
         autoCapitalize={autoCapitalize}
@@ -58,6 +72,10 @@ export function Input({
         <Text variant="caption" color="error">
           {error}
         </Text>
+      ) : helperText ? (
+        <Text variant="caption" color="textTertiary">
+          {helperText}
+        </Text>
       ) : null}
     </View>
   );
@@ -66,9 +84,9 @@ export function Input({
 const styles = StyleSheet.create({
   container: { gap: Spacing.one, alignSelf: 'stretch' },
   input: {
-    borderWidth: 1,
     borderRadius: Radii.md,
     paddingHorizontal: Spacing.three,
+    minHeight: 44,
     height: 52,
     fontSize: 16,
   },

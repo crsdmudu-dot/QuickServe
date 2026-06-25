@@ -11,10 +11,15 @@ export type SectionHeaderProps = {
 export function SectionHeader({ title, onSeeAll }: SectionHeaderProps) {
   return (
     <View style={styles.row}>
-      <Text variant="heading">{title}</Text>
+      <Text variant="heading" weight="semibold">
+        {title}
+      </Text>
       {onSeeAll ? (
-        <Pressable onPress={onSeeAll} hitSlop={8}>
-          <Text variant="label" color="primary">
+        <Pressable
+          onPress={onSeeAll}
+          hitSlop={8}
+          style={({ pressed }) => pressed && styles.actionPressed}>
+          <Text variant="label" color="primary" weight="medium">
             See all
           </Text>
         </Pressable>
@@ -29,5 +34,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: Spacing.three,
+    paddingVertical: Spacing.one,
   },
+  actionPressed: { opacity: 0.7 },
 });

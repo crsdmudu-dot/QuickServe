@@ -1,6 +1,6 @@
 import { Text as RNText, type TextProps, type TextStyle } from 'react-native';
 
-import { Typography, type ThemeColor } from '@/constants/theme';
+import { Fonts, Typography, Weights, type ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type TextVariant = keyof typeof Typography;
@@ -8,9 +8,22 @@ export type TextVariant = keyof typeof Typography;
 export type AppTextProps = TextProps & {
   variant?: TextVariant;
   color?: ThemeColor;
+  weight?: keyof typeof Weights;
 };
 
-export function Text({ variant = 'body', color = 'text', style, ...rest }: AppTextProps) {
+export function Text({ variant = 'body', color = 'text', weight, style, ...rest }: AppTextProps) {
   const theme = useTheme();
-  return <RNText style={[Typography[variant] as TextStyle, { color: theme[color] }, style]} {...rest} />;
+  const variantStyle = Typography[variant] as TextStyle;
+  const fontFamily = Fonts.sans;
+  const fontWeight = weight ? Weights[weight] : (variantStyle.fontWeight as TextStyle['fontWeight']);
+  return (
+    <RNText
+      style={[
+        variantStyle,
+        { color: theme[color], fontFamily, fontWeight },
+        style,
+      ]}
+      {...rest}
+    />
+  );
 }
