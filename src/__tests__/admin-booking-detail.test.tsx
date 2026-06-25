@@ -17,6 +17,7 @@ const mockGetBookingById = jest.fn().mockResolvedValue({
   scheduled_for: '2026-07-01T10:00:00Z',
   notes: 'Ring doorbell',
   status: 'pending' as const,
+  customer_id: 'cust1',
   assigned_provider_name: null,
   assigned_provider_phone: null,
   assigned_provider_id: null,
@@ -82,6 +83,18 @@ const mockGetBookingActivity = jest.fn().mockResolvedValue([
 
 jest.mock('@/lib/activity', () => ({
   getBookingActivity: (...args: unknown[]) => mockGetBookingActivity(...args),
+}));
+
+jest.mock('@/lib/messages', () => ({
+  getBookingMessages: jest.fn().mockResolvedValue([]),
+  getChatPeerName: jest.fn().mockResolvedValue(null),
+  sendBookingMessage: jest.fn(),
+  labelSender: (s: string, b: { customer_id: string; assigned_provider_id: string | null }) =>
+    s === b.customer_id ? 'Customer' : s === b.assigned_provider_id ? 'Provider' : 'Unknown',
+}));
+
+jest.mock('@/auth/auth-context', () => ({
+  useAuth: () => ({ session: { user: { id: 'admin' } } }),
 }));
 
 jest.mock('@/lib/quotes', () => ({
@@ -220,5 +233,13 @@ describe('AdminBookingDetailScreen', () => {
     await screen.findByText('House Cleaning');
     // Activity message should appear in the timeline
     expect(await screen.findByText('Booking created.')).toBeOnTheScreen();
+  });
+
+  it('renders the Conversation section heading', async () => {
+    render(<AdminBookingDetailScreen />);
+    await screen.findByText('House Cleaning');
+    // 'Conversation' appears twice: once as the section heading and once inside ChatThread
+    const conversationHeadings = await screen.findAllByText('Conversation');
+    expect(conversationHeadings.length).toBeGreaterThan(0);
   });
 });
