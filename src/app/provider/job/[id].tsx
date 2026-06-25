@@ -3,7 +3,7 @@
  * advance the status forward one step at a time, and add before/after photos.
  */
 
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -141,6 +141,11 @@ export default function ProviderJobDetailScreen() {
         {/* Activity section — chronological log of booking events. */}
         <Text variant="heading">Activity</Text>
         <ActivityTimeline events={activity} />
+
+        {/* Chat button — only shown when a provider has been assigned */}
+        {booking?.assigned_provider_id ? (
+          <Button label="Chat with customer" onPress={() => router.push(`/provider/job/chat/${id}`)} />
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );

@@ -43,6 +43,7 @@ import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { PhotoGallery } from '@/components/ui/photo-gallery';
 import { ActivityTimeline } from '@/components/ui/activity-timeline';
+import { ChatThread } from '@/components/ui/chat-thread';
 
 export default function AdminBookingDetailScreen() {
   const theme = useTheme();
@@ -384,6 +385,10 @@ export default function AdminBookingDetailScreen() {
         {/* Activity section — chronological log of booking events. */}
         <Text variant="heading">Activity</Text>
         <ActivityTimeline events={activity} />
+
+        {/* Conversation section — admin read-only view of the booking chat.
+            ChatThread renders its own "Conversation" header in readonly mode. */}
+        <ChatThread bookingId={id} booking={booking} mode="readonly" />
       </ScrollView>
     </SafeAreaView>
   );
