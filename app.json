@@ -39,8 +39,14 @@
       ["expo-image-picker", {
         "photosPermission": "QuickServe needs photo access to attach job photos.",
         "cameraPermission": "QuickServe needs camera access to take job photos."
-      }]
+      }],
+      "expo-notifications"
     ],
+    "extra": {
+      "eas": {
+        "projectId": ""
+      }
+    },
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
