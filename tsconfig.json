@@ -22,6 +22,9 @@
     "_parked",
     "supabase/functions/mpesa-stk-push/index.ts",
     "supabase/functions/mpesa-callback/index.ts",
-    "supabase/functions/_shared/daraja-client.ts"
+    "supabase/functions/_shared/daraja-client.ts",
+    "supabase/functions/register-device/index.ts",
+    "supabase/functions/send-push/index.ts",
+    "supabase/functions/_shared/expo-push-client.ts"
   ]
 }

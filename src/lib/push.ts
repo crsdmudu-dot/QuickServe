@@ -1,0 +1,43 @@
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+import { supabase } from '@/lib/supabase';
+
+/** Pure: resolve a notification's data payload to an expo-router path, or null. */
+export function routeForNotificationData(data: unknown): string | null {
+  if (data && typeof data === 'object') {
+    const route = (data as Record<string, unknown>).route;
+    if (typeof route === 'string' && route.length > 0) return route;
+  }
+  return null;
+}
+
+/**
+ * Request permission, get the Expo push token, and register it with the backend.
+ * Returns the token, or null when not possible (no device / denied / Expo Go / error).
+ * NEVER throws.
+ */
+export async function registerForPushNotifications(): Promise<string | null> {
+  try {
+    if (!Device.isDevice) return null;                 // simulators / Expo Go web
+    const existing = await Notifications.getPermissionsAsync();
+    let status = existing.status;
+    if (status !== 'granted') {
+      const req = await Notifications.requestPermissionsAsync();
+      status = req.status;
+    }
+    if (status !== 'granted') return null;
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId as string | undefined;
+    const tokenResp = await Notifications.getExpoPushTokenAsync(
+      projectId ? { projectId } : undefined,
+    );
+    const push_token = tokenResp.data;
+    await supabase.functions.invoke('register-device', {
+      body: { push_token, platform: Platform.OS, device_name: Device.deviceName ?? null },
+    });
+    return push_token;
+  } catch {
+    return null;   // Expo Go on Android throws on getExpoPushTokenAsync — handled gracefully.
+  }
+}
