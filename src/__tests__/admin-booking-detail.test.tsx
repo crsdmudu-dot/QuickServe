@@ -238,7 +238,7 @@ describe('AdminBookingDetailScreen', () => {
   it('renders the Conversation section heading', async () => {
     render(<AdminBookingDetailScreen />);
     await screen.findByText('House Cleaning');
-    // 'Conversation' appears twice: once as the section heading and once inside ChatThread
+    // ChatThread renders its own "Conversation" header in readonly mode.
     const conversationHeadings = await screen.findAllByText('Conversation');
     expect(conversationHeadings.length).toBeGreaterThan(0);
   });

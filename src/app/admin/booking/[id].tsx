@@ -386,8 +386,8 @@ export default function AdminBookingDetailScreen() {
         <Text variant="heading">Activity</Text>
         <ActivityTimeline events={activity} />
 
-        {/* Conversation section — admin read-only view of the booking chat. */}
-        <Text variant="heading">Conversation</Text>
+        {/* Conversation section — admin read-only view of the booking chat.
+            ChatThread renders its own "Conversation" header in readonly mode. */}
         <ChatThread bookingId={id} booking={booking} mode="readonly" />
       </ScrollView>
     </SafeAreaView>
