@@ -15,7 +15,7 @@
  * existing review via ReviewCard.
  */
 
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -221,6 +221,11 @@ export default function BookingDetailScreen() {
           <Text variant="caption" color="error">
             {quoteError}
           </Text>
+        ) : null}
+
+        {/* Chat button — only shown when a provider has been assigned */}
+        {booking.assigned_provider_id ? (
+          <Button label="Chat with provider" onPress={() => router.push(`/booking/chat/${id}`)} />
         ) : null}
 
         {/* Assigned professional — shown when a provider has been assigned */}
