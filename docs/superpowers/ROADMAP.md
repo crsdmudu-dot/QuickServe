@@ -111,3 +111,30 @@ Tracked for sequencing; each gets its own spec later.
 - Admin dashboard (Admin Dispatch Mode lives here)
 - Payments
 - Maps / live tracking
+
+---
+
+## Premium UI/UX Overhaul + Branded Splash (next design slice — after Slice 15)
+
+**Status:** Planned — the next design slice after Slice 15 (Push Notifications). Not built until it has its own spec → plan → implementation cycle.
+
+### Purpose
+
+A premium UI/UX overhaul using **Claude Design**, including an **interactive branded splash screen** that clearly communicates QuickServe as a **premium professional services company** — elegant, not gimmicky.
+
+### Splash should hint at (without clutter)
+
+- electricians
+- plumbers
+- cleaners
+- painters
+- handymen
+- trusted professionals
+- fast service
+- premium brand
+
+### Notes
+
+- Keep it elegant and refined — premium feel, no gimmicks.
+- Reinforce the QuickServe control model: customers hire QuickServe (a trusted brand), not random freelancers.
+- Carry the premium treatment through the wider app (cards, spacing, typography), consistent with the existing design system.
