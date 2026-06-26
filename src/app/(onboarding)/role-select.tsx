@@ -21,21 +21,25 @@ export default function RoleSelectScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
-      <Text variant="title">Choose your role</Text>
-      <Text variant="body" color="textSecondary">
-        How will you use QuickServe?
-      </Text>
+      <View style={styles.header}>
+        <Text variant="display" style={styles.heading}>Choose your role</Text>
+        <Text variant="body" color="textSecondary" style={styles.sub}>
+          How will you use QuickServe?
+        </Text>
+      </View>
+
       <View style={styles.list}>
         {ROLES.map((r) => (
-          <Card key={r.id} onPress={() => choose(r.id)}>
+          <Card key={r.id} elevation="e1" onPress={() => choose(r.id)} style={styles.roleCard}>
             <View style={styles.row}>
-              <IconChip icon={r.icon} />
+              <IconChip icon={r.icon} size={28} />
               <View style={styles.text}>
-                <Text variant="label">{r.label}</Text>
-                <Text variant="caption" color="textSecondary">
+                <Text variant="heading">{r.label}</Text>
+                <Text variant="body" color="textSecondary">
                   {r.description}
                 </Text>
               </View>
+              <Text style={styles.chevron} color="textTertiary">›</Text>
             </View>
           </Card>
         ))}
@@ -45,8 +49,19 @@ export default function RoleSelectScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, padding: Spacing.four, gap: Spacing.two },
-  list: { gap: Spacing.three, marginTop: Spacing.three },
+  safe: { flex: 1, paddingHorizontal: Spacing.four },
+  header: {
+    paddingTop: Spacing.five,
+    paddingBottom: Spacing.four,
+    gap: Spacing.two,
+  },
+  heading: {
+    letterSpacing: -0.5,
+  },
+  sub: {},
+  list: { gap: Spacing.three },
+  roleCard: { paddingVertical: Spacing.four },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
-  text: { flex: 1, gap: Spacing.half },
+  text: { flex: 1, gap: Spacing.one },
+  chevron: { fontSize: 22, lineHeight: 26 },
 });

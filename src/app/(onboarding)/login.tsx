@@ -27,12 +27,44 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
-      <Text variant="title">Welcome back</Text>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text variant="display" style={styles.heading}>Welcome back</Text>
+        <Text variant="body" color="textSecondary">
+          Sign in to continue.
+        </Text>
+      </View>
+
+      {/* Form */}
       <View style={styles.form}>
-        <Input label="Email" value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" autoCapitalize="none" error={errors.email} />
-        <Input label="Password" value={password} onChangeText={setPassword} placeholder="Your password" secureTextEntry autoCapitalize="none" error={errors.password} />
-        <Button label="Continue" fullWidth onPress={submit} />
-        {authError ? <Text variant="caption" color="error">{authError}</Text> : null}
+        <Input
+          label="Email"
+          value={email}
+          onChangeText={setEmail}
+          placeholder="you@example.com"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          error={errors.email}
+        />
+        <Input
+          label="Password"
+          value={password}
+          onChangeText={setPassword}
+          placeholder="Your password"
+          secureTextEntry
+          autoCapitalize="none"
+          error={errors.password}
+        />
+
+        <View style={styles.actions}>
+          <Button label="Continue" fullWidth size="lg" onPress={submit} />
+          {authError ? (
+            <Text variant="caption" color="error" style={styles.authError}>
+              {authError}
+            </Text>
+          ) : null}
+        </View>
+
         <View style={styles.linkRow}>
           <Text variant="body" color="textSecondary">New here? </Text>
           <Text variant="label" color="primary" onPress={() => router.push('/register')}>
@@ -45,7 +77,17 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, padding: Spacing.four, gap: Spacing.four },
+  safe: { flex: 1, paddingHorizontal: Spacing.four },
+  header: {
+    paddingTop: Spacing.five,
+    paddingBottom: Spacing.five,
+    gap: Spacing.two,
+  },
+  heading: {
+    letterSpacing: -0.5,
+  },
   form: { gap: Spacing.three },
-  linkRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
+  actions: { gap: Spacing.two, marginTop: Spacing.one },
+  authError: { textAlign: 'center' },
+  linkRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: Spacing.two },
 });
