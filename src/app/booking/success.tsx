@@ -11,7 +11,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Spacing } from '@/constants/theme';
+import { Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
@@ -23,8 +23,12 @@ export default function SuccessScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
       <View style={styles.content}>
-        <Text style={styles.emoji}>🎉</Text>
-        <Text variant="title" style={styles.center}>
+        {/* Celebratory icon in a tinted circle */}
+        <View style={[styles.iconCircle, { backgroundColor: theme.primarySurface }]}>
+          <Text style={styles.emoji}>🎉</Text>
+        </View>
+
+        <Text variant="display" style={styles.center}>
           Booking created successfully
         </Text>
         <Text variant="body" color="textSecondary" style={styles.center}>
@@ -45,7 +49,15 @@ export default function SuccessScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, padding: Spacing.four, gap: Spacing.four },
-  content: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.three },
-  emoji: { fontSize: 56 },
+  content: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.four },
+  iconCircle: {
+    width: 104,
+    height: 104,
+    borderRadius: Radii.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.two,
+  },
+  emoji: { fontSize: 52 },
   center: { textAlign: 'center' },
 });

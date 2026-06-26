@@ -17,7 +17,7 @@
 
 import { useLocalSearchParams, router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SERVICES } from '@/constants/services';
@@ -34,6 +34,7 @@ import { AttemptStatusBadge } from '@/components/ui/attempt-status-badge';
 import { BookingSummaryCard } from '@/components/ui/booking-summary-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Card } from '@/components/ui/card';
+import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
 import { ProfessionalCard } from '@/components/ui/professional-card';
 import { PhotoGallery } from '@/components/ui/photo-gallery';
@@ -149,9 +150,11 @@ export default function BookingDetailScreen() {
   if (!booking) {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
-        <Text variant="body" color="textSecondary">
-          Loading…
-        </Text>
+        <View style={styles.loadingContainer}>
+          <Text variant="body" color="textSecondary">
+            Loading…
+          </Text>
+        </View>
       </SafeAreaView>
     );
   }
@@ -160,8 +163,13 @@ export default function BookingDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text variant="title">Booking Detail</Text>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text variant="title" style={styles.pageTitle}>
+          Booking Detail
+        </Text>
 
         {/* Booking summary */}
         <BookingSummaryCard
@@ -172,10 +180,12 @@ export default function BookingDetailScreen() {
         />
 
         {/* Current status */}
-        <StatusBadge status={booking.status} />
+        <View style={styles.statusRow}>
+          <StatusBadge status={booking.status} />
+        </View>
 
         {/* Payment section */}
-        <Text variant="heading">Payment</Text>
+        <SectionHeader title="Payment" />
         {booking.quote_status === 'sent' ? (
           <QuoteCard
             amount={booking.quoted_amount}
@@ -184,20 +194,20 @@ export default function BookingDetailScreen() {
             onDecline={handleDecline}
           />
         ) : payment != null ? (
-          <>
+          <View style={styles.paymentBlock}>
             <QuoteCard amount={payment.amount} quoteStatus={booking.quote_status} paymentStatus={payment.status} />
             {attempts.length > 0 && (
-              <>
+              <View style={styles.attemptBlock}>
                 <AttemptStatusBadge status={attempts[0].status} />
                 {(attempts[0].status === 'pending' || attempts[0].status === 'initiated') && (
                   <Text variant="caption" color="textSecondary">
                     Payment request sent. Awaiting confirmation.
                   </Text>
                 )}
-              </>
+              </View>
             )}
             {payment.status === 'pending' && booking.status === 'completed' && (
-              <>
+              <View style={styles.mpesaBlock}>
                 <Input
                   label="M-Pesa phone number"
                   value={phone}
@@ -209,9 +219,9 @@ export default function BookingDetailScreen() {
                 <Button label="Pay with M-Pesa" onPress={handlePayMpesa} />
                 <Button label="Card — coming soon" variant="ghost" disabled />
                 {payError ? <Text variant="caption" color="error">{payError}</Text> : null}
-              </>
+              </View>
             )}
-          </>
+          </View>
         ) : booking.quote_status === 'pending' ? (
           <Text variant="body" color="textSecondary">
             No quote yet.
@@ -230,15 +240,17 @@ export default function BookingDetailScreen() {
 
         {/* Assigned professional — shown when a provider has been assigned */}
         {professional ? (
-          <>
-            <Text variant="heading">Assigned Professional</Text>
+          <View style={styles.section}>
+            <SectionHeader title="Assigned Professional" />
             <ProfessionalCard professional={professional} />
-          </>
+          </View>
         ) : booking.assigned_provider_name ? (
-          <Card style={styles.providerCard}>
-            <Text variant="heading">Assigned Professional</Text>
-            <Text variant="body">{booking.assigned_provider_name}</Text>
-          </Card>
+          <View style={styles.section}>
+            <SectionHeader title="Assigned Professional" />
+            <Card style={styles.providerCard}>
+              <Text variant="body">{booking.assigned_provider_name}</Text>
+            </Card>
+          </View>
         ) : (
           <Text variant="body" color="textSecondary">
             No provider assigned yet
@@ -246,29 +258,33 @@ export default function BookingDetailScreen() {
         )}
 
         {/* Photos section */}
-        <Text variant="heading">Photos</Text>
-        <PhotoGallery photos={photos} />
-        <PhotoUploadButton
-          bookingId={id}
-          photoType="issue"
-          label="Add issue photos"
-          onUploaded={loadPhotos}
-        />
+        <View style={styles.section}>
+          <SectionHeader title="Photos" />
+          <PhotoGallery photos={photos} />
+          <PhotoUploadButton
+            bookingId={id}
+            photoType="issue"
+            label="Add issue photos"
+            onUploaded={loadPhotos}
+          />
+        </View>
 
         {/* Activity section */}
-        <Text variant="heading">Activity</Text>
-        <ActivityTimeline events={activity} />
+        <View style={styles.section}>
+          <SectionHeader title="Activity" />
+          <ActivityTimeline events={activity} />
+        </View>
 
         {/* Review section — only shown for completed bookings with an in-app provider */}
         {booking.status === 'completed' && booking.assigned_provider_id ? (
           review ? (
-            <>
-              <Text variant="heading">Your review</Text>
+            <View style={styles.section}>
+              <SectionHeader title="Your review" />
               <ReviewCard review={review} />
-            </>
+            </View>
           ) : (
-            <>
-              <Text variant="heading">Your review</Text>
+            <View style={styles.section}>
+              <SectionHeader title="Your review" />
               <StarInput value={rating} onChange={setRating} />
               <Input
                 label="Comment (optional)"
@@ -287,7 +303,7 @@ export default function BookingDetailScreen() {
                 onPress={handleSubmitReview}
                 disabled={rating === 0}
               />
-            </>
+            </View>
           )
         ) : null}
       </ScrollView>
@@ -297,6 +313,17 @@ export default function BookingDetailScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  content: { padding: Spacing.four, gap: Spacing.three },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  content: { padding: Spacing.four, gap: Spacing.four },
+  pageTitle: { marginBottom: Spacing.one },
+  statusRow: { flexDirection: 'row' },
+  section: { gap: Spacing.three },
+  paymentBlock: { gap: Spacing.three },
+  attemptBlock: { gap: Spacing.two },
+  mpesaBlock: { gap: Spacing.three },
   providerCard: { gap: Spacing.two },
 });

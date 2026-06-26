@@ -9,7 +9,7 @@
 
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Spacing } from '@/constants/theme';
@@ -17,6 +17,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { useBookingDraft } from '@/booking/booking-draft';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
 
 export default function NotesScreen() {
@@ -39,47 +40,72 @@ export default function NotesScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
-      <Text variant="title">Any special notes?</Text>
-      <View style={styles.form}>
-        <Input
-          label="Notes (optional)"
-          value={notes}
-          onChangeText={setNotes}
-          placeholder="E.g. use the back entrance, bring your own supplies…"
-          multiline
-        />
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Step indicator */}
+        <Text variant="caption" color="textSecondary" style={styles.step}>
+          Step 3 of 4
+        </Text>
 
-        {/* Issue photos section */}
-        <View style={styles.photosSection}>
-          <Text variant="heading">Add issue photos (optional)</Text>
-          <Button label="Pick photo from library" onPress={handlePickPhoto} />
-          {issuePhotos.length > 0 && (
-            <Text variant="caption" color="textSecondary">
-              {issuePhotos.length} photo{issuePhotos.length !== 1 ? 's' : ''} selected
-            </Text>
-          )}
-          {issuePhotos.map((uri) => (
-            <View key={uri} style={styles.photoRow}>
-              <Text variant="caption" numberOfLines={1} style={styles.photoUri}>
-                {uri}
+        <Text variant="title" style={styles.title}>
+          Any special notes?
+        </Text>
+        <Text variant="body" color="textSecondary" style={styles.subtitle}>
+          Optional — help your provider arrive prepared.
+        </Text>
+
+        <View style={styles.form}>
+          <Input
+            label="Notes (optional)"
+            value={notes}
+            onChangeText={setNotes}
+            placeholder="E.g. use the back entrance, bring your own supplies…"
+            multiline
+          />
+
+          {/* Issue photos section */}
+          <View style={styles.photosSection}>
+            <SectionHeader title="Add issue photos (optional)" />
+            <Button label="Pick photo from library" onPress={handlePickPhoto} variant="secondary" />
+            {issuePhotos.length > 0 && (
+              <Text variant="caption" color="textSecondary">
+                {issuePhotos.length} photo{issuePhotos.length !== 1 ? 's' : ''} selected
               </Text>
-              <TouchableOpacity onPress={() => removeIssuePhoto(uri)} testID={`remove-photo-${uri}`}>
-                <Text variant="caption" color="error">
-                  Remove
+            )}
+            {issuePhotos.map((uri) => (
+              <View key={uri} style={styles.photoRow}>
+                <Text variant="caption" numberOfLines={1} style={styles.photoUri}>
+                  {uri}
                 </Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-        </View>
+                <TouchableOpacity onPress={() => removeIssuePhoto(uri)} testID={`remove-photo-${uri}`}>
+                  <Text variant="caption" color="error">
+                    Remove
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
 
-        <Button label="Continue" fullWidth onPress={handleContinue} />
-      </View>
+          <Button label="Continue" fullWidth onPress={handleContinue} />
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, padding: Spacing.four, gap: Spacing.four },
+  safe: { flex: 1 },
+  scroll: {
+    flexGrow: 1,
+    padding: Spacing.four,
+    gap: Spacing.three,
+  },
+  step: { marginBottom: Spacing.one },
+  title: { marginBottom: Spacing.one },
+  subtitle: { marginBottom: Spacing.two },
   form: { gap: Spacing.three },
   photosSection: { gap: Spacing.two },
   photoRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },

@@ -12,7 +12,7 @@
 
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { FlatList, StyleSheet } from 'react-native';
+import { FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Spacing } from '@/constants/theme';
@@ -22,11 +22,12 @@ import { formatKes } from '@/lib/currency';
 import { PaymentStatusBadge } from '@/components/ui/payment-status-badge';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 
 export default function CustomerPaymentsScreen() {
   const theme = useTheme();
-  const [payments, setPayments] = useState<Payment[]>([]);
+  const [payments, setPayments] = useState<Payment[] | null>(null);
 
   useEffect(() => {
     getMyPayments().then(setPayments);
@@ -38,7 +39,14 @@ export default function CustomerPaymentsScreen() {
         My Payments
       </Text>
 
-      {payments.length === 0 ? (
+      {/* Loading skeleton — shown until the first fetch resolves */}
+      {payments === null ? (
+        <View style={styles.skeletons}>
+          <Skeleton height={88} radius={16} />
+          <Skeleton height={88} radius={16} />
+          <Skeleton height={88} radius={16} />
+        </View>
+      ) : payments.length === 0 ? (
         <EmptyState
           icon="💳"
           title="No payments yet"
@@ -50,9 +58,11 @@ export default function CustomerPaymentsScreen() {
           keyExtractor={(p) => p.id}
           contentContainerStyle={styles.list}
           renderItem={({ item: p }) => (
-            <Card onPress={() => router.push(`/booking/${p.booking_id}`)} style={styles.card}>
+            <Card onPress={() => router.push(`/booking/${p.booking_id}`)} style={styles.card} elevation="e1">
               <Text variant="heading">{formatKes(p.amount)}</Text>
-              <PaymentStatusBadge status={p.status} />
+              <View style={styles.row}>
+                <PaymentStatusBadge status={p.status} />
+              </View>
               <Text variant="caption" color="textSecondary">
                 {new Date(p.created_at).toLocaleDateString()}
               </Text>
@@ -66,7 +76,16 @@ export default function CustomerPaymentsScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  heading: { paddingHorizontal: Spacing.four, paddingTop: Spacing.three },
+  heading: {
+    paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.four,
+    paddingBottom: Spacing.two,
+  },
   list: { padding: Spacing.four, gap: Spacing.three },
   card: { gap: Spacing.two },
+  row: { flexDirection: 'row' },
+  skeletons: {
+    padding: Spacing.four,
+    gap: Spacing.three,
+  },
 });
