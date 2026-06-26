@@ -48,7 +48,10 @@ export default function ProviderNotificationsScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         <Text variant="title" style={styles.heading}>
           Notifications
         </Text>
@@ -64,6 +67,12 @@ export default function ProviderNotificationsScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  heading: { marginBottom: Spacing.three },
-  content: { padding: Spacing.four },
+  heading: {
+    paddingTop: Spacing.one,
+    marginBottom: Spacing.four,
+  },
+  content: {
+    padding: Spacing.four,
+    paddingTop: Spacing.four,
+  },
 });

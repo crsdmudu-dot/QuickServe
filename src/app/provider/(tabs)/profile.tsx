@@ -30,6 +30,7 @@ import { Text } from '@/components/ui/text';
 import { RatingStars } from '@/components/ui/rating-stars';
 import { ReviewCard } from '@/components/ui/review-card';
 import { Card } from '@/components/ui/card';
+import { SectionHeader } from '@/components/ui/section-header';
 
 // Combined state: read-only profile metadata + editable form fields in one object.
 // A single setState call avoids multiple act() warnings in tests.
@@ -155,8 +156,11 @@ export default function ProviderProfileScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Avatar + name row */}
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── Hero: avatar, name, verified, job count ─────────────────── */}
         <View style={styles.hero}>
           <Avatar
             name={state.profile?.full_name ?? ''}
@@ -170,9 +174,9 @@ export default function ProviderProfileScreen() {
           </Text>
         </View>
 
-        {/* Ratings section — read-only; providers cannot edit or hide reviews */}
+        {/* ── Ratings section — read-only ──────────────────────────────── */}
         <View style={styles.section}>
-          <Text variant="heading">Ratings</Text>
+          <SectionHeader title="Ratings" />
           <RatingStars
             value={state.profile?.average_rating ?? null}
             count={state.profile?.review_count}
@@ -182,10 +186,10 @@ export default function ProviderProfileScreen() {
           ))}
         </View>
 
-        {/* Earnings section — read-only; providers cannot trigger payouts here */}
+        {/* ── Earnings section — read-only ─────────────────────────────── */}
         <View style={styles.section}>
-          <Text variant="heading">Earnings</Text>
-          <Card style={styles.section}>
+          <SectionHeader title="Earnings" />
+          <Card style={styles.summaryCard}>
             <Text variant="body">Pending: {formatKes(earningsSummary.pending)}</Text>
             <Text variant="body">Paid: {formatKes(earningsSummary.paid)}</Text>
           </Card>
@@ -193,7 +197,7 @@ export default function ProviderProfileScreen() {
             <Text variant="caption" color="textSecondary">No earnings yet.</Text>
           ) : (
             earnings.map((e) => (
-              <Card key={e.id} style={styles.section}>
+              <Card key={e.id} style={styles.earningCard}>
                 <Text variant="heading">{formatKes(e.amount)}</Text>
                 <Text
                   variant="caption"
@@ -208,53 +212,56 @@ export default function ProviderProfileScreen() {
           )}
         </View>
 
-        {/* Editable fields */}
-        <View style={styles.fields}>
-          <Input
-            label="Bio"
-            value={state.bio}
-            onChangeText={(v) => patch('bio', v)}
-            placeholder="Tell customers about yourself…"
-            multiline
-          />
-          <Input
-            label="Years of experience"
-            value={state.yearsExp}
-            onChangeText={(v) => patch('yearsExp', v)}
-            placeholder="e.g. 5"
-            keyboardType="phone-pad"
-          />
-          <Input
-            label="Skills (comma-separated)"
-            value={state.skillsText}
-            onChangeText={(v) => patch('skillsText', v)}
-            placeholder="e.g. Plumbing, Tiling"
-          />
-          <Input
-            label="Profile photo URL"
-            value={state.photoUrl}
-            onChangeText={(v) => patch('photoUrl', v)}
-            placeholder="https://…"
-            autoCapitalize="none"
-          />
+        {/* ── Editable fields ──────────────────────────────────────────── */}
+        <View style={styles.section}>
+          <SectionHeader title="Edit Profile" />
+          <View style={styles.fields}>
+            <Input
+              label="Bio"
+              value={state.bio}
+              onChangeText={(v) => patch('bio', v)}
+              placeholder="Tell customers about yourself…"
+              multiline
+            />
+            <Input
+              label="Years of experience"
+              value={state.yearsExp}
+              onChangeText={(v) => patch('yearsExp', v)}
+              placeholder="e.g. 5"
+              keyboardType="phone-pad"
+            />
+            <Input
+              label="Skills (comma-separated)"
+              value={state.skillsText}
+              onChangeText={(v) => patch('skillsText', v)}
+              placeholder="e.g. Plumbing, Tiling"
+            />
+            <Input
+              label="Profile photo URL"
+              value={state.photoUrl}
+              onChangeText={(v) => patch('photoUrl', v)}
+              placeholder="https://…"
+              autoCapitalize="none"
+            />
 
-          {/* Availability toggle — immediately saves to the server */}
-          <Button
-            label={state.availability === 'available' ? 'Available' : 'Unavailable'}
-            variant={state.availability === 'available' ? 'primary' : 'ghost'}
-            onPress={handleToggleAvailability}
-          />
+            {/* Availability toggle — immediately saves to the server */}
+            <Button
+              label={state.availability === 'available' ? 'Available' : 'Unavailable'}
+              variant={state.availability === 'available' ? 'primary' : 'ghost'}
+              onPress={handleToggleAvailability}
+            />
 
-          {/* Inline save error */}
-          {saveError ? (
-            <Text variant="caption" color="error">
-              {saveError}
-            </Text>
-          ) : null}
+            {/* Inline save error */}
+            {saveError ? (
+              <Text variant="caption" color="error">
+                {saveError}
+              </Text>
+            ) : null}
 
-          <Button label="Save" onPress={handleSave} />
+            <Button label="Save" onPress={handleSave} />
 
-          <Button label="Sign out" variant="ghost" onPress={signOut} />
+            <Button label="Sign out" variant="ghost" onPress={signOut} />
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -263,8 +270,17 @@ export default function ProviderProfileScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  scroll: { padding: Spacing.four, gap: Spacing.three },
-  hero: { alignItems: 'center', gap: Spacing.two, paddingBottom: Spacing.three },
-  section: { gap: Spacing.two },
+  scroll: {
+    padding: Spacing.four,
+    gap: Spacing.five,
+  },
+  hero: {
+    alignItems: 'center',
+    gap: Spacing.two,
+    paddingVertical: Spacing.three,
+  },
+  section: { gap: Spacing.three },
+  summaryCard: { gap: Spacing.two },
+  earningCard: { gap: Spacing.one },
   fields: { gap: Spacing.three },
 });

@@ -22,6 +22,7 @@ import { Text } from '@/components/ui/text';
 import { PhotoGallery } from '@/components/ui/photo-gallery';
 import { PhotoUploadButton } from '@/components/ui/photo-upload-button';
 import { ActivityTimeline } from '@/components/ui/activity-timeline';
+import { SectionHeader } from '@/components/ui/section-header';
 
 export default function ProviderJobDetailScreen() {
   const theme = useTheme();
@@ -76,10 +77,13 @@ export default function ProviderJobDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         <Text variant="title">Job Detail</Text>
 
-        {/* Booking summary (service, address, date, notes) */}
+        {/* ── Booking summary (service, address, date, notes) ──────────── */}
         <BookingSummaryCard
           serviceTitle={service?.title ?? booking.service_id}
           address={booking.address}
@@ -87,7 +91,7 @@ export default function ProviderJobDetailScreen() {
           notes={booking.notes ?? ''}
         />
 
-        {/* Customer / provider info */}
+        {/* ── Provider info row ────────────────────────────────────────── */}
         {booking.assigned_provider_name ? (
           <View style={styles.infoRow}>
             <Text variant="label" color="textSecondary">Provider</Text>
@@ -95,17 +99,19 @@ export default function ProviderJobDetailScreen() {
           </View>
         ) : null}
 
-        {/* Current status badge */}
-        <StatusBadge status={booking.status} />
+        {/* ── Current status badge ─────────────────────────────────────── */}
+        <View style={styles.statusRow}>
+          <StatusBadge status={booking.status} />
+        </View>
 
-        {/* Inline error message */}
+        {/* ── Inline error message ─────────────────────────────────────── */}
         {error ? (
           <Text variant="caption" color="error">
             {error}
           </Text>
         ) : null}
 
-        {/* Forward-only action buttons */}
+        {/* ── Forward-only action buttons ──────────────────────────────── */}
         {nextStatuses.length > 0 ? (
           <View style={styles.actions}>
             {nextStatuses.map((next) => (
@@ -122,27 +128,31 @@ export default function ProviderJobDetailScreen() {
           </Text>
         )}
 
-        {/* Photos section — providers can add before/after photos; view only (no delete). */}
-        <Text variant="heading">Photos</Text>
-        <PhotoGallery photos={photos} />
-        <PhotoUploadButton
-          bookingId={id}
-          photoType="before"
-          label="Add before photo"
-          onUploaded={loadPhotos}
-        />
-        <PhotoUploadButton
-          bookingId={id}
-          photoType="after"
-          label="Add after / completion photo"
-          onUploaded={loadPhotos}
-        />
+        {/* ── Photos section ───────────────────────────────────────────── */}
+        <View style={styles.section}>
+          <SectionHeader title="Photos" />
+          <PhotoGallery photos={photos} />
+          <PhotoUploadButton
+            bookingId={id}
+            photoType="before"
+            label="Add before photo"
+            onUploaded={loadPhotos}
+          />
+          <PhotoUploadButton
+            bookingId={id}
+            photoType="after"
+            label="Add after / completion photo"
+            onUploaded={loadPhotos}
+          />
+        </View>
 
-        {/* Activity section — chronological log of booking events. */}
-        <Text variant="heading">Activity</Text>
-        <ActivityTimeline events={activity} />
+        {/* ── Activity section ─────────────────────────────────────────── */}
+        <View style={styles.section}>
+          <SectionHeader title="Activity" />
+          <ActivityTimeline events={activity} />
+        </View>
 
-        {/* Chat button — only shown when a provider has been assigned */}
+        {/* ── Chat button — only shown when a provider has been assigned ── */}
         {booking?.assigned_provider_id ? (
           <Button label="Chat with customer" onPress={() => router.push(`/provider/job/chat/${id}`)} />
         ) : null}
@@ -155,5 +165,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { padding: Spacing.four, gap: Spacing.three },
   infoRow: { gap: Spacing.half },
+  statusRow: { flexDirection: 'row' },
   actions: { gap: Spacing.two },
+  section: { gap: Spacing.two },
 });

@@ -13,11 +13,11 @@ import { useEffect, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getBookingById, type Booking } from '@/lib/bookings';
 import { ChatThread } from '@/components/ui/chat-thread';
 import { Text } from '@/components/ui/text';
+import { Spacing } from '@/constants/theme';
 
 export default function ProviderChatScreen() {
   const theme = useTheme();
@@ -31,7 +31,7 @@ export default function ProviderChatScreen() {
   if (!booking) {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
-        <Text variant="body" color="textSecondary">Loading…</Text>
+        <Text variant="body" color="textSecondary" style={styles.loading}>Loading…</Text>
       </SafeAreaView>
     );
   }
@@ -43,4 +43,7 @@ export default function ProviderChatScreen() {
   );
 }
 
-const styles = StyleSheet.create({ safe: { flex: 1, padding: Spacing.four } });
+const styles = StyleSheet.create({
+  safe: { flex: 1 },
+  loading: { padding: Spacing.four },
+});

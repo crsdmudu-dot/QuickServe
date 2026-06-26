@@ -17,13 +17,15 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 
 export default function ProviderHomeScreen() {
   const theme = useTheme();
   const { approvalStatus, signOut } = useAuth();
 
-  const [jobs, setJobs] = useState<Booking[]>([]);
+  // null = loading; [] = loaded but empty; [...] = loaded with data
+  const [jobs, setJobs] = useState<Booking[] | null>(null);
 
   useEffect(() => {
     // Only load jobs when the provider is approved.
@@ -72,7 +74,14 @@ export default function ProviderHomeScreen() {
         <Button label="Sign out" variant="ghost" onPress={signOut} />
       </View>
 
-      {jobs.length === 0 ? (
+      {/* Loading skeleton — shown until the first fetch resolves */}
+      {jobs === null ? (
+        <View style={styles.skeletons}>
+          <Skeleton height={88} radius={16} />
+          <Skeleton height={88} radius={16} />
+          <Skeleton height={88} radius={16} />
+        </View>
+      ) : jobs.length === 0 ? (
         <EmptyState
           icon="📋"
           title="No jobs yet"
@@ -83,12 +92,15 @@ export default function ProviderHomeScreen() {
           data={jobs}
           keyExtractor={(j) => j.id}
           contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
           renderItem={({ item: j }) => {
             const service = SERVICES.find((s) => s.id === j.service_id);
             return (
-              <Card onPress={() => router.push(`/provider/job/${j.id}`)} style={styles.card}>
+              <Card onPress={() => router.push(`/provider/job/${j.id}`)} style={styles.card} elevation="e1">
                 <Text variant="heading">{service?.title ?? j.service_id}</Text>
-                <StatusBadge status={j.status} />
+                <View style={styles.row}>
+                  <StatusBadge status={j.status} />
+                </View>
                 <Text variant="caption" color="textSecondary">
                   {new Date(j.scheduled_for).toLocaleString()}
                 </Text>
@@ -109,7 +121,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.three,
+    paddingBottom: Spacing.two,
   },
   list: { padding: Spacing.four, gap: Spacing.three },
   card: { gap: Spacing.two },
+  row: { flexDirection: 'row' },
+  skeletons: {
+    padding: Spacing.four,
+    gap: Spacing.three,
+  },
 });
