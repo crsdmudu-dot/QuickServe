@@ -6,6 +6,7 @@ import * as Notifications from 'expo-notifications';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AuthProvider, useAuth } from '@/auth/auth-context';
 import { BookingDraftProvider } from '@/booking/booking-draft';
+import { ErrorBoundary } from '@/components/error-boundary';
 import { roleHref } from '@/constants/roles';
 import { registerForPushNotifications, routeForNotificationData } from '@/lib/push';
 
@@ -48,7 +49,9 @@ export default function RootLayout() {
       <AnimatedSplashOverlay />
       <AuthProvider>
         <BookingDraftProvider>
-          <RootNavigator />
+          <ErrorBoundary>
+            <RootNavigator />
+          </ErrorBoundary>
         </BookingDraftProvider>
       </AuthProvider>
     </ThemeProvider>
