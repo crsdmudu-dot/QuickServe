@@ -21,7 +21,8 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
         type === 'smallBold' && styles.smallBold,
         type === 'subtitle' && styles.subtitle,
         type === 'link' && styles.link,
-        type === 'linkPrimary' && styles.linkPrimary,
+        // linkPrimary uses theme.info so it stays readable in both light and dark mode
+        type === 'linkPrimary' && [styles.linkPrimary, { color: theme.info }],
         type === 'code' && styles.code,
         style,
       ]}
@@ -63,7 +64,7 @@ const styles = StyleSheet.create({
   linkPrimary: {
     lineHeight: 30,
     fontSize: 14,
-    color: '#3c87f7',
+    // color is set dynamically via theme.info above — no hardcoded hex here
   },
   code: {
     fontFamily: Fonts.mono,

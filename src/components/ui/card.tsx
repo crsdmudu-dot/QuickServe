@@ -67,6 +67,7 @@ export function Card({ style, onPress, children, elevation = 'e1', ...rest }: Ca
         onPress={onPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
+        accessibilityRole="button"
         {...rest}>
         <Animated.View
           style={[base, { transform: [{ scale: scaleAnim }], opacity: opacityAnim }]}>

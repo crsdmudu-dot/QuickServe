@@ -90,7 +90,8 @@ export const Colors = {
     neutral900: '#F3F4F6',
 
     // --- Semantic base colours ---
-    success: '#00875A',
+    // success is lightened in dark mode so it contrasts against successSurface (#052E1A)
+    success: '#2ECC82',
     warning: '#F5A524',
     error: '#E5484D',
     info: '#38BDF8',

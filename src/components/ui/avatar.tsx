@@ -1,7 +1,7 @@
 // avatar.tsx — Circular avatar: shows photo if available, else initials fallback.
 import { Image, StyleSheet, View } from 'react-native';
 
-import { Colors, Radii } from '@/constants/theme';
+import { Radii } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { Text } from '@/components/ui/text';
 
