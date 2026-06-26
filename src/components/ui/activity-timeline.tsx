@@ -1,7 +1,8 @@
 // activity-timeline.tsx — Shows a chronological list of booking activity events.
 import { StyleSheet, View } from 'react-native';
 
-import { Spacing } from '@/constants/theme';
+import { Radii, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { type BookingActivity } from '@/lib/activity';
 import { Text } from '@/components/ui/text';
 
@@ -26,11 +27,13 @@ export type ActivityTimelineProps = {
 };
 
 /**
- * ActivityTimeline — renders each booking activity as a row with an icon,
- * the event message, and a timestamp caption.  Shows "No activity yet" when
- * the events array is empty.
+ * ActivityTimeline — renders each booking activity as a row with an icon dot,
+ * the event message, and a timestamp caption.  A vertical connector line links
+ * consecutive events.  Shows "No activity yet" when the events array is empty.
  */
 export function ActivityTimeline({ events }: ActivityTimelineProps) {
+  const theme = useTheme();
+
   if (events.length === 0) {
     return (
       <Text variant="body" color="textSecondary">
@@ -41,32 +44,60 @@ export function ActivityTimeline({ events }: ActivityTimelineProps) {
 
   return (
     <View style={styles.container}>
-      {events.map((event) => (
-        <View key={event.id} style={styles.row}>
-          <Text variant="body">{EVENT_ICON[event.event_type] ?? '•'}</Text>
-          <View style={styles.content}>
-            <Text variant="body">{event.message}</Text>
-            <Text variant="caption" color="textSecondary">
-              {new Date(event.created_at).toLocaleString()}
-            </Text>
+      {events.map((event, index) => {
+        const isLast = index === events.length - 1;
+        return (
+          <View key={event.id} style={styles.row}>
+            {/* Left column: dot + connector */}
+            <View style={styles.dotColumn}>
+              <View style={[styles.dot, { backgroundColor: theme.primary, borderColor: theme.primarySurface }]} />
+              {!isLast && <View style={[styles.connector, { backgroundColor: theme.border }]} />}
+            </View>
+
+            {/* Right column: icon, message, timestamp */}
+            <View style={styles.content}>
+              <Text variant="body">{EVENT_ICON[event.event_type] ?? '•'}</Text>
+              <Text variant="body">{event.message}</Text>
+              <Text variant="caption" color="textSecondary">
+                {new Date(event.created_at).toLocaleString()}
+              </Text>
+            </View>
           </View>
-        </View>
-      ))}
+        );
+      })}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    gap: Spacing.two,
+    gap: 0,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: Spacing.two,
   },
+  dotColumn: {
+    alignItems: 'center',
+    width: 16,
+    paddingTop: Spacing.one,
+  },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: Radii.pill,
+    borderWidth: 2,
+  },
+  connector: {
+    width: 2,
+    flex: 1,
+    minHeight: Spacing.four,
+    marginTop: Spacing.one,
+  },
   content: {
     flex: 1,
     gap: Spacing.half,
+    paddingBottom: Spacing.three,
   },
 });

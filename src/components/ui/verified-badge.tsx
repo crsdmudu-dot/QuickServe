@@ -9,7 +9,7 @@ export function VerifiedBadge() {
   const theme = useTheme();
 
   return (
-    <View style={[styles.pill, { backgroundColor: theme.primaryTint }]}>
+    <View style={[styles.pill, { backgroundColor: theme.primarySurface }]}>
       <Text variant="caption" color="primary">
         Verified by QuickServe
       </Text>
@@ -21,7 +21,7 @@ const styles = StyleSheet.create({
   pill: {
     alignSelf: 'flex-start',
     borderRadius: Radii.pill,
-    paddingHorizontal: Spacing.two,
-    paddingVertical: Spacing.half,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.one,
   },
 });

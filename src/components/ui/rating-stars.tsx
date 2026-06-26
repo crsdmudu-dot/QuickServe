@@ -1,7 +1,7 @@
 // rating-stars.tsx — Displays a read-only row of 5 stars representing a rating value.
 import { StyleSheet, View } from 'react-native';
 
-import { Spacing } from '@/constants/theme';
+import { Spacing, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { Text } from '@/components/ui/text';
 
@@ -30,8 +30,7 @@ export function RatingStars({ value, count }: RatingStarsProps) {
       {[1, 2, 3, 4, 5].map((n) => (
         <Text
           key={n}
-          variant="body"
-          style={{ color: n <= filled ? theme.warning : theme.textSecondary }}>
+          style={[styles.star, { color: n <= filled ? theme.warning : theme.border }]}>
           {n <= filled ? '★' : '☆'}
         </Text>
       ))}
@@ -48,9 +47,13 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.half,
+    gap: Spacing.one,
+  },
+  star: {
+    fontSize: Typography.body.fontSize,
+    lineHeight: Typography.body.lineHeight,
   },
   count: {
-    marginLeft: Spacing.one,
+    marginLeft: Spacing.two,
   },
 });

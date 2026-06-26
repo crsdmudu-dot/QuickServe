@@ -56,7 +56,7 @@ export function QuoteCard({
   split,
 }: QuoteCardProps) {
   return (
-    <Card>
+    <Card elevation="e1">
       <View style={styles.content}>
         {/* Amount row */}
         {amount != null ? (
@@ -107,10 +107,10 @@ export function QuoteCard({
 
 const styles = StyleSheet.create({
   content: {
-    gap: Spacing.two,
+    gap: Spacing.three,
   },
   split: {
-    gap: Spacing.half,
+    gap: Spacing.one,
   },
   actions: {
     flexDirection: 'row',

@@ -1,4 +1,5 @@
 // professional-card.tsx — Displays a provider's public profile in a card.
+// Shows curated fields only (no phone number).
 import { StyleSheet, View } from 'react-native';
 
 import { Spacing } from '@/constants/theme';
@@ -18,12 +19,16 @@ export function ProfessionalCard({ professional }: ProfessionalCardProps) {
   const primarySkill = skills?.[0] ?? null;
 
   return (
-    <Card>
+    <Card elevation="e1">
       <View style={styles.row}>
         <Avatar name={displayName} photoUrl={profile_photo_url} />
         <View style={styles.info}>
           <Text variant="heading">{displayName}</Text>
-          {primarySkill ? <Text variant="body">{primarySkill}</Text> : null}
+          {primarySkill ? (
+            <Text variant="body" color="textSecondary">
+              {primarySkill}
+            </Text>
+          ) : null}
           {is_verified ? <VerifiedBadge /> : null}
           <Text variant="caption" color="textSecondary">
             {completed_jobs_count} jobs completed
@@ -42,6 +47,6 @@ const styles = StyleSheet.create({
   },
   info: {
     flex: 1,
-    gap: Spacing.half,
+    gap: Spacing.two,
   },
 });

@@ -26,7 +26,7 @@ export function BookingSummaryCard({
   notes,
 }: BookingSummaryCardProps) {
   return (
-    <Card style={styles.card}>
+    <Card elevation="e1" style={styles.card}>
       <Row label="Service" value={serviceTitle} />
       <Row label="Address" value={address} />
       <Row label="Date & time" value={new Date(scheduledFor).toLocaleString()} />
@@ -38,7 +38,7 @@ export function BookingSummaryCard({
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.row}>
-      <Text variant="label" color="textSecondary">
+      <Text variant="caption" color="textSecondary">
         {label}
       </Text>
       <Text variant="body">{value}</Text>
@@ -48,5 +48,5 @@ function Row({ label, value }: { label: string; value: string }) {
 
 const styles = StyleSheet.create({
   card: { gap: Spacing.three },
-  row: { gap: Spacing.half },
+  row: { gap: Spacing.one },
 });
