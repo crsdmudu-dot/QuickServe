@@ -79,11 +79,14 @@ export default function AdminPaymentsScreen() {
           data={payments}
           keyExtractor={(p) => p.id}
           contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
           renderItem={({ item: p }) => (
-            <Card style={styles.card}>
-              {/* Amount + status */}
-              <Text variant="heading">{formatKes(p.amount)}</Text>
-              <PaymentStatusBadge status={p.status} />
+            <Card style={styles.card} elevation="e1">
+              {/* Amount + status in a clean row */}
+              <View style={styles.amountRow}>
+                <Text variant="heading">{formatKes(p.amount)}</Text>
+                <PaymentStatusBadge status={p.status} />
+              </View>
 
               {/* Split breakdown */}
               <Text variant="caption" color="textSecondary">
@@ -100,7 +103,7 @@ export default function AdminPaymentsScreen() {
                 {`#${p.booking_id.slice(0, 8)} · ${new Date(p.created_at).toLocaleDateString()}`}
               </Text>
 
-              {/* Status override buttons */}
+              {/* Status override buttons — tidy action row */}
               <View style={styles.actions}>
                 {ALL_PAYMENT_STATUSES.map((s) => (
                   <Button
@@ -122,6 +125,9 @@ export default function AdminPaymentsScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.three,
     paddingBottom: Spacing.two,
@@ -131,5 +137,10 @@ const styles = StyleSheet.create({
   },
   list: { padding: Spacing.four, gap: Spacing.three },
   card: { gap: Spacing.two },
+  amountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, marginTop: Spacing.two },
 });
