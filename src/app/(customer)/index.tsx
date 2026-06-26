@@ -35,9 +35,9 @@ export default function HomeScreen() {
       showsVerticalScrollIndicator={false}
     >
       <SafeAreaView edges={['top']} style={styles.safeArea}>
-        {/* ── Header ───────────────────────────────────────────────── */}
-        <View style={styles.header}>
-          <Text variant="title">{getGreeting()}</Text>
+        {/* ── Hero header ──────────────────────────────────────────── */}
+        <View style={styles.hero}>
+          <Text variant="display">{getGreeting()}</Text>
           <Text variant="body" color="textSecondary">
             What service do you need today?
           </Text>
@@ -98,23 +98,23 @@ const styles = StyleSheet.create({
   // Outer ScrollView contentContainerStyle — centres content on wide screens.
   content: {
     alignItems: 'center',
-    paddingBottom: BottomTabInset + Spacing.four,
+    paddingBottom: BottomTabInset + Spacing.five,
   },
   // SafeAreaView controls max-width and horizontal padding.
   safeArea: {
     width: '100%',
     maxWidth: MaxContentWidth,
     paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+    gap: Spacing.five,
   },
-  // Greeting + subtitle block.
-  header: {
-    paddingTop: Spacing.three,
-    gap: Spacing.one,
+  // Hero greeting + subtitle block with generous top padding.
+  hero: {
+    paddingTop: Spacing.four,
+    gap: Spacing.two,
   },
   // Each named section (Popular, Home Services, etc.).
   section: {
-    gap: Spacing.two,
+    gap: Spacing.three,
   },
   // Horizontal popular row padding.
   popularRow: {

@@ -48,9 +48,10 @@ const styles = StyleSheet.create({
   row: {
     gap: Spacing.three,
     paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.one,
   },
   item: {
     alignItems: 'center',
-    gap: Spacing.one,
+    gap: Spacing.two,
   },
 });

@@ -66,6 +66,7 @@ export default function AdminPaymentAttemptsScreen() {
         data={attempts}
         keyExtractor={(a) => a.id}
         contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <EmptyState
             icon="📲"
@@ -74,30 +75,35 @@ export default function AdminPaymentAttemptsScreen() {
           />
         }
         renderItem={({ item: a }) => (
-          <Card style={styles.card}>
-            {/* Amount + status */}
-            <Text variant="heading">{formatKes(a.amount)}</Text>
-            <AttemptStatusBadge status={a.status} />
+          <Card style={styles.card} elevation="e1">
+            {/* Amount + status in a clean row */}
+            <View style={styles.amountRow}>
+              <Text variant="heading">{formatKes(a.amount)}</Text>
+              <AttemptStatusBadge status={a.status} />
+            </View>
 
             {/* Provider + phone */}
             <Text variant="caption" color="textSecondary">
               {`${a.provider.toUpperCase()} · ${a.phone ?? '—'}`}
             </Text>
 
-            {/* External reference */}
-            <Text variant="caption" color="textSecondary">
-              {`Ref: ${a.external_reference ?? '—'}`}
-            </Text>
+            {/* Technical metadata wrapped in a surfaceMuted block */}
+            <View style={[styles.metaBlock, { backgroundColor: theme.surfaceMuted }]}>
+              {/* External reference */}
+              <Text variant="caption" color="textSecondary">
+                {`Ref: ${a.external_reference ?? '—'}`}
+              </Text>
 
-            {a.checkout_request_id ? (
-              <Text variant="caption" color="textSecondary">{`Checkout: ${a.checkout_request_id}`}</Text>
-            ) : null}
-            {a.result_code != null ? (
-              <Text variant="caption" color="textSecondary">{`Result: ${a.result_code} · ${a.result_desc ?? ''}`}</Text>
-            ) : null}
-            {a.callback_received_at ? (
-              <Text variant="caption" color="textSecondary">{`Callback: ${new Date(a.callback_received_at).toLocaleString()}`}</Text>
-            ) : null}
+              {a.checkout_request_id ? (
+                <Text variant="caption" color="textSecondary">{`Checkout: ${a.checkout_request_id}`}</Text>
+              ) : null}
+              {a.result_code != null ? (
+                <Text variant="caption" color="textSecondary">{`Result: ${a.result_code} · ${a.result_desc ?? ''}`}</Text>
+              ) : null}
+              {a.callback_received_at ? (
+                <Text variant="caption" color="textSecondary">{`Callback: ${new Date(a.callback_received_at).toLocaleString()}`}</Text>
+              ) : null}
+            </View>
 
             {/* Payment ID + date */}
             <Text variant="caption" color="textSecondary">
@@ -134,5 +140,15 @@ const styles = StyleSheet.create({
   },
   list: { padding: Spacing.four, gap: Spacing.three },
   card: { gap: Spacing.two },
+  amountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  metaBlock: {
+    borderRadius: 8,
+    padding: Spacing.two,
+    gap: Spacing.one,
+  },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two, marginTop: Spacing.two },
 });

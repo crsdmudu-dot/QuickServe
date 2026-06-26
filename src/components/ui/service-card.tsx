@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
-import { Radii, Spacing } from '@/constants/theme';
+import { Radii, Spacing, Typography, Weights } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatKes } from '@/lib/currency';
 import { Card } from '@/components/ui/card';
@@ -26,16 +26,16 @@ export function ServiceCard({
 }: ServiceCardProps) {
   const theme = useTheme();
   return (
-    <Card onPress={onPress}>
+    <Card onPress={onPress} elevation="e1">
       {badge ? (
-        <View style={[styles.badge, { backgroundColor: theme.primaryTint }]}>
-          <Text variant="caption" color="primaryDark">
+        <View style={[styles.badge, { backgroundColor: theme.primarySurface }]}>
+          <Text variant="caption" color="primary" style={styles.badgeText}>
             {badge}
           </Text>
         </View>
       ) : null}
       <IconChip icon={icon} />
-      <Text variant="label" numberOfLines={1} ellipsizeMode="tail">
+      <Text variant="label" numberOfLines={1} ellipsizeMode="tail" style={styles.title}>
         {title}
       </Text>
       {subtitle ? (
@@ -49,7 +49,7 @@ export function ServiceCard({
         </Text>
       ) : null}
       {startingPrice != null ? (
-        <Text variant="caption" color="primaryDark" style={styles.price}>
+        <Text variant="caption" color="primary" style={styles.price}>
           {`from ${formatKes(startingPrice)}`}
         </Text>
       ) : null}
@@ -67,6 +67,12 @@ const styles = StyleSheet.create({
     borderRadius: Radii.pill,
     zIndex: 1,
   },
+  badgeText: {
+    fontWeight: Weights.semibold,
+  },
+  title: {
+    marginTop: Spacing.two,
+  },
   subtitle: { marginTop: Spacing.half },
-  price: { marginTop: Spacing.two, fontWeight: '600' },
+  price: { marginTop: Spacing.two, fontWeight: Weights.semibold },
 });

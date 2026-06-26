@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { useAuth } from '@/auth/auth-context';
-import { Spacing } from '@/constants/theme';
+import { Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -83,7 +83,9 @@ export function ChatThread({ bookingId, booking, mode }: ChatThreadProps) {
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header */}
-      <Text variant="heading">{headingText}</Text>
+      <View style={[styles.header, { borderBottomColor: theme.border }]}>
+        <Text variant="heading">{headingText}</Text>
+      </View>
 
       {/* Message list */}
       <ScrollView
@@ -124,7 +126,7 @@ export function ChatThread({ bookingId, booking, mode }: ChatThreadProps) {
 
       {/* Send area — only for participant mode */}
       {mode === 'participant' && (
-        <View style={styles.sendArea}>
+        <View style={[styles.sendArea, { borderTopColor: theme.border, backgroundColor: theme.surfaceMuted, borderRadius: Radii.lg }]}>
           {terminal ? (
             <Text variant="caption" color="textSecondary">
               This conversation is closed.
@@ -159,6 +161,10 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
     gap: Spacing.three,
   },
+  header: {
+    paddingBottom: Spacing.two,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
   scroll: {
     flex: 1,
   },
@@ -168,5 +174,7 @@ const styles = StyleSheet.create({
   },
   sendArea: {
     gap: Spacing.two,
+    padding: Spacing.three,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
 });

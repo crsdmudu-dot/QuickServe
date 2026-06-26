@@ -15,7 +15,7 @@ export function ReviewCard({ review }: ReviewCardProps) {
   const date = new Date(review.created_at).toLocaleDateString();
 
   return (
-    <Card>
+    <Card elevation="e1">
       <View style={styles.content}>
         <RatingStars value={review.rating} />
         {review.comment != null && (

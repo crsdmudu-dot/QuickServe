@@ -1,6 +1,7 @@
 import { StyleSheet, Text as RNText, View } from 'react-native';
 
-import { Spacing } from '@/constants/theme';
+import { Radii, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 
@@ -13,10 +14,13 @@ export type EmptyStateProps = {
 };
 
 export function EmptyState({ icon, title, message, actionLabel, onAction }: EmptyStateProps) {
+  const theme = useTheme();
   return (
     <View style={styles.container}>
-      <RNText style={styles.icon}>{icon}</RNText>
-      <Text variant="heading" style={styles.center}>
+      <View style={[styles.iconContainer, { backgroundColor: theme.primarySurface }]}>
+        <RNText style={styles.icon}>{icon}</RNText>
+      </View>
+      <Text variant="heading" weight="semibold" style={styles.center}>
         {title}
       </Text>
       <Text variant="body" color="textSecondary" style={styles.center}>
@@ -28,7 +32,20 @@ export function EmptyState({ icon, title, message, actionLabel, onAction }: Empt
 }
 
 const styles = StyleSheet.create({
-  container: { alignItems: 'center', justifyContent: 'center', gap: Spacing.two, padding: Spacing.five },
-  icon: { fontSize: 48, marginBottom: Spacing.two },
+  container: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.three,
+    padding: Spacing.five,
+  },
+  iconContainer: {
+    width: 88,
+    height: 88,
+    borderRadius: Radii.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.one,
+  },
+  icon: { fontSize: 40 },
   center: { textAlign: 'center' },
 });

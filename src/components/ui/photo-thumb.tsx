@@ -19,7 +19,7 @@ export type PhotoThumbProps = {
 };
 
 /**
- * PhotoThumb — shows a 90×90 image (or a grey placeholder when no URL),
+ * PhotoThumb — shows a 96×96 image (or a muted placeholder when no URL),
  * a caption label for the photo type, and a "✓ Verified" badge when
  * the photo has been verified by an admin.
  */
@@ -33,13 +33,17 @@ export function PhotoThumb({ photo }: PhotoThumbProps) {
         <Image
           testID="photo-image"
           source={{ uri: photo.signedUrl }}
-          style={[styles.thumb, { borderRadius: Radii.md }]}
+          style={[styles.thumb, { borderRadius: Radii.lg }]}
           resizeMode="cover"
         />
       ) : (
         <View
           testID="photo-placeholder"
-          style={[styles.thumb, styles.placeholder, { backgroundColor: theme.backgroundElement, borderRadius: Radii.md }]}
+          style={[
+            styles.thumb,
+            styles.placeholder,
+            { backgroundColor: theme.surfaceMuted, borderRadius: Radii.lg },
+          ]}
         />
       )}
 
@@ -50,7 +54,7 @@ export function PhotoThumb({ photo }: PhotoThumbProps) {
 
       {/* Verified tick — only shown when admin has verified the photo */}
       {photo.is_verified && (
-        <View style={[styles.verifiedPill, { backgroundColor: theme.primaryTint }]}>
+        <View style={[styles.verifiedPill, { backgroundColor: theme.primarySurface }]}>
           <Text variant="caption" color="primary">
             ✓ Verified
           </Text>
@@ -66,8 +70,8 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
   },
   thumb: {
-    width: 90,
-    height: 90,
+    width: 96,
+    height: 96,
   },
   placeholder: {
     alignItems: 'center',

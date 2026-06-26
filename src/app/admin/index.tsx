@@ -12,7 +12,7 @@ import { FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SERVICES } from '@/constants/services';
-import { Spacing } from '@/constants/theme';
+import { Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/auth/auth-context';
 import { getAllBookings, type Booking } from '@/lib/bookings';
@@ -21,6 +21,7 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 
 type Tab = 'bookings' | 'providers';
@@ -30,8 +31,8 @@ export default function AdminScreen() {
   const { signOut } = useAuth();
 
   const [tab, setTab] = useState<Tab>('bookings');
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [providers, setProviders] = useState<ProviderProfile[]>([]);
+  const [bookings, setBookings] = useState<Booking[] | null>(null);
+  const [providers, setProviders] = useState<ProviderProfile[] | null>(null);
 
   useEffect(() => {
     getAllBookings().then(setBookings);
@@ -41,28 +42,41 @@ export default function AdminScreen() {
   async function handleApprove(id: string) {
     const result = await setProviderApproval(id, 'approved');
     if (result.ok) {
-      setProviders((prev) => prev.filter((p) => p.id !== id));
+      setProviders((prev) => (prev ?? []).filter((p) => p.id !== id));
     }
   }
 
   async function handleReject(id: string) {
     const result = await setProviderApproval(id, 'rejected');
     if (result.ok) {
-      setProviders((prev) => prev.filter((p) => p.id !== id));
+      setProviders((prev) => (prev ?? []).filter((p) => p.id !== id));
     }
   }
 
+  const isLoading = bookings === null || providers === null;
+
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
-      {/* Header row with sign-out */}
+      {/* Header row — title + Payments nav + sign-out */}
       <View style={styles.header}>
         <Text variant="title">Admin</Text>
-        <Button label="Payments" variant="ghost" onPress={() => router.push('/admin/payments')} />
-        <Button label="Sign out" variant="ghost" onPress={signOut} />
+        <View style={styles.headerActions}>
+          <Button label="Payments" variant="ghost" onPress={() => router.push('/admin/payments')} />
+          <Button label="Sign out" variant="ghost" onPress={signOut} />
+        </View>
       </View>
 
-      {/* Tab toggle */}
-      <View style={styles.tabs}>
+      {/* Segmented tab toggle */}
+      <View style={[styles.segmentTrack, { backgroundColor: theme.backgroundElement }]}>
+        <View
+          style={[
+            styles.segmentThumb,
+            {
+              backgroundColor: theme.background,
+              left: tab === 'bookings' ? 4 : '50%',
+            },
+          ]}
+        />
         <Button
           label="Bookings"
           variant={tab === 'bookings' ? 'secondary' : 'ghost'}
@@ -75,8 +89,15 @@ export default function AdminScreen() {
         />
       </View>
 
-      {/* Bookings list */}
-      {tab === 'bookings' && (
+      {/* Loading skeletons */}
+      {isLoading ? (
+        <View style={styles.skeletons}>
+          <Skeleton height={88} radius={16} />
+          <Skeleton height={88} radius={16} />
+          <Skeleton height={72} radius={16} />
+        </View>
+      ) : tab === 'bookings' ? (
+        /* Bookings list */
         bookings.length === 0 ? (
           <EmptyState
             icon="📋"
@@ -88,12 +109,15 @@ export default function AdminScreen() {
             data={bookings}
             keyExtractor={(b) => b.id}
             contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
             renderItem={({ item: b }) => {
               const service = SERVICES.find((s) => s.id === b.service_id);
               return (
-                <Card onPress={() => router.push(`/admin/booking/${b.id}`)} style={styles.card}>
+                <Card onPress={() => router.push(`/admin/booking/${b.id}`)} style={styles.card} elevation="e1">
                   <Text variant="heading">{service?.title ?? b.service_id}</Text>
-                  <StatusBadge status={b.status} />
+                  <View style={styles.row}>
+                    <StatusBadge status={b.status} />
+                  </View>
                   <Text variant="caption" color="textSecondary">
                     {new Date(b.scheduled_for).toLocaleString()}
                   </Text>
@@ -102,10 +126,8 @@ export default function AdminScreen() {
             }}
           />
         )
-      )}
-
-      {/* Providers list */}
-      {tab === 'providers' && (
+      ) : (
+        /* Providers list */
         providers.length === 0 ? (
           <EmptyState
             icon="✅"
@@ -117,8 +139,9 @@ export default function AdminScreen() {
             data={providers}
             keyExtractor={(p) => p.id}
             contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
             renderItem={({ item: p }) => (
-              <Card onPress={() => router.push(`/admin/provider/${p.id}`)} style={styles.card}>
+              <Card onPress={() => router.push(`/admin/provider/${p.id}`)} style={styles.card} elevation="e1">
                 <Text variant="heading">{p.full_name ?? 'Unknown'}</Text>
                 <Text variant="caption" color="textSecondary">{p.phone ?? '—'}</Text>
                 <View style={styles.actions}>
@@ -142,14 +165,35 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.three,
+    paddingBottom: Spacing.two,
   },
-  tabs: {
+  headerActions: {
     flexDirection: 'row',
-    gap: Spacing.two,
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.two,
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  segmentTrack: {
+    flexDirection: 'row',
+    marginHorizontal: Spacing.four,
+    marginBottom: Spacing.three,
+    borderRadius: Radii.pill,
+    padding: 4,
+    gap: 0,
+  },
+  /** Decorative thumb — rendered behind the buttons for visual context only. */
+  segmentThumb: {
+    position: 'absolute',
+    top: 4,
+    bottom: 4,
+    width: '48%',
+    borderRadius: Radii.pill,
+  },
+  skeletons: {
+    padding: Spacing.four,
+    gap: Spacing.three,
   },
   list: { padding: Spacing.four, gap: Spacing.three },
   card: { gap: Spacing.two },
+  row: { flexDirection: 'row' },
   actions: { flexDirection: 'row', gap: Spacing.two, marginTop: Spacing.two },
 });

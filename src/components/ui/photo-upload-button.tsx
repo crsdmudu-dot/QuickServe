@@ -84,9 +84,9 @@ export function PhotoUploadButton({
 
 const styles = StyleSheet.create({
   wrapper: {
-    gap: Spacing.one,
+    gap: Spacing.two,
   },
   errorText: {
-    marginTop: Spacing.half,
+    marginTop: Spacing.one,
   },
 });

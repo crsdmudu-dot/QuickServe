@@ -24,6 +24,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { RatingStars } from '@/components/ui/rating-stars';
 import { ReviewCard } from '@/components/ui/review-card';
+import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
 
 export default function AdminProviderDetailScreen() {
@@ -132,15 +133,14 @@ export default function AdminProviderDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text variant="title">Provider Profile</Text>
 
-        {/* Avatar + name + verified badge */}
-        <Card style={styles.profileCard}>
+        {/* Centered profile header card — avatar + name + verified badge + jobs count */}
+        <Card style={styles.profileCard} elevation="e1">
           <Avatar name={profile.full_name ?? 'Unknown'} photoUrl={profile.profile_photo_url} />
           <Text variant="heading">{profile.full_name ?? 'Unknown'}</Text>
           {profile.is_verified && <VerifiedBadge />}
-          {/* Read-only completed jobs count */}
           <Text variant="caption" color="textSecondary">
             Completed jobs: {profile.completed_jobs_count}
           </Text>
@@ -153,8 +153,8 @@ export default function AdminProviderDetailScreen() {
           </Text>
         ) : null}
 
-        {/* Editable fields */}
-        <Text variant="heading">Edit Details</Text>
+        {/* ── Edit Details ──────────────────────────────────────────────────── */}
+        <SectionHeader title="Edit Details" />
 
         <Input
           label="Bio"
@@ -186,8 +186,8 @@ export default function AdminProviderDetailScreen() {
           placeholder="https://…"
         />
 
-        {/* Availability toggle */}
-        <Text variant="heading">Availability</Text>
+        {/* ── Availability ──────────────────────────────────────────────────── */}
+        <SectionHeader title="Availability" />
         <Button
           label={
             profile.availability_status === 'available'
@@ -198,8 +198,8 @@ export default function AdminProviderDetailScreen() {
           onPress={handleAvailabilityToggle}
         />
 
-        {/* Verify toggle */}
-        <Text variant="heading">Verification</Text>
+        {/* ── Verification ──────────────────────────────────────────────────── */}
+        <SectionHeader title="Verification" />
         <Button
           label={profile.is_verified ? 'Unverify' : 'Verify'}
           variant={profile.is_verified ? 'ghost' : 'primary'}
@@ -209,8 +209,8 @@ export default function AdminProviderDetailScreen() {
         {/* Save all editable fields */}
         <Button label="Save" onPress={handleSave} />
 
-        {/* Reviews section — admin sees all reviews including hidden ones */}
-        <Text variant="heading">Reviews</Text>
+        {/* ── Reviews ───────────────────────────────────────────────────────── */}
+        <SectionHeader title="Reviews" />
         <RatingStars value={profile.average_rating} count={profile.review_count} />
         {reviews.map((r) => (
           <View key={r.id} style={styles.reviewRow}>
@@ -230,6 +230,9 @@ export default function AdminProviderDetailScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { padding: Spacing.four, gap: Spacing.three },
-  profileCard: { gap: Spacing.two, alignItems: 'flex-start' },
+  profileCard: {
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
   reviewRow: { gap: Spacing.two },
 });

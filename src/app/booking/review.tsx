@@ -11,7 +11,7 @@
 
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SERVICES } from '@/constants/services';
@@ -63,31 +63,50 @@ export default function ReviewScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
-      <Text variant="title">Review your booking</Text>
-
-      <BookingSummaryCard
-        serviceTitle={service?.title ?? 'Service'}
-        address={address}
-        scheduledFor={scheduledFor ?? ''}
-        notes={notes}
-      />
-
-      {error ? (
-        <Text variant="caption" color="error">
-          {error}
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Step indicator */}
+        <Text variant="caption" color="textSecondary" style={styles.step}>
+          Step 4 of 4
         </Text>
-      ) : null}
 
-      <Button
-        label={submitting ? 'Placing booking…' : 'Place Booking'}
-        fullWidth
-        onPress={handlePlaceBooking}
-        disabled={!ready || submitting}
-      />
+        <Text variant="title" style={styles.title}>
+          Review your booking
+        </Text>
+
+        <BookingSummaryCard
+          serviceTitle={service?.title ?? 'Service'}
+          address={address}
+          scheduledFor={scheduledFor ?? ''}
+          notes={notes}
+        />
+
+        {error ? (
+          <Text variant="caption" color="error">
+            {error}
+          </Text>
+        ) : null}
+
+        <Button
+          label={submitting ? 'Placing booking…' : 'Place Booking'}
+          fullWidth
+          onPress={handlePlaceBooking}
+          disabled={!ready || submitting}
+        />
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, padding: Spacing.four, gap: Spacing.four },
+  safe: { flex: 1 },
+  scroll: {
+    flexGrow: 1,
+    padding: Spacing.four,
+    gap: Spacing.four,
+  },
+  step: { marginBottom: Spacing.one },
+  title: { marginBottom: Spacing.two },
 });

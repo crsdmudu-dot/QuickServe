@@ -14,7 +14,8 @@ export type NotificationRowProps = {
 
 /**
  * NotificationRow — renders one notification inside a Card.
- * Unread notifications show a small coloured dot (testID "unread-dot").
+ * Unread notifications show a small coloured dot (testID "unread-dot")
+ * and a surfaceMuted background tint for visual emphasis.
  * Read notifications omit the dot and render at reduced opacity.
  */
 export function NotificationRow({ notification, onPress }: NotificationRowProps) {
@@ -22,7 +23,14 @@ export function NotificationRow({ notification, onPress }: NotificationRowProps)
   const { title, body, is_read, created_at } = notification;
 
   return (
-    <Card onPress={onPress} style={is_read ? styles.dimmed : undefined}>
+    <Card
+      onPress={onPress}
+      elevation="e1"
+      style={[
+        is_read ? styles.dimmed : undefined,
+        !is_read ? { backgroundColor: theme.surfaceMuted } : undefined,
+      ]}
+    >
       <View style={styles.row}>
         {/* Unread indicator dot — only shown for unread notifications */}
         {!is_read && (
@@ -32,7 +40,7 @@ export function NotificationRow({ notification, onPress }: NotificationRowProps)
           />
         )}
         <View style={styles.content}>
-          <Text variant="heading">{title}</Text>
+          <Text variant="label">{title}</Text>
           <Text variant="body" color="textSecondary">
             {body}
           </Text>
@@ -52,17 +60,17 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   dot: {
-    width: 10,
-    height: 10,
+    width: 8,
+    height: 8,
     borderRadius: Radii.pill,
-    marginTop: Spacing.one,
+    marginTop: Spacing.two,
     flexShrink: 0,
   },
   content: {
     flex: 1,
-    gap: Spacing.half,
+    gap: Spacing.one,
   },
   dimmed: {
-    opacity: 0.7,
+    opacity: 0.6,
   },
 });

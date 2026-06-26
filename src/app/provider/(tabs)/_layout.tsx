@@ -11,7 +11,7 @@ export default function ProviderTabsLayout() {
   return (
     <NativeTabs
       backgroundColor={colors.background}
-      indicatorColor={colors.primaryTint}
+      indicatorColor={colors.primary}
       labelStyle={{ selected: { color: colors.primary } }}>
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Label>My Jobs</NativeTabs.Trigger.Label>

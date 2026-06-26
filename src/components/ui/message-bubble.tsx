@@ -24,8 +24,8 @@ export type MessageBubbleProps = {
 /**
  * MessageBubble renders a single chat message inside a rounded card bubble.
  *
- * - right (own):  aligned to the end of the row, tinted primary background.
- * - left (other): aligned to the start of the row, neutral element background.
+ * - right (own):  aligned to the end of the row, primarySurface background.
+ * - left (other): aligned to the start of the row, surfaceMuted background.
  */
 export function MessageBubble({
   text,
@@ -36,9 +36,9 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const theme = useTheme();
 
-  // Own message → primaryTint; other → neutral backgroundElement.
+  // Own message → primarySurface; other → surfaceMuted.
   const backgroundColor =
-    align === 'right' ? theme.primaryTint : theme.backgroundElement;
+    align === 'right' ? theme.primarySurface : theme.surfaceMuted;
 
   return (
     <View
@@ -66,7 +66,7 @@ export function MessageBubble({
 const styles = StyleSheet.create({
   bubble: {
     maxWidth: '80%',
-    borderRadius: Radii.lg,
+    borderRadius: Radii.xl,
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two,
     gap: Spacing.one,

@@ -17,7 +17,7 @@ import DateTimePicker, {
 } from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Spacing } from '@/constants/theme';
@@ -78,40 +78,65 @@ export default function ScheduleScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
-      <Text variant="title">When do you need it?</Text>
-      <View style={styles.form}>
-        <Button label="Pick date & time" onPress={handlePickPress} variant="secondary" />
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Step indicator */}
+        <Text variant="caption" color="textSecondary" style={styles.step}>
+          Step 2 of 4
+        </Text>
 
-        {scheduledFor ? (
-          <Text variant="body" color="textSecondary">
-            {new Date(scheduledFor).toLocaleString()}
-          </Text>
-        ) : null}
+        <Text variant="title" style={styles.title}>
+          When do you need it?
+        </Text>
+        <Text variant="body" color="textSecondary" style={styles.subtitle}>
+          Choose a convenient date and time.
+        </Text>
 
-        {showIosPicker ? (
-          <DateTimePicker
-            value={scheduledFor ? new Date(scheduledFor) : new Date()}
-            mode="datetime"
-            display="default"
-            onValueChange={(_event, date) => {
-              if (date) saveDate(date);
-            }}
-          />
-        ) : null}
+        <View style={styles.form}>
+          <Button label="Pick date & time" onPress={handlePickPress} variant="secondary" />
 
-        {error ? (
-          <Text variant="caption" color="error">
-            {error}
-          </Text>
-        ) : null}
+          {scheduledFor ? (
+            <Text variant="body" color="textSecondary">
+              {new Date(scheduledFor).toLocaleString()}
+            </Text>
+          ) : null}
 
-        <Button label="Continue" fullWidth onPress={handleContinue} />
-      </View>
+          {showIosPicker ? (
+            <DateTimePicker
+              value={scheduledFor ? new Date(scheduledFor) : new Date()}
+              mode="datetime"
+              display="default"
+              onValueChange={(_event, date) => {
+                if (date) saveDate(date);
+              }}
+            />
+          ) : null}
+
+          {error ? (
+            <Text variant="caption" color="error">
+              {error}
+            </Text>
+          ) : null}
+
+          <Button label="Continue" fullWidth onPress={handleContinue} />
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, padding: Spacing.four, gap: Spacing.four },
+  safe: { flex: 1 },
+  scroll: {
+    flexGrow: 1,
+    padding: Spacing.four,
+    gap: Spacing.three,
+  },
+  step: { marginBottom: Spacing.one },
+  title: { marginBottom: Spacing.one },
+  subtitle: { marginBottom: Spacing.two },
   form: { gap: Spacing.three },
 });

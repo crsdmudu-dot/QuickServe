@@ -10,7 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SERVICES } from '@/constants/services';
 import { ALL_STATUSES, STATUS_LABELS, type BookingStatus } from '@/constants/booking-status';
-import { Spacing } from '@/constants/theme';
+import { Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
   getBookingById,
@@ -40,6 +40,7 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
 import { PhotoGallery } from '@/components/ui/photo-gallery';
 import { ActivityTimeline } from '@/components/ui/activity-timeline';
@@ -224,7 +225,7 @@ export default function AdminBookingDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text variant="title">Booking Detail</Text>
 
         {/* Summary */}
@@ -236,7 +237,9 @@ export default function AdminBookingDetailScreen() {
         />
 
         {/* Current status badge */}
-        <StatusBadge status={booking.status} />
+        <View style={styles.badgeRow}>
+          <StatusBadge status={booking.status} />
+        </View>
 
         {error ? (
           <Text variant="caption" color="error">
@@ -244,8 +247,8 @@ export default function AdminBookingDetailScreen() {
           </Text>
         ) : null}
 
-        {/* Quote section */}
-        <Text variant="heading">Quote</Text>
+        {/* ── Quote ─────────────────────────────────────────────────────────── */}
+        <SectionHeader title="Quote" />
         <QuoteCard
           amount={booking.quoted_amount}
           quoteStatus={booking.quote_status}
@@ -289,8 +292,8 @@ export default function AdminBookingDetailScreen() {
           </>
         )}
 
-        {/* Status picker */}
-        <Text variant="heading">Update Status</Text>
+        {/* ── Update Status ─────────────────────────────────────────────────── */}
+        <SectionHeader title="Update Status" />
         <View style={styles.statusRow}>
           {ALL_STATUSES.map((s) => (
             <Button
@@ -302,11 +305,11 @@ export default function AdminBookingDetailScreen() {
           ))}
         </View>
 
-        {/* Assign provider */}
-        <Text variant="heading">Assign Provider</Text>
+        {/* ── Assign Provider ───────────────────────────────────────────────── */}
+        <SectionHeader title="Assign Provider" />
 
         {/* Mode toggle: Manual | In-app */}
-        <View style={styles.toggleRow}>
+        <View style={[styles.modeTrack, { backgroundColor: theme.backgroundElement }]}>
           <Button
             label="Manual"
             variant={assignMode === 'manual' ? 'secondary' : 'ghost'}
@@ -356,8 +359,8 @@ export default function AdminBookingDetailScreen() {
           </>
         )}
 
-        {/* Admin notes */}
-        <Text variant="heading">Admin Notes</Text>
+        {/* ── Admin Notes ───────────────────────────────────────────────────── */}
+        <SectionHeader title="Admin Notes" />
         <Input
           label="Notes"
           value={adminNotes}
@@ -367,8 +370,8 @@ export default function AdminBookingDetailScreen() {
         />
         <Button label="Save notes" onPress={handleSaveNotes} />
 
-        {/* Photos section — admin can view, verify, and delete any photo */}
-        <Text variant="heading">Photos</Text>
+        {/* ── Photos ────────────────────────────────────────────────────────── */}
+        <SectionHeader title="Photos" />
         <PhotoGallery
           photos={photos}
           renderActions={(p) => (
@@ -382,12 +385,12 @@ export default function AdminBookingDetailScreen() {
           )}
         />
 
-        {/* Activity section — chronological log of booking events. */}
-        <Text variant="heading">Activity</Text>
+        {/* ── Activity ──────────────────────────────────────────────────────── */}
+        <SectionHeader title="Activity" />
         <ActivityTimeline events={activity} />
 
-        {/* Conversation section — admin read-only view of the booking chat.
-            ChatThread renders its own "Conversation" header in readonly mode. */}
+        {/* ── Conversation ──────────────────────────────────────────────────── */}
+        {/* ChatThread renders its own "Conversation" header in readonly mode. */}
         <ChatThread bookingId={id} booking={booking} mode="readonly" />
       </ScrollView>
     </SafeAreaView>
@@ -397,7 +400,14 @@ export default function AdminBookingDetailScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { padding: Spacing.four, gap: Spacing.three },
+  badgeRow: { flexDirection: 'row' },
   statusRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  toggleRow: { flexDirection: 'row', gap: Spacing.two },
+  modeTrack: {
+    flexDirection: 'row',
+    borderRadius: Radii.pill,
+    padding: 4,
+    gap: 0,
+    alignSelf: 'flex-start',
+  },
   providerCard: { gap: Spacing.one },
 });
