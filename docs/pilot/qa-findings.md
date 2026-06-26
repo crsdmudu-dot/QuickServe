@@ -10,13 +10,13 @@
 ## Summary Verdict
 
 **No Critical blockers found.** One Important security finding (storage policy overly
-broad — low exploitability, deferred). One Minor UX wart (known, deferred). All gate
-commands pass clean.
+broad) — **FIXED this slice** in `supabase/migrations/0016_tighten_booking_photos_storage.sql`.
+One Minor UX wart (known, server-side blocked, deferred). All gate commands pass clean.
 
 | Severity | Count | Action |
 |----------|-------|--------|
 | Critical | 0 | — |
-| Important | 1 | Deferred (low exploitability; logged below) |
+| Important | 1 | **Fixed (migration 0016)** — see IMP-01 |
 | Minor | 1 | Deferred (server-side blocked; logged below) |
 
 ---
@@ -73,8 +73,9 @@ booking-level isolation.
 - Cross-booking leakage is therefore theoretical (requires prior knowledge of the exact
   storage path), not practical with current path construction.
 
-**Fix (deferred to post-pilot):**
-Tighten the storage object SELECT policy to join against `booking_photos` metadata:
+**Fix — DONE (migration `0016_tighten_booking_photos_storage.sql`):**
+The storage object SELECT policy now joins against `booking_photos` metadata so an
+object is readable only by the booking's customer / assigned provider / admin:
 
 ```sql
 drop policy if exists "booking_photos_obj_select" on storage.objects;
@@ -94,11 +95,15 @@ create policy "booking_photos_obj_select" on storage.objects
   );
 ```
 
-This requires a migration and testing in Supabase Storage sandbox. Deferred until
-post-pilot given low exploitability risk.
-
-**Test (deferred):** Integration test: authenticated non-participant cannot obtain a
-signed URL for a photo they do not own. To be added in slice-18 security hardening.
+**Verification (regression — SQL, since storage RLS isn't unit-testable in Jest):**
+Run against the pilot Supabase project after applying `0016`:
+1. As a booking participant → `createSignedUrl(<own photo path>, 3600)` SUCCEEDS.
+2. As an authenticated NON-participant → `createSignedUrl(<another booking's photo path>, 3600)`
+   FAILS (no row in `storage.objects` is selectable for that path).
+3. As admin → succeeds for any booking-photo path.
+4. App regression: `getBookingPhotos` still returns + signs the caller's own photos
+   (participants only call it for their own bookings; behavior unchanged) — confirmed by
+   the existing photo tests staying green and `tsc`/`expo export` clean.
 
 ---
 
