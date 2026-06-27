@@ -7,7 +7,7 @@ const mockSignInWithPassword = jest.fn();
 const mockSignOut = jest.fn().mockResolvedValue({ error: null });
 const mockGetSession = jest.fn();
 const mockOnAuthStateChange = jest.fn();
-const mockSingle = jest.fn();
+const mockMaybeSingle = jest.fn();
 
 jest.mock('@/lib/supabase', () => ({
   supabase: {
@@ -18,7 +18,7 @@ jest.mock('@/lib/supabase', () => ({
       getSession: (...a: unknown[]) => mockGetSession(...a),
       onAuthStateChange: (...a: unknown[]) => mockOnAuthStateChange(...a),
     },
-    from: () => ({ select: () => ({ eq: () => ({ single: (...a: unknown[]) => mockSingle(...a) }) }) }),
+    from: () => ({ select: () => ({ eq: () => ({ maybeSingle: (...a: unknown[]) => mockMaybeSingle(...a) }) }) }),
   },
 }));
 
@@ -48,7 +48,7 @@ it('loads with no session', async () => {
 
 it('loads role from profile when a session exists', async () => {
   mockGetSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } });
-  mockSingle.mockResolvedValue({ data: { role: 'customer', approval_status: 'approved' }, error: null });
+  mockMaybeSingle.mockResolvedValue({ data: { role: 'customer', approval_status: 'approved' }, error: null });
   render(<AuthProvider><Probe /></AuthProvider>);
   await waitFor(() => expect(screen.getByText('ready:customer:true:-')).toBeOnTheScreen());
 });

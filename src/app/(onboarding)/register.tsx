@@ -13,7 +13,7 @@ import { Text } from '@/components/ui/text';
 
 export default function RegisterScreen() {
   const theme = useTheme();
-  const { signUp, authError } = useAuth();
+  const { signUp, authError, profileError } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -94,6 +94,11 @@ export default function RegisterScreen() {
             {authError ? (
               <Text variant="caption" color="error" style={styles.authError}>
                 {authError}
+              </Text>
+            ) : null}
+            {profileError ? (
+              <Text variant="caption" color="error" style={styles.authError}>
+                {profileError}
               </Text>
             ) : null}
           </View>

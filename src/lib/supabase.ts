@@ -18,3 +18,8 @@ export const supabase = createClient(url, anonKey, {
     detectSessionInUrl: false,
   },
 });
+
+if (__DEV__) {
+  // Helps confirm .env points at the intended Supabase project.
+  console.log('[supabase] connecting to', url);
+}

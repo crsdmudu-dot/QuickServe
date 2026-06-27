@@ -7,8 +7,12 @@ describe('mapAuthError', () => {
   it('maps already-registered', () => {
     expect(mapAuthError({ message: 'User already registered' })).toBe('An account with this email already exists.');
   });
-  it('falls back for unknown/network', () => {
-    expect(mapAuthError({ message: 'network request failed' })).toBe('Something went wrong. Please try again.');
+  it('maps network errors to connection message', () => {
+    expect(mapAuthError({ message: 'network request failed' })).toBe(
+      "Can't reach the server. Check your connection and try again.",
+    );
+  });
+  it('falls back for unknown errors', () => {
     expect(mapAuthError(null)).toBe('Something went wrong. Please try again.');
   });
 });
