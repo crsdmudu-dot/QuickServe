@@ -13,7 +13,7 @@ import { Text } from '@/components/ui/text';
 
 export default function LoginScreen() {
   const theme = useTheme();
-  const { signIn, authError } = useAuth();
+  const { signIn, authError, profileError } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -61,6 +61,11 @@ export default function LoginScreen() {
           {authError ? (
             <Text variant="caption" color="error" style={styles.authError}>
               {authError}
+            </Text>
+          ) : null}
+          {profileError ? (
+            <Text variant="caption" color="error" style={styles.authError}>
+              {profileError}
             </Text>
           ) : null}
         </View>

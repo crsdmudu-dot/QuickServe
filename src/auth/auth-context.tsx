@@ -17,6 +17,7 @@ type AuthState = {
   pendingRole: Role | null;
   signedIn: boolean;
   authError: string | null;
+  profileError: string | null;
   selectRole: (role: Role) => void;
   signUp: (v: SignUpValues) => Promise<boolean>;
   signIn: (email: string, password: string) => Promise<boolean>;
@@ -25,17 +26,18 @@ type AuthState = {
 
 const AuthContext = createContext<AuthState | null>(null);
 
-type ProfileInfo = { role: Role | null; approvalStatus: ApprovalStatus | null };
+type ProfileResult = { role: Role | null; approvalStatus: ApprovalStatus | null; error: unknown };
 
-async function fetchProfile(userId: string): Promise<ProfileInfo> {
-  const { data } = await supabase
+async function fetchProfile(userId: string): Promise<ProfileResult> {
+  const { data, error } = await supabase
     .from('profiles')
     .select('role, approval_status')
     .eq('id', userId)
-    .single();
+    .maybeSingle();
   return {
     role: (data?.role as Role | undefined) ?? null,
     approvalStatus: (data?.approval_status as ApprovalStatus | undefined) ?? null,
+    error,
   };
 }
 
@@ -46,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [pendingRole, setPendingRole] = useState<Role | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -57,9 +60,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!active) return;
         setRole(p.role);
         setApprovalStatus(p.approvalStatus);
+        if (p.error) {
+          if (__DEV__) console.error('[auth] profile fetch error:', p.error);
+          setProfileError("You're signed in, but we couldn't load your profile. Please try again.");
+        } else {
+          setProfileError(null);
+        }
       } else {
         setRole(null);
         setApprovalStatus(null);
+        setProfileError(null);
       }
       if (active) setIsLoading(false);
     }
@@ -85,6 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       options: { data: { full_name: v.fullName, phone: v.phone, role: pendingRole } },
     });
     if (error) {
+      if (__DEV__) console.error('[auth] sign-up error:', error);
       setAuthError(mapAuthError(error));
       return false;
     }
@@ -95,6 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthError(null);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
+      if (__DEV__) console.error('[auth] sign-in error:', error);
       setAuthError(mapAuthError(error));
       return false;
     }
@@ -116,6 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         pendingRole,
         signedIn: session != null,
         authError,
+        profileError,
         selectRole,
         signUp,
         signIn,
