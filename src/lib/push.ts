@@ -1,4 +1,3 @@
-import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
@@ -21,6 +20,7 @@ export function routeForNotificationData(data: unknown): string | null {
 export async function registerForPushNotifications(): Promise<string | null> {
   try {
     if (!Device.isDevice) return null;                 // simulators / Expo Go web
+    const Notifications = await import('expo-notifications');
     const existing = await Notifications.getPermissionsAsync();
     let status = existing.status;
     if (status !== 'granted') {
@@ -40,4 +40,25 @@ export async function registerForPushNotifications(): Promise<string | null> {
   } catch {
     return null;   // Expo Go on Android throws on getExpoPushTokenAsync — handled gracefully.
   }
+}
+
+/** Sets up the notification-tap → deep-link listener. Dynamic import keeps
+ *  expo-notifications out of the startup graph (Expo Go SDK 53 crashes otherwise).
+ *  Returns an unsubscribe function; no-ops gracefully in unsupported environments. */
+export function setupNotificationResponseListener(navigate: (path: string) => void): () => void {
+  let sub: { remove: () => void } | undefined;
+  let cancelled = false;
+  (async () => {
+    try {
+      const Notifications = await import('expo-notifications');
+      if (cancelled) return;
+      sub = Notifications.addNotificationResponseReceivedListener((response) => {
+        const path = routeForNotificationData(response.notification.request.content.data);
+        if (path) navigate(path);
+      });
+    } catch {
+      // Expo Go / unsupported — no-op.
+    }
+  })();
+  return () => { cancelled = true; sub?.remove(); };
 }
