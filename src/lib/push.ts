@@ -3,6 +3,13 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
 
+/** True when running inside the Expo Go client, where native push (expo-notifications)
+ *  is unsupported on Android SDK 53 — importing the module itself crashes, so callers
+ *  must bail out BEFORE any dynamic import. */
+function isExpoGo(): boolean {
+  return Constants.appOwnership === 'expo' || Constants.executionEnvironment === 'storeClient';
+}
+
 /** Pure: resolve a notification's data payload to an expo-router path, or null. */
 export function routeForNotificationData(data: unknown): string | null {
   if (data && typeof data === 'object') {
@@ -20,6 +27,7 @@ export function routeForNotificationData(data: unknown): string | null {
 export async function registerForPushNotifications(): Promise<string | null> {
   try {
     if (!Device.isDevice) return null;                 // simulators / Expo Go web
+    if (isExpoGo()) return null;   // never import expo-notifications in Expo Go
     const Notifications = await import('expo-notifications');
     const existing = await Notifications.getPermissionsAsync();
     let status = existing.status;
@@ -46,6 +54,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
  *  expo-notifications out of the startup graph (Expo Go SDK 53 crashes otherwise).
  *  Returns an unsubscribe function; no-ops gracefully in unsupported environments. */
 export function setupNotificationResponseListener(navigate: (path: string) => void): () => void {
+  if (isExpoGo()) return () => {};   // no-op cleanup; never imports expo-notifications
   let sub: { remove: () => void } | undefined;
   let cancelled = false;
   (async () => {

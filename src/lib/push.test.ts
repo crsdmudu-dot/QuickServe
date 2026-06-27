@@ -15,6 +15,9 @@ jest.mock('expo-notifications', () => ({
 }));
 
 jest.mock('expo-device');
+// The factory is hoisted by Jest before module scope runs, so we embed the object
+// directly inside the factory. We then access it via jest.requireMock() below so
+// individual tests can mutate appOwnership to simulate Expo Go.
 jest.mock('expo-constants', () => ({
   __esModule: true,
   default: {
@@ -23,6 +26,8 @@ jest.mock('expo-constants', () => ({
         eas: { projectId: 'p1' },
       },
     },
+    appOwnership: undefined as string | undefined,
+    executionEnvironment: undefined as string | undefined,
   },
 }));
 jest.mock('@/lib/supabase', () => ({
@@ -45,6 +50,13 @@ const mockNotifications = jest.requireMock('expo-notifications') as {
 
 const { supabase } = jest.requireMock('@/lib/supabase') as {
   supabase: { functions: { invoke: jest.Mock } };
+};
+
+// Mutable Constants mock — lets tests set appOwnership = 'expo' to simulate Expo Go.
+const mockConstants = jest.requireMock('expo-constants').default as {
+  expoConfig: { extra: { eas: { projectId: string } } };
+  appOwnership: string | undefined;
+  executionEnvironment: string | undefined;
 };
 
 // ── routeForNotificationData ─────────────────────────────────────────────────
@@ -80,7 +92,9 @@ describe('routeForNotificationData', () => {
 describe('registerForPushNotifications', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Default: real device, granted permission
+    // Default: real device, granted permission, NOT Expo Go
+    mockConstants.appOwnership = undefined;
+    mockConstants.executionEnvironment = undefined;
     (Device as any).isDevice = true;
     (Device as any).deviceName = 'Test Phone';
     mockNotifications.getPermissionsAsync.mockResolvedValue({ status: 'granted' });
@@ -140,6 +154,14 @@ describe('registerForPushNotifications', () => {
       },
     });
   });
+
+  it('Expo Go → register no-ops: returns null without calling getExpoPushTokenAsync or invoke', async () => {
+    mockConstants.appOwnership = 'expo';
+    const result = await registerForPushNotifications();
+    expect(result).toBeNull();
+    expect(mockNotifications.getExpoPushTokenAsync).not.toHaveBeenCalled();
+    expect(supabase.functions.invoke).not.toHaveBeenCalled();
+  });
 });
 
 // ── setupNotificationResponseListener ───────────────────────────────────────
@@ -147,6 +169,9 @@ describe('registerForPushNotifications', () => {
 describe('setupNotificationResponseListener', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Default: NOT Expo Go
+    mockConstants.appOwnership = undefined;
+    mockConstants.executionEnvironment = undefined;
   });
 
   it('calls navigate with the resolved route when a notification response is received', async () => {
@@ -215,5 +240,18 @@ describe('setupNotificationResponseListener', () => {
     });
 
     expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('Expo Go → listener no-ops: returns a no-op function, never calls addNotificationResponseReceivedListener', async () => {
+    mockConstants.appOwnership = 'expo';
+    const navigate = jest.fn();
+    const unsubscribe = setupNotificationResponseListener(navigate);
+
+    // Flush microtask queue — no async IIFE runs in Expo Go path
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockNotifications.addNotificationResponseReceivedListener).not.toHaveBeenCalled();
+    expect(() => unsubscribe()).not.toThrow();
   });
 });
