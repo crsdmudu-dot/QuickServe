@@ -9,11 +9,12 @@ import RoleSelectScreen from '@/app/(onboarding)/role-select';
 
 describe('RoleSelectScreen', () => {
   beforeEach(() => { mockPush.mockClear(); mockSelectRole.mockClear(); });
-  it('renders the three roles', () => {
+  it('renders only the public signup roles (no Admin)', () => {
     render(<RoleSelectScreen />);
     expect(screen.getByText('Customer')).toBeOnTheScreen();
     expect(screen.getByText('Service Provider')).toBeOnTheScreen();
-    expect(screen.getByText('Admin')).toBeOnTheScreen();
+    // Admin is NOT publicly registrable from the mobile app.
+    expect(screen.queryByText('Admin')).toBeNull();
   });
   it('selects a role and navigates to register', async () => {
     render(<RoleSelectScreen />);

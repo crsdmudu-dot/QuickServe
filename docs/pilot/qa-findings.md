@@ -17,7 +17,7 @@ One Minor UX wart (known, server-side blocked, deferred). All gate commands pass
 |----------|-------|--------|
 | Critical | 0 | — |
 | Important | 1 | **Fixed (migration 0016)** — see IMP-01 |
-| Minor | 1 | Deferred (server-side blocked; logged below) |
+| Minor | 1 | **Fixed** — Admin removed from public role-select (MIN-01) |
 
 ---
 
@@ -138,9 +138,12 @@ non-provider selection. Admin accounts are created manually in Supabase Studio.
 **Security impact:** None — this is server-side blocked. There is no privilege escalation
 path. A user who selects "Admin" on the client gets a `customer` row, not an `admin` row.
 
-**Fix (deferred):**
-Remove the `admin` entry from the `ROLES` array in `src/constants/roles.ts`, or add a
-UI gate that hides the Admin card entirely. Deferred to post-pilot to avoid scope creep.
+**Fix — DONE:** the `admin` entry was removed from the `ROLES` array in
+`src/constants/roles.ts`, so the mobile role-select offers only Customer and Provider.
+The `Role` type and `roleHref('admin')` remain (for manually-created admins signing in),
+and `handle_new_user()` still downgrades any crafted admin signup to `customer`
+(defense-in-depth). `role-select` test updated to assert "Admin" is not rendered.
+Future: admin access moves to a dedicated web admin portal.
 
 **Test:** No regression test needed (server-side already blocked; existing role-select
 test covers the render).

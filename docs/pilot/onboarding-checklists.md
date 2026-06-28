@@ -12,10 +12,17 @@ providers or customers — the admin must exist and the backend must be ready fi
 
 ## 1. Admin Onboarding
 
-There is **no in-app admin sign-up flow by design**. The `handle_new_user()` trigger
-(migration `0001_profiles.sql`) always writes `role = 'customer'` regardless of signup
-metadata, so admin self-registration is permanently blocked at the database level.
-See [`backend-readiness.md § 3`](./backend-readiness.md) for the full SQL promotion steps.
+There is **no in-app admin sign-up flow by design**, on two levels:
+- **UI:** the mobile role-select screen offers **only Customer and Provider** — the Admin
+  option has been removed (`src/constants/roles.ts`), so public users **cannot** choose admin.
+- **Backend safety net:** the `handle_new_user()` trigger (migration `0001_profiles.sql`)
+  downgrades any attempted admin signup metadata to `role = 'customer'`, so admin
+  self-registration is permanently blocked at the database level even via a crafted API call.
+
+**Pilot admin accounts are created/promoted manually in Supabase** (set
+`role = 'admin'`, `approval_status = 'approved'` on the profile row) — see
+[`backend-readiness.md § 3`](./backend-readiness.md) for the SQL.
+**Future:** admin access should move to a dedicated **web admin portal**, not the mobile app.
 
 ### 1a. Backend prerequisites
 
