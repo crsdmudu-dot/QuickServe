@@ -16,6 +16,7 @@ function RootNavigator() {
 
   useEffect(() => {
     if (isLoading) return;
+    if ((segments[0] as string) === '(admin-web)') return;   // web-admin group manages its own auth/guard
     const inOnboarding = segments[0] === '(onboarding)';
     if (!signedIn && !inOnboarding) {
       router.replace('/welcome');
