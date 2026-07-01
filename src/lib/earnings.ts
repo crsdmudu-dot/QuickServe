@@ -52,6 +52,16 @@ export async function adminGetProviderEarnings(providerId: string): Promise<Prov
   return (data as ProviderEarning[] | null) ?? [];
 }
 
+/** Admin: all provider earnings, newest first (admin RLS permits). */
+export async function adminGetAllEarnings(): Promise<ProviderEarning[]> {
+  const { data, error } = await supabase
+    .from('provider_earnings')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) return [];
+  return (data as ProviderEarning[] | null) ?? [];
+}
+
 // ── Mutations ──────────────────────────────────────────────────────────────
 
 /** Admin: mark a provider earning as paid out via the mark_payout_paid RPC. */

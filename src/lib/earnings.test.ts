@@ -2,6 +2,7 @@ import {
   getMyEarnings,
   getProviderEarningsSummary,
   adminGetProviderEarnings,
+  adminGetAllEarnings,
   adminMarkPayoutPaid,
 } from '@/lib/earnings';
 
@@ -113,6 +114,24 @@ describe('adminGetProviderEarnings', () => {
   it('returns [] on error', async () => {
     order.mockResolvedValue({ data: null, error: { message: 'DB error' } });
     const res = await adminGetProviderEarnings('prov1');
+    expect(res).toEqual([]);
+  });
+});
+
+// ── adminGetAllEarnings ────────────────────────────────────────────────────
+
+describe('adminGetAllEarnings', () => {
+  it('returns all rows and asserts order on success', async () => {
+    order.mockResolvedValue({ data: [mockEarningPending, mockEarningPaid], error: null });
+    const res = await adminGetAllEarnings();
+    expect(res).toEqual([mockEarningPending, mockEarningPaid]);
+    expect(mockSelect).toHaveBeenCalledWith('*');
+    expect(mockOrder).toHaveBeenCalledWith('created_at', { ascending: false });
+  });
+
+  it('returns [] on error', async () => {
+    order.mockResolvedValue({ data: null, error: { message: 'DB error' } });
+    const res = await adminGetAllEarnings();
     expect(res).toEqual([]);
   });
 });
