@@ -3,6 +3,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/auth/auth-context';
+import { AdminShell } from '@/components/admin-web/admin-shell';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { useAdminGuard } from '@/hooks/use-admin-guard';
@@ -59,8 +60,8 @@ export default function AdminWebLayout() {
     );
   }
 
-  // Authenticated admin — render the route. T3 will wrap this in <AdminShell>.
-  return <Slot />;
+  // Authenticated admin — render the route wrapped in the desktop shell.
+  return <AdminShell title="Admin"><Slot /></AdminShell>;
 }
 
 const styles = StyleSheet.create({
