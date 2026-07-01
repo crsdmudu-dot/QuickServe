@@ -1,10 +1,11 @@
 import { ROLES, roleHref, type Role } from '@/constants/roles';
 
 describe('roles', () => {
-  it('defines exactly three roles with unique ids', () => {
-    expect(ROLES).toHaveLength(3);
+  it('exposes only the public signup roles (customer, provider) — admin is not registrable', () => {
+    expect(ROLES).toHaveLength(2);
     const ids = ROLES.map((r) => r.id);
-    expect(new Set(ids)).toEqual(new Set<Role>(['customer', 'provider', 'admin']));
+    expect(new Set(ids)).toEqual(new Set<Role>(['customer', 'provider']));
+    expect(ids).not.toContain('admin');
   });
   it('every role has a label, description, and icon', () => {
     for (const r of ROLES) {
