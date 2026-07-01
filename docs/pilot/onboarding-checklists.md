@@ -23,6 +23,8 @@ There is **no in-app admin sign-up flow by design**, on two levels:
 `role = 'admin'`, `approval_status = 'approved'` on the profile row) — see
 [`backend-readiness.md § 3`](./backend-readiness.md) for the SQL.
 **Future:** admin access should move to a dedicated **web admin portal**, not the mobile app.
+A **web admin panel is the next dedicated slice** (not started yet); until then admin access
+stays internal/private and admin accounts are promoted manually in Supabase.
 
 ### 1a. Backend prerequisites
 
