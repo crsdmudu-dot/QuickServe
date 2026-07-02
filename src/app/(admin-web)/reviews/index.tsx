@@ -14,7 +14,7 @@
  * needs to return its content (no Shell wrapper here).
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 import { DataTable, type Column } from '@/components/admin-web/data-table';
@@ -119,31 +119,35 @@ function buildColumns(
 export default function AdminWebReviewsScreen() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState(false);
+  const [actionError, setActionError] = useState('');
 
-  useEffect(() => {
-    let active = true;
-
-    adminGetAllReviews().then((rows) => {
-      if (!active) return;
+  const load = useCallback(async () => {
+    setLoadError(false);
+    setLoading(true);
+    try {
+      const rows = await adminGetAllReviews();
       setReviews(rows);
+    } catch {
+      setLoadError(true);
+    } finally {
       setLoading(false);
-    });
-
-    return () => {
-      active = false;
-    };
+    }
   }, []);
 
+  useEffect(() => {
+    load();
+  }, [load]);
+
   async function handleToggleHidden(id: string, currentHidden: boolean) {
-    setError('');
+    setActionError('');
     const result = await setReviewHidden(id, !currentHidden);
     if (result.ok) {
       setReviews((prev) =>
         prev.map((r) => (r.id === id ? { ...r, is_hidden: !currentHidden } : r)),
       );
     } else {
-      setError(result.error ?? 'Could not update review.');
+      setActionError(result.error ?? 'Could not update review.');
     }
   }
 
@@ -152,9 +156,9 @@ export default function AdminWebReviewsScreen() {
   return (
     <>
       <PageMeta title="Reviews" />
-      {error ? (
+      {actionError ? (
         <Text variant="caption" color="error">
-          {error}
+          {actionError}
         </Text>
       ) : null}
       <DataTable
@@ -162,6 +166,8 @@ export default function AdminWebReviewsScreen() {
         rows={reviews}
         keyExtractor={(r) => r.id}
         loading={loading}
+        error={loadError}
+        onRetry={load}
         emptyLabel="No reviews yet."
       />
     </>

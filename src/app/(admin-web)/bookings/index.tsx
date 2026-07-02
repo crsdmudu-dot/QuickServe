@@ -8,7 +8,7 @@
  * needs to return its content (no Shell wrapper here).
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { router, type Href } from 'expo-router';
 
 import { DataTable, type Column } from '@/components/admin-web/data-table';
@@ -74,18 +74,24 @@ const COLUMNS: Column<Booking>[] = [
 export default function AdminWebBookingsScreen() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  const load = useCallback(async () => {
+    setError(false);
+    setLoading(true);
+    try {
+      const rows = await getAllBookings();
+      setBookings(rows);
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let active = true;
-    getAllBookings().then((rows) => {
-      if (!active) return;
-      setBookings(rows);
-      setLoading(false);
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
+    load();
+  }, [load]);
 
   return (
     <>
@@ -95,6 +101,8 @@ export default function AdminWebBookingsScreen() {
         rows={bookings}
         keyExtractor={(b) => b.id}
         loading={loading}
+        error={error}
+        onRetry={load}
         emptyLabel="No bookings yet."
         onRowPress={(b) => router.push(`/(admin-web)/bookings/${b.id}` as Href)}
       />

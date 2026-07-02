@@ -11,7 +11,7 @@
  * RN/RN-web safe — no DOM-only APIs.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { router, type Href } from 'expo-router';
 
@@ -142,21 +142,28 @@ function buildColumns(
 export default function AdminWebProvidersScreen() {
   const [providers, setProviders] = useState<ProviderProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  const load = useCallback(async () => {
+    setError(false);
+    setLoading(true);
+    try {
+      const [pending, approved] = await Promise.all([
+        getPendingProviders(),
+        getApprovedProviders(),
+      ]);
+      // Show pending first, then approved — combined into one list.
+      setProviders([...pending, ...approved]);
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let active = true;
-    Promise.all([getPendingProviders(), getApprovedProviders()]).then(
-      ([pending, approved]) => {
-        if (!active) return;
-        // Show pending first, then approved — combined into one list.
-        setProviders([...pending, ...approved]);
-        setLoading(false);
-      },
-    );
-    return () => {
-      active = false;
-    };
-  }, []);
+    load();
+  }, [load]);
 
   const columns = buildColumns(setProviders);
 
@@ -168,6 +175,8 @@ export default function AdminWebProvidersScreen() {
         rows={providers}
         keyExtractor={(p) => p.id}
         loading={loading}
+        error={error}
+        onRetry={load}
         emptyLabel="No providers found."
         onRowPress={(p) => router.push(`/(admin-web)/providers/${p.id}` as Href)}
       />

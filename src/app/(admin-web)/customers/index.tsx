@@ -11,7 +11,7 @@
  * needs to return its content (no Shell wrapper here).
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { DataTable, type Column } from '@/components/admin-web/data-table';
 import { PageMeta } from '@/components/admin-web/page-meta';
@@ -75,23 +75,28 @@ export default function AdminWebCustomersScreen() {
   const [customers, setCustomers] = useState<CustomerProfile[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  const load = useCallback(async () => {
+    setError(false);
+    setLoading(true);
+    try {
+      const [customerRows, bookingRows] = await Promise.all([
+        adminGetAllCustomers(),
+        getAllBookings(),
+      ]);
+      setCustomers(customerRows);
+      setBookings(bookingRows);
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let active = true;
-
-    Promise.all([adminGetAllCustomers(), getAllBookings()]).then(
-      ([customerRows, bookingRows]) => {
-        if (!active) return;
-        setCustomers(customerRows);
-        setBookings(bookingRows);
-        setLoading(false);
-      },
-    );
-
-    return () => {
-      active = false;
-    };
-  }, []);
+    load();
+  }, [load]);
 
   const columns = buildColumns(bookings);
 
@@ -103,6 +108,8 @@ export default function AdminWebCustomersScreen() {
         rows={customers}
         keyExtractor={(c) => c.id}
         loading={loading}
+        error={error}
+        onRetry={load}
         emptyLabel="No customers yet."
       />
     </>

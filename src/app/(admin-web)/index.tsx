@@ -14,7 +14,7 @@
  * Loading state → Skeleton cards. All read-only; no mutations.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { router, type Href } from 'expo-router';
 
@@ -120,20 +120,19 @@ function StatCard({ label, value, sub, loading }: StatCardProps) {
 
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [data, setData] = useState<DashboardData | null>(null);
 
-  useEffect(() => {
-    let active = true;
-
-    async function load() {
+  const load = useCallback(async () => {
+    setError(false);
+    setLoading(true);
+    try {
       const [bookings, payments, pending, reviews] = await Promise.all([
         getAllBookings(),
         adminGetAllPayments(),
         getPendingProviders(),
         adminGetAllReviews(),
       ]);
-
-      if (!active) return;
 
       const paidPayments = (payments as Payment[]).filter((p) => p.status === 'paid');
       const totalPaidKes = paidPayments.reduce((sum, p) => sum + (p.amount ?? 0), 0);
@@ -147,14 +146,16 @@ export default function AdminDashboard() {
         totalReviews: reviews.length,
         recentBookings: bookings.slice(0, 5),
       });
+    } catch {
+      setError(true);
+    } finally {
       setLoading(false);
     }
-
-    load();
-    return () => {
-      active = false;
-    };
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return (
     <View style={styles.root}>
@@ -204,6 +205,8 @@ export default function AdminDashboard() {
           rows={data?.recentBookings ?? []}
           keyExtractor={(b) => b.id}
           loading={loading}
+          error={error}
+          onRetry={load}
           emptyLabel="No bookings yet"
           onRowPress={(b) =>
             router.push(`/(admin-web)/bookings/${b.id}` as Href)
