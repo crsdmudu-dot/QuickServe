@@ -7,6 +7,9 @@
  * upload failed).  On booking creation failure we show an inline error and
  * stay put — no photos are uploaded.  The booking is always created regardless
  * of photo upload outcome.
+ *
+ * Slice 20: also renders a DestinationSummary showing the full structured
+ * address, and passes all address fields to createBooking.
  */
 
 import { router } from 'expo-router';
@@ -22,11 +25,28 @@ import { createBooking } from '@/lib/bookings';
 import { uploadBookingPhoto } from '@/lib/photos';
 import { BookingSummaryCard } from '@/components/ui/booking-summary-card';
 import { Button } from '@/components/ui/button';
+import { DestinationSummary } from '@/components/ui/destination-summary';
 import { Text } from '@/components/ui/text';
 
 export default function ReviewScreen() {
   const theme = useTheme();
-  const { serviceId, address, scheduledFor, notes, issuePhotos, reset } = useBookingDraft();
+  const {
+    serviceId,
+    address,
+    scheduledFor,
+    notes,
+    issuePhotos,
+    reset,
+    // Slice 20 structured address fields
+    address_label,
+    latitude,
+    longitude,
+    building_name,
+    floor,
+    door_number,
+    landmark,
+    access_notes,
+  } = useBookingDraft();
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -38,7 +58,22 @@ export default function ReviewScreen() {
     setSubmitting(true);
     setError('');
 
-    const res = await createBooking({ serviceId, address, scheduledFor, notes });
+    const res = await createBooking({
+      serviceId,
+      address,
+      scheduledFor,
+      notes,
+      // Slice 20 structured fields — empty strings are fine; createBooking
+      // stores them as-is (undefined → null inside createBooking).
+      address_label,
+      latitude: latitude ?? undefined,
+      longitude: longitude ?? undefined,
+      building_name,
+      floor,
+      door_number,
+      landmark,
+      access_notes,
+    });
 
     if (!res.ok) {
       setSubmitting(false);
@@ -75,6 +110,11 @@ export default function ReviewScreen() {
         <Text variant="title" style={styles.title}>
           Review your booking
         </Text>
+
+        {/* Slice 20: Location summary showing structured address details */}
+        <DestinationSummary
+          input={{ address, address_label, building_name, floor, door_number, landmark, access_notes }}
+        />
 
         <BookingSummaryCard
           serviceTitle={service?.title ?? 'Service'}

@@ -3,6 +3,9 @@
  *
  * We mock expo-router (push/replace), @/booking/booking-draft, @/lib/bookings
  * and @/lib/photos so no network is touched.
+ *
+ * Slice 20: mockDraft now includes the structured address fields, and the
+ * createBooking assertion is updated additively to include them.
  */
 
 jest.mock('expo-router', () => ({ router: { push: jest.fn(), replace: jest.fn() } }));
@@ -14,6 +17,15 @@ let mockDraft = {
   scheduledFor: '2026-07-01T10:00:00Z',
   notes: 'Gate code 12',
   issuePhotos: [] as string[],
+  // Slice 20 structured address fields
+  address_label: '',
+  latitude: null as number | null,
+  longitude: null as number | null,
+  building_name: '',
+  floor: '',
+  door_number: '',
+  landmark: '',
+  access_notes: '',
 };
 jest.mock('@/booking/booking-draft', () => ({
   useBookingDraft: () => ({ ...mockDraft, reset: mockReset }),
@@ -45,13 +57,23 @@ describe('ReviewScreen', () => {
       scheduledFor: '2026-07-01T10:00:00Z',
       notes: 'Gate code 12',
       issuePhotos: [],
+      // Slice 20 structured address fields
+      address_label: '',
+      latitude: null,
+      longitude: null,
+      building_name: '',
+      floor: '',
+      door_number: '',
+      landmark: '',
+      access_notes: '',
     };
   });
 
   it('renders the service, address, formatted date and notes', () => {
     render(<ReviewScreen />);
     expect(screen.getByText('House Cleaning')).toBeOnTheScreen();
-    expect(screen.getByText('Nairobi')).toBeOnTheScreen();
+    // Slice 20: address now appears in both DestinationSummary and BookingSummaryCard.
+    expect(screen.getAllByText('Nairobi').length).toBeGreaterThan(0);
     expect(
       screen.getByText(new Date('2026-07-01T10:00:00Z').toLocaleString()),
     ).toBeOnTheScreen();
@@ -70,6 +92,15 @@ describe('ReviewScreen', () => {
         address: 'Nairobi',
         scheduledFor: '2026-07-01T10:00:00Z',
         notes: 'Gate code 12',
+        // Slice 20 structured address fields
+        address_label: '',
+        latitude: undefined,
+        longitude: undefined,
+        building_name: '',
+        floor: '',
+        door_number: '',
+        landmark: '',
+        access_notes: '',
       }),
     );
     expect(mockUploadBookingPhoto).not.toHaveBeenCalled();
