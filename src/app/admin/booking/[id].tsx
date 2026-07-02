@@ -45,6 +45,7 @@ import { Text } from '@/components/ui/text';
 import { PhotoGallery } from '@/components/ui/photo-gallery';
 import { ActivityTimeline } from '@/components/ui/activity-timeline';
 import { ChatThread } from '@/components/ui/chat-thread';
+import { DestinationSummary } from '@/components/ui/destination-summary';
 
 export default function AdminBookingDetailScreen() {
   const theme = useTheme();
@@ -235,6 +236,10 @@ export default function AdminBookingDetailScreen() {
           scheduledFor={booking.scheduled_for}
           notes={booking.notes ?? ''}
         />
+
+        {/* ── Destination ───────────────────────────────────────────────── */}
+        <SectionHeader title="Destination" />
+        <DestinationSummary input={booking} />
 
         {/* Current status badge */}
         <View style={styles.badgeRow}>

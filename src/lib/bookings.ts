@@ -16,7 +16,21 @@ export type Professional = {
 export type { BookingStatus } from '@/constants/booking-status';
 import type { BookingStatus } from '@/constants/booking-status';
 
-export type NewBooking = { serviceId: string; address: string; scheduledFor: string; notes?: string };
+export type NewBooking = {
+  serviceId: string;
+  address: string;
+  scheduledFor: string;
+  notes?: string;
+  // Slice 20 structured address fields (all optional; undefined → stored as null)
+  address_label?: string;
+  latitude?: number;
+  longitude?: number;
+  building_name?: string;
+  floor?: string;
+  door_number?: string;
+  landmark?: string;
+  access_notes?: string;
+};
 
 export type Booking = {
   id: string;
@@ -38,6 +52,15 @@ export type Booking = {
   quote_status: QuoteStatus;
   // Slice 14 chat field
   customer_id: string;
+  // Slice 20 structured address fields (all nullable)
+  address_label: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  building_name: string | null;
+  floor: string | null;
+  door_number: string | null;
+  landmark: string | null;
+  access_notes: string | null;
 };
 
 // ── Customer mutations ─────────────────────────────────────────────────────
@@ -51,6 +74,15 @@ export async function createBooking(input: NewBooking): Promise<{ ok: boolean; i
     address: input.address,
     scheduled_for: input.scheduledFor,
     notes: input.notes ?? null,
+    // Slice 20 structured address fields
+    address_label: input.address_label ?? null,
+    latitude: input.latitude ?? null,
+    longitude: input.longitude ?? null,
+    building_name: input.building_name ?? null,
+    floor: input.floor ?? null,
+    door_number: input.door_number ?? null,
+    landmark: input.landmark ?? null,
+    access_notes: input.access_notes ?? null,
   }).select('id').single();
   if (error) return { ok: false, error: 'Could not create booking. Please try again.' };
   return { ok: true, id: row.id };

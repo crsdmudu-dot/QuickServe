@@ -159,7 +159,9 @@ describe('AdminWebBookingDetailScreen (detail)', () => {
   it('renders the service title and address after data loads', async () => {
     render(<AdminWebBookingDetailScreen />);
     expect(await screen.findByText('House Cleaning')).toBeOnTheScreen();
-    expect(screen.getByText('1 Admin Ave')).toBeOnTheScreen();
+    // Address appears in the Booking Summary card and in DestinationSummary; both must be present.
+    const addressElements = screen.getAllByText('1 Admin Ave');
+    expect(addressElements.length).toBeGreaterThan(0);
   });
 
   it('shows the payment amount in the right column', async () => {

@@ -9,3 +9,9 @@ verify_jwt = true
 
 [functions.send-push]
 verify_jwt = false
+
+[functions.places-autocomplete]
+verify_jwt = true
+
+[functions.place-details]
+verify_jwt = true

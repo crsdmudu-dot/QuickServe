@@ -23,6 +23,7 @@ import { PhotoGallery } from '@/components/ui/photo-gallery';
 import { PhotoUploadButton } from '@/components/ui/photo-upload-button';
 import { ActivityTimeline } from '@/components/ui/activity-timeline';
 import { SectionHeader } from '@/components/ui/section-header';
+import { DestinationSummary } from '@/components/ui/destination-summary';
 
 export default function ProviderJobDetailScreen() {
   const theme = useTheme();
@@ -90,6 +91,12 @@ export default function ProviderJobDetailScreen() {
           scheduledFor={booking.scheduled_for}
           notes={booking.notes ?? ''}
         />
+
+        {/* ── Destination ──────────────────────────────────────────────── */}
+        <View style={styles.section}>
+          <SectionHeader title="Destination" />
+          <DestinationSummary input={booking} />
+        </View>
 
         {/* ── Provider info row ────────────────────────────────────────── */}
         {booking.assigned_provider_name ? (

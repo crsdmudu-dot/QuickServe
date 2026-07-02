@@ -55,6 +55,10 @@ describe('createBooking', () => {
     expect(mockInsert).toHaveBeenCalledWith({
       customer_id: 'u1', service_id: 'house-cleaning', address: 'Nairobi',
       scheduled_for: '2026-07-01T10:00:00Z', notes: 'gate code 12',
+      // Slice 20 structured address fields (undefined → null)
+      address_label: null, latitude: null, longitude: null,
+      building_name: null, floor: null, door_number: null,
+      landmark: null, access_notes: null,
     });
   });
   it('maps insert error', async () => {

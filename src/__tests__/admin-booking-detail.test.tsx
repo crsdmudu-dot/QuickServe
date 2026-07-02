@@ -124,7 +124,9 @@ describe('AdminBookingDetailScreen', () => {
     render(<AdminBookingDetailScreen />);
     // Wait for booking to load
     expect(await screen.findByText('House Cleaning')).toBeOnTheScreen();
-    expect(screen.getByText('123 Main St')).toBeOnTheScreen();
+    // Address appears in BookingSummaryCard and DestinationSummary; both must be present.
+    const addressElements = screen.getAllByText('123 Main St');
+    expect(addressElements.length).toBeGreaterThan(0);
     // 'Pending' appears as the status badge AND as a picker button — both are on screen
     const pendingElements = screen.getAllByText('Pending');
     expect(pendingElements.length).toBeGreaterThan(0);
