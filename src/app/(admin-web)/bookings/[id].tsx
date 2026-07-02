@@ -54,6 +54,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
+import { DestinationSummary } from '@/components/ui/destination-summary';
 
 // ── Layout breakpoint ──────────────────────────────────────────────────────
 
@@ -267,6 +268,10 @@ export default function AdminWebBookingDetailScreen() {
           ) : null}
         </View>
       </Card>
+
+      {/* Destination */}
+      <SectionHeader title="Destination" />
+      <DestinationSummary input={booking} />
 
       {error ? (
         <Text variant="caption" color="error">
