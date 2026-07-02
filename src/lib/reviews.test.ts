@@ -2,6 +2,7 @@ import {
   submitReview,
   getMyReviewForBooking,
   getProviderReviews,
+  adminGetAllReviews,
   setReviewHidden,
 } from '@/lib/reviews';
 
@@ -34,6 +35,7 @@ jest.mock('@/lib/supabase', () => ({
       select: (...a: unknown[]) => {
         mockSelect(...a);
         return {
+          order: (...b: unknown[]) => mockOrder(...b),
           eq: (...b: unknown[]) => {
             mockEq(...b);
             return {
@@ -97,5 +99,21 @@ describe('setReviewHidden', () => {
     updateEq.mockResolvedValue({ error: null });
     expect(await setReviewHidden('r1', true)).toEqual({ ok: true });
     expect(update).toHaveBeenCalledWith({ is_hidden: true });
+  });
+});
+
+describe('adminGetAllReviews', () => {
+  it('returns all rows newest-first on success', async () => {
+    order.mockResolvedValue({ data: [{ id: 'r1' }], error: null });
+    const res = await adminGetAllReviews();
+    expect(res).toEqual([{ id: 'r1' }]);
+    expect(mockSelect).toHaveBeenCalledWith('*');
+    expect(mockOrder).toHaveBeenCalledWith('created_at', { ascending: false });
+  });
+
+  it('returns [] on error', async () => {
+    order.mockResolvedValue({ data: null, error: { message: 'DB error' } });
+    const res = await adminGetAllReviews();
+    expect(res).toEqual([]);
   });
 });

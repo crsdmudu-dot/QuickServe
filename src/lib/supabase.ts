@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -10,9 +11,25 @@ if (!url || !anonKey) {
   );
 }
 
+// Web: use localStorage when available (browser); otherwise the memory fallback (export/SSR).
+const webStorage = {
+  getItem: (k: string) =>
+    Promise.resolve(typeof window !== 'undefined' ? window.localStorage.getItem(k) : null),
+  setItem: (k: string, v: string) => {
+    if (typeof window !== 'undefined') window.localStorage.setItem(k, v);
+    return Promise.resolve();
+  },
+  removeItem: (k: string) => {
+    if (typeof window !== 'undefined') window.localStorage.removeItem(k);
+    return Promise.resolve();
+  },
+};
+
+const authStorage = Platform.OS === 'web' ? webStorage : AsyncStorage;
+
 export const supabase = createClient(url, anonKey, {
   auth: {
-    storage: AsyncStorage,
+    storage: authStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,

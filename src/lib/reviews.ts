@@ -81,3 +81,13 @@ export async function getProviderReviews(providerId: string): Promise<Review[]> 
     .order('created_at', { ascending: false });
   return (data as Review[] | null) ?? [];
 }
+
+/** Admin: all reviews, newest first (admin RLS permits — includes hidden for moderation). */
+export async function adminGetAllReviews(): Promise<Review[]> {
+  const { data, error } = await supabase
+    .from('reviews')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) return [];
+  return (data as Review[] | null) ?? [];
+}
