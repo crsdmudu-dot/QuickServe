@@ -6,6 +6,15 @@ type Draft = {
   scheduledFor: string | null;
   notes: string;
   issuePhotos: string[];
+  // Slice 20 structured address fields
+  address_label: string;
+  latitude: number | null;
+  longitude: number | null;
+  building_name: string;
+  floor: string;
+  door_number: string;
+  landmark: string;
+  access_notes: string;
 };
 type BookingDraft = Draft & {
   start: (serviceId: string) => void;
@@ -15,9 +24,29 @@ type BookingDraft = Draft & {
   addIssuePhoto: (uri: string) => void;
   removeIssuePhoto: (uri: string) => void;
   reset: () => void;
+  // Slice 20 structured address setters
+  /** Set the Google-resolved location fields (address + label + coords). Spreads into draft. */
+  setLocation: (partial: Partial<Pick<Draft, 'address' | 'address_label' | 'latitude' | 'longitude'>>) => void;
+  /** Set apartment / access detail fields. Spreads into draft. */
+  setApartment: (partial: Partial<Pick<Draft, 'building_name' | 'floor' | 'door_number' | 'landmark' | 'access_notes'>>) => void;
 };
 
-const EMPTY: Draft = { serviceId: null, address: '', scheduledFor: null, notes: '', issuePhotos: [] };
+const EMPTY: Draft = {
+  serviceId: null,
+  address: '',
+  scheduledFor: null,
+  notes: '',
+  issuePhotos: [],
+  // Slice 20 defaults
+  address_label: '',
+  latitude: null,
+  longitude: null,
+  building_name: '',
+  floor: '',
+  door_number: '',
+  landmark: '',
+  access_notes: '',
+};
 const Ctx = createContext<BookingDraft | null>(null);
 
 export function BookingDraftProvider({ children }: { children: ReactNode }) {
@@ -31,6 +60,9 @@ export function BookingDraftProvider({ children }: { children: ReactNode }) {
     addIssuePhoto: (uri) => setDraft((d) => ({ ...d, issuePhotos: [...d.issuePhotos, uri] })),
     removeIssuePhoto: (uri) => setDraft((d) => ({ ...d, issuePhotos: d.issuePhotos.filter((u) => u !== uri) })),
     reset: () => setDraft(EMPTY),
+    // Slice 20 structured address setters
+    setLocation: (partial) => setDraft((d) => ({ ...d, ...partial })),
+    setApartment: (partial) => setDraft((d) => ({ ...d, ...partial })),
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
