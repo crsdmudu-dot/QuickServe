@@ -30,6 +30,7 @@ import {
   type ProviderEarning,
 } from '@/lib/earnings';
 import { formatKes } from '@/lib/currency';
+import { PageMeta } from '@/components/admin-web/page-meta';
 import { Avatar } from '@/components/ui/avatar';
 import { VerifiedBadge } from '@/components/ui/verified-badge';
 import { Button } from '@/components/ui/button';
@@ -362,6 +363,7 @@ export default function AdminWebProviderDetailScreen() {
     // Desktop: two-column side-by-side layout
     return (
       <View style={styles.twoCol}>
+        <PageMeta title="Provider detail" />
         <ScrollView
           style={styles.colScroll}
           contentContainerStyle={styles.colContent}
@@ -382,6 +384,7 @@ export default function AdminWebProviderDetailScreen() {
   // Narrow: single-column stacked layout
   return (
     <View style={styles.singleCol}>
+      <PageMeta title="Provider detail" />
       {leftColumn}
       {rightColumn}
     </View>

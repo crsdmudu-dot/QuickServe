@@ -10,10 +10,11 @@
  * needs to return its content (no Shell wrapper here).
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 import { DataTable, type Column } from '@/components/admin-web/data-table';
+import { PageMeta } from '@/components/admin-web/page-meta';
 import { AttemptStatusBadge } from '@/components/ui/attempt-status-badge';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
@@ -41,6 +42,7 @@ function buildColumns(
         </Text>
       ),
       width: 100,
+      align: 'right',
     },
     {
       key: 'status',
@@ -149,39 +151,45 @@ function buildColumns(
 export default function AdminWebPaymentAttemptsScreen() {
   const [attempts, setAttempts] = useState<PaymentAttempt[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState(false);
+  const [actionError, setActionError] = useState('');
 
-  useEffect(() => {
-    let active = true;
-    adminGetPaymentAttempts().then((rows) => {
-      if (!active) return;
+  const load = useCallback(async () => {
+    setLoadError(false);
+    setLoading(true);
+    try {
+      const rows = await adminGetPaymentAttempts();
       setAttempts(rows);
+    } catch {
+      setLoadError(true);
+    } finally {
       setLoading(false);
-    });
-    return () => {
-      active = false;
-    };
+    }
   }, []);
 
+  useEffect(() => {
+    load();
+  }, [load]);
+
   async function handleConfirm(id: string) {
-    setError('');
+    setActionError('');
     const r = await adminConfirmAttempt(id);
     if (r.ok) {
       const rows = await adminGetPaymentAttempts();
       setAttempts(rows);
     } else {
-      setError(r.error ?? 'Could not confirm payment.');
+      setActionError(r.error ?? 'Could not confirm payment.');
     }
   }
 
   async function handleCancel(id: string) {
-    setError('');
+    setActionError('');
     const r = await adminCancelAttempt(id);
     if (r.ok) {
       const rows = await adminGetPaymentAttempts();
       setAttempts(rows);
     } else {
-      setError(r.error ?? 'Could not cancel attempt.');
+      setActionError(r.error ?? 'Could not cancel attempt.');
     }
   }
 
@@ -189,9 +197,10 @@ export default function AdminWebPaymentAttemptsScreen() {
 
   return (
     <>
-      {error ? (
+      <PageMeta title="Payment attempts" />
+      {actionError ? (
         <Text variant="caption" color="error">
-          {error}
+          {actionError}
         </Text>
       ) : null}
       <DataTable
@@ -199,6 +208,8 @@ export default function AdminWebPaymentAttemptsScreen() {
         rows={attempts}
         keyExtractor={(a) => a.id}
         loading={loading}
+        error={loadError}
+        onRetry={load}
         emptyLabel="No payment attempts yet."
       />
     </>

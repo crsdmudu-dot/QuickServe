@@ -10,10 +10,11 @@
  * needs to return its content (no Shell wrapper here).
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { DataTable, type Column } from '@/components/admin-web/data-table';
+import { PageMeta } from '@/components/admin-web/page-meta';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { Radii, Spacing, type ThemeColor } from '@/constants/theme';
@@ -80,6 +81,7 @@ function buildColumns(
         </Text>
       ),
       width: 110,
+      align: 'right',
     },
     {
       key: 'payout_status',
@@ -145,29 +147,35 @@ function buildColumns(
 export default function AdminWebEarningsScreen() {
   const [earnings, setEarnings] = useState<ProviderEarning[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState(false);
+  const [actionError, setActionError] = useState('');
 
-  useEffect(() => {
-    let active = true;
-    adminGetAllEarnings().then((rows) => {
-      if (!active) return;
+  const load = useCallback(async () => {
+    setLoadError(false);
+    setLoading(true);
+    try {
+      const rows = await adminGetAllEarnings();
       setEarnings(rows);
+    } catch {
+      setLoadError(true);
+    } finally {
       setLoading(false);
-    });
-    return () => {
-      active = false;
-    };
+    }
   }, []);
 
+  useEffect(() => {
+    load();
+  }, [load]);
+
   async function handleMarkPaid(id: string) {
-    setError('');
+    setActionError('');
     const result = await adminMarkPayoutPaid(id);
     if (result.ok) {
       setEarnings((prev) =>
         prev.map((e) => (e.id === id ? { ...e, payout_status: 'paid' as PayoutStatus } : e)),
       );
     } else {
-      setError(result.error ?? 'Could not update payout.');
+      setActionError(result.error ?? 'Could not update payout.');
     }
   }
 
@@ -175,9 +183,10 @@ export default function AdminWebEarningsScreen() {
 
   return (
     <>
-      {error ? (
+      <PageMeta title="Earnings & Payouts" />
+      {actionError ? (
         <Text variant="caption" color="error">
-          {error}
+          {actionError}
         </Text>
       ) : null}
       <DataTable
@@ -185,6 +194,8 @@ export default function AdminWebEarningsScreen() {
         rows={earnings}
         keyExtractor={(e) => e.id}
         loading={loading}
+        error={loadError}
+        onRetry={load}
         emptyLabel="No earnings yet."
       />
     </>

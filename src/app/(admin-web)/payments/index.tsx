@@ -9,10 +9,11 @@
  * needs to return its content (no Shell wrapper here).
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 import { DataTable, type Column } from '@/components/admin-web/data-table';
+import { PageMeta } from '@/components/admin-web/page-meta';
 import { PaymentStatusBadge } from '@/components/ui/payment-status-badge';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
@@ -43,6 +44,7 @@ function buildColumns(
         </Text>
       ),
       width: 100,
+      align: 'right',
     },
     {
       key: 'status',
@@ -115,29 +117,35 @@ function buildColumns(
 export default function AdminWebPaymentsScreen() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState(false);
+  const [actionError, setActionError] = useState('');
 
-  useEffect(() => {
-    let active = true;
-    adminGetAllPayments().then((rows) => {
-      if (!active) return;
+  const load = useCallback(async () => {
+    setLoadError(false);
+    setLoading(true);
+    try {
+      const rows = await adminGetAllPayments();
       setPayments(rows);
+    } catch {
+      setLoadError(true);
+    } finally {
       setLoading(false);
-    });
-    return () => {
-      active = false;
-    };
+    }
   }, []);
 
+  useEffect(() => {
+    load();
+  }, [load]);
+
   async function handleOverride(paymentId: string, status: PaymentStatus) {
-    setError('');
+    setActionError('');
     const result = await adminOverridePaymentStatus(paymentId, status);
     if (result.ok) {
       setPayments((prev) =>
         prev.map((p) => (p.id === paymentId ? { ...p, status } : p)),
       );
     } else {
-      setError(result.error ?? 'Could not update payment status.');
+      setActionError(result.error ?? 'Could not update payment status.');
     }
   }
 
@@ -145,9 +153,10 @@ export default function AdminWebPaymentsScreen() {
 
   return (
     <>
-      {error ? (
+      <PageMeta title="Payments" />
+      {actionError ? (
         <Text variant="caption" color="error">
-          {error}
+          {actionError}
         </Text>
       ) : null}
       <DataTable
@@ -155,6 +164,8 @@ export default function AdminWebPaymentsScreen() {
         rows={payments}
         keyExtractor={(p) => p.id}
         loading={loading}
+        error={loadError}
+        onRetry={load}
         emptyLabel="No payments yet."
       />
     </>

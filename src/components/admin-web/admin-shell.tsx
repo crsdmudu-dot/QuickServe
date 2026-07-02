@@ -3,15 +3,21 @@
  *
  * Full-page layout wrapper for the web admin panel.
  *
- * Layout:
- *   ┌─────────────────────────────────────────────┐
- *   │ <AdminSidebar/>  │  top-bar  (title)        │
- *   │                  │─────────────────────────  │
- *   │                  │  <ScrollView> children   │
- *   └─────────────────────────────────────────────┘
+ * Layout — Desktop (width ≥ AdminBreakpoints.wide):
+ *   ┌───────────────┬──────────────────────────────────┐
+ *   │ AdminSidebar  │  top-bar  (title | rightSlot)    │
+ *   │  (side nav)   │──────────────────────────────────│
+ *   │               │  <ScrollView> children           │
+ *   └───────────────┴──────────────────────────────────┘
  *
- * On narrow screens (< WIDE_BREAKPOINT px) the sidebar collapses to a
- * horizontal top-bar so the layout still works on mobile.
+ * Layout — Tablet / narrow (width < AdminBreakpoints.wide):
+ *   ┌──────────────────────────────────────────────────┐
+ *   │ AdminSidebar orientation="top"  (horiz. nav row) │
+ *   ├──────────────────────────────────────────────────┤
+ *   │  top-bar  (title | rightSlot)                    │
+ *   ├──────────────────────────────────────────────────┤
+ *   │  <ScrollView> children                           │
+ *   └──────────────────────────────────────────────────┘
  *
  * RN/RN-web safe — no DOM-only APIs.
  */
@@ -21,6 +27,7 @@ import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native'
 
 import { AdminSidebar } from '@/components/admin-web/admin-sidebar';
 import { Text } from '@/components/ui/text';
+import { AdminBreakpoints } from '@/constants/admin-web';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -34,24 +41,27 @@ export type AdminShellProps = {
   children: ReactNode;
 };
 
-// Wide enough to show the sidebar side-by-side.
-const WIDE_BREAKPOINT = 768;
-
 // ── Component ──────────────────────────────────────────────────────────────
 
 export function AdminShell({ title, rightSlot, children }: AdminShellProps) {
   const theme = useTheme();
   const { width } = useWindowDimensions();
-  const isWide = width >= WIDE_BREAKPOINT;
+
+  // Desktop: side-by-side sidebar + content.
+  // Tablet/narrow: compact horizontal top-nav stacked above content.
+  const isWide = width >= AdminBreakpoints.wide;
 
   return (
     <View style={[styles.root, { backgroundColor: theme.background }]}>
-      {/* Side navigation (wide screens only) */}
-      {isWide && <AdminSidebar />}
+      {/* Desktop side navigation */}
+      {isWide && <AdminSidebar orientation="side" />}
 
       {/* Main content column */}
       <View style={[styles.content, { backgroundColor: theme.surface }]}>
-        {/* Top bar */}
+        {/* Tablet / narrow horizontal top nav */}
+        {!isWide && <AdminSidebar orientation="top" />}
+
+        {/* Top bar — title + optional right slot */}
         <View style={[styles.topBar, { borderBottomColor: theme.border }]}>
           <Text variant="title" color="text" style={styles.titleText}>
             {title}

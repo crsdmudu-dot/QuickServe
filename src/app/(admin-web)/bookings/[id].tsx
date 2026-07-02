@@ -42,6 +42,7 @@ import {
 } from '@/lib/photos';
 import { getBookingActivity, type BookingActivity } from '@/lib/activity';
 import { formatKes } from '@/lib/currency';
+import { PageMeta } from '@/components/admin-web/page-meta';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { PaymentStatusBadge } from '@/components/ui/payment-status-badge';
 import { QuoteCard } from '@/components/ui/quote-card';
@@ -447,6 +448,7 @@ export default function AdminWebBookingDetailScreen() {
     // Desktop: two-column side-by-side layout
     return (
       <View style={styles.twoCol}>
+        <PageMeta title="Booking detail" />
         <ScrollView
           style={styles.colScroll}
           contentContainerStyle={styles.colContent}
@@ -467,6 +469,7 @@ export default function AdminWebBookingDetailScreen() {
   // Narrow: single-column stacked layout
   return (
     <View style={styles.singleCol}>
+      <PageMeta title="Booking detail" />
       {leftColumn}
       {rightColumn}
     </View>
