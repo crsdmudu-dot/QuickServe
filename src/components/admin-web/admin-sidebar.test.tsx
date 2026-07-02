@@ -70,4 +70,17 @@ describe('AdminSidebar', () => {
     fireEvent.press(screen.getByText('Dashboard'));
     expect(mockRouterPush).toHaveBeenCalledWith('/(admin-web)');
   });
+
+  it('renders all nav item labels in orientation="top"', () => {
+    render(<AdminSidebar orientation="top" />);
+    expect(screen.getByText('Dashboard')).toBeOnTheScreen();
+    expect(screen.getByText('Bookings')).toBeOnTheScreen();
+    expect(screen.getByText('Providers')).toBeOnTheScreen();
+    expect(screen.getByText('Customers')).toBeOnTheScreen();
+    expect(screen.getByText('Payments')).toBeOnTheScreen();
+    expect(screen.getByText('Payment Attempts')).toBeOnTheScreen();
+    expect(screen.getByText('Earnings & Payouts')).toBeOnTheScreen();
+    expect(screen.getByText('Reviews')).toBeOnTheScreen();
+    expect(screen.getByText('Sign out')).toBeOnTheScreen();
+  });
 });
