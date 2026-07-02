@@ -15,3 +15,6 @@ verify_jwt = true
 
 [functions.place-details]
 verify_jwt = true
+
+[functions.tracking-map]
+verify_jwt = true
