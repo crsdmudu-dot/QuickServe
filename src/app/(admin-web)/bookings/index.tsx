@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import { router, type Href } from 'expo-router';
 
 import { DataTable, type Column } from '@/components/admin-web/data-table';
+import { PageMeta } from '@/components/admin-web/page-meta';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Text } from '@/components/ui/text';
 import { SERVICES } from '@/constants/services';
@@ -87,13 +88,16 @@ export default function AdminWebBookingsScreen() {
   }, []);
 
   return (
-    <DataTable
-      columns={COLUMNS}
-      rows={bookings}
-      keyExtractor={(b) => b.id}
-      loading={loading}
-      emptyLabel="No bookings yet."
-      onRowPress={(b) => router.push(`/(admin-web)/bookings/${b.id}` as Href)}
-    />
+    <>
+      <PageMeta title="Bookings" />
+      <DataTable
+        columns={COLUMNS}
+        rows={bookings}
+        keyExtractor={(b) => b.id}
+        loading={loading}
+        emptyLabel="No bookings yet."
+        onRowPress={(b) => router.push(`/(admin-web)/bookings/${b.id}` as Href)}
+      />
+    </>
   );
 }

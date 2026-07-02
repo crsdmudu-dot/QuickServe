@@ -16,6 +16,7 @@ import { View } from 'react-native';
 import { router, type Href } from 'expo-router';
 
 import { DataTable, type Column } from '@/components/admin-web/data-table';
+import { PageMeta } from '@/components/admin-web/page-meta';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import {
@@ -160,13 +161,16 @@ export default function AdminWebProvidersScreen() {
   const columns = buildColumns(setProviders);
 
   return (
-    <DataTable
-      columns={columns}
-      rows={providers}
-      keyExtractor={(p) => p.id}
-      loading={loading}
-      emptyLabel="No providers found."
-      onRowPress={(p) => router.push(`/(admin-web)/providers/${p.id}` as Href)}
-    />
+    <>
+      <PageMeta title="Providers" />
+      <DataTable
+        columns={columns}
+        rows={providers}
+        keyExtractor={(p) => p.id}
+        loading={loading}
+        emptyLabel="No providers found."
+        onRowPress={(p) => router.push(`/(admin-web)/providers/${p.id}` as Href)}
+      />
+    </>
   );
 }

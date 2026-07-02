@@ -18,6 +18,7 @@ import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 import { DataTable, type Column } from '@/components/admin-web/data-table';
+import { PageMeta } from '@/components/admin-web/page-meta';
 import { RatingStars } from '@/components/ui/rating-stars';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
@@ -150,6 +151,7 @@ export default function AdminWebReviewsScreen() {
 
   return (
     <>
+      <PageMeta title="Reviews" />
       {error ? (
         <Text variant="caption" color="error">
           {error}

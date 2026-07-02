@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/auth/auth-context';
+import { PageMeta } from '@/components/admin-web/page-meta';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
@@ -38,6 +39,7 @@ export default function AdminLoginScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
+      <PageMeta title="Sign in" description="Sign in to the QuickServe admin panel." />
       <View style={styles.outer}>
         <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           {/* Header */}

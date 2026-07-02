@@ -14,6 +14,7 @@
 import { useEffect, useState } from 'react';
 
 import { DataTable, type Column } from '@/components/admin-web/data-table';
+import { PageMeta } from '@/components/admin-web/page-meta';
 import { Text } from '@/components/ui/text';
 import { adminGetAllCustomers, type CustomerProfile } from '@/lib/customers';
 import { getAllBookings, type Booking } from '@/lib/bookings';
@@ -95,12 +96,15 @@ export default function AdminWebCustomersScreen() {
   const columns = buildColumns(bookings);
 
   return (
-    <DataTable
-      columns={columns}
-      rows={customers}
-      keyExtractor={(c) => c.id}
-      loading={loading}
-      emptyLabel="No customers yet."
-    />
+    <>
+      <PageMeta title="Customers" />
+      <DataTable
+        columns={columns}
+        rows={customers}
+        keyExtractor={(c) => c.id}
+        loading={loading}
+        emptyLabel="No customers yet."
+      />
+    </>
   );
 }

@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { DataTable, type Column } from '@/components/admin-web/data-table';
+import { PageMeta } from '@/components/admin-web/page-meta';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { Radii, Spacing, type ThemeColor } from '@/constants/theme';
@@ -175,6 +176,7 @@ export default function AdminWebEarningsScreen() {
 
   return (
     <>
+      <PageMeta title="Earnings & Payouts" />
       {error ? (
         <Text variant="caption" color="error">
           {error}

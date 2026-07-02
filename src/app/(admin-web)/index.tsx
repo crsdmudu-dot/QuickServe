@@ -19,6 +19,7 @@ import { StyleSheet, View } from 'react-native';
 import { router, type Href } from 'expo-router';
 
 import { DataTable, type Column } from '@/components/admin-web/data-table';
+import { PageMeta } from '@/components/admin-web/page-meta';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -157,6 +158,7 @@ export default function AdminDashboard() {
 
   return (
     <View style={styles.root}>
+      <PageMeta title="Dashboard" description="QuickServe admin dashboard overview." />
       {/* Summary stat cards */}
       <View style={styles.statsGrid}>
         <StatCard

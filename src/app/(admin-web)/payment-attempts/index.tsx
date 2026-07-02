@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 import { DataTable, type Column } from '@/components/admin-web/data-table';
+import { PageMeta } from '@/components/admin-web/page-meta';
 import { AttemptStatusBadge } from '@/components/ui/attempt-status-badge';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
@@ -189,6 +190,7 @@ export default function AdminWebPaymentAttemptsScreen() {
 
   return (
     <>
+      <PageMeta title="Payment attempts" />
       {error ? (
         <Text variant="caption" color="error">
           {error}
