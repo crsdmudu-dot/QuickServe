@@ -111,9 +111,14 @@ begin
     return;
   end if;
 
+  -- ON CONFLICT targets the PARTIAL unique index notifications_dedup_key
+  -- (WHERE dedup_key is not null). Postgres arbiter-index inference for a
+  -- partial index REQUIRES the predicate be restated here, else it raises
+  -- "no unique or exclusion constraint matching the ON CONFLICT specification".
+  -- A NULL dedup_key (e.g. chat) simply never conflicts → always inserts.
   insert into public.notifications (user_id, booking_id, title, body, type, category, route, dedup_key)
   values (p_user_id, p_booking_id, p_title, p_body, p_type, p_category, p_route, p_dedup_key)
-  on conflict (dedup_key) do nothing;
+  on conflict (dedup_key) where dedup_key is not null do nothing;
 end; $$;
 
 -- ================================================================
