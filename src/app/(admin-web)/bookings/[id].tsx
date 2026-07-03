@@ -55,6 +55,7 @@ import { Input } from '@/components/ui/input';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
 import { DestinationSummary } from '@/components/ui/destination-summary';
+import { AdminLiveLocation } from '@/components/ui/admin-live-location';
 
 // ── Layout breakpoint ──────────────────────────────────────────────────────
 
@@ -272,6 +273,14 @@ export default function AdminWebBookingDetailScreen() {
       {/* Destination */}
       <SectionHeader title="Destination" />
       <DestinationSummary input={booking} />
+
+      {/* Live location (read-only oversight) */}
+      {(booking.status === 'on_the_way' || booking.status === 'in_progress') && (
+        <>
+          <SectionHeader title="Live location" />
+          <AdminLiveLocation booking={booking} />
+        </>
+      )}
 
       {error ? (
         <Text variant="caption" color="error">
