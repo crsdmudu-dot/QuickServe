@@ -10,6 +10,12 @@ export type StarInputProps = {
   value: number;
   /** Called with the new rating when the user taps a star. */
   onChange: (n: number) => void;
+  /**
+   * Optional prefix for star testIDs.  When provided the testID becomes
+   * `${idPrefix}-star-${n}`; when omitted it stays `star-${n}` so existing
+   * usages and tests are unchanged.
+   */
+  idPrefix?: string;
 };
 
 // Minimum 44×44 touch target for each star, achieved via hitSlop.
@@ -17,7 +23,7 @@ export type StarInputProps = {
 // side so the tap area meets the 44 px accessibility guideline.
 const STAR_HIT_SLOP = { top: 10, right: 10, bottom: 10, left: 10 } as const;
 
-export function StarInput({ value, onChange }: StarInputProps) {
+export function StarInput({ value, onChange, idPrefix }: StarInputProps) {
   const theme = useTheme();
 
   return (
@@ -25,7 +31,7 @@ export function StarInput({ value, onChange }: StarInputProps) {
       {[1, 2, 3, 4, 5].map((n) => (
         <Pressable
           key={n}
-          testID={`star-${n}`}
+          testID={idPrefix ? `${idPrefix}-star-${n}` : `star-${n}`}
           onPress={() => onChange(n)}
           hitSlop={STAR_HIT_SLOP}
           accessibilityRole="button"
