@@ -52,6 +52,10 @@ jest.mock('@/lib/bookings', () => ({
 
 // ── Review mocks ────────────────────────────────────────────────────────────
 
+/**
+ * Base review — rating:4, has categories/tags/recommend.
+ * Used for most existing tests.
+ */
 const MOCK_REVIEW = {
   id: 'rev-bbbb-2222',
   booking_id: 'bk-12345678-full',
@@ -61,14 +65,64 @@ const MOCK_REVIEW = {
   comment: 'Great service!',
   is_hidden: false,
   created_at: '2026-06-01T00:00:00Z',
+  quality_rating: 4,
+  punctuality_rating: 5,
+  communication_rating: null,
+  professionalism_rating: null,
+  value_rating: null,
+  would_recommend: true,
+  tags: ['on_time', 'friendly'],
 };
 
-const mockAdminGetAllReviews = jest.fn().mockResolvedValue([MOCK_REVIEW]);
+/**
+ * Low-rated review — rating:1, used to test the "Low-rated only" filter.
+ * Private feedback "be careful" is returned for this review's id.
+ */
+const MOCK_REVIEW_LOW = {
+  id: 'rev-cccc-3333',
+  booking_id: 'bk-99999999-full',
+  customer_id: 'cust-88888888-full',
+  provider_id: 'prov-7777777-full',
+  rating: 1,
+  comment: 'Terrible!',
+  is_hidden: false,
+  created_at: '2026-06-02T00:00:00Z',
+  quality_rating: 1,
+  punctuality_rating: null,
+  communication_rating: null,
+  professionalism_rating: null,
+  value_rating: null,
+  would_recommend: false,
+  tags: ['late'],
+};
+
+const mockAdminGetAllReviews = jest
+  .fn()
+  .mockResolvedValue([MOCK_REVIEW, MOCK_REVIEW_LOW]);
+
 const mockSetReviewHidden = jest.fn().mockResolvedValue({ ok: true });
+
+const mockGetReviewPrivateFeedback = jest.fn().mockImplementation((id: string) => {
+  // Return private feedback only for the low-rated review
+  if (id === 'rev-cccc-3333') return Promise.resolve({ feedback: 'be careful' });
+  return Promise.resolve(null);
+});
 
 jest.mock('@/lib/reviews', () => ({
   adminGetAllReviews: (...args: unknown[]) => mockAdminGetAllReviews(...args),
   setReviewHidden: (...args: unknown[]) => mockSetReviewHidden(...args),
+  getReviewPrivateFeedback: (...args: unknown[]) => mockGetReviewPrivateFeedback(...args),
+  REVIEW_TAGS: [
+    { key: 'on_time',            label: 'On time',            sentiment: 'positive' },
+    { key: 'friendly',           label: 'Friendly',           sentiment: 'positive' },
+    { key: 'clean_work',         label: 'Clean work',         sentiment: 'positive' },
+    { key: 'good_communication', label: 'Good communication', sentiment: 'positive' },
+    { key: 'fair_price',         label: 'Fair price',         sentiment: 'positive' },
+    { key: 'late',               label: 'Late',               sentiment: 'negative' },
+    { key: 'messy',              label: 'Messy',              sentiment: 'negative' },
+    { key: 'poor_communication', label: 'Poor communication', sentiment: 'negative' },
+    { key: 'overpriced',         label: 'Overpriced',         sentiment: 'negative' },
+  ],
 }));
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
@@ -125,9 +179,16 @@ describe('AdminWebReviewsScreen (moderation)', () => {
   beforeEach(() => {
     mockAdminGetAllReviews.mockClear();
     mockSetReviewHidden.mockClear();
-    mockAdminGetAllReviews.mockResolvedValue([MOCK_REVIEW]);
+    mockGetReviewPrivateFeedback.mockClear();
+    mockAdminGetAllReviews.mockResolvedValue([MOCK_REVIEW, MOCK_REVIEW_LOW]);
     mockSetReviewHidden.mockResolvedValue({ ok: true });
+    mockGetReviewPrivateFeedback.mockImplementation((id: string) => {
+      if (id === 'rev-cccc-3333') return Promise.resolve({ feedback: 'be careful' });
+      return Promise.resolve(null);
+    });
   });
+
+  // ── Existing assertions (kept green) ───────────────────────────────────────
 
   it('renders a review row with the comment after data loads', async () => {
     render(<AdminWebReviewsScreen />);
@@ -154,10 +215,13 @@ describe('AdminWebReviewsScreen (moderation)', () => {
 
   it('shows "Hide" button for a visible review', async () => {
     render(<AdminWebReviewsScreen />);
-    expect(await screen.findByText('Hide')).toBeOnTheScreen();
+    // Both reviews are visible, so we'll have at least one Hide button
+    const hideButtons = await screen.findAllByText('Hide');
+    expect(hideButtons.length).toBeGreaterThan(0);
   });
 
   it('calls setReviewHidden(id, true) when Hide is pressed', async () => {
+    mockAdminGetAllReviews.mockResolvedValue([MOCK_REVIEW]);
     render(<AdminWebReviewsScreen />);
     await screen.findByText('Hide');
     fireEvent.press(screen.getByText('Hide'));
@@ -167,6 +231,7 @@ describe('AdminWebReviewsScreen (moderation)', () => {
   });
 
   it('updates the row to show "Unhide" after a successful hide', async () => {
+    mockAdminGetAllReviews.mockResolvedValue([MOCK_REVIEW]);
     render(<AdminWebReviewsScreen />);
     await screen.findByText('Hide');
     fireEvent.press(screen.getByText('Hide'));
@@ -193,5 +258,104 @@ describe('AdminWebReviewsScreen (moderation)', () => {
     mockAdminGetAllReviews.mockResolvedValueOnce([]);
     render(<AdminWebReviewsScreen />);
     expect(await screen.findByText('No reviews yet.')).toBeOnTheScreen();
+  });
+
+  // ── New Slice 25 assertions ────────────────────────────────────────────────
+
+  it('renders private feedback "be careful" for the low-rated review', async () => {
+    render(<AdminWebReviewsScreen />);
+    // Wait for data to load and private feedback to be prefetched
+    await waitFor(() => expect(screen.getByText('be careful')).toBeOnTheScreen());
+  });
+
+  it('renders tags for a review (on_time → "On time", friendly → "Friendly")', async () => {
+    render(<AdminWebReviewsScreen />);
+    await screen.findByText('Great service!');
+    // MOCK_REVIEW has tags ['on_time', 'friendly'] → "On time, Friendly"
+    expect(screen.getByText('On time, Friendly')).toBeOnTheScreen();
+  });
+
+  it('renders 👍 for would_recommend:true', async () => {
+    render(<AdminWebReviewsScreen />);
+    await screen.findByText('Great service!');
+    // MOCK_REVIEW has would_recommend:true
+    expect(screen.getByText('👍')).toBeOnTheScreen();
+  });
+
+  it('renders 👎 for would_recommend:false', async () => {
+    render(<AdminWebReviewsScreen />);
+    // MOCK_REVIEW_LOW has would_recommend:false
+    await screen.findByText('Terrible!');
+    expect(screen.getByText('👎')).toBeOnTheScreen();
+  });
+
+  it('renders category ratings for a review (Q4 · P5)', async () => {
+    render(<AdminWebReviewsScreen />);
+    await screen.findByText('Great service!');
+    // MOCK_REVIEW has quality_rating:4, punctuality_rating:5
+    expect(screen.getByText('Q4 · P5')).toBeOnTheScreen();
+  });
+
+  it('toggles Low-rated only: shows rating<=2 row and hides rating:5 row', async () => {
+    // Add a rating:5 review to make the filter effect obvious
+    const MOCK_REVIEW_HIGH = {
+      ...MOCK_REVIEW,
+      id: 'rev-dddd-4444',
+      rating: 5,
+      comment: 'Perfect job!',
+      quality_rating: 5,
+      punctuality_rating: 5,
+    };
+    mockAdminGetAllReviews.mockResolvedValueOnce([MOCK_REVIEW_HIGH, MOCK_REVIEW_LOW]);
+    render(<AdminWebReviewsScreen />);
+
+    // Wait for initial load — both rows visible
+    await screen.findByText('Perfect job!');
+    expect(screen.getByText('Terrible!')).toBeOnTheScreen();
+
+    // Press the Low-rated only toggle
+    fireEvent.press(screen.getByText('Low-rated only'));
+
+    // After toggle: rating:1 row visible, rating:5 row hidden
+    await waitFor(() => {
+      expect(screen.getByText('Terrible!')).toBeOnTheScreen();
+      expect(screen.queryByText('Perfect job!')).toBeNull();
+    });
+  });
+
+  it('toggling back to "All ratings" shows all rows again', async () => {
+    const MOCK_REVIEW_HIGH = {
+      ...MOCK_REVIEW,
+      id: 'rev-dddd-4444',
+      rating: 5,
+      comment: 'Perfect job!',
+      quality_rating: 5,
+      punctuality_rating: 5,
+    };
+    mockAdminGetAllReviews.mockResolvedValueOnce([MOCK_REVIEW_HIGH, MOCK_REVIEW_LOW]);
+    render(<AdminWebReviewsScreen />);
+
+    await screen.findByText('Perfect job!');
+
+    // Toggle on
+    fireEvent.press(screen.getByText('Low-rated only'));
+    await waitFor(() => expect(screen.queryByText('Perfect job!')).toBeNull());
+
+    // Toggle off — button label changes to "All ratings"
+    fireEvent.press(screen.getByText('All ratings'));
+    await waitFor(() => {
+      expect(screen.getByText('Perfect job!')).toBeOnTheScreen();
+      expect(screen.getByText('Terrible!')).toBeOnTheScreen();
+    });
+  });
+
+  it('Hide/Unhide still calls setReviewHidden correctly with new columns present', async () => {
+    mockAdminGetAllReviews.mockResolvedValue([MOCK_REVIEW]);
+    render(<AdminWebReviewsScreen />);
+    await screen.findByText('Hide');
+    fireEvent.press(screen.getByText('Hide'));
+    await waitFor(() =>
+      expect(mockSetReviewHidden).toHaveBeenCalledWith('rev-bbbb-2222', true),
+    );
   });
 });
