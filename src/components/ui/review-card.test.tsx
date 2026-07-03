@@ -13,6 +13,13 @@ const review = {
   customer_id: 'c1',
   provider_id: 'p1',
   is_hidden: false,
+  quality_rating: null,
+  punctuality_rating: null,
+  communication_rating: null,
+  professionalism_rating: null,
+  value_rating: null,
+  would_recommend: null,
+  tags: [],
 };
 
 describe('ReviewCard', () => {
