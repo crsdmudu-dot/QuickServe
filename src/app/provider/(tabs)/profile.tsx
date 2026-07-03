@@ -14,7 +14,12 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/auth/auth-context';
 import { getProviderProfile, updateMyProviderProfile, type ProviderProfile } from '@/lib/providers';
-import { getProviderReviews, type Review } from '@/lib/reviews';
+import {
+  getProviderReviews,
+  getProviderRatingBreakdown,
+  type Review,
+  type ProviderRatingBreakdown,
+} from '@/lib/reviews';
 import {
   getMyEarnings,
   getProviderEarningsSummary,
@@ -30,6 +35,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Text } from '@/components/ui/text';
 import { RatingStars } from '@/components/ui/rating-stars';
 import { ReviewCard } from '@/components/ui/review-card';
+import { RatingBreakdown } from '@/components/ui/rating-breakdown';
 import { Card } from '@/components/ui/card';
 import { SectionHeader } from '@/components/ui/section-header';
 
@@ -72,6 +78,8 @@ export default function ProviderProfileScreen() {
   const [saveError, setSaveError] = useState<string | null>(null);
   // Reviews are loaded separately and are read-only — providers cannot edit or hide them.
   const [reviews, setReviews] = useState<Review[]>([]);
+  // Aggregated rating breakdown — display-only; not used for ranking or dispatch.
+  const [breakdown, setBreakdown] = useState<ProviderRatingBreakdown | null>(null);
   // Earnings are read-only — providers view only; no payout actions here.
   const [earnings, setEarnings] = useState<ProviderEarning[]>([]);
   const [earningsSummary, setEarningsSummary] = useState<EarningsSummary>({ pending: 0, paid: 0 });
@@ -86,6 +94,8 @@ export default function ProviderProfileScreen() {
       });
       // RLS ensures only non-hidden reviews are returned for the provider.
       getProviderReviews(userId).then((r) => setReviews(r));
+      // Load the aggregated breakdown for display alongside recent reviews.
+      getProviderRatingBreakdown(userId).then(setBreakdown);
       // Earnings are self-scoped via RLS — no provider ID argument needed.
       getProviderEarningsSummary().then(setEarningsSummary);
       getMyEarnings().then(setEarnings);
@@ -182,6 +192,13 @@ export default function ProviderProfileScreen() {
             value={state.profile?.average_rating ?? null}
             count={state.profile?.review_count}
           />
+          {/* Rating breakdown — aggregated stats, display-only */}
+          {breakdown !== null && (
+            <>
+              <SectionHeader title="Rating breakdown" />
+              <RatingBreakdown breakdown={breakdown} />
+            </>
+          )}
           {reviews.map((r) => (
             <ReviewCard key={r.id} review={r} />
           ))}

@@ -16,13 +16,20 @@ import {
   adminUpdateProviderProfile,
   type ProviderProfile,
 } from '@/lib/providers';
-import { getProviderReviews, setReviewHidden, type Review } from '@/lib/reviews';
+import {
+  getProviderReviews,
+  getProviderRatingBreakdown,
+  setReviewHidden,
+  type Review,
+  type ProviderRatingBreakdown,
+} from '@/lib/reviews';
 import { Avatar } from '@/components/ui/avatar';
 import { VerifiedBadge } from '@/components/ui/verified-badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { RatingStars } from '@/components/ui/rating-stars';
+import { RatingBreakdown } from '@/components/ui/rating-breakdown';
 import { ReviewCard } from '@/components/ui/review-card';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
@@ -45,6 +52,8 @@ export default function AdminProviderDetailScreen() {
 
   // Reviews loaded by admin (includes hidden ones)
   const [reviews, setReviews] = useState<Review[]>([]);
+  // Aggregated rating breakdown — display-only; not used for ranking or dispatch.
+  const [breakdown, setBreakdown] = useState<ProviderRatingBreakdown | null>(null);
 
   // Load provider profile and reviews on mount (or whenever id changes)
   useEffect(() => {
@@ -59,6 +68,8 @@ export default function AdminProviderDetailScreen() {
         }
       });
       getProviderReviews(id).then((list) => setReviews(list));
+      // Load the aggregated breakdown for display alongside recent reviews.
+      getProviderRatingBreakdown(id).then(setBreakdown);
     }
   }, [id]);
 
@@ -212,6 +223,13 @@ export default function AdminProviderDetailScreen() {
         {/* ── Reviews ───────────────────────────────────────────────────────── */}
         <SectionHeader title="Reviews" />
         <RatingStars value={profile.average_rating} count={profile.review_count} />
+        {/* Rating breakdown — aggregated stats, display-only */}
+        {breakdown !== null && (
+          <>
+            <SectionHeader title="Rating breakdown" />
+            <RatingBreakdown breakdown={breakdown} />
+          </>
+        )}
         {reviews.map((r) => (
           <View key={r.id} style={styles.reviewRow}>
             <ReviewCard review={r} />

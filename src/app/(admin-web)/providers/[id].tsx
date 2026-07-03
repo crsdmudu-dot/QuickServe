@@ -23,7 +23,13 @@ import {
   adminUpdateProviderProfile,
   type ProviderProfile,
 } from '@/lib/providers';
-import { getProviderReviews, setReviewHidden, type Review } from '@/lib/reviews';
+import {
+  getProviderReviews,
+  getProviderRatingBreakdown,
+  setReviewHidden,
+  type Review,
+  type ProviderRatingBreakdown,
+} from '@/lib/reviews';
 import {
   adminGetProviderEarnings,
   adminMarkPayoutPaid,
@@ -37,6 +43,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { RatingStars } from '@/components/ui/rating-stars';
+import { RatingBreakdown } from '@/components/ui/rating-breakdown';
 import { ReviewCard } from '@/components/ui/review-card';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
@@ -68,6 +75,8 @@ export default function AdminWebProviderDetailScreen() {
   // ── Right column state ─────────────────────────────────────────────────
   const [reviews, setReviews] = useState<Review[]>([]);
   const [earnings, setEarnings] = useState<ProviderEarning[]>([]);
+  // Aggregated rating breakdown — display-only; not used for ranking or dispatch.
+  const [breakdown, setBreakdown] = useState<ProviderRatingBreakdown | null>(null);
 
   // ── Reload helpers ─────────────────────────────────────────────────────
 
@@ -96,6 +105,8 @@ export default function AdminWebProviderDetailScreen() {
 
     loadReviews();
     loadEarnings();
+    // Load the aggregated breakdown for display alongside recent reviews.
+    getProviderRatingBreakdown(id).then(setBreakdown);
   }, [id, loadReviews, loadEarnings]);
 
   // ── Action handlers ────────────────────────────────────────────────────
@@ -297,6 +308,13 @@ export default function AdminWebProviderDetailScreen() {
       {/* Ratings summary */}
       <SectionHeader title="Ratings" />
       <RatingStars value={profile.average_rating} count={profile.review_count} />
+      {/* Rating breakdown — aggregated stats, display-only */}
+      {breakdown !== null && (
+        <>
+          <SectionHeader title="Rating breakdown" />
+          <RatingBreakdown breakdown={breakdown} />
+        </>
+      )}
 
       {/* Reviews list */}
       <SectionHeader title="Reviews" />
