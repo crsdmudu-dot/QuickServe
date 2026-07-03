@@ -33,6 +33,11 @@ const mockGetBookingById = jest.fn().mockImplementation(() =>
     assigned_provider_phone: null,
     admin_notes: null,
     assigned_provider_id: null,
+    scheduling_type: 'tomorrow',
+    time_window: null,
+    window_start: null,
+    window_end: null,
+    recurrence: 'one_time',
   }),
 );
 
@@ -209,5 +214,104 @@ describe('ProviderJobDetailScreen', () => {
       'A professional has been assigned to your booking.',
     );
     expect(activityMsg).toBeOnTheScreen();
+  });
+
+  // ── Scheduling display tests ──────────────────────────────────────────
+
+  it('shows ASAP badge when scheduling_type is asap', async () => {
+    mockGetBookingById.mockResolvedValueOnce({
+      id: 'j1',
+      service_id: 'house-cleaning',
+      address: '123 Main St',
+      scheduled_for: '2026-07-01T10:00:00Z',
+      notes: null,
+      status: 'provider_assigned',
+      created_at: '2026-06-21T00:00:00Z',
+      assigned_provider_name: null,
+      assigned_provider_phone: null,
+      admin_notes: null,
+      assigned_provider_id: null,
+      scheduling_type: 'asap',
+      time_window: null,
+      window_start: null,
+      window_end: null,
+      recurrence: 'one_time',
+    });
+    render(<ProviderJobDetailScreen />);
+    await screen.findByText('House Cleaning');
+    expect(screen.getByTestId('asap-badge')).toBeOnTheScreen();
+  });
+
+  it('shows time window text when time_window is set', async () => {
+    mockGetBookingById.mockResolvedValueOnce({
+      id: 'j1',
+      service_id: 'house-cleaning',
+      address: '123 Main St',
+      scheduled_for: '2026-07-01T10:00:00Z',
+      notes: null,
+      status: 'provider_assigned',
+      created_at: '2026-06-21T00:00:00Z',
+      assigned_provider_name: null,
+      assigned_provider_phone: null,
+      admin_notes: null,
+      assigned_provider_id: null,
+      scheduling_type: 'tomorrow',
+      time_window: 'morning',
+      window_start: '2026-07-02T08:00:00Z',
+      window_end: '2026-07-02T12:00:00Z',
+      recurrence: 'one_time',
+    });
+    render(<ProviderJobDetailScreen />);
+    await screen.findByText('House Cleaning');
+    // The "When" text should include "morning" when time_window is 'morning'
+    expect(screen.getByText(/morning/)).toBeOnTheScreen();
+  });
+
+  it('shows recurring badge when recurrence is not one_time', async () => {
+    mockGetBookingById.mockResolvedValueOnce({
+      id: 'j1',
+      service_id: 'house-cleaning',
+      address: '123 Main St',
+      scheduled_for: '2026-07-01T10:00:00Z',
+      notes: null,
+      status: 'provider_assigned',
+      created_at: '2026-06-21T00:00:00Z',
+      assigned_provider_name: null,
+      assigned_provider_phone: null,
+      admin_notes: null,
+      assigned_provider_id: null,
+      scheduling_type: 'tomorrow',
+      time_window: null,
+      window_start: null,
+      window_end: null,
+      recurrence: 'weekly',
+    });
+    render(<ProviderJobDetailScreen />);
+    await screen.findByText('House Cleaning');
+    expect(screen.getByTestId('recurring-badge')).toBeOnTheScreen();
+  });
+
+  it('does not show recurring badge when recurrence is one_time', async () => {
+    mockGetBookingById.mockResolvedValueOnce({
+      id: 'j1',
+      service_id: 'house-cleaning',
+      address: '123 Main St',
+      scheduled_for: '2026-07-01T10:00:00Z',
+      notes: null,
+      status: 'provider_assigned',
+      created_at: '2026-06-21T00:00:00Z',
+      assigned_provider_name: null,
+      assigned_provider_phone: null,
+      admin_notes: null,
+      assigned_provider_id: null,
+      scheduling_type: 'tomorrow',
+      time_window: null,
+      window_start: null,
+      window_end: null,
+      recurrence: 'one_time',
+    });
+    render(<ProviderJobDetailScreen />);
+    await screen.findByText('House Cleaning');
+    expect(screen.queryByTestId('recurring-badge')).toBeNull();
   });
 });
