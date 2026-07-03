@@ -26,4 +26,10 @@ describe('ProfileScreen', () => {
     fireEvent.press(screen.getByText('Saved addresses'));
     expect(router.push).toHaveBeenCalledWith('/saved-addresses');
   });
+
+  it('navigates to /notification-settings when "Notification settings" is pressed', () => {
+    render(<ProfileScreen />);
+    fireEvent.press(screen.getByText('Notification settings'));
+    expect(router.push).toHaveBeenCalledWith('/notification-settings');
+  });
 });

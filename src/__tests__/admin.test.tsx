@@ -85,4 +85,11 @@ describe('AdminScreen', () => {
       expect(router.push).toHaveBeenCalledWith('/admin/provider/p1'),
     );
   });
+
+  it('navigates to /notification-settings when "Notifications" is pressed', async () => {
+    render(<AdminScreen />);
+    await screen.findByText('House Cleaning');
+    fireEvent.press(screen.getByText('Notifications'));
+    expect(router.push).toHaveBeenCalledWith('/notification-settings');
+  });
 });
