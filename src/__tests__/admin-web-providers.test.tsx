@@ -72,10 +72,33 @@ const mockGetProviderReviews = jest.fn().mockResolvedValue([
   },
 ]);
 const mockSetReviewHidden = jest.fn().mockResolvedValue({ ok: true });
+const mockGetProviderRatingBreakdown = jest.fn().mockResolvedValue({
+  overall_avg: 4.5,
+  review_count: 8,
+  recommend_pct: 88,
+  quality_avg: 4.6,
+  punctuality_avg: 4.2,
+  communication_avg: 4.8,
+  professionalism_avg: 4.5,
+  value_avg: 4.1,
+  top_tags: ['on_time', 'friendly'],
+});
 
 jest.mock('@/lib/reviews', () => ({
   getProviderReviews: (...args: unknown[]) => mockGetProviderReviews(...args),
   setReviewHidden: (...args: unknown[]) => mockSetReviewHidden(...args),
+  getProviderRatingBreakdown: (...args: unknown[]) => mockGetProviderRatingBreakdown(...args),
+  REVIEW_TAGS: [
+    { key: 'on_time',            label: 'On time',            sentiment: 'positive' },
+    { key: 'friendly',           label: 'Friendly',           sentiment: 'positive' },
+    { key: 'clean_work',         label: 'Clean work',         sentiment: 'positive' },
+    { key: 'good_communication', label: 'Good communication', sentiment: 'positive' },
+    { key: 'fair_price',         label: 'Fair price',         sentiment: 'positive' },
+    { key: 'late',               label: 'Late',               sentiment: 'negative' },
+    { key: 'messy',              label: 'Messy',              sentiment: 'negative' },
+    { key: 'poor_communication', label: 'Poor communication', sentiment: 'negative' },
+    { key: 'overpriced',         label: 'Overpriced',         sentiment: 'negative' },
+  ],
 }));
 
 const mockAdminGetProviderEarnings = jest.fn().mockResolvedValue([
@@ -167,6 +190,7 @@ describe('AdminWebProviderDetailScreen (detail)', () => {
     mockSetReviewHidden.mockClear();
     mockAdminGetProviderEarnings.mockClear();
     mockAdminMarkPayoutPaid.mockClear();
+    mockGetProviderRatingBreakdown.mockClear();
   });
 
   it('renders provider name after profile loads', async () => {
@@ -221,5 +245,15 @@ describe('AdminWebProviderDetailScreen (detail)', () => {
     await waitFor(() =>
       expect(mockAdminUpdateProviderProfile).toHaveBeenCalledWith('prov1', { is_verified: true }),
     );
+  });
+
+  it('renders the rating breakdown section with recommend % and strength chips', async () => {
+    render(<AdminWebProviderDetailScreen />);
+    await screen.findByText('Jane Doe');
+    // The breakdown component renders "88% would recommend" and tag chips.
+    expect(await screen.findByText(/88%\s*would recommend/)).toBeOnTheScreen();
+    expect(await screen.findByText('On time')).toBeOnTheScreen();
+    // A category label from the breakdown bars
+    expect(await screen.findByText('Quality')).toBeOnTheScreen();
   });
 });

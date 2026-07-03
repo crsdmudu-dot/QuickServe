@@ -4,49 +4,74 @@ import {
   getProviderReviews,
   adminGetAllReviews,
   setReviewHidden,
+  getProviderRatingBreakdown,
+  getReviewPrivateFeedback,
+  REVIEW_TAGS,
 } from '@/lib/reviews';
 
-// ── Mock Supabase ──────────────────────────────────────────────────────────
+// ── Mock fns (prefixed with "mock" — Jest factory rule) ───────────────────
 
-const getUser = jest.fn();
-const insert = jest.fn();
-const select = jest.fn();
-const eq = jest.fn();
-const maybeSingle = jest.fn();
-const order = jest.fn();
-const update = jest.fn();
-const updateEq = jest.fn();
+// reviews table helpers
+const mockGetUser = jest.fn();
+const mockReviewInsertSingle = jest.fn(); // .insert(...).select('id').single()
+const mockSelect = jest.fn();
+const mockEq = jest.fn();
+const mockMaybeSingle = jest.fn();
+const mockOrder = jest.fn();
+const mockUpdate = jest.fn();
+const mockUpdateEq = jest.fn();
 
-// Note: variables used inside jest.mock() factory must be prefixed with "mock" (Jest rule).
-const mockGetUser = getUser;
-const mockInsert = insert;
-const mockSelect = select;
-const mockEq = eq;
-const mockMaybeSingle = maybeSingle;
-const mockOrder = order;
-const mockUpdate = update;
-const mockUpdateEq = updateEq;
+// review_private_feedback helpers
+const mockPrivateInsert = jest.fn(); // plain insert → { error }
+const mockPrivateMaybeSingle = jest.fn(); // .select('*').eq(...).maybeSingle()
+const mockPrivateEq = jest.fn();
+
+// rpc
+const mockRpc = jest.fn();
 
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     auth: { getUser: (...a: unknown[]) => mockGetUser(...a) },
-    from: () => ({
-      insert: (...a: unknown[]) => mockInsert(...a),
-      select: (...a: unknown[]) => {
-        mockSelect(...a);
+    rpc: (...a: unknown[]) => mockRpc(...a),
+    from: (table: string) => {
+      if (table === 'review_private_feedback') {
         return {
-          order: (...b: unknown[]) => mockOrder(...b),
-          eq: (...b: unknown[]) => {
-            mockEq(...b);
-            return {
-              maybeSingle: (...c: unknown[]) => mockMaybeSingle(...c),
-              order: (...c: unknown[]) => mockOrder(...c),
-            };
-          },
+          insert: (...a: unknown[]) => mockPrivateInsert(...a),
+          select: () => ({
+            eq: (...a: unknown[]) => {
+              mockPrivateEq(...a);
+              return { maybeSingle: (...b: unknown[]) => mockPrivateMaybeSingle(...b) };
+            },
+          }),
         };
-      },
-      update: (...a: unknown[]) => mockUpdate(...a),
-    }),
+      }
+      // Default: reviews table
+      return {
+        insert: (...a: unknown[]) => {
+          mockReviewInsertSingle(...a);
+          return {
+            select: () => ({ single: () => mockReviewInsertSingle.mock.results.slice(-1)[0]?.value }),
+          };
+        },
+        select: (...a: unknown[]) => {
+          mockSelect(...a);
+          return {
+            order: (...b: unknown[]) => mockOrder(...b),
+            eq: (...b: unknown[]) => {
+              mockEq(...b);
+              return {
+                maybeSingle: (...c: unknown[]) => mockMaybeSingle(...c),
+                order: (...c: unknown[]) => mockOrder(...c),
+              };
+            },
+          };
+        },
+        update: (...a: unknown[]) => {
+          mockUpdate(...a);
+          return { eq: (...b: unknown[]) => mockUpdateEq(...b) };
+        },
+      };
+    },
   },
 }));
 
@@ -54,57 +79,167 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
+// ── Helper to set up a successful review insert ────────────────────────────
+
+function setupReviewInsertOk(reviewId = 'r-new') {
+  mockReviewInsertSingle.mockResolvedValue({ data: { id: reviewId }, error: null });
+}
+
+function setupReviewInsertError(code: string, message = 'err') {
+  mockReviewInsertSingle.mockResolvedValue({ data: null, error: { code, message } });
+}
+
 // ── Tests ──────────────────────────────────────────────────────────────────
 
+describe('REVIEW_TAGS', () => {
+  it('has exactly 9 entries (5 positive, 4 negative)', () => {
+    expect(REVIEW_TAGS).toHaveLength(9);
+    expect(REVIEW_TAGS.filter((t) => t.sentiment === 'positive')).toHaveLength(5);
+    expect(REVIEW_TAGS.filter((t) => t.sentiment === 'negative')).toHaveLength(4);
+  });
+});
+
 describe('submitReview', () => {
-  it('submitReview inserts with customer_id from auth', async () => {
-    getUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
-    insert.mockResolvedValue({ error: null });
+  it('inserts with full payload (nulls for omitted category fields, [] for tags)', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    setupReviewInsertOk('r1');
+
     const res = await submitReview({ bookingId: 'bk1', providerId: 'p1', rating: 5, comment: 'Great' });
+
     expect(res).toEqual({ ok: true });
-    expect(insert).toHaveBeenCalledWith({
-      booking_id: 'bk1', customer_id: 'u1', provider_id: 'p1', rating: 5, comment: 'Great',
+    expect(mockReviewInsertSingle).toHaveBeenCalledWith({
+      booking_id: 'bk1',
+      customer_id: 'u1',
+      provider_id: 'p1',
+      rating: 5,
+      comment: 'Great',
+      quality_rating: null,
+      punctuality_rating: null,
+      communication_rating: null,
+      professionalism_rating: null,
+      value_rating: null,
+      would_recommend: null,
+      tags: [],
+    });
+    // No private feedback insert when privateFeedback absent
+    expect(mockPrivateInsert).not.toHaveBeenCalled();
+  });
+
+  it('does NOT call private insert when privateFeedback is absent', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    setupReviewInsertOk('r1');
+    await submitReview({ bookingId: 'bk1', providerId: 'p1', rating: 4 });
+    expect(mockPrivateInsert).not.toHaveBeenCalled();
+  });
+
+  it('calls private insert with correct payload when privateFeedback provided', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    setupReviewInsertOk('r-new');
+    mockPrivateInsert.mockResolvedValue({ error: null });
+
+    const res = await submitReview({
+      bookingId: 'bk1',
+      providerId: 'p1',
+      rating: 5,
+      privateFeedback: 'x',
+    });
+
+    expect(res).toEqual({ ok: true });
+    expect(mockPrivateInsert).toHaveBeenCalledWith({
+      review_id: 'r-new',
+      customer_id: 'u1',
+      provider_id: 'p1',
+      feedback: 'x',
     });
   });
 
-  it('submitReview maps the unique-violation to a friendly message', async () => {
-    getUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
-    insert.mockResolvedValue({ error: { code: '23505', message: 'duplicate' } });
+  it('carries category ratings, tags, and wouldRecommend into insert payload', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u2' } } });
+    setupReviewInsertOk('r2');
+
+    await submitReview({
+      bookingId: 'bk2',
+      providerId: 'p2',
+      rating: 4,
+      qualityRating: 5,
+      punctualityRating: 4,
+      communicationRating: 3,
+      professionalismRating: 5,
+      valueRating: 4,
+      wouldRecommend: true,
+      tags: ['on_time', 'friendly'],
+    });
+
+    expect(mockReviewInsertSingle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        quality_rating: 5,
+        punctuality_rating: 4,
+        communication_rating: 3,
+        professionalism_rating: 5,
+        value_rating: 4,
+        would_recommend: true,
+        tags: ['on_time', 'friendly'],
+      }),
+    );
+  });
+
+  it('maps 23505 unique violation to friendly message', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    setupReviewInsertError('23505', 'duplicate');
+
     expect(await submitReview({ bookingId: 'bk1', providerId: 'p1', rating: 4 })).toEqual({
-      ok: false, error: "You've already reviewed this booking.",
+      ok: false,
+      error: "You've already reviewed this booking.",
+    });
+  });
+
+  it('maps other DB errors to generic message', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    setupReviewInsertError('42501', 'permission denied');
+
+    expect(await submitReview({ bookingId: 'bk1', providerId: 'p1', rating: 3 })).toEqual({
+      ok: false,
+      error: 'Could not submit review. Please try again.',
+    });
+  });
+
+  it('returns not-signed-in error when no user', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } });
+    expect(await submitReview({ bookingId: 'bk1', providerId: 'p1', rating: 5 })).toEqual({
+      ok: false,
+      error: 'You must be signed in.',
     });
   });
 });
 
 describe('getMyReviewForBooking', () => {
-  it('getMyReviewForBooking returns the row or null', async () => {
-    maybeSingle.mockResolvedValue({ data: { id: 'r1', rating: 5 }, error: null });
+  it('returns the row or null', async () => {
+    mockMaybeSingle.mockResolvedValue({ data: { id: 'r1', rating: 5 }, error: null });
     expect(await getMyReviewForBooking('bk1')).toEqual({ id: 'r1', rating: 5 });
-    maybeSingle.mockResolvedValue({ data: null, error: null });
+    mockMaybeSingle.mockResolvedValue({ data: null, error: null });
     expect(await getMyReviewForBooking('bk1')).toBeNull();
   });
 });
 
 describe('getProviderReviews', () => {
-  it('getProviderReviews returns rows newest-first', async () => {
-    order.mockResolvedValue({ data: [{ id: 'r1' }], error: null });
+  it('returns rows newest-first', async () => {
+    mockOrder.mockResolvedValue({ data: [{ id: 'r1' }], error: null });
     expect(await getProviderReviews('p1')).toEqual([{ id: 'r1' }]);
-    expect(eq).toHaveBeenCalledWith('provider_id', 'p1');
+    expect(mockEq).toHaveBeenCalledWith('provider_id', 'p1');
   });
 });
 
 describe('setReviewHidden', () => {
-  it('setReviewHidden updates is_hidden', async () => {
-    update.mockReturnValue({ eq: (...a: unknown[]) => mockUpdateEq(...a) });
-    updateEq.mockResolvedValue({ error: null });
+  it('updates is_hidden', async () => {
+    mockUpdateEq.mockResolvedValue({ error: null });
     expect(await setReviewHidden('r1', true)).toEqual({ ok: true });
-    expect(update).toHaveBeenCalledWith({ is_hidden: true });
+    expect(mockUpdate).toHaveBeenCalledWith({ is_hidden: true });
   });
 });
 
 describe('adminGetAllReviews', () => {
   it('returns all rows newest-first on success', async () => {
-    order.mockResolvedValue({ data: [{ id: 'r1' }], error: null });
+    mockOrder.mockResolvedValue({ data: [{ id: 'r1' }], error: null });
     const res = await adminGetAllReviews();
     expect(res).toEqual([{ id: 'r1' }]);
     expect(mockSelect).toHaveBeenCalledWith('*');
@@ -112,8 +247,71 @@ describe('adminGetAllReviews', () => {
   });
 
   it('returns [] on error', async () => {
-    order.mockResolvedValue({ data: null, error: { message: 'DB error' } });
+    mockOrder.mockResolvedValue({ data: null, error: { message: 'DB error' } });
     const res = await adminGetAllReviews();
     expect(res).toEqual([]);
+  });
+});
+
+describe('getProviderRatingBreakdown', () => {
+  it('maps data[0] from the RPC', async () => {
+    const breakdown = {
+      overall_avg: 4.5,
+      review_count: 10,
+      recommend_pct: 80,
+      quality_avg: 4.2,
+      punctuality_avg: 4.8,
+      communication_avg: 4.0,
+      professionalism_avg: 4.6,
+      value_avg: 4.1,
+      top_tags: ['on_time', 'friendly'],
+    };
+    mockRpc.mockResolvedValue({ data: [breakdown], error: null });
+    expect(await getProviderRatingBreakdown('p1')).toEqual(breakdown);
+    expect(mockRpc).toHaveBeenCalledWith('get_provider_rating_breakdown', { p_provider_id: 'p1' });
+  });
+
+  it('returns EMPTY_BREAKDOWN when data is empty array', async () => {
+    mockRpc.mockResolvedValue({ data: [], error: null });
+    expect(await getProviderRatingBreakdown('p1')).toEqual({
+      overall_avg: null,
+      review_count: 0,
+      recommend_pct: null,
+      quality_avg: null,
+      punctuality_avg: null,
+      communication_avg: null,
+      professionalism_avg: null,
+      value_avg: null,
+      top_tags: [],
+    });
+  });
+
+  it('returns EMPTY_BREAKDOWN on error', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'rpc error' } });
+    expect(await getProviderRatingBreakdown('p1')).toEqual({
+      overall_avg: null,
+      review_count: 0,
+      recommend_pct: null,
+      quality_avg: null,
+      punctuality_avg: null,
+      communication_avg: null,
+      professionalism_avg: null,
+      value_avg: null,
+      top_tags: [],
+    });
+  });
+});
+
+describe('getReviewPrivateFeedback', () => {
+  it('returns the row when found', async () => {
+    mockPrivateMaybeSingle.mockResolvedValue({ data: { feedback: 'Private note' } });
+    const res = await getReviewPrivateFeedback('r1');
+    expect(res).toEqual({ feedback: 'Private note' });
+    expect(mockPrivateEq).toHaveBeenCalledWith('review_id', 'r1');
+  });
+
+  it('returns null when not found (RLS blocks provider)', async () => {
+    mockPrivateMaybeSingle.mockResolvedValue({ data: null });
+    expect(await getReviewPrivateFeedback('r1')).toBeNull();
   });
 });

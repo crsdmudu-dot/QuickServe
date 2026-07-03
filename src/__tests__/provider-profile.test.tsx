@@ -43,8 +43,32 @@ const mockGetProviderReviews = jest.fn().mockResolvedValue([
   },
 ]);
 
+const mockGetProviderRatingBreakdown = jest.fn().mockResolvedValue({
+  overall_avg: 4.5,
+  review_count: 8,
+  recommend_pct: 88,
+  quality_avg: 4.6,
+  punctuality_avg: 4.2,
+  communication_avg: 4.8,
+  professionalism_avg: 4.5,
+  value_avg: 4.1,
+  top_tags: ['on_time', 'friendly'],
+});
+
 jest.mock('@/lib/reviews', () => ({
   getProviderReviews: (...args: unknown[]) => mockGetProviderReviews(...args),
+  getProviderRatingBreakdown: (...args: unknown[]) => mockGetProviderRatingBreakdown(...args),
+  REVIEW_TAGS: [
+    { key: 'on_time',            label: 'On time',            sentiment: 'positive' },
+    { key: 'friendly',           label: 'Friendly',           sentiment: 'positive' },
+    { key: 'clean_work',         label: 'Clean work',         sentiment: 'positive' },
+    { key: 'good_communication', label: 'Good communication', sentiment: 'positive' },
+    { key: 'fair_price',         label: 'Fair price',         sentiment: 'positive' },
+    { key: 'late',               label: 'Late',               sentiment: 'negative' },
+    { key: 'messy',              label: 'Messy',              sentiment: 'negative' },
+    { key: 'poor_communication', label: 'Poor communication', sentiment: 'negative' },
+    { key: 'overpriced',         label: 'Overpriced',         sentiment: 'negative' },
+  ],
 }));
 
 const mockGetProviderEarningsSummary = jest
@@ -80,6 +104,7 @@ describe('ProviderProfileScreen — approved', () => {
     mockGetProviderProfile.mockClear();
     mockUpdateMyProviderProfile.mockClear();
     mockGetProviderReviews.mockClear();
+    mockGetProviderRatingBreakdown.mockClear();
     mockSignOut.mockClear();
     mockGetProviderEarningsSummary.mockClear();
     mockGetMyEarnings.mockClear();
@@ -93,7 +118,8 @@ describe('ProviderProfileScreen — approved', () => {
     // Wait for profile to load
     expect(await screen.findByText('Jane Smith')).toBeOnTheScreen();
     expect(screen.getByText('Verified by QuickServe')).toBeOnTheScreen();
-    expect(screen.getByText(/5/)).toBeOnTheScreen();
+    // "5 jobs completed" — tightened from /5/ to avoid matching breakdown averages (e.g. 4.5)
+    expect(screen.getByText(/5 jobs completed/)).toBeOnTheScreen();
   });
 
   it('toggles availability and calls updateMyProviderProfile with unavailable', async () => {
@@ -126,6 +152,16 @@ describe('ProviderProfileScreen — approved', () => {
     await screen.findByText('Jane Smith');
     fireEvent.press(screen.getByText('Notification settings'));
     expect(router.push).toHaveBeenCalledWith('/notification-settings');
+  });
+
+  it('renders the rating breakdown section with recommend % and strength chips', async () => {
+    render(<ProviderProfileScreen />);
+    await screen.findByText('Jane Smith');
+    // The breakdown component renders "88% would recommend" and tag chips.
+    expect(await screen.findByText(/88%\s*would recommend/)).toBeOnTheScreen();
+    expect(await screen.findByText('On time')).toBeOnTheScreen();
+    // A category label from the breakdown bars
+    expect(await screen.findByText('Quality')).toBeOnTheScreen();
   });
 
   it('shows earnings summary with pending and paid totals in the Earnings section', async () => {

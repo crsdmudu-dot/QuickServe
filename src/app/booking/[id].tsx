@@ -17,7 +17,7 @@
 
 import { useLocalSearchParams, router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SERVICES } from '@/constants/services';
@@ -26,7 +26,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { getBookingById, getBookingProfessional, type Booking, type Professional } from '@/lib/bookings';
 import { getBookingPhotos, type BookingPhotoView } from '@/lib/photos';
 import { getBookingActivity, type BookingActivity } from '@/lib/activity';
-import { getMyReviewForBooking, submitReview, type Review } from '@/lib/reviews';
+import { getMyReviewForBooking, submitReview, REVIEW_TAGS, type Review } from '@/lib/reviews';
 import { acceptQuote, declineQuote } from '@/lib/quotes';
 import { getPaymentForBooking, type Payment } from '@/lib/payments';
 import { initiateMpesaPayment, getPaymentAttempts, type PaymentAttempt } from '@/lib/attempts';
@@ -62,6 +62,15 @@ export default function BookingDetailScreen() {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [reviewError, setReviewError] = useState<string | null>(null);
+  // Optional Ratings 2.0 fields — all start at their "unset" sentinel.
+  const [qualityRating, setQualityRating] = useState(0);
+  const [punctualityRating, setPunctualityRating] = useState(0);
+  const [communicationRating, setCommunicationRating] = useState(0);
+  const [professionalismRating, setProfessionalismRating] = useState(0);
+  const [valueRating, setValueRating] = useState(0);
+  const [wouldRecommend, setWouldRecommend] = useState<boolean | null>(null);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [privateFeedback, setPrivateFeedback] = useState('');
   const [quoteError, setQuoteError] = useState<string | null>(null);
 
   const loadPhotos = useCallback(() => {
@@ -132,12 +141,23 @@ export default function BookingDetailScreen() {
   async function handleSubmitReview() {
     if (!booking || !booking.assigned_provider_id || rating === 0) return;
     setReviewError(null);
-    const result = await submitReview({
+    // Build payload conditionally so an overall-only submit is byte-identical to
+    // the previous behaviour — optional fields are only included when actually set.
+    const payload: Parameters<typeof submitReview>[0] = {
       bookingId: id,
       providerId: booking.assigned_provider_id,
       rating,
       comment,
-    });
+    };
+    if (qualityRating > 0) payload.qualityRating = qualityRating;
+    if (punctualityRating > 0) payload.punctualityRating = punctualityRating;
+    if (communicationRating > 0) payload.communicationRating = communicationRating;
+    if (professionalismRating > 0) payload.professionalismRating = professionalismRating;
+    if (valueRating > 0) payload.valueRating = valueRating;
+    if (wouldRecommend != null) payload.wouldRecommend = wouldRecommend;
+    if (selectedTags.length) payload.tags = selectedTags;
+    if (privateFeedback.trim()) payload.privateFeedback = privateFeedback.trim();
+    const result = await submitReview(payload);
     if (result.ok) {
       // Re-fetch the review so the ReviewCard replaces the form.
       const updated = await getMyReviewForBooking(id);
@@ -307,6 +327,92 @@ export default function BookingDetailScreen() {
                 placeholder="Share your experience…"
                 multiline
               />
+
+              {/* ── Ratings 2.0: category ratings ─────────────────────────── */}
+              <View style={styles.categoryBlock}>
+                <Text variant="label" color="textSecondary">Category ratings (optional)</Text>
+
+                <View style={styles.categoryRow}>
+                  <Text variant="label" style={styles.categoryLabel}>Quality</Text>
+                  <StarInput idPrefix="quality" value={qualityRating} onChange={setQualityRating} />
+                </View>
+
+                <View style={styles.categoryRow}>
+                  <Text variant="label" style={styles.categoryLabel}>Punctuality</Text>
+                  <StarInput idPrefix="punctuality" value={punctualityRating} onChange={setPunctualityRating} />
+                </View>
+
+                <View style={styles.categoryRow}>
+                  <Text variant="label" style={styles.categoryLabel}>Communication</Text>
+                  <StarInput idPrefix="communication" value={communicationRating} onChange={setCommunicationRating} />
+                </View>
+
+                <View style={styles.categoryRow}>
+                  <Text variant="label" style={styles.categoryLabel}>Professionalism</Text>
+                  <StarInput idPrefix="professionalism" value={professionalismRating} onChange={setProfessionalismRating} />
+                </View>
+
+                <View style={styles.categoryRow}>
+                  <Text variant="label" style={styles.categoryLabel}>Value</Text>
+                  <StarInput idPrefix="value" value={valueRating} onChange={setValueRating} />
+                </View>
+              </View>
+
+              {/* ── Would-recommend toggle ─────────────────────────────────── */}
+              <View style={styles.recommendRow}>
+                <Button
+                  label="Would recommend"
+                  variant={wouldRecommend === true ? 'primary' : 'ghost'}
+                  onPress={() => setWouldRecommend(wouldRecommend === true ? null : true)}
+                />
+                <Button
+                  label="Would not recommend"
+                  variant={wouldRecommend === false ? 'primary' : 'ghost'}
+                  onPress={() => setWouldRecommend(wouldRecommend === false ? null : false)}
+                />
+              </View>
+
+              {/* ── Tag chips ─────────────────────────────────────────────── */}
+              <View style={styles.tagsBlock}>
+                <Text variant="label" color="textSecondary">Tags (optional)</Text>
+                <View style={styles.tagsRow}>
+                  {REVIEW_TAGS.map((tag) => {
+                    const isSelected = selectedTags.includes(tag.key);
+                    return (
+                      <Pressable
+                        key={tag.key}
+                        testID={`tag-${tag.key}`}
+                        onPress={() =>
+                          setSelectedTags(
+                            isSelected
+                              ? selectedTags.filter((k) => k !== tag.key)
+                              : [...selectedTags, tag.key],
+                          )
+                        }
+                        style={[
+                          styles.chip,
+                          isSelected && styles.chipSelected,
+                        ]}>
+                        <Text
+                          variant="caption"
+                          color={isSelected ? 'primary' : 'textSecondary'}>
+                          {tag.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* ── Private feedback ──────────────────────────────────────── */}
+              <Input
+                label="Private feedback to admin (optional)"
+                value={privateFeedback}
+                onChangeText={setPrivateFeedback}
+                placeholder="Only visible to QuickServe admin…"
+                multiline
+              />
+
               {reviewError ? (
                 <Text variant="caption" color="error">
                   {reviewError}
@@ -340,4 +446,34 @@ const styles = StyleSheet.create({
   attemptBlock: { gap: Spacing.two },
   mpesaBlock: { gap: Spacing.three },
   providerCard: { gap: Spacing.two },
+  // ── Ratings 2.0 styles ──────────────────────────────────────────────────
+  categoryBlock: { gap: Spacing.two },
+  categoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  categoryLabel: { flex: 1 },
+  recommendRow: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  tagsBlock: { gap: Spacing.two },
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  chip: {
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.one,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#ECEEF1',
+    backgroundColor: '#F7F8FA',
+  },
+  chipSelected: {
+    borderColor: '#00875A',
+    backgroundColor: '#E7F7F0',
+  },
 });

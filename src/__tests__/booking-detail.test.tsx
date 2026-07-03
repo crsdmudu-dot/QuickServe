@@ -43,6 +43,18 @@ const mockSubmitReview = jest.fn();
 jest.mock('@/lib/reviews', () => ({
   getMyReviewForBooking: (...args: unknown[]) => mockGetMyReviewForBooking(...args),
   submitReview: (...args: unknown[]) => mockSubmitReview(...args),
+  // Faithful copy of the 9 tags from src/lib/reviews.ts — needed so tag chips render.
+  REVIEW_TAGS: [
+    { key: 'on_time',            label: 'On time',            sentiment: 'positive' },
+    { key: 'friendly',           label: 'Friendly',           sentiment: 'positive' },
+    { key: 'clean_work',         label: 'Clean work',         sentiment: 'positive' },
+    { key: 'good_communication', label: 'Good communication', sentiment: 'positive' },
+    { key: 'fair_price',         label: 'Fair price',         sentiment: 'positive' },
+    { key: 'late',               label: 'Late',               sentiment: 'negative' },
+    { key: 'messy',              label: 'Messy',              sentiment: 'negative' },
+    { key: 'poor_communication', label: 'Poor communication', sentiment: 'negative' },
+    { key: 'overpriced',         label: 'Overpriced',         sentiment: 'negative' },
+  ],
 }));
 
 jest.mock('@/lib/quotes', () => ({
@@ -284,6 +296,54 @@ describe('BookingDetailScreen', () => {
     await screen.findByText('Booking Detail');
 
     expect(screen.queryByTestId('star-1')).toBeNull();
+  });
+
+  it('Case J: full Ratings 2.0 submit — category + recommend + tag + private feedback all sent', async () => {
+    mockGetBookingById.mockResolvedValue({
+      ...BASE_BOOKING,
+      status: 'completed' as const,
+      assigned_provider_id: 'p1',
+    });
+    mockGetMyReviewForBooking.mockResolvedValue(null);
+    mockSubmitReview.mockResolvedValue({ ok: true });
+
+    render(<BookingDetailScreen />);
+
+    // Wait for the overall star row to appear, then tap star-5 (overall rating).
+    const star5 = await screen.findByTestId('star-5');
+    fireEvent.press(star5);
+
+    // Tap quality-star-4 (category rating).
+    const qualityStar4 = screen.getByTestId('quality-star-4');
+    fireEvent.press(qualityStar4);
+
+    // Press "Would recommend".
+    fireEvent.press(screen.getByText('Would recommend'));
+
+    // Tap the "On time" chip.
+    fireEvent.press(screen.getByTestId('tag-on_time'));
+
+    // Type private feedback.
+    const privateFeedbackText = 'Great job overall, very tidy.';
+    fireEvent.changeText(
+      screen.getByPlaceholderText('Only visible to QuickServe admin…'),
+      privateFeedbackText,
+    );
+
+    // Submit.
+    fireEvent.press(screen.getByText('Submit review'));
+
+    await waitFor(() => {
+      expect(mockSubmitReview).toHaveBeenCalledWith(
+        expect.objectContaining({
+          rating: 5,
+          qualityRating: 4,
+          wouldRecommend: true,
+          tags: ['on_time'],
+          privateFeedback: privateFeedbackText,
+        }),
+      );
+    });
   });
 
   it('Case I: completed booking with pending payment shows M-Pesa form and calls initiateMpesaPayment', async () => {
