@@ -71,6 +71,7 @@ jest.mock('@/auth/auth-context', () => ({
 }));
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { router } from 'expo-router';
 import ProviderProfileScreen from '@/app/provider/(tabs)/profile';
 
 describe('ProviderProfileScreen — approved', () => {
@@ -118,6 +119,13 @@ describe('ProviderProfileScreen — approved', () => {
     expect(await screen.findByText('(2)')).toBeOnTheScreen();
     // The review comment from the ReviewCard.
     expect(await screen.findByText('Great')).toBeOnTheScreen();
+  });
+
+  it('navigates to /notification-settings when "Notification settings" is pressed', async () => {
+    render(<ProviderProfileScreen />);
+    await screen.findByText('Jane Smith');
+    fireEvent.press(screen.getByText('Notification settings'));
+    expect(router.push).toHaveBeenCalledWith('/notification-settings');
   });
 
   it('shows earnings summary with pending and paid totals in the Earnings section', async () => {

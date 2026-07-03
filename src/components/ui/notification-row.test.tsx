@@ -1,7 +1,10 @@
 // notification-row.test.tsx — Tests for NotificationRow component.
 import { render, screen, fireEvent } from '@testing-library/react-native';
+import { router } from 'expo-router';
 import { NotificationRow } from '@/components/ui/notification-row';
 import { type AppNotification } from '@/lib/notifications';
+
+jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 
 const base: AppNotification = {
   id: 'n1',
@@ -12,6 +15,10 @@ const base: AppNotification = {
   is_read: false,
   created_at: '2026-07-01T10:00:00Z',
 };
+
+beforeEach(() => {
+  (router.push as jest.Mock).mockClear();
+});
 
 describe('NotificationRow', () => {
   it('shows title and body', () => {
@@ -30,10 +37,27 @@ describe('NotificationRow', () => {
     expect(screen.queryByTestId('unread-dot')).toBeNull();
   });
 
-  it('calls onPress when card is pressed', () => {
+  it('calls onPress when card is pressed (no route)', () => {
     const onPress = jest.fn();
     render(<NotificationRow notification={base} onPress={onPress} />);
     fireEvent.press(screen.getByText('Booking confirmed'));
     expect(onPress).toHaveBeenCalledTimes(1);
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it('calls onPress AND router.push when notification has a route', () => {
+    const onPress = jest.fn();
+    const withRoute: AppNotification = { ...base, route: '/some/deep-link' };
+    render(<NotificationRow notification={withRoute} onPress={onPress} />);
+    fireEvent.press(screen.getByText('Booking confirmed'));
+    expect(onPress).toHaveBeenCalledTimes(1);
+    expect(router.push).toHaveBeenCalledWith('/some/deep-link');
+  });
+
+  it('does not call router.push when route is absent', () => {
+    const onPress = jest.fn();
+    render(<NotificationRow notification={base} onPress={onPress} />);
+    fireEvent.press(screen.getByText('Booking confirmed'));
+    expect(router.push).not.toHaveBeenCalled();
   });
 });

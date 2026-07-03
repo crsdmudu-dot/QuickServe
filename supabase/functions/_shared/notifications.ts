@@ -203,6 +203,46 @@ export function notificationForChatMessage(
   };
 }
 
+// ─── Notification preferences helpers ────────────────────────────────────────
+
+/** Preference row shape (all optional → missing = defaults; marketing default OFF). */
+export type NotificationPrefs = {
+  push_enabled?: boolean;
+  chat_enabled?: boolean;
+  booking_enabled?: boolean;
+  payment_enabled?: boolean;
+  marketing_enabled?: boolean;
+} | null | undefined;
+
+/** True when a push in `category` is allowed for these prefs.
+ *  push_enabled is the master switch. Category→toggle: chat/booking/payment/marketing;
+ *  'system' is gated only by push_enabled; unknown category → allowed (push already on).
+ *  Missing prefs / fields default to true EXCEPT marketing which defaults to FALSE. */
+export function isPushAllowed(prefs: NotificationPrefs, category: string): boolean {
+  const p = prefs ?? {};
+  if (!(p.push_enabled ?? true)) return false;
+  switch (category) {
+    case 'chat':      return p.chat_enabled ?? true;
+    case 'booking':   return p.booking_enabled ?? true;
+    case 'payment':   return p.payment_enabled ?? true;
+    case 'marketing': return p.marketing_enabled ?? false;
+    case 'system':    return true;
+    default:          return true;
+  }
+}
+
+/** Build a NotificationSpec from a notifications-table row. route null → '' ; type missing → 'generic'. */
+export function specFromNotificationRow(record: {
+  user_id: string; title: string; body: string; type?: string | null; route?: string | null;
+}): NotificationSpec {
+  return {
+    recipientUserId: record.user_id,
+    title: record.title,
+    body: record.body,
+    data: { type: record.type ?? 'generic', route: record.route ?? '' },
+  };
+}
+
 // ─── Expo push message builder ────────────────────────────────────────────────
 
 /**

@@ -16,6 +16,7 @@ export default function ProfileScreen() {
       <Text variant="title">Profile</Text>
       <Text variant="body" color="textSecondary">You&apos;re signed in as a Customer.</Text>
       <Button label="Saved addresses" variant="secondary" onPress={() => router.push('/saved-addresses')} />
+      <Button label="Notification settings" variant="secondary" onPress={() => router.push('/notification-settings')} />
       <Button label="Sign out / Switch role" onPress={signOut} />
     </SafeAreaView>
   );

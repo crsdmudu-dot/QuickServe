@@ -5,6 +5,7 @@
  * a read-only Earnings section summarising pending and paid earnings.
  */
 
+import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -259,6 +260,12 @@ export default function ProviderProfileScreen() {
             ) : null}
 
             <Button label="Save" onPress={handleSave} />
+
+            <Button
+              label="Notification settings"
+              variant="secondary"
+              onPress={() => router.push('/notification-settings')}
+            />
 
             <Button label="Sign out" variant="ghost" onPress={signOut} />
           </View>

@@ -62,6 +62,7 @@ export default function AdminScreen() {
         <Text variant="title">Admin</Text>
         <View style={styles.headerActions}>
           <Button label="Payments" variant="ghost" onPress={() => router.push('/admin/payments')} />
+          <Button label="Notifications" variant="ghost" onPress={() => router.push('/notification-settings')} />
           <Button label="Sign out" variant="ghost" onPress={signOut} />
         </View>
       </View>

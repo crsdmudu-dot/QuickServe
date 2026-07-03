@@ -12,7 +12,61 @@ export type AppNotification = {
   body: string;
   is_read: boolean;
   created_at: string;
+  // Optional extended fields (backward-compatible — absent on older rows)
+  type?: string;
+  category?: string;
+  route?: string | null;
+  dedup_key?: string | null;
+  push_status?: string;
+  push_error?: string | null;
+  push_attempts?: number;
 };
+
+// ── Notification Preferences ───────────────────────────────────────────────
+
+/** Shape of a row in the notification_preferences table. */
+export type NotificationPreferences = {
+  push_enabled: boolean;
+  chat_enabled: boolean;
+  booking_enabled: boolean;
+  payment_enabled: boolean;
+  marketing_enabled: boolean;
+};
+
+/** Safe defaults used when no row exists or on error (marketing default OFF). */
+export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
+  push_enabled: true,
+  chat_enabled: true,
+  booking_enabled: true,
+  payment_enabled: true,
+  marketing_enabled: false, // marketing default OFF
+};
+
+/** Own preferences; RLS scopes to the signed-in user. Absent row / error → safe defaults. */
+export async function getNotificationPreferences(): Promise<NotificationPreferences> {
+  const { data } = await supabase.from('notification_preferences').select('*').maybeSingle();
+  if (!data) return { ...DEFAULT_NOTIFICATION_PREFERENCES };
+  return {
+    push_enabled: data.push_enabled,
+    chat_enabled: data.chat_enabled,
+    booking_enabled: data.booking_enabled,
+    payment_enabled: data.payment_enabled,
+    marketing_enabled: data.marketing_enabled,
+  };
+}
+
+/** Upsert own preferences (owner-only). user_id from auth; sets updated_at. */
+export async function updateNotificationPreferences(
+  patch: Partial<NotificationPreferences>,
+): Promise<{ ok: boolean; error?: string }> {
+  const { data: u } = await supabase.auth.getUser();
+  if (!u.user) return { ok: false, error: 'You must be signed in.' };
+  const { error } = await supabase
+    .from('notification_preferences')
+    .upsert({ user_id: u.user.id, ...patch, updated_at: new Date().toISOString() });
+  if (error) return { ok: false, error: 'Could not update notification preferences.' };
+  return { ok: true };
+}
 
 // ── Queries ────────────────────────────────────────────────────────────────
 

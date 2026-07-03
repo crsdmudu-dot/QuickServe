@@ -36,8 +36,12 @@ export default function CustomerNotificationsScreen() {
 
   async function handlePress(n: AppNotification) {
     await markNotificationRead(n.id);
-    if (n.booking_id) {
-      router.push({ pathname: '/booking/[id]', params: { id: n.booking_id } });
+    // Route-bearing rows are deep-linked by NotificationRow; only use the
+    // booking fallback for legacy route-less notifications.
+    if (!n.route) {
+      if (n.booking_id) {
+        router.push({ pathname: '/booking/[id]', params: { id: n.booking_id } });
+      }
     }
   }
 
