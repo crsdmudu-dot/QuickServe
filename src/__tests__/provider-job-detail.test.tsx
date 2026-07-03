@@ -8,6 +8,13 @@
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'j1' }),
   router: { push: jest.fn() },
+  // useFocusEffect: no-op in tests — the sharing hook is fully mocked, so focused value is irrelevant.
+  useFocusEffect: jest.fn(),
+}));
+
+// Mock the sharing hook so no expo-location runs in tests.
+jest.mock('@/hooks/use-provider-location-sharing', () => ({
+  useProviderLocationSharing: () => ({ sharing: false, permission: 'undetermined' }),
 }));
 
 // booking state is controlled per test via this variable.
