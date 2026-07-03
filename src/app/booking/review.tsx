@@ -133,6 +133,11 @@ export default function ReviewScreen() {
           address={address}
           scheduledFor={scheduledFor ?? ''}
           notes={notes}
+          schedulingType={scheduling_type}
+          timeWindow={time_window}
+          windowStart={window_start}
+          windowEnd={window_end}
+          recurrence={recurrence}
         />
 
         {error ? (

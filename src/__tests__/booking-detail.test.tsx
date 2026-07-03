@@ -90,6 +90,23 @@ const BASE_BOOKING = {
   quoted_amount: null,
   provider_share: null,
   quote_status: 'pending' as const,
+  // Slice 14
+  customer_id: 'c1',
+  // Slice 20 structured address fields
+  address_label: null,
+  latitude: null,
+  longitude: null,
+  building_name: null,
+  floor: null,
+  door_number: null,
+  landmark: null,
+  access_notes: null,
+  // Slice 24 scheduling fields
+  scheduling_type: 'datetime',
+  time_window: null,
+  window_start: null,
+  window_end: null,
+  recurrence: 'one_time',
 };
 
 describe('BookingDetailScreen', () => {
