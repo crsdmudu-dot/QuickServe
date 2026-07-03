@@ -6,18 +6,33 @@
  *
  * Wrapped by AdminShell via the (admin-web)/_layout.tsx — this screen only
  * needs to return its content (no Shell wrapper here).
+ *
+ * Slice 24 (Task 7): added Today/Tomorrow/Upcoming/Scheduled filter row between
+ * PageMeta and DataTable.  The scheduled_for column now uses describeSchedule()
+ * and shows a recurring label pill when recurrence !== 'one_time'.
  */
 
 import { useCallback, useEffect, useState } from 'react';
 import { router, type Href } from 'expo-router';
+import { View, StyleSheet } from 'react-native';
 
 import { DataTable, type Column } from '@/components/admin-web/data-table';
 import { PageMeta } from '@/components/admin-web/page-meta';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { SERVICES } from '@/constants/services';
+import { Spacing } from '@/constants/theme';
 import { getAllBookings, type Booking } from '@/lib/bookings';
 import type { QuoteStatus } from '@/lib/quotes';
+import {
+  describeSchedule,
+  recurrenceLabel,
+  isToday,
+  isTomorrow,
+  isUpcoming,
+  isScheduledType,
+} from '@/lib/scheduling';
 
 // ── Quote status labels ────────────────────────────────────────────────────
 
@@ -27,6 +42,28 @@ const QUOTE_STATUS_LABELS: Record<QuoteStatus, string> = {
   accepted: 'Quote accepted',
   declined: 'Quote declined',
 };
+
+// ── Filter model ───────────────────────────────────────────────────────────
+
+type BookingFilter = 'all' | 'today' | 'tomorrow' | 'upcoming' | 'scheduled';
+
+const FILTER_LABELS: { key: BookingFilter; label: string }[] = [
+  { key: 'all',       label: 'All'       },
+  { key: 'today',     label: 'Today'     },
+  { key: 'tomorrow',  label: 'Tomorrow'  },
+  { key: 'upcoming',  label: 'Upcoming'  },
+  { key: 'scheduled', label: 'Scheduled' },
+];
+
+function matchesFilter(b: Booking, filter: BookingFilter): boolean {
+  switch (filter) {
+    case 'today':     return isToday(b.scheduled_for);
+    case 'tomorrow':  return isTomorrow(b.scheduled_for);
+    case 'upcoming':  return isUpcoming(b.scheduled_for);
+    case 'scheduled': return isScheduledType(b.scheduling_type);
+    default:          return true; // 'all'
+  }
+}
 
 // ── Table columns ──────────────────────────────────────────────────────────
 
@@ -39,23 +76,30 @@ const COLUMNS: Column<Booking>[] = [
         {SERVICES.find((s) => s.id === row.service_id)?.title ?? row.service_id}
       </Text>
     ),
-    width: '30%',
+    width: '25%',
   },
   {
     key: 'status',
     header: 'Status',
     render: (row) => <StatusBadge status={row.status} />,
-    width: '20%',
+    width: '15%',
   },
   {
     key: 'scheduled_for',
     header: 'Scheduled',
     render: (row) => (
-      <Text variant="caption" color="textSecondary">
-        {new Date(row.scheduled_for).toLocaleString()}
-      </Text>
+      <View style={styles.scheduleCell}>
+        <Text variant="caption" color="textSecondary">
+          {describeSchedule(row)}
+        </Text>
+        {row.recurrence && row.recurrence !== 'one_time' && (
+          <Text variant="caption" color="textSecondary" style={styles.recurrenceText}>
+            {recurrenceLabel(row.recurrence)}
+          </Text>
+        )}
+      </View>
     ),
-    width: '30%',
+    width: '35%',
   },
   {
     key: 'quote_status',
@@ -65,9 +109,27 @@ const COLUMNS: Column<Booking>[] = [
         {QUOTE_STATUS_LABELS[row.quote_status]}
       </Text>
     ),
-    width: '20%',
+    width: '25%',
   },
 ];
+
+// ── Styles ─────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.one,
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.four,
+  },
+  scheduleCell: {
+    gap: 2,
+  },
+  recurrenceText: {
+    fontStyle: 'italic',
+  },
+});
 
 // ── Screen ─────────────────────────────────────────────────────────────────
 
@@ -75,6 +137,7 @@ export default function AdminWebBookingsScreen() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [bookingFilter, setBookingFilter] = useState<BookingFilter>('all');
 
   const load = useCallback(async () => {
     setError(false);
@@ -93,12 +156,27 @@ export default function AdminWebBookingsScreen() {
     load();
   }, [load]);
 
+  const shown = bookings.filter((b) => matchesFilter(b, bookingFilter));
+
   return (
     <>
       <PageMeta title="Bookings" />
+
+      {/* Filter row */}
+      <View style={styles.filterRow}>
+        {FILTER_LABELS.map(({ key, label }) => (
+          <Button
+            key={key}
+            label={label}
+            variant={bookingFilter === key ? 'secondary' : 'ghost'}
+            onPress={() => setBookingFilter(key)}
+          />
+        ))}
+      </View>
+
       <DataTable
         columns={COLUMNS}
-        rows={bookings}
+        rows={shown}
         keyExtractor={(b) => b.id}
         loading={loading}
         error={error}
