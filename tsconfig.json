@@ -27,6 +27,7 @@
     "supabase/functions/send-push/index.ts",
     "supabase/functions/_shared/expo-push-client.ts",
     "supabase/functions/places-autocomplete/index.ts",
-    "supabase/functions/place-details/index.ts"
+    "supabase/functions/place-details/index.ts",
+    "supabase/functions/tracking-map/index.ts"
   ]
 }

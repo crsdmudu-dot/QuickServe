@@ -233,6 +233,15 @@ export default function BookingDetailScreen() {
           </Text>
         ) : null}
 
+        {/* Track button — only shown when provider is on the way or working */}
+        {booking.assigned_provider_id != null &&
+        (booking.status === 'on_the_way' || booking.status === 'in_progress') ? (
+          <Button
+            label="Track your provider"
+            onPress={() => router.push(`/booking/track/${id}`)}
+          />
+        ) : null}
+
         {/* Chat button — only shown when a provider has been assigned */}
         {booking.assigned_provider_id ? (
           <Button label="Chat with provider" onPress={() => router.push(`/booking/chat/${id}`)} />

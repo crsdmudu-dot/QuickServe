@@ -46,6 +46,7 @@ import { PhotoGallery } from '@/components/ui/photo-gallery';
 import { ActivityTimeline } from '@/components/ui/activity-timeline';
 import { ChatThread } from '@/components/ui/chat-thread';
 import { DestinationSummary } from '@/components/ui/destination-summary';
+import { AdminLiveLocation } from '@/components/ui/admin-live-location';
 
 export default function AdminBookingDetailScreen() {
   const theme = useTheme();
@@ -240,6 +241,14 @@ export default function AdminBookingDetailScreen() {
         {/* ── Destination ───────────────────────────────────────────────── */}
         <SectionHeader title="Destination" />
         <DestinationSummary input={booking} />
+
+        {/* ── Live location (read-only oversight) ───────────────────────── */}
+        {(booking.status === 'on_the_way' || booking.status === 'in_progress') && (
+          <>
+            <SectionHeader title="Live location" />
+            <AdminLiveLocation booking={booking} />
+          </>
+        )}
 
         {/* Current status badge */}
         <View style={styles.badgeRow}>

@@ -106,6 +106,12 @@ jest.mock('@/lib/quotes', () => ({
   canEditQuote: () => true,
 }));
 
+// AdminLiveLocation pulls tracking — stub it so no Supabase calls are made
+jest.mock('@/lib/tracking', () => ({
+  getProviderLocationForBooking: jest.fn().mockResolvedValue(null),
+  subscribeToProviderLocation: () => jest.fn(),
+}));
+
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 

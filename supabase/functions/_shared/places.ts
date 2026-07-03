@@ -174,26 +174,98 @@ export function parseDetails(json: unknown): PlaceDetails | null {
 // ─── Static Map URL ───────────────────────────────────────────────────────────
 
 /**
+ * A single marker entry for multi-marker static map URLs.
+ */
+export type MapMarker = {
+  lat: number;
+  lng: number;
+  /** Optional label character shown on the pin (e.g. 'P', 'C'). */
+  label?: string;
+  /** Optional pin color (e.g. 'blue', 'red', '0x00FFFF'). */
+  color?: string;
+};
+
+/**
+ * A single lat/lng point used when drawing a path on a static map.
+ */
+export type MapPathPoint = {
+  lat: number;
+  lng: number;
+};
+
+/**
  * Build a Google Static Maps image URL.
  *
  * The key is always a parameter — never hardcoded.
  * Defaults: zoom = 16, size = '600x300'.
  *
- * Example:
- *   staticMapUrl({ baseUrl: 'https://maps.googleapis.com/maps/api', key: 'K', lat: -1.29, lng: 36.81 })
- *   → 'https://maps.googleapis.com/maps/api/staticmap?center=-1.29,36.81&zoom=16&size=600x300&markers=-1.29,36.81&key=K'
+ * **Single-marker mode** (backward-compatible, Slice-20):
+ *   Pass `lat` + `lng` only. Produces a centered, single-pin URL identical to
+ *   the original output.
+ *
+ * **Multi-marker mode** (new):
+ *   Pass `markers` array. One `&markers=` group is emitted per entry
+ *   (`markers=color:<color>|label:<label>|<lat>,<lng>`; color/label omitted when
+ *   not provided). The explicit `center`/`zoom` params are dropped so Google
+ *   auto-fits all markers. `size` is still included.
+ *
+ * **Path** (new, optional):
+ *   Pass `path` array (2+ points) to draw a polyline:
+ *   `&path=<lat>,<lng>|<lat>,<lng>|...`.
+ *
+ * Examples:
+ *   // Single marker (original, unchanged):
+ *   staticMapUrl({ baseUrl, key: 'K', lat: -1.29, lng: 36.81 })
+ *   → '…/staticmap?center=-1.29,36.81&zoom=16&size=600x300&markers=-1.29,36.81&key=K'
+ *
+ *   // Multiple markers:
+ *   staticMapUrl({ baseUrl, key: 'K', markers: [{ lat: -1.29, lng: 36.81, label: 'P', color: 'blue' }] })
+ *   → '…/staticmap?size=600x300&markers=color:blue|label:P|-1.29,36.81&key=K'
  */
 export function staticMapUrl(params: {
   baseUrl: string;
   key: string;
-  lat: number;
-  lng: number;
+  /** Used in single-marker mode. Optional when `markers` is provided. */
+  lat?: number;
+  /** Used in single-marker mode. Optional when `markers` is provided. */
+  lng?: number;
   zoom?: number;
   size?: string;
+  /** Multi-marker mode: one pin per entry. When present, overrides lat/lng centering. */
+  markers?: MapMarker[];
+  /** Optional polyline drawn over the map (2+ points). */
+  path?: MapPathPoint[];
 }): string {
-  const { baseUrl, key, lat, lng } = params;
-  const zoom = params.zoom ?? 16;
+  const { baseUrl, key } = params;
   const size = params.size ?? '600x300';
+
+  // ── Multi-marker mode ──────────────────────────────────────────────────────
+  if (params.markers && params.markers.length > 0) {
+    let url = `${baseUrl}/staticmap?size=${size}`;
+
+    for (const marker of params.markers) {
+      let markerSpec = '';
+      if (marker.color) markerSpec += `color:${marker.color}|`;
+      if (marker.label) markerSpec += `label:${marker.label}|`;
+      markerSpec += `${marker.lat},${marker.lng}`;
+      url += `&markers=${markerSpec}`;
+    }
+
+    if (params.path && params.path.length >= 2) {
+      const pathStr = params.path
+        .map((p) => `${p.lat},${p.lng}`)
+        .join('|');
+      url += `&path=${pathStr}`;
+    }
+
+    url += `&key=${key}`;
+    return url;
+  }
+
+  // ── Single-marker mode (backward-compatible) ───────────────────────────────
+  const lat = params.lat as number;
+  const lng = params.lng as number;
+  const zoom = params.zoom ?? 16;
 
   return (
     `${baseUrl}/staticmap` +
