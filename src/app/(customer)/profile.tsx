@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -14,6 +15,7 @@ export default function ProfileScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
       <Text variant="title">Profile</Text>
       <Text variant="body" color="textSecondary">You&apos;re signed in as a Customer.</Text>
+      <Button label="Saved addresses" variant="secondary" onPress={() => router.push('/saved-addresses')} />
       <Button label="Sign out / Switch role" onPress={signOut} />
     </SafeAreaView>
   );
