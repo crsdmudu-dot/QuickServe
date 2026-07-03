@@ -18,10 +18,12 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import {
   buildExpoMessages,
+  isPushAllowed,
   notificationForChatMessage,
   notificationForPaymentPaid,
   notificationsForBookingUpdate,
   parsePushReceipts,
+  specFromNotificationRow,
 } from '../_shared/notifications.ts';
 import type { NotificationSpec } from '../_shared/notifications.ts';
 import { sendExpoPush } from '../_shared/expo-push-client.ts';
@@ -111,6 +113,46 @@ Deno.serve(async (req: Request) => {
         );
         if (s) specs.push(s);
       }
+    } else if (table === 'notifications') {
+      // Unified pipeline: row already exists in the bell; we only handle push here.
+      const rec = record as {
+        id: string; user_id: string; title: string; body: string;
+        type?: string | null; route?: string | null; category?: string; push_attempts?: number;
+      };
+      const spec = specFromNotificationRow(rec);
+
+      // Gate push by user preferences (absent row → null → defaults).
+      const { data: prefs } = await admin
+        .from('notification_preferences').select('*').eq('user_id', rec.user_id).maybeSingle();
+
+      if (!isPushAllowed(prefs, rec.category ?? 'booking')) {
+        await admin.from('notifications').update({ push_status: 'skipped' }).eq('id', rec.id);
+        return ok200();
+      }
+
+      const { data: rows } = await admin
+        .from('device_tokens').select('push_token').eq('user_id', rec.user_id);
+      const tokens = (rows ?? []).map((r: { push_token: string }) => r.push_token);
+
+      if (tokens.length === 0) {
+        await admin.from('notifications').update({ push_status: 'no_token' }).eq('id', rec.id);
+        return ok200();
+      }
+
+      try {
+        const messages = buildExpoMessages(tokens, spec);
+        const resp = await sendExpoPush(messages);
+        const dead = parsePushReceipts(resp, tokens);
+        if (dead.length > 0) await admin.from('device_tokens').delete().in('push_token', dead);
+        await admin.from('notifications')
+          .update({ push_status: 'sent', push_attempts: (rec.push_attempts ?? 0) + 1 })
+          .eq('id', rec.id);
+      } catch (err) {
+        await admin.from('notifications')
+          .update({ push_status: 'failed', push_error: String(err).slice(0, 500), push_attempts: (rec.push_attempts ?? 0) + 1 })
+          .eq('id', rec.id);
+      }
+      return ok200();
     }
     // Any other table → no specs; fall through to 200.
 

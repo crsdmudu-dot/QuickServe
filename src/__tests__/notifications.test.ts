@@ -11,6 +11,8 @@ import {
   notificationForChatMessage,
   buildExpoMessages,
   parsePushReceipts,
+  isPushAllowed,
+  specFromNotificationRow,
   type NotificationSpec,
 } from '../../supabase/functions/_shared/notifications';
 
@@ -360,5 +362,135 @@ describe('parsePushReceipts', () => {
     };
     const result = parsePushReceipts(response, ['tok1']);
     expect(result).toEqual([]);
+  });
+});
+
+// ─── isPushAllowed ────────────────────────────────────────────────────────────
+
+describe('isPushAllowed', () => {
+  it('push_enabled: false blocks every category', () => {
+    const prefs = { push_enabled: false };
+    for (const cat of ['chat', 'booking', 'payment', 'marketing', 'system']) {
+      expect(isPushAllowed(prefs, cat)).toBe(false);
+    }
+  });
+
+  it('booking_enabled:false → booking false, chat still true', () => {
+    const prefs = { push_enabled: true, booking_enabled: false };
+    expect(isPushAllowed(prefs, 'booking')).toBe(false);
+    expect(isPushAllowed(prefs, 'chat')).toBe(true);
+  });
+
+  it('chat_enabled:false → chat false, payment still true', () => {
+    const prefs = { push_enabled: true, chat_enabled: false };
+    expect(isPushAllowed(prefs, 'chat')).toBe(false);
+    expect(isPushAllowed(prefs, 'payment')).toBe(true);
+  });
+
+  it('payment_enabled:false → payment false, booking still true', () => {
+    const prefs = { push_enabled: true, payment_enabled: false };
+    expect(isPushAllowed(prefs, 'payment')).toBe(false);
+    expect(isPushAllowed(prefs, 'booking')).toBe(true);
+  });
+
+  it('marketing_enabled:true explicitly → marketing allowed', () => {
+    const prefs = { push_enabled: true, marketing_enabled: true };
+    expect(isPushAllowed(prefs, 'marketing')).toBe(true);
+  });
+
+  it('marketing defaults OFF: {} → marketing false', () => {
+    expect(isPushAllowed({}, 'marketing')).toBe(false);
+  });
+
+  it('marketing defaults OFF: null → marketing false', () => {
+    expect(isPushAllowed(null, 'marketing')).toBe(false);
+  });
+
+  it('missing prefs (null) → booking/chat/payment true, system true, marketing false', () => {
+    expect(isPushAllowed(null, 'booking')).toBe(true);
+    expect(isPushAllowed(null, 'chat')).toBe(true);
+    expect(isPushAllowed(null, 'payment')).toBe(true);
+    expect(isPushAllowed(null, 'system')).toBe(true);
+    expect(isPushAllowed(null, 'marketing')).toBe(false);
+  });
+
+  it('missing prefs (undefined) → booking/chat/payment true, system true, marketing false', () => {
+    expect(isPushAllowed(undefined, 'booking')).toBe(true);
+    expect(isPushAllowed(undefined, 'chat')).toBe(true);
+    expect(isPushAllowed(undefined, 'payment')).toBe(true);
+    expect(isPushAllowed(undefined, 'system')).toBe(true);
+    expect(isPushAllowed(undefined, 'marketing')).toBe(false);
+  });
+
+  it('system → true when push_enabled (default)', () => {
+    expect(isPushAllowed({ push_enabled: true }, 'system')).toBe(true);
+  });
+
+  it('system → false when push_enabled: false', () => {
+    expect(isPushAllowed({ push_enabled: false }, 'system')).toBe(false);
+  });
+
+  it('unknown category → true when push_enabled', () => {
+    expect(isPushAllowed({ push_enabled: true }, 'other')).toBe(true);
+    expect(isPushAllowed(null, 'other')).toBe(true);
+  });
+});
+
+// ─── specFromNotificationRow ──────────────────────────────────────────────────
+
+describe('specFromNotificationRow', () => {
+  it('maps user_id → recipientUserId, title, body', () => {
+    const spec = specFromNotificationRow({
+      user_id: 'u1',
+      title: 'Hello',
+      body: 'World',
+      type: 'booking_update',
+      route: '/booking/bk1',
+    });
+    expect(spec.recipientUserId).toBe('u1');
+    expect(spec.title).toBe('Hello');
+    expect(spec.body).toBe('World');
+  });
+
+  it('maps type and route into data', () => {
+    const spec = specFromNotificationRow({
+      user_id: 'u1',
+      title: 'T',
+      body: 'B',
+      type: 'payment_confirmed',
+      route: '/booking/bk2',
+    });
+    expect(spec.data.type).toBe('payment_confirmed');
+    expect(spec.data.route).toBe('/booking/bk2');
+  });
+
+  it('route: null → data.route === ""', () => {
+    const spec = specFromNotificationRow({
+      user_id: 'u1',
+      title: 'T',
+      body: 'B',
+      type: 'system',
+      route: null,
+    });
+    expect(spec.data.route).toBe('');
+  });
+
+  it('type missing → data.type === "generic"', () => {
+    const spec = specFromNotificationRow({
+      user_id: 'u1',
+      title: 'T',
+      body: 'B',
+    });
+    expect(spec.data.type).toBe('generic');
+  });
+
+  it('type: null → data.type === "generic"', () => {
+    const spec = specFromNotificationRow({
+      user_id: 'u1',
+      title: 'T',
+      body: 'B',
+      type: null,
+    });
+    expect(spec.data.type).toBe('generic');
   });
 });
