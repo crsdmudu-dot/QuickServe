@@ -46,6 +46,12 @@ export default function ReviewScreen() {
     door_number,
     landmark,
     access_notes,
+    // Slice 24 scheduling fields
+    scheduling_type,
+    time_window,
+    window_start,
+    window_end,
+    recurrence,
   } = useBookingDraft();
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -73,6 +79,12 @@ export default function ReviewScreen() {
       door_number,
       landmark,
       access_notes,
+      // Slice 24 scheduling fields
+      scheduling_type,
+      time_window,
+      window_start,
+      window_end,
+      recurrence,
     });
 
     if (!res.ok) {
@@ -121,6 +133,11 @@ export default function ReviewScreen() {
           address={address}
           scheduledFor={scheduledFor ?? ''}
           notes={notes}
+          schedulingType={scheduling_type}
+          timeWindow={time_window}
+          windowStart={window_start}
+          windowEnd={window_end}
+          recurrence={recurrence}
         />
 
         {error ? (

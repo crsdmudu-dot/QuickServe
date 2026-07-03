@@ -4,7 +4,17 @@
  *   - src/app/(admin-web)/bookings/[id].tsx   (detail)
  *
  * All network calls are mocked. Uses findBy* for async data loads.
+ *
+ * Slice 24 (Task 7): extended with scheduling filter + describeSchedule column
+ * display tests.  Fixtures are built relative to new Date() so predicates are
+ * always correct.
  */
+
+// ── Fixtures ────────────────────────────────────────────────────────────────
+
+const todayIso    = new Date().toISOString();
+const tomorrowIso = new Date(Date.now() + 86_400_000).toISOString();
+const pastIso     = new Date(Date.now() - 2 * 86_400_000).toISOString();
 
 // ── Shared mocks ────────────────────────────────────────────────────────────
 
@@ -29,6 +39,12 @@ const MOCK_BOOKING = {
   quoted_amount: null,
   provider_share: null,
   quote_status: 'pending' as const,
+  // Slice 24 scheduling fields
+  scheduling_type: 'asap',
+  time_window: null,
+  window_start: null,
+  window_end: null,
+  recurrence: 'one_time',
 };
 
 const mockGetAllBookings = jest.fn().mockResolvedValue([MOCK_BOOKING]);
@@ -126,6 +142,8 @@ describe('AdminWebBookingsScreen (list)', () => {
     (router.push as jest.Mock).mockClear();
   });
 
+  // ── Existing tests (must stay green) ──────────────────────────────────────
+
   it('renders the service name in a row after data loads', async () => {
     render(<AdminWebBookingsScreen />);
     expect(await screen.findByText('House Cleaning')).toBeOnTheScreen();
@@ -149,6 +167,143 @@ describe('AdminWebBookingsScreen (list)', () => {
     await waitFor(() =>
       expect(router.push).toHaveBeenCalledWith('/(admin-web)/bookings/bk1'),
     );
+  });
+
+  // ── Slice 24 Task 7: filter + describeSchedule tests ──────────────────────
+
+  it('default (All) renders all bookings — filter buttons are visible', async () => {
+    render(<AdminWebBookingsScreen />);
+    await screen.findByText('House Cleaning');
+    expect(screen.getByText('All')).toBeOnTheScreen();
+    expect(screen.getByText('Today')).toBeOnTheScreen();
+    expect(screen.getByText('Tomorrow')).toBeOnTheScreen();
+    expect(screen.getByText('Upcoming')).toBeOnTheScreen();
+    // 'Scheduled' appears as both a filter button and a DataTable column header
+    const scheduledEls = screen.getAllByText('Scheduled');
+    expect(scheduledEls.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('Scheduled column shows ASAP for asap scheduling_type (default All view)', async () => {
+    // MOCK_BOOKING has scheduling_type='asap' — describeSchedule returns 'ASAP'
+    render(<AdminWebBookingsScreen />);
+    await screen.findByText('House Cleaning');
+    expect(screen.getByText('ASAP')).toBeOnTheScreen();
+  });
+
+  it('Today filter: shows today fixture, hides tomorrow and past fixtures', async () => {
+    mockGetAllBookings.mockResolvedValueOnce([
+      {
+        ...MOCK_BOOKING,
+        id: 'bk-today',
+        service_id: 'plumbing',
+        scheduled_for: todayIso,
+        scheduling_type: 'today',
+        recurrence: 'one_time',
+      },
+      {
+        ...MOCK_BOOKING,
+        id: 'bk-tomorrow',
+        service_id: 'electrical-repairs',
+        scheduled_for: tomorrowIso,
+        scheduling_type: 'tomorrow',
+        recurrence: 'one_time',
+      },
+      {
+        ...MOCK_BOOKING,
+        id: 'bk-past',
+        service_id: 'ac-repair',
+        scheduled_for: pastIso,
+        scheduling_type: 'datetime',
+        recurrence: 'one_time',
+      },
+    ]);
+
+    render(<AdminWebBookingsScreen />);
+    await screen.findByText('Plumbing');
+
+    fireEvent.press(screen.getByText('Today'));
+
+    expect(screen.getByText('Plumbing')).toBeOnTheScreen();
+    expect(screen.queryByText('Electrical Repairs')).toBeNull();
+    expect(screen.queryByText('AC Repair & Servicing')).toBeNull();
+  });
+
+  it('Scheduled filter: hides asap fixture, shows non-asap fixture', async () => {
+    mockGetAllBookings.mockResolvedValueOnce([
+      {
+        ...MOCK_BOOKING,
+        id: 'bk-asap',
+        service_id: 'plumbing',
+        scheduled_for: todayIso,
+        scheduling_type: 'asap',
+        recurrence: 'one_time',
+      },
+      {
+        ...MOCK_BOOKING,
+        id: 'bk-sched',
+        // Use correct service ID 'electrical' (title: 'Electrical Repairs')
+        service_id: 'electrical',
+        scheduled_for: tomorrowIso,
+        scheduling_type: 'tomorrow',
+        recurrence: 'one_time',
+      },
+    ]);
+
+    render(<AdminWebBookingsScreen />);
+    await screen.findByText('Plumbing');
+
+    // 'Scheduled' appears as both a filter button and the DataTable column header;
+    // press the first occurrence (the filter button)
+    const scheduledEls = screen.getAllByText('Scheduled');
+    fireEvent.press(scheduledEls[0]);
+
+    expect(screen.getByText('Electrical Repairs')).toBeOnTheScreen();
+    expect(screen.queryByText('Plumbing')).toBeNull();
+  });
+
+  it('weekly recurrence fixture shows "Weekly" text in the Scheduled column', async () => {
+    mockGetAllBookings.mockResolvedValueOnce([
+      {
+        ...MOCK_BOOKING,
+        id: 'bk-weekly',
+        service_id: 'house-cleaning',
+        scheduled_for: tomorrowIso,
+        scheduling_type: 'tomorrow',
+        recurrence: 'weekly',
+      },
+    ]);
+
+    render(<AdminWebBookingsScreen />);
+    await screen.findByText('House Cleaning');
+    // recurrenceLabel('weekly') === 'Weekly'
+    expect(screen.getByText('Weekly')).toBeOnTheScreen();
+  });
+
+  it('describeSchedule output: a window fixture shows a substring from its description', async () => {
+    const windowStart = new Date(Date.now() + 86_400_000);
+    windowStart.setHours(8, 0, 0, 0);
+    const windowEnd = new Date(Date.now() + 86_400_000);
+    windowEnd.setHours(12, 0, 0, 0);
+
+    mockGetAllBookings.mockResolvedValueOnce([
+      {
+        ...MOCK_BOOKING,
+        id: 'bk-window',
+        service_id: 'plumbing',
+        scheduled_for: windowStart.toISOString(),
+        scheduling_type: 'tomorrow',
+        time_window: 'morning',
+        window_start: windowStart.toISOString(),
+        window_end: windowEnd.toISOString(),
+        recurrence: 'one_time',
+      },
+    ]);
+
+    render(<AdminWebBookingsScreen />);
+    await screen.findByText('Plumbing');
+    // describeSchedule returns something containing 'morning' for a morning window
+    const morningTexts = screen.getAllByText(/morning/i);
+    expect(morningTexts.length).toBeGreaterThan(0);
   });
 });
 

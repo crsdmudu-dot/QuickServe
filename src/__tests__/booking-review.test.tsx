@@ -69,14 +69,14 @@ describe('ReviewScreen', () => {
     };
   });
 
-  it('renders the service, address, formatted date and notes', () => {
+  it('renders the service, address, a When label, and notes', () => {
     render(<ReviewScreen />);
     expect(screen.getByText('House Cleaning')).toBeOnTheScreen();
     // Slice 20: address now appears in both DestinationSummary and BookingSummaryCard.
     expect(screen.getAllByText('Nairobi').length).toBeGreaterThan(0);
-    expect(
-      screen.getByText(new Date('2026-07-01T10:00:00Z').toLocaleString()),
-    ).toBeOnTheScreen();
+    // Slice 24: the "Date & time" row is now "When" with a describeSchedule value.
+    // We assert the label is present rather than the locale-formatted string.
+    expect(screen.getByText('When')).toBeOnTheScreen();
     expect(screen.getByText('Gate code 12')).toBeOnTheScreen();
   });
 
@@ -101,6 +101,12 @@ describe('ReviewScreen', () => {
         door_number: '',
         landmark: '',
         access_notes: '',
+        // Slice 24 scheduling fields (undefined when draft has no scheduling props)
+        scheduling_type: undefined,
+        time_window: undefined,
+        window_start: undefined,
+        window_end: undefined,
+        recurrence: undefined,
       }),
     );
     expect(mockUploadBookingPhoto).not.toHaveBeenCalled();

@@ -177,6 +177,11 @@ export default function BookingDetailScreen() {
           address={booking.address}
           scheduledFor={booking.scheduled_for}
           notes={booking.notes ?? ''}
+          schedulingType={booking.scheduling_type}
+          timeWindow={booking.time_window}
+          windowStart={booking.window_start}
+          windowEnd={booking.window_end}
+          recurrence={booking.recurrence}
         />
 
         {/* Current status */}

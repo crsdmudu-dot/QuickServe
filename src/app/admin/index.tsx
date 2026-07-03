@@ -4,6 +4,10 @@
  * A Bookings | Providers toggle switches between the two lists.  Booking rows
  * navigate to the detail screen (Task 4).  Provider rows have Approve/Reject
  * buttons that call setProviderApproval and remove the row on success.
+ *
+ * Slice 24 (Task 7): added Today/Tomorrow/Upcoming/Scheduled filter row on the
+ * Bookings tab.  Each booking card now shows describeSchedule() instead of
+ * toLocaleString(), and a recurrence pill when recurrence !== 'one_time'.
  */
 
 import { router } from 'expo-router';
@@ -17,6 +21,14 @@ import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/auth/auth-context';
 import { getAllBookings, type Booking } from '@/lib/bookings';
 import { getPendingProviders, setProviderApproval, type ProviderProfile } from '@/lib/providers';
+import {
+  describeSchedule,
+  recurrenceLabel,
+  isToday,
+  isTomorrow,
+  isUpcoming,
+  isScheduledType,
+} from '@/lib/scheduling';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -26,6 +38,29 @@ import { Text } from '@/components/ui/text';
 
 type Tab = 'bookings' | 'providers';
 
+/** Filter options for the Bookings tab. */
+type BookingFilter = 'all' | 'today' | 'tomorrow' | 'upcoming' | 'scheduled';
+
+/** Filter labels shown in the filter row. */
+const FILTER_LABELS: { key: BookingFilter; label: string }[] = [
+  { key: 'all',       label: 'All'       },
+  { key: 'today',     label: 'Today'     },
+  { key: 'tomorrow',  label: 'Tomorrow'  },
+  { key: 'upcoming',  label: 'Upcoming'  },
+  { key: 'scheduled', label: 'Scheduled' },
+];
+
+/** Returns true when the booking passes the active filter. */
+function matchesFilter(b: Booking, filter: BookingFilter): boolean {
+  switch (filter) {
+    case 'today':     return isToday(b.scheduled_for);
+    case 'tomorrow':  return isTomorrow(b.scheduled_for);
+    case 'upcoming':  return isUpcoming(b.scheduled_for);
+    case 'scheduled': return isScheduledType(b.scheduling_type);
+    default:          return true; // 'all' — no filter
+  }
+}
+
 export default function AdminScreen() {
   const theme = useTheme();
   const { signOut } = useAuth();
@@ -33,6 +68,7 @@ export default function AdminScreen() {
   const [tab, setTab] = useState<Tab>('bookings');
   const [bookings, setBookings] = useState<Booking[] | null>(null);
   const [providers, setProviders] = useState<ProviderProfile[] | null>(null);
+  const [bookingFilter, setBookingFilter] = useState<BookingFilter>('all');
 
   useEffect(() => {
     getAllBookings().then(setBookings);
@@ -54,6 +90,9 @@ export default function AdminScreen() {
   }
 
   const isLoading = bookings === null || providers === null;
+
+  /** Bookings after applying the active filter. */
+  const shownBookings = (bookings ?? []).filter((b) => matchesFilter(b, bookingFilter));
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
@@ -99,34 +138,56 @@ export default function AdminScreen() {
         </View>
       ) : tab === 'bookings' ? (
         /* Bookings list */
-        bookings.length === 0 ? (
-          <EmptyState
-            icon="📋"
-            title="No bookings yet"
-            message="Bookings will appear here once customers place them."
-          />
-        ) : (
-          <FlatList
-            data={bookings}
-            keyExtractor={(b) => b.id}
-            contentContainerStyle={styles.list}
-            showsVerticalScrollIndicator={false}
-            renderItem={({ item: b }) => {
-              const service = SERVICES.find((s) => s.id === b.service_id);
-              return (
-                <Card onPress={() => router.push(`/admin/booking/${b.id}`)} style={styles.card} elevation="e1">
-                  <Text variant="heading">{service?.title ?? b.service_id}</Text>
-                  <View style={styles.row}>
-                    <StatusBadge status={b.status} />
-                  </View>
-                  <Text variant="caption" color="textSecondary">
-                    {new Date(b.scheduled_for).toLocaleString()}
-                  </Text>
-                </Card>
-              );
-            }}
-          />
-        )
+        <>
+          {/* Filter row — only shown on the Bookings tab */}
+          <View style={styles.filterRow}>
+            {FILTER_LABELS.map(({ key, label }) => (
+              <Button
+                key={key}
+                label={label}
+                variant={bookingFilter === key ? 'secondary' : 'ghost'}
+                onPress={() => setBookingFilter(key)}
+              />
+            ))}
+          </View>
+
+          {shownBookings.length === 0 ? (
+            <EmptyState
+              icon="📋"
+              title="No bookings"
+              message="No bookings match the selected filter."
+            />
+          ) : (
+            <FlatList
+              data={shownBookings}
+              keyExtractor={(b) => b.id}
+              contentContainerStyle={styles.list}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item: b }) => {
+                const service = SERVICES.find((s) => s.id === b.service_id);
+                const showRecurrence = b.recurrence && b.recurrence !== 'one_time';
+                return (
+                  <Card onPress={() => router.push(`/admin/booking/${b.id}`)} style={styles.card} elevation="e1">
+                    <Text variant="heading">{service?.title ?? b.service_id}</Text>
+                    <View style={styles.row}>
+                      <StatusBadge status={b.status} />
+                      {showRecurrence && (
+                        <View style={[styles.pill, { backgroundColor: theme.backgroundElement }]}>
+                          <Text variant="caption" color="textSecondary">
+                            {recurrenceLabel(b.recurrence)}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text variant="caption" color="textSecondary">
+                      {describeSchedule(b)}
+                    </Text>
+                  </Card>
+                );
+              }}
+            />
+          )}
+        </>
       ) : (
         /* Providers list */
         providers.length === 0 ? (
@@ -189,12 +250,25 @@ const styles = StyleSheet.create({
     width: '48%',
     borderRadius: Radii.pill,
   },
+  filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: Spacing.four,
+    marginBottom: Spacing.two,
+    gap: Spacing.one,
+  },
+  pill: {
+    borderRadius: Radii.pill,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: 2,
+    marginLeft: Spacing.one,
+  },
   skeletons: {
     padding: Spacing.four,
     gap: Spacing.three,
   },
   list: { padding: Spacing.four, gap: Spacing.three },
   card: { gap: Spacing.two },
-  row: { flexDirection: 'row' },
+  row: { flexDirection: 'row', alignItems: 'center' },
   actions: { flexDirection: 'row', gap: Spacing.two, marginTop: Spacing.two },
 });
