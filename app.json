@@ -44,7 +44,10 @@
       ["expo-image-picker", {
         "photosPermission": "QuickServe needs photo access to attach job photos."
       }],
-      "expo-notifications"
+      "expo-notifications",
+      ["expo-location", {
+        "locationWhenInUsePermission": "QuickServe shares your live location with the customer only while you are travelling to and performing an active job."
+      }]
     ],
     "extra": {
       "eas": {
