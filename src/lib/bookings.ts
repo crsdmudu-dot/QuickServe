@@ -1,6 +1,7 @@
 // bookings.ts — Supabase helpers for creating and reading bookings.
 import { supabase } from '@/lib/supabase';
 import type { QuoteStatus } from '@/lib/quotes';
+import type { SchedulingType, TimeWindow, Recurrence } from '@/lib/scheduling';
 
 /** Curated provider details returned for a booking's assigned professional. */
 export type Professional = {
@@ -30,6 +31,12 @@ export type NewBooking = {
   door_number?: string;
   landmark?: string;
   access_notes?: string;
+  // Slice 24 scheduling fields (all optional; old callers unaffected)
+  scheduling_type?: SchedulingType;
+  time_window?: TimeWindow | null;
+  window_start?: string | null;
+  window_end?: string | null;
+  recurrence?: Recurrence;
 };
 
 export type Booking = {
@@ -61,6 +68,12 @@ export type Booking = {
   door_number: string | null;
   landmark: string | null;
   access_notes: string | null;
+  // Slice 24 scheduling fields
+  scheduling_type: string;
+  time_window: string | null;
+  window_start: string | null;
+  window_end: string | null;
+  recurrence: string;
 };
 
 // ── Customer mutations ─────────────────────────────────────────────────────
@@ -83,6 +96,12 @@ export async function createBooking(input: NewBooking): Promise<{ ok: boolean; i
     door_number: input.door_number ?? null,
     landmark: input.landmark ?? null,
     access_notes: input.access_notes ?? null,
+    // Slice 24 scheduling fields
+    scheduling_type: input.scheduling_type ?? 'datetime',
+    time_window: input.time_window ?? null,
+    window_start: input.window_start ?? null,
+    window_end: input.window_end ?? null,
+    recurrence: input.recurrence ?? 'one_time',
   }).select('id').single();
   if (error) return { ok: false, error: 'Could not create booking. Please try again.' };
   return { ok: true, id: row.id };

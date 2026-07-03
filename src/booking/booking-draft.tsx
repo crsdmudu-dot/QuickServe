@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
 
+import type { SchedulingType, TimeWindow, Recurrence, ResolvedSchedule } from '@/lib/scheduling';
+
 type Draft = {
   serviceId: string | null;
   address: string;
@@ -15,11 +17,18 @@ type Draft = {
   door_number: string;
   landmark: string;
   access_notes: string;
+  // Slice 24 scheduling fields
+  scheduling_type: SchedulingType;
+  time_window: TimeWindow | null;
+  window_start: string | null;
+  window_end: string | null;
+  recurrence: Recurrence;
 };
 type BookingDraft = Draft & {
   start: (serviceId: string) => void;
   setAddress: (v: string) => void;
   setScheduledFor: (iso: string) => void;
+  setSchedule: (r: ResolvedSchedule) => void;
   setNotes: (v: string) => void;
   addIssuePhoto: (uri: string) => void;
   removeIssuePhoto: (uri: string) => void;
@@ -46,6 +55,12 @@ const EMPTY: Draft = {
   door_number: '',
   landmark: '',
   access_notes: '',
+  // Slice 24 scheduling defaults
+  scheduling_type: 'datetime',
+  time_window: null,
+  window_start: null,
+  window_end: null,
+  recurrence: 'one_time',
 };
 const Ctx = createContext<BookingDraft | null>(null);
 
@@ -55,7 +70,16 @@ export function BookingDraftProvider({ children }: { children: ReactNode }) {
     ...draft,
     start: (serviceId) => setDraft({ ...EMPTY, serviceId }),
     setAddress: (address) => setDraft((d) => ({ ...d, address })),
-    setScheduledFor: (scheduledFor) => setDraft((d) => ({ ...d, scheduledFor })),
+    setScheduledFor: (iso) => setDraft((d) => ({ ...d, scheduledFor: iso, scheduling_type: 'datetime', time_window: 'specific' })),
+    setSchedule: (r) => setDraft((d) => ({
+      ...d,
+      scheduledFor: r.scheduled_for,
+      scheduling_type: r.scheduling_type,
+      time_window: r.time_window,
+      window_start: r.window_start,
+      window_end: r.window_end,
+      recurrence: r.recurrence,
+    })),
     setNotes: (notes) => setDraft((d) => ({ ...d, notes })),
     addIssuePhoto: (uri) => setDraft((d) => ({ ...d, issuePhotos: [...d.issuePhotos, uri] })),
     removeIssuePhoto: (uri) => setDraft((d) => ({ ...d, issuePhotos: d.issuePhotos.filter((u) => u !== uri) })),

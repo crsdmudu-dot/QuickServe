@@ -59,7 +59,26 @@ describe('createBooking', () => {
       address_label: null, latitude: null, longitude: null,
       building_name: null, floor: null, door_number: null,
       landmark: null, access_notes: null,
+      // Slice 24 scheduling fields (defaults when not provided)
+      scheduling_type: 'datetime', time_window: null, window_start: null,
+      window_end: null, recurrence: 'one_time',
     });
+  });
+  it('inserts provided scheduling fields verbatim', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    mockInsert.mockReturnValue({ select: () => ({ single: () => Promise.resolve({ data: { id: 'bk2' }, error: null }) }) });
+    const res = await createBooking({
+      serviceId: 'plumbing', address: 'Westlands', scheduledFor: '2026-07-05T08:00:00Z',
+      scheduling_type: 'asap', time_window: 'morning',
+      window_start: '2026-07-05T08:00:00Z', window_end: '2026-07-05T12:00:00Z',
+      recurrence: 'weekly',
+    });
+    expect(res).toEqual({ ok: true, id: 'bk2' });
+    expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
+      scheduling_type: 'asap', time_window: 'morning',
+      window_start: '2026-07-05T08:00:00Z', window_end: '2026-07-05T12:00:00Z',
+      recurrence: 'weekly',
+    }));
   });
   it('maps insert error', async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });

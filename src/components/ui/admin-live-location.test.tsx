@@ -57,6 +57,12 @@ const BASE_BOOKING: Booking = {
   door_number: null,
   landmark: null,
   access_notes: null,
+  // Slice 24 scheduling fields
+  scheduling_type: 'datetime',
+  time_window: null,
+  window_start: null,
+  window_end: null,
+  recurrence: 'one_time',
 };
 
 const MOCK_LOCATION = {
