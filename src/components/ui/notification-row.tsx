@@ -1,5 +1,6 @@
 // notification-row.tsx — A single notification displayed as a pressable card.
 import { StyleSheet, View } from 'react-native';
+import { router } from 'expo-router';
 
 import { Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -22,9 +23,16 @@ export function NotificationRow({ notification, onPress }: NotificationRowProps)
   const theme = useTheme();
   const { title, body, is_read, created_at } = notification;
 
+  // Always call onPress (preserves mark-read side-effect), then deep-link if
+  // the notification carries a route (route-less rows rely on the parent screen).
+  function handlePress() {
+    onPress();
+    if (notification.route) router.push(notification.route as never);
+  }
+
   return (
     <Card
-      onPress={onPress}
+      onPress={handlePress}
       elevation="e1"
       style={[
         is_read ? styles.dimmed : undefined,
