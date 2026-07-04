@@ -1,7 +1,7 @@
 # Slice 30 — Public Marketing Website (Design Spec)
 
 **Date:** 2026-07-05
-**Status:** Approved design → (implementation plan pending approval)
+**Status:** SUPERSEDED — the marketing website is now a separate Next.js app in the repo (no marketing routes inside the Expo app, no RootNavigator exemption). See `2026-07-05-slice-30-public-website-nextjs-design.md`.
 **Builds on (reuses):** the Expo Router app + `web.output: "static"` (already set → routes pre-render to HTML with per-page `<Head>` meta), the design tokens (`@/constants/theme`, `useTheme`), `Text`/`Button`/`Card`, `expo-router/head` (already used by `PageMeta`), `SERVICES`, and the admin-web responsive-breakpoint approach. Nothing in the backend/DB/auth/payment/business layer is touched.
 
 ---
