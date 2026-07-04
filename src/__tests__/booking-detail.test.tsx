@@ -68,6 +68,15 @@ jest.mock('@/lib/payments', () => ({
   getPaymentForBooking: (...args: unknown[]) => mockGetPaymentForBooking(...args),
 }));
 
+const mockGetMyWallet = jest.fn().mockResolvedValue({ balance: 0, id: '', customer_id: '', currency: 'KES', created_at: '', updated_at: '' });
+const mockApplyWalletToPayment = jest.fn().mockResolvedValue({ ok: true });
+
+jest.mock('@/lib/wallet', () => ({
+  getMyWallet: (...args: unknown[]) => mockGetMyWallet(...args),
+  applyWalletToPayment: (...args: unknown[]) => mockApplyWalletToPayment(...args),
+  amountDue: (p: { amount: number; wallet_applied?: number }) => p.amount - (p.wallet_applied ?? 0),
+}));
+
 const mockInitiateMpesaPayment = jest.fn().mockResolvedValue({ ok: true });
 const mockGetPaymentAttempts = jest.fn().mockResolvedValue([]);
 
@@ -135,6 +144,9 @@ describe('BookingDetailScreen', () => {
     // Default: M-Pesa mocks reset.
     mockInitiateMpesaPayment.mockResolvedValue({ ok: true });
     mockGetPaymentAttempts.mockResolvedValue([]);
+    // Default: empty wallet (balance 0) so apply control is hidden.
+    mockGetMyWallet.mockResolvedValue({ balance: 0, id: '', customer_id: '', currency: 'KES', created_at: '', updated_at: '' });
+    mockApplyWalletToPayment.mockResolvedValue({ ok: true });
   });
 
   it('Case A: in-app provider shows ProfessionalCard; phone is NOT rendered', async () => {
@@ -379,6 +391,50 @@ describe('BookingDetailScreen', () => {
       expect(mockInitiateMpesaPayment).toHaveBeenCalledWith(
         expect.objectContaining({ paymentId: 'pay1', phone: '0712345678' }),
       );
+    });
+  });
+
+  it('Case K: wallet balance > 0 shows Apply button; pressing it calls applyWalletToPayment and reloads', async () => {
+    const pendingPayment = {
+      id: 'pay2',
+      booking_id: 'b1',
+      amount: 800,
+      wallet_applied: 0,
+      status: 'pending' as const,
+      created_at: '2026-06-21T00:00:00Z',
+    };
+
+    mockGetBookingById.mockResolvedValue({
+      ...BASE_BOOKING,
+      status: 'completed' as const,
+      quote_status: 'accepted' as const,
+    });
+    mockGetPaymentForBooking.mockResolvedValue(pendingPayment);
+    mockGetPaymentAttempts.mockResolvedValue([]);
+    // Override default wallet: balance 500
+    mockGetMyWallet.mockResolvedValue({ balance: 500, id: 'w1', customer_id: 'c1', currency: 'KES', created_at: '', updated_at: '' });
+
+    render(<BookingDetailScreen />);
+
+    // Wait for the payment block to appear and verify amounts render.
+    expect(await screen.findByText('Amount: KES 800')).toBeOnTheScreen();
+    expect(screen.getByText('Amount due: KES 800')).toBeOnTheScreen();
+
+    // Apply wallet button should be visible with min(500, 800) = 500.
+    const applyBtn = screen.getByText('Apply wallet credit (KES 500)');
+    expect(applyBtn).toBeOnTheScreen();
+
+    // Record call count before pressing apply.
+    const callsBefore = mockGetPaymentForBooking.mock.calls.length;
+
+    // Press the apply button.
+    fireEvent.press(applyBtn);
+
+    await waitFor(() => {
+      // applyWalletToPayment called with payment.id and min(balance=500, due=800)=500.
+      expect(mockApplyWalletToPayment).toHaveBeenCalledWith('pay2', 500);
+      // After apply, getPaymentForBooking should be re-called (reloadPayment).
+      expect(mockGetPaymentForBooking.mock.calls.length).toBeGreaterThan(callsBefore);
     });
   });
 });

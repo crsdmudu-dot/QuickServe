@@ -70,7 +70,7 @@ Deno.serve(async (req: Request) => {
     // 3a. Check payment: must belong to the user and be in 'pending' state.
     const { data: payment } = await userClient
       .from('payments')
-      .select('id, amount, booking_id, status')
+      .select('id, amount, wallet_applied, booking_id, status')
       .eq('id', payment_id)
       .maybeSingle();
 
@@ -89,6 +89,13 @@ Deno.serve(async (req: Request) => {
       return json({ ok: false, error: 'Job is not completed yet.' }, 400);
     }
 
+    // 3c. Compute the actual charge amount (total minus any wallet credit already applied).
+    // wallet_applied defaults to 0 for existing payments — backward-compatible.
+    const amountDue = Number(payment.amount) - Number(payment.wallet_applied ?? 0);
+    if (amountDue <= 0) {
+      return json({ ok: false, error: 'Nothing due on this payment.' }, 400);
+    }
+
     // 4. Initiate STK Push (mock or real).
     const mode = resolveMpesaMode(Deno.env.get('MPESA_MODE'));
 
@@ -98,7 +105,7 @@ Deno.serve(async (req: Request) => {
 
     if (isMockMode(mode)) {
       // Mock mode — no Daraja secrets required.
-      const m = mockStkResult({ phone: phone!, amount: payment.amount });
+      const m = mockStkResult({ phone: phone!, amount: amountDue });
       merchantRequestId = m.merchantRequestId;
       checkoutRequestId = m.checkoutRequestId;
       raw = m.raw;
@@ -113,7 +120,7 @@ Deno.serve(async (req: Request) => {
         shortcode,
         password,
         timestamp: ts,
-        amount: payment.amount,
+        amount: amountDue,
         phone: phone!,
         callbackUrl: Deno.env.get('DARAJA_CALLBACK_URL')!,
         accountReference: String(payment.booking_id).slice(0, 12),
@@ -142,7 +149,7 @@ Deno.serve(async (req: Request) => {
       payment_id,
       provider: 'mpesa',
       phone,
-      amount: payment.amount,
+      amount: amountDue,
       status: 'pending',
       external_reference: checkoutRequestId,
       raw_response: raw,

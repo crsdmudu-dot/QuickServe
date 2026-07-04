@@ -128,6 +128,30 @@ jest.mock('@/lib/tracking', () => ({
   subscribeToProviderLocation: () => jest.fn(),
 }));
 
+// AdminWalletPanel pulls wallet data — stub so the panel resolves without Supabase
+jest.mock('@/lib/wallet', () => ({
+  adminGetWallet: jest.fn().mockResolvedValue({
+    id: 'w1',
+    customer_id: 'cust1',
+    balance: 0,
+    currency: 'KES',
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+  }),
+  adminGetWalletTransactions: jest.fn().mockResolvedValue([]),
+  adminAdjustWallet: jest.fn().mockResolvedValue({ ok: true }),
+  WALLET_TXN_TYPES: {
+    admin_credit:    { label: 'Admin credit',      direction: 'credit' },
+    admin_debit:     { label: 'Admin debit',        direction: 'debit'  },
+    refund_credit:   { label: 'Refund',             direction: 'credit' },
+    promo_credit:    { label: 'Promo credit',       direction: 'credit' },
+    referral_credit: { label: 'Referral reward',    direction: 'credit' },
+    gift_credit:     { label: 'Gift credit',        direction: 'credit' },
+    payment_applied: { label: 'Applied to booking', direction: 'debit'  },
+    adjustment:      { label: 'Adjustment',         direction: 'credit' },
+  },
+}));
+
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 

@@ -21,6 +21,12 @@ describe('ProfileScreen', () => {
     await waitFor(() => expect(mockSignOut).toHaveBeenCalled());
   });
 
+  it('navigates to /wallet when "Wallet" is pressed', () => {
+    render(<ProfileScreen />);
+    fireEvent.press(screen.getByText('Wallet'));
+    expect(router.push).toHaveBeenCalledWith('/wallet');
+  });
+
   it('navigates to /saved-addresses when "Saved addresses" is pressed', () => {
     render(<ProfileScreen />);
     fireEvent.press(screen.getByText('Saved addresses'));

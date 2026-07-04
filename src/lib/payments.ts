@@ -17,6 +17,8 @@ export type Payment = {
   payment_method: 'mpesa' | 'card' | 'cash' | null;
   paid_at: string | null;
   created_at: string;
+  /** Amount already covered by wallet credit (optional — 0 when absent). */
+  wallet_applied?: number;
 };
 
 // ── Queries ────────────────────────────────────────────────────────────────

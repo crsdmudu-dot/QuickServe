@@ -29,6 +29,8 @@ import { getBookingActivity, type BookingActivity } from '@/lib/activity';
 import { getMyReviewForBooking, submitReview, REVIEW_TAGS, type Review } from '@/lib/reviews';
 import { acceptQuote, declineQuote } from '@/lib/quotes';
 import { getPaymentForBooking, type Payment } from '@/lib/payments';
+import { getMyWallet, applyWalletToPayment, amountDue } from '@/lib/wallet';
+import { formatKes } from '@/lib/currency';
 import { initiateMpesaPayment, getPaymentAttempts, type PaymentAttempt } from '@/lib/attempts';
 import { AttemptStatusBadge } from '@/components/ui/attempt-status-badge';
 import { BookingSummaryCard } from '@/components/ui/booking-summary-card';
@@ -57,6 +59,7 @@ export default function BookingDetailScreen() {
   const [review, setReview] = useState<Review | null>(null);
   const [payment, setPayment] = useState<Payment | null>(null);
   const [attempts, setAttempts] = useState<PaymentAttempt[]>([]);
+  const [walletBalance, setWalletBalance] = useState(0);
   const [phone, setPhone] = useState('');
   const [payError, setPayError] = useState<string | null>(null);
   const [rating, setRating] = useState(0);
@@ -97,6 +100,7 @@ export default function BookingDetailScreen() {
           setPayment(p);
           if (p) getPaymentAttempts(p.id).then(setAttempts);
         });
+        getMyWallet().then((w) => setWalletBalance(w.balance));
       });
       loadPhotos();
       getBookingActivity(id).then(setActivity);
@@ -108,6 +112,13 @@ export default function BookingDetailScreen() {
     const p = await getPaymentForBooking(id);
     setPayment(p);
     if (p) setAttempts(await getPaymentAttempts(p.id));
+  }
+
+  async function reloadPayment() {
+    const p = await getPaymentForBooking(id);
+    setPayment(p);
+    const w = await getMyWallet();
+    setWalletBalance(w.balance);
   }
 
   async function handleAccept() {
@@ -233,6 +244,30 @@ export default function BookingDetailScreen() {
             )}
             {payment.status === 'pending' && booking.status === 'completed' && (
               <View style={styles.mpesaBlock}>
+                {/* ── Wallet summary ──────────────────────────────────────── */}
+                <Text variant="body">Amount: {formatKes(payment.amount)}</Text>
+                {(payment.wallet_applied ?? 0) > 0 && (
+                  <Text variant="body">Wallet applied: −{formatKes(payment.wallet_applied!)}</Text>
+                )}
+                <Text variant="body">Wallet balance: {formatKes(walletBalance)}</Text>
+                <Text variant="body">Amount due: {formatKes(amountDue(payment))}</Text>
+                {walletBalance > 0 && amountDue(payment) > 0 && (
+                  <Button
+                    label={`Apply wallet credit (${formatKes(Math.min(walletBalance, amountDue(payment)))})`}
+                    onPress={async () => {
+                      setPayError(null);
+                      const due = amountDue(payment);
+                      const amt = Math.min(walletBalance, due);
+                      const res = await applyWalletToPayment(payment.id, amt);
+                      if (res.ok) {
+                        await reloadPayment();
+                      } else {
+                        setPayError(res.error ?? 'Could not apply wallet credit.');
+                      }
+                    }}
+                  />
+                )}
+                {/* ── M-Pesa input ─────────────────────────────────────── */}
                 <Input
                   label="M-Pesa phone number"
                   value={phone}

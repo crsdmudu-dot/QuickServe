@@ -56,6 +56,7 @@ import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
 import { DestinationSummary } from '@/components/ui/destination-summary';
 import { AdminLiveLocation } from '@/components/ui/admin-live-location';
+import { AdminWalletPanel } from '@/components/admin-web/admin-wallet-panel';
 
 // ── Layout breakpoint ──────────────────────────────────────────────────────
 
@@ -408,6 +409,9 @@ export default function AdminWebBookingDetailScreen() {
         multiline
       />
       <Button label="Save notes" onPress={handleSaveNotes} />
+
+      {/* Customer wallet — balance, history, and audited adjustment */}
+      <AdminWalletPanel customerId={booking.customer_id} />
     </View>
   );
 
