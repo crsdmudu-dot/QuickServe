@@ -19,6 +19,10 @@ export type Payment = {
   created_at: string;
   /** Amount already covered by wallet credit (optional — 0 when absent). */
   wallet_applied?: number;
+  /** Discount amount applied via a promo code (optional — 0 when absent). */
+  promo_discount?: number;
+  /** The promo code row that was redeemed for this payment (optional). */
+  promo_code_id?: string | null;
 };
 
 // ── Queries ────────────────────────────────────────────────────────────────

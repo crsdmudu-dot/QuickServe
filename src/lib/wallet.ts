@@ -171,9 +171,10 @@ export async function adminAdjustWallet(
 // ── Payment helper ─────────────────────────────────────────────────────────
 
 /**
- * Returns the remaining amount due on a payment after wallet credit is applied.
- * `wallet_applied` defaults to 0 when absent (backward-compatible with old Payment rows).
+ * Returns the remaining amount due on a payment after wallet credit and promo discount.
+ * Both `wallet_applied` and `promo_discount` default to 0 when absent (backward-compatible).
+ * Result is floored at 0 — the customer never owes a negative amount.
  */
-export function amountDue(p: Pick<Payment, 'amount' | 'wallet_applied'>): number {
-  return p.amount - (p.wallet_applied ?? 0);
+export function amountDue(p: { amount: number; wallet_applied?: number; promo_discount?: number }): number {
+  return Math.max(0, p.amount - (p.wallet_applied ?? 0) - (p.promo_discount ?? 0));
 }

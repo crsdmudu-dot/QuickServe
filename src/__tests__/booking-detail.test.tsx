@@ -74,7 +74,14 @@ const mockApplyWalletToPayment = jest.fn().mockResolvedValue({ ok: true });
 jest.mock('@/lib/wallet', () => ({
   getMyWallet: (...args: unknown[]) => mockGetMyWallet(...args),
   applyWalletToPayment: (...args: unknown[]) => mockApplyWalletToPayment(...args),
-  amountDue: (p: { amount: number; wallet_applied?: number }) => p.amount - (p.wallet_applied ?? 0),
+  amountDue: (p: { amount: number; wallet_applied?: number; promo_discount?: number }) =>
+    Math.max(0, p.amount - (p.wallet_applied ?? 0) - (p.promo_discount ?? 0)),
+}));
+
+const mockRedeemPromo = jest.fn().mockResolvedValue({ ok: true, discount: 200 });
+
+jest.mock('@/lib/promotions', () => ({
+  redeemPromo: (...args: unknown[]) => mockRedeemPromo(...args),
 }));
 
 const mockInitiateMpesaPayment = jest.fn().mockResolvedValue({ ok: true });
@@ -147,6 +154,8 @@ describe('BookingDetailScreen', () => {
     // Default: empty wallet (balance 0) so apply control is hidden.
     mockGetMyWallet.mockResolvedValue({ balance: 0, id: '', customer_id: '', currency: 'KES', created_at: '', updated_at: '' });
     mockApplyWalletToPayment.mockResolvedValue({ ok: true });
+    // Default: promo redeem succeeds with 200 discount.
+    mockRedeemPromo.mockResolvedValue({ ok: true, discount: 200 });
   });
 
   it('Case A: in-app provider shows ProfessionalCard; phone is NOT rendered', async () => {
@@ -380,8 +389,8 @@ describe('BookingDetailScreen', () => {
     // Wait for the M-Pesa form to appear.
     const payBtn = await screen.findByText('Pay with M-Pesa');
 
-    // Type a phone number into the input.
-    const phoneInput = screen.getByDisplayValue('');
+    // Type a phone number into the phone input (identified by placeholder).
+    const phoneInput = screen.getByPlaceholderText('07XX XXX XXX');
     fireEvent.changeText(phoneInput, '0712345678');
 
     // Press pay.
@@ -392,6 +401,108 @@ describe('BookingDetailScreen', () => {
         expect.objectContaining({ paymentId: 'pay1', phone: '0712345678' }),
       );
     });
+  });
+
+  it('Case L: pending payment without promo shows promo input + Apply promo; typing + pressing calls redeemPromo and reloads', async () => {
+    const pendingPayment = {
+      id: 'pay3',
+      booking_id: 'b1',
+      amount: 800,
+      wallet_applied: 0,
+      promo_discount: 0,
+      promo_code_id: null,
+      status: 'pending' as const,
+      created_at: '2026-06-21T00:00:00Z',
+    };
+
+    mockGetBookingById.mockResolvedValue({
+      ...BASE_BOOKING,
+      status: 'completed' as const,
+      quote_status: 'accepted' as const,
+    });
+    mockGetPaymentForBooking.mockResolvedValue(pendingPayment);
+    mockGetPaymentAttempts.mockResolvedValue([]);
+
+    render(<BookingDetailScreen />);
+
+    // Wait for the M-Pesa form to appear.
+    await screen.findByText('Pay with M-Pesa');
+
+    // Promo input and Apply promo button should be visible.
+    const promoInput = screen.getByPlaceholderText('Enter promo code');
+    expect(promoInput).toBeOnTheScreen();
+    expect(screen.getByText('Apply promo')).toBeOnTheScreen();
+
+    // Type a promo code and press Apply.
+    fireEvent.changeText(promoInput, 'SAVE200');
+    const callsBefore = mockGetPaymentForBooking.mock.calls.length;
+    fireEvent.press(screen.getByText('Apply promo'));
+
+    await waitFor(() => {
+      // redeemPromo called with payment id and the typed code.
+      expect(mockRedeemPromo).toHaveBeenCalledWith('pay3', 'SAVE200');
+      // After success, getPaymentForBooking re-called (reload).
+      expect(mockGetPaymentForBooking.mock.calls.length).toBeGreaterThan(callsBefore);
+    });
+  });
+
+  it('Case L2: payment with promo_code_id set hides promo input', async () => {
+    const appliedPayment = {
+      id: 'pay4',
+      booking_id: 'b1',
+      amount: 800,
+      wallet_applied: 0,
+      promo_discount: 200,
+      promo_code_id: 'promo-123',
+      status: 'pending' as const,
+      created_at: '2026-06-21T00:00:00Z',
+    };
+
+    mockGetBookingById.mockResolvedValue({
+      ...BASE_BOOKING,
+      status: 'completed' as const,
+      quote_status: 'accepted' as const,
+    });
+    mockGetPaymentForBooking.mockResolvedValue(appliedPayment);
+    mockGetPaymentAttempts.mockResolvedValue([]);
+
+    render(<BookingDetailScreen />);
+
+    await screen.findByText('Pay with M-Pesa');
+
+    // Promo input should NOT be visible when promo_code_id is set.
+    expect(screen.queryByPlaceholderText('Enter promo code')).toBeNull();
+    expect(screen.queryByText('Apply promo')).toBeNull();
+    // "Promo applied" caption shown instead.
+    expect(screen.getByText('Promo applied')).toBeOnTheScreen();
+  });
+
+  it('Case L3: payment with promo_discount > 0 renders discount and You saved lines', async () => {
+    const discountedPayment = {
+      id: 'pay5',
+      booking_id: 'b1',
+      amount: 800,
+      wallet_applied: 0,
+      promo_discount: 200,
+      promo_code_id: 'promo-123',
+      status: 'pending' as const,
+      created_at: '2026-06-21T00:00:00Z',
+    };
+
+    mockGetBookingById.mockResolvedValue({
+      ...BASE_BOOKING,
+      status: 'completed' as const,
+      quote_status: 'accepted' as const,
+    });
+    mockGetPaymentForBooking.mockResolvedValue(discountedPayment);
+    mockGetPaymentAttempts.mockResolvedValue([]);
+
+    render(<BookingDetailScreen />);
+
+    await screen.findByText('Pay with M-Pesa');
+
+    expect(screen.getByText('Promo discount: −KES 200')).toBeOnTheScreen();
+    expect(screen.getByText('You saved KES 200')).toBeOnTheScreen();
   });
 
   it('Case K: wallet balance > 0 shows Apply button; pressing it calls applyWalletToPayment and reloads', async () => {

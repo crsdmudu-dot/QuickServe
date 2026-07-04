@@ -39,6 +39,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Earnings & Payouts', route: '/(admin-web)/earnings', segment: 'earnings' },
   { label: 'Reviews', route: '/(admin-web)/reviews', segment: 'reviews' },
   { label: 'Notifications', route: '/(admin-web)/notifications', segment: 'notifications' },
+  { label: 'Promotions', route: '/(admin-web)/promos', segment: 'promos' },
 ];
 
 // ── Props ──────────────────────────────────────────────────────────────────

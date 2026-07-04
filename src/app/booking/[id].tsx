@@ -30,6 +30,7 @@ import { getMyReviewForBooking, submitReview, REVIEW_TAGS, type Review } from '@
 import { acceptQuote, declineQuote } from '@/lib/quotes';
 import { getPaymentForBooking, type Payment } from '@/lib/payments';
 import { getMyWallet, applyWalletToPayment, amountDue } from '@/lib/wallet';
+import { redeemPromo } from '@/lib/promotions';
 import { formatKes } from '@/lib/currency';
 import { initiateMpesaPayment, getPaymentAttempts, type PaymentAttempt } from '@/lib/attempts';
 import { AttemptStatusBadge } from '@/components/ui/attempt-status-badge';
@@ -62,6 +63,9 @@ export default function BookingDetailScreen() {
   const [walletBalance, setWalletBalance] = useState(0);
   const [phone, setPhone] = useState('');
   const [payError, setPayError] = useState<string | null>(null);
+  const [promoCode, setPromoCode] = useState('');
+  const [promoError, setPromoError] = useState('');
+  const [promoMsg, setPromoMsg] = useState('');
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [reviewError, setReviewError] = useState<string | null>(null);
@@ -131,6 +135,20 @@ export default function BookingDetailScreen() {
     setQuoteError(null);
     const r = await declineQuote(id);
     if (r.ok) await reload(); else setQuoteError(r.error ?? 'Could not decline quote.');
+  }
+
+  async function handleApplyPromo() {
+    if (!payment) return;
+    setPromoError('');
+    setPromoMsg('');
+    const res = await redeemPromo(payment.id, promoCode.trim());
+    if (res.ok) {
+      setPromoCode('');
+      setPromoMsg(res.discount ? `You saved ${formatKes(res.discount)}` : 'Promo applied.');
+      await reloadPayment();
+    } else {
+      setPromoError(res.error ?? 'Could not apply promo code.');
+    }
   }
 
   async function handlePayMpesa() {
@@ -244,6 +262,30 @@ export default function BookingDetailScreen() {
             )}
             {payment.status === 'pending' && booking.status === 'completed' && (
               <View style={styles.mpesaBlock}>
+                {/* ── Promo discount display ──────────────────────────── */}
+                {payment.promo_discount && payment.promo_discount > 0 ? (
+                  <>
+                    <Text variant="body">Promo discount: −{formatKes(payment.promo_discount)}</Text>
+                    <Text variant="body">You saved {formatKes(payment.promo_discount)}</Text>
+                  </>
+                ) : null}
+                {/* ── Promo code entry (only when no promo applied yet) ── */}
+                {!payment.promo_code_id ? (
+                  <>
+                    <Input
+                      label="Promo code"
+                      value={promoCode}
+                      onChangeText={setPromoCode}
+                      placeholder="Enter promo code"
+                      autoCapitalize="characters"
+                    />
+                    <Button label="Apply promo" onPress={handleApplyPromo} />
+                    {promoError ? <Text variant="caption" color="error">{promoError}</Text> : null}
+                    {promoMsg ? <Text variant="caption" color="success">{promoMsg}</Text> : null}
+                  </>
+                ) : (
+                  <Text variant="caption" color="success">Promo applied</Text>
+                )}
                 {/* ── Wallet summary ──────────────────────────────────────── */}
                 <Text variant="body">Amount: {formatKes(payment.amount)}</Text>
                 {(payment.wallet_applied ?? 0) > 0 && (
