@@ -239,4 +239,28 @@ describe('amountDue', () => {
   it('returns full amount when wallet_applied is undefined', () => {
     expect(amountDue({ amount: 750 })).toBe(750);
   });
+
+  it('subtracts both wallet_applied and promo_discount', () => {
+    expect(amountDue({ amount: 1000, wallet_applied: 300, promo_discount: 200 })).toBe(500);
+  });
+
+  it('defaults promo_discount to 0 when absent', () => {
+    expect(amountDue({ amount: 1000, wallet_applied: 200 })).toBe(800);
+  });
+
+  it('defaults wallet_applied to 0 when absent, still applies promo_discount', () => {
+    expect(amountDue({ amount: 1000, promo_discount: 150 })).toBe(850);
+  });
+
+  it('defaults both to 0 when only amount is provided', () => {
+    expect(amountDue({ amount: 600 })).toBe(600);
+  });
+
+  it('floors at 0 when discount exceeds amount (never negative)', () => {
+    expect(amountDue({ amount: 100, wallet_applied: 80, promo_discount: 50 })).toBe(0);
+  });
+
+  it('floors at 0 when promo_discount alone exceeds amount', () => {
+    expect(amountDue({ amount: 100, promo_discount: 200 })).toBe(0);
+  });
 });
