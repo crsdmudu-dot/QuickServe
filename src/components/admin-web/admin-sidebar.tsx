@@ -40,6 +40,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Reviews', route: '/(admin-web)/reviews', segment: 'reviews' },
   { label: 'Notifications', route: '/(admin-web)/notifications', segment: 'notifications' },
   { label: 'Promotions', route: '/(admin-web)/promos', segment: 'promos' },
+  { label: 'Analytics', route: '/(admin-web)/analytics', segment: 'analytics' },
 ];
 
 // ── Props ──────────────────────────────────────────────────────────────────
