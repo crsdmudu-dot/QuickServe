@@ -70,7 +70,7 @@ Deno.serve(async (req: Request) => {
     // 3a. Check payment: must belong to the user and be in 'pending' state.
     const { data: payment } = await userClient
       .from('payments')
-      .select('id, amount, wallet_applied, booking_id, status')
+      .select('id, amount, wallet_applied, promo_discount, booking_id, status')
       .eq('id', payment_id)
       .maybeSingle();
 
@@ -89,9 +89,9 @@ Deno.serve(async (req: Request) => {
       return json({ ok: false, error: 'Job is not completed yet.' }, 400);
     }
 
-    // 3c. Compute the actual charge amount (total minus any wallet credit already applied).
-    // wallet_applied defaults to 0 for existing payments — backward-compatible.
-    const amountDue = Number(payment.amount) - Number(payment.wallet_applied ?? 0);
+    // 3c. Compute the actual charge amount (total minus wallet credit and promo discount).
+    // wallet_applied and promo_discount default to 0 for existing payments — backward-compatible.
+    const amountDue = Number(payment.amount) - Number(payment.wallet_applied ?? 0) - Number(payment.promo_discount ?? 0);
     if (amountDue <= 0) {
       return json({ ok: false, error: 'Nothing due on this payment.' }, 400);
     }
