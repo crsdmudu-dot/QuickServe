@@ -50,12 +50,11 @@ export async function getPaymentForBooking(bookingId: string): Promise<Payment |
 
 // ── Mutations ──────────────────────────────────────────────────────────────
 
-/** Admin: returns all payments, newest first. */
-export async function adminGetAllPayments(): Promise<Payment[]> {
-  const { data, error } = await supabase
-    .from('payments')
-    .select('*')
-    .order('created_at', { ascending: false });
+/** Admin: returns all payments, newest first. Pass page + pageSize for pagination. */
+export async function adminGetAllPayments(page?: number, pageSize?: number): Promise<Payment[]> {
+  let q = supabase.from('payments').select('*').order('created_at', { ascending: false });
+  if (page != null && pageSize != null) q = q.range(page * pageSize, page * pageSize + pageSize - 1);
+  const { data, error } = await q;
   if (error) return [];
   return (data as Payment[] | null) ?? [];
 }

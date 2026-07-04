@@ -7,7 +7,9 @@
     "icon": "./assets/images/icon.png",
     "scheme": "quickserve",
     "userInterfaceStyle": "automatic",
-    "runtimeVersion": { "policy": "appVersion" },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "ios": {
       "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.quickserve.app",
@@ -41,13 +43,20 @@
         }
       ],
       "@react-native-community/datetimepicker",
-      ["expo-image-picker", {
-        "photosPermission": "QuickServe needs photo access to attach job photos."
-      }],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "QuickServe needs photo access to attach job photos."
+        }
+      ],
       "expo-notifications",
-      ["expo-location", {
-        "locationWhenInUsePermission": "QuickServe shares your live location with the customer only while you are travelling to and performing an active job."
-      }]
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "QuickServe shares your live location with the customer only while you are travelling to and performing an active job."
+        }
+      ],
+      ["@sentry/react-native/expo", { "organization": "", "project": "" }]
     ],
     "extra": {
       "eas": {

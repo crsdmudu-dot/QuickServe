@@ -8,27 +8,30 @@
  */
 
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SERVICES } from '@/constants/services';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { getCustomerBookings, type Booking } from '@/lib/bookings';
+import { usePaginatedList } from '@/hooks/use-paginated-list';
+import { getCustomerBookings } from '@/lib/bookings';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
+import { LoadMoreButton } from '@/components/ui/load-more-button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 
 export default function CustomerBookingsScreen() {
   const theme = useTheme();
-  const [bookings, setBookings] = useState<Booking[] | null>(null);
 
-  useEffect(() => {
-    getCustomerBookings().then(setBookings);
-  }, []);
+  const {
+    items: bookings,
+    loading,
+    hasMore,
+    loadMore,
+  } = usePaginatedList((p, s) => getCustomerBookings(p, s));
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
@@ -36,8 +39,8 @@ export default function CustomerBookingsScreen() {
         My Bookings
       </Text>
 
-      {/* Loading skeleton — shown until the first fetch resolves */}
-      {bookings === null ? (
+      {/* Loading skeleton — shown during initial load */}
+      {loading && bookings.length === 0 ? (
         <View style={styles.skeletons}>
           <Skeleton height={88} radius={16} />
           <Skeleton height={88} radius={16} />
@@ -54,6 +57,9 @@ export default function CustomerBookingsScreen() {
           data={bookings}
           keyExtractor={(b) => b.id}
           contentContainerStyle={styles.list}
+          ListFooterComponent={
+            <LoadMoreButton onPress={loadMore} loading={loading} hasMore={hasMore} />
+          }
           renderItem={({ item: b }) => {
             const service = SERVICES.find((s) => s.id === b.service_id);
             return (

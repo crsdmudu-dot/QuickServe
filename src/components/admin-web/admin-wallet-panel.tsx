@@ -22,19 +22,20 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { usePaginatedList } from '@/hooks/use-paginated-list';
 import {
   adminGetWallet,
   adminGetWalletTransactions,
   adminAdjustWallet,
   WALLET_TXN_TYPES,
   type Wallet,
-  type WalletTransaction,
   type WalletTxnType,
 } from '@/lib/wallet';
 import { formatKes } from '@/lib/currency';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { LoadMoreButton } from '@/components/ui/load-more-button';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
 
@@ -62,10 +63,20 @@ export type AdminWalletPanelProps = {
 export function AdminWalletPanel({ customerId }: AdminWalletPanelProps) {
   const theme = useTheme();
 
-  // ── Wallet data state ────────────────────────────────────────────────────
+  // ── Wallet balance state ─────────────────────────────────────────────────
   const [wallet, setWallet] = useState<Wallet | null>(null);
-  const [txns, setTxns] = useState<WalletTransaction[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [walletLoading, setWalletLoading] = useState(true);
+
+  // ── Transactions via paginated list ──────────────────────────────────────
+  const {
+    items: txns,
+    loading: txnsLoading,
+    hasMore: txnsHasMore,
+    loadMore: loadMoreTxns,
+    reload: reloadTxns,
+  } = usePaginatedList((p, s) => adminGetWalletTransactions(customerId, p, s));
+
+  const loading = walletLoading || txnsLoading;
 
   // ── Adjustment form state ────────────────────────────────────────────────
   const [type, setType] = useState<WalletTxnType>('admin_credit');
@@ -74,21 +85,17 @@ export function AdminWalletPanel({ customerId }: AdminWalletPanelProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // ── Load wallet + transactions ───────────────────────────────────────────
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    const [w, t] = await Promise.all([
-      adminGetWallet(customerId),
-      adminGetWalletTransactions(customerId),
-    ]);
+  // ── Load wallet balance ──────────────────────────────────────────────────
+  const loadWallet = useCallback(async () => {
+    setWalletLoading(true);
+    const w = await adminGetWallet(customerId);
     setWallet(w);
-    setTxns(t);
-    setLoading(false);
+    setWalletLoading(false);
   }, [customerId]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    loadWallet();
+  }, [loadWallet]);
 
   // ── Derived direction + signed amount preview ────────────────────────────
   const direction = WALLET_TXN_TYPES[type].direction;
@@ -104,10 +111,11 @@ export function AdminWalletPanel({ customerId }: AdminWalletPanelProps) {
     setError('');
     const res = await adminAdjustWallet(customerId, type, signedAmount, note.trim());
     if (res.ok) {
-      // Clear form and reload data
+      // Clear form and reload wallet + transactions
       setAmount('');
       setNote('');
-      await loadData();
+      await loadWallet();
+      reloadTxns();
     } else {
       setError(res.error ?? 'Could not adjust wallet.');
     }
@@ -133,7 +141,7 @@ export function AdminWalletPanel({ customerId }: AdminWalletPanelProps) {
 
       {/* Transaction history */}
       <SectionHeader title="Transaction history" />
-      {loading ? (
+      {txnsLoading && txns.length === 0 ? (
         <Text variant="caption" color="textSecondary">
           Loading…
         </Text>
@@ -193,6 +201,7 @@ export function AdminWalletPanel({ customerId }: AdminWalletPanelProps) {
           );
         })
       )}
+      <LoadMoreButton onPress={loadMoreTxns} loading={txnsLoading} hasMore={txnsHasMore} />
 
       {/* Adjustment form */}
       <SectionHeader title="Apply adjustment" />

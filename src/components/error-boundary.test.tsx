@@ -2,6 +2,13 @@ import { Text } from 'react-native';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import { ErrorBoundary } from '@/components/error-boundary';
 
+// Mock monitoring so no real Sentry import runs in this test.
+jest.mock('@/lib/monitoring', () => ({
+  reportError: jest.fn(),
+  initMonitoring: jest.fn(),
+  _resetMonitoringForTest: jest.fn(),
+}));
+
 // Module-level flag: controls whether Bomb throws on its next render.
 let shouldBombThrow = true;
 

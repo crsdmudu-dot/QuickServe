@@ -15,6 +15,7 @@ const mockMaybeSingle = jest.fn();
 const mockSelect = jest.fn();
 const mockEq = jest.fn();
 const mockOrder = jest.fn();
+const mockRange = jest.fn();
 const mockRpc = jest.fn();
 
 jest.mock('@/lib/supabase', () => ({
@@ -25,12 +26,22 @@ jest.mock('@/lib/supabase', () => ({
         mockSelect(...a);
         return {
           maybeSingle: (...b: unknown[]) => mockMaybeSingle(...b),
-          order: (...b: unknown[]) => mockOrder(...b),
+          order: (...b: unknown[]) => {
+            const promise = mockOrder(...b) as Promise<unknown>;
+            (promise as unknown as { range: (...c: unknown[]) => unknown }).range =
+              (...c: unknown[]) => mockRange(...c);
+            return promise;
+          },
           eq: (...b: unknown[]) => {
             mockEq(...b);
             return {
               maybeSingle: (...c: unknown[]) => mockMaybeSingle(...c),
-              order: (...c: unknown[]) => mockOrder(...c),
+              order: (...c: unknown[]) => {
+                const promise = mockOrder(...c) as Promise<unknown>;
+                (promise as unknown as { range: (...d: unknown[]) => unknown }).range =
+                  (...d: unknown[]) => mockRange(...d);
+                return promise;
+              },
             };
           },
         };
@@ -262,5 +273,23 @@ describe('amountDue', () => {
 
   it('floors at 0 when promo_discount alone exceeds amount', () => {
     expect(amountDue({ amount: 100, promo_discount: 200 })).toBe(0);
+  });
+});
+
+// ── adminGetWalletTransactions pagination ──────────────────────────────────
+
+describe('adminGetWalletTransactions pagination', () => {
+  it('calls .range(10, 19) when called with customerId, page=1, pageSize=10', async () => {
+    mockRange.mockResolvedValue({ data: [{ id: 'tx1' }], error: null });
+    const result = await adminGetWalletTransactions('c3', 1, 10);
+    expect(mockRange).toHaveBeenCalledWith(10, 19);
+    expect(result).toEqual([{ id: 'tx1' }]);
+  });
+
+  it('does NOT call .range when called with only customerId (no-arg stays green)', async () => {
+    mockOrder.mockResolvedValue({ data: [{ id: 'tx1' }], error: null });
+    const result = await adminGetWalletTransactions('c3');
+    expect(result).toEqual([{ id: 'tx1' }]);
+    expect(mockRange).not.toHaveBeenCalled();
   });
 });

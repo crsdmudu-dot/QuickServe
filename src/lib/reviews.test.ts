@@ -18,6 +18,7 @@ const mockSelect = jest.fn();
 const mockEq = jest.fn();
 const mockMaybeSingle = jest.fn();
 const mockOrder = jest.fn();
+const mockRange = jest.fn();
 const mockUpdate = jest.fn();
 const mockUpdateEq = jest.fn();
 
@@ -56,7 +57,12 @@ jest.mock('@/lib/supabase', () => ({
         select: (...a: unknown[]) => {
           mockSelect(...a);
           return {
-            order: (...b: unknown[]) => mockOrder(...b),
+            order: (...b: unknown[]) => {
+              const promise = mockOrder(...b) as Promise<unknown>;
+              (promise as unknown as { range: (...c: unknown[]) => unknown }).range =
+                (...c: unknown[]) => mockRange(...c);
+              return promise;
+            },
             eq: (...b: unknown[]) => {
               mockEq(...b);
               return {
@@ -313,5 +319,23 @@ describe('getReviewPrivateFeedback', () => {
   it('returns null when not found (RLS blocks provider)', async () => {
     mockPrivateMaybeSingle.mockResolvedValue({ data: null });
     expect(await getReviewPrivateFeedback('r1')).toBeNull();
+  });
+});
+
+// ── adminGetAllReviews pagination ──────────────────────────────────────────
+
+describe('adminGetAllReviews pagination', () => {
+  it('calls .range(10, 19) when called with page=1, pageSize=10', async () => {
+    mockRange.mockResolvedValue({ data: [{ id: 'r1' }], error: null });
+    const result = await adminGetAllReviews(1, 10);
+    expect(mockRange).toHaveBeenCalledWith(10, 19);
+    expect(result).toEqual([{ id: 'r1' }]);
+  });
+
+  it('does NOT call .range when called with no args', async () => {
+    mockOrder.mockResolvedValue({ data: [{ id: 'r1' }], error: null });
+    const result = await adminGetAllReviews();
+    expect(result).toEqual([{ id: 'r1' }]);
+    expect(mockRange).not.toHaveBeenCalled();
   });
 });

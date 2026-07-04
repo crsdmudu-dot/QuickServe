@@ -25,9 +25,11 @@ import { DataTable, type Column } from '@/components/admin-web/data-table';
 import { PageMeta } from '@/components/admin-web/page-meta';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { LoadMoreButton } from '@/components/ui/load-more-button';
 import { Text } from '@/components/ui/text';
 import { Spacing } from '@/constants/theme';
 import { formatKes } from '@/lib/currency';
+import { usePaginatedList } from '@/hooks/use-paginated-list';
 import {
   adminCreatePromoCode,
   adminGetPromoCodes,
@@ -210,9 +212,17 @@ function buildRedemptionColumns(): Column<PromoRedemption>[] {
 export default function AdminWebPromosScreen() {
   // ── Data state ─────────────────────────────────────────────────────────────
   const [codes, setCodes] = useState<PromoCode[]>([]);
-  const [redemptions, setRedemptions] = useState<PromoRedemption[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+
+  // ── Paginated redemptions ──────────────────────────────────────────────────
+  const {
+    items: redemptions,
+    loading: redemptionsLoading,
+    hasMore: redemptionsHasMore,
+    loadMore: loadMoreRedemptions,
+    reload: reloadRedemptions,
+  } = usePaginatedList((p, s) => adminGetPromoRedemptions(undefined, p, s));
 
   // ── Action error ───────────────────────────────────────────────────────────
   const [actionError, setActionError] = useState('');
@@ -230,17 +240,13 @@ export default function AdminWebPromosScreen() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
 
-  // ── Load data ──────────────────────────────────────────────────────────────
+  // ── Load promo codes ───────────────────────────────────────────────────────
   const load = useCallback(async () => {
     setLoadError(false);
     setLoading(true);
     try {
-      const [fetchedCodes, fetchedRedemptions] = await Promise.all([
-        adminGetPromoCodes(),
-        adminGetPromoRedemptions(),
-      ]);
+      const fetchedCodes = await adminGetPromoCodes();
       setCodes(fetchedCodes);
-      setRedemptions(fetchedRedemptions);
     } catch {
       setLoadError(true);
     } finally {
@@ -280,6 +286,7 @@ export default function AdminWebPromosScreen() {
         setIsActive(true);
         setDiscountType('percentage');
         await load();
+        reloadRedemptions();
       } else {
         setCreateError(result.error ?? 'Could not create promo code.');
       }
@@ -296,6 +303,7 @@ export default function AdminWebPromosScreen() {
     });
     if (result.ok) {
       await load();
+      reloadRedemptions();
     } else {
       setActionError(result.error ?? 'Could not update promo code.');
     }
@@ -445,11 +453,12 @@ export default function AdminWebPromosScreen() {
         columns={redemptionColumns}
         rows={redemptions}
         keyExtractor={(r) => r.id}
-        loading={loading}
-        error={loadError}
-        onRetry={load}
+        loading={redemptionsLoading}
+        error={false}
+        onRetry={reloadRedemptions}
         emptyLabel="No redemptions yet."
       />
+      <LoadMoreButton onPress={loadMoreRedemptions} loading={redemptionsLoading} hasMore={redemptionsHasMore} />
     </>
   );
 }

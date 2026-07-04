@@ -70,12 +70,11 @@ export async function updateNotificationPreferences(
 
 // ── Queries ────────────────────────────────────────────────────────────────
 
-/** Returns the signed-in user's notifications, newest first. RLS scopes to own rows. */
-export async function getMyNotifications(): Promise<AppNotification[]> {
-  const { data } = await supabase
-    .from('notifications')
-    .select('*')
-    .order('created_at', { ascending: false });
+/** Returns the signed-in user's notifications, newest first. RLS scopes to own rows. Pass page + pageSize for pagination. */
+export async function getMyNotifications(page?: number, pageSize?: number): Promise<AppNotification[]> {
+  let q = supabase.from('notifications').select('*').order('created_at', { ascending: false });
+  if (page != null && pageSize != null) q = q.range(page * pageSize, page * pageSize + pageSize - 1);
+  const { data } = await q;
   return (data as AppNotification[] | null) ?? [];
 }
 

@@ -133,16 +133,20 @@ export async function adminGetWallet(customerId: string): Promise<Wallet> {
 
 /**
  * Admin: returns a customer's wallet transactions, newest first.
- * Returns an empty array on error.
+ * Returns an empty array on error. Pass page + pageSize for pagination.
  */
 export async function adminGetWalletTransactions(
   customerId: string,
+  page?: number,
+  pageSize?: number,
 ): Promise<WalletTransaction[]> {
-  const { data, error } = await supabase
+  let q = supabase
     .from('wallet_transactions')
     .select('*')
     .eq('customer_id', customerId)
     .order('created_at', { ascending: false });
+  if (page != null && pageSize != null) q = q.range(page * pageSize, page * pageSize + pageSize - 1);
+  const { data, error } = await q;
   if (error) return [];
   return (data as WalletTransaction[] | null) ?? [];
 }

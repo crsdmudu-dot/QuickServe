@@ -120,14 +120,16 @@ export async function adminUpdatePromoCode(
 
 /**
  * Admin: returns promo redemptions, optionally filtered to a single promo code, newest first.
- * Returns an empty array on error.
+ * Returns an empty array on error. Pass page + pageSize for pagination.
  */
-export async function adminGetPromoRedemptions(promoCodeId?: string): Promise<PromoRedemption[]> {
-  let query = supabase.from('promo_redemptions').select('*');
+export async function adminGetPromoRedemptions(promoCodeId?: string, page?: number, pageSize?: number): Promise<PromoRedemption[]> {
+  let q = supabase.from('promo_redemptions').select('*');
   if (promoCodeId !== undefined) {
-    query = query.eq('promo_code_id', promoCodeId);
+    q = q.eq('promo_code_id', promoCodeId);
   }
-  const { data, error } = await query.order('created_at', { ascending: false });
+  q = q.order('created_at', { ascending: false });
+  if (page != null && pageSize != null) q = q.range(page * pageSize, page * pageSize + pageSize - 1);
+  const { data, error } = await q;
   if (error) return [];
   return (data as PromoRedemption[] | null) ?? [];
 }

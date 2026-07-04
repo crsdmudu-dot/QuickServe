@@ -7,32 +7,32 @@
  */
 
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { usePaginatedList } from '@/hooks/use-paginated-list';
 import {
   getMyNotifications,
   markNotificationRead,
   markAllNotificationsRead,
   type AppNotification,
 } from '@/lib/notifications';
+import { LoadMoreButton } from '@/components/ui/load-more-button';
 import { NotificationList } from '@/components/ui/notification-list';
 import { Text } from '@/components/ui/text';
 
 export default function CustomerNotificationsScreen() {
   const theme = useTheme();
-  const [notifications, setNotifications] = useState<AppNotification[]>([]);
 
-  const reload = useCallback(() => {
-    getMyNotifications().then(setNotifications);
-  }, []);
-
-  useEffect(() => {
-    reload();
-  }, [reload]);
+  const {
+    items: notifications,
+    loading,
+    hasMore,
+    loadMore,
+    reload,
+  } = usePaginatedList((p, s) => getMyNotifications(p, s));
 
   async function handlePress(n: AppNotification) {
     await markNotificationRead(n.id);
@@ -61,6 +61,9 @@ export default function CustomerNotificationsScreen() {
           onPressItem={handlePress}
           onMarkAllRead={handleMarkAll}
         />
+        <View style={styles.loadMore}>
+          <LoadMoreButton onPress={loadMore} loading={loading} hasMore={hasMore} />
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -75,5 +78,8 @@ const styles = StyleSheet.create({
   content: {
     padding: Spacing.four,
     paddingTop: Spacing.four,
+  },
+  loadMore: {
+    marginTop: Spacing.two,
   },
 });

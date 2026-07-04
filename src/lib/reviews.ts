@@ -172,12 +172,11 @@ export async function getProviderReviews(providerId: string): Promise<Review[]> 
   return (data as Review[] | null) ?? [];
 }
 
-/** Admin: all reviews, newest first (admin RLS permits — includes hidden for moderation). */
-export async function adminGetAllReviews(): Promise<Review[]> {
-  const { data, error } = await supabase
-    .from('reviews')
-    .select('*')
-    .order('created_at', { ascending: false });
+/** Admin: all reviews, newest first (admin RLS permits — includes hidden for moderation). Pass page + pageSize for pagination. */
+export async function adminGetAllReviews(page?: number, pageSize?: number): Promise<Review[]> {
+  let q = supabase.from('reviews').select('*').order('created_at', { ascending: false });
+  if (page != null && pageSize != null) q = q.range(page * pageSize, page * pageSize + pageSize - 1);
+  const { data, error } = await q;
   if (error) return [];
   return (data as Review[] | null) ?? [];
 }
