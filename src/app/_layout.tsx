@@ -6,6 +6,7 @@ import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AuthProvider, useAuth } from '@/auth/auth-context';
 import { BookingDraftProvider } from '@/booking/booking-draft';
 import { ErrorBoundary } from '@/components/error-boundary';
+import { OfflineBanner } from '@/components/ui/offline-banner';
 import { roleHref } from '@/constants/roles';
 import { registerForPushNotifications, setupNotificationResponseListener } from '@/lib/push';
 import { initMonitoring } from '@/lib/monitoring';
@@ -50,6 +51,7 @@ export default function RootLayout() {
       <AnimatedSplashOverlay />
       <AuthProvider>
         <BookingDraftProvider>
+          <OfflineBanner />
           <ErrorBoundary>
             <RootNavigator />
           </ErrorBoundary>
