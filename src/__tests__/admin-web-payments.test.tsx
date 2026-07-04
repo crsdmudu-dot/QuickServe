@@ -159,6 +159,60 @@ describe('AdminWebPaymentsScreen', () => {
   });
 });
 
+// ── AdminWebPaymentsScreen pagination tests ─────────────────────────────────
+
+describe('AdminWebPaymentsScreen — pagination', () => {
+  /** Build N payment fixtures with unique ids and amounts. */
+  function makePayments(n: number, startId = 0) {
+    return Array.from({ length: n }, (_, i) => ({
+      ...MOCK_PAYMENT,
+      id: `pay-pg-${startId + i}`,
+      amount: 100 + i,
+      booking_id: `bk-pg-${startId + i}12345678`,
+    }));
+  }
+
+  beforeEach(() => {
+    mockAdminGetAllPayments.mockClear();
+    mockAdminOverridePaymentStatus.mockClear();
+  });
+
+  it('shows "Load more" button when page 0 returns a full page (25 items)', async () => {
+    mockAdminGetAllPayments.mockResolvedValueOnce(makePayments(25));
+    render(<AdminWebPaymentsScreen />);
+    // Wait for data to load
+    await waitFor(() => expect(mockAdminGetAllPayments).toHaveBeenCalled());
+    // "Load more" should be visible because page had 25 items (full page)
+    expect(await screen.findByTestId('load-more')).toBeOnTheScreen();
+  });
+
+  it('does NOT show "Load more" when page 0 returns fewer than 25 items', async () => {
+    mockAdminGetAllPayments.mockResolvedValueOnce(makePayments(3));
+    render(<AdminWebPaymentsScreen />);
+    await waitFor(() => expect(mockAdminGetAllPayments).toHaveBeenCalled());
+    // hasMore=false → LoadMoreButton renders nothing
+    await waitFor(() => expect(screen.queryByTestId('load-more')).toBeNull());
+  });
+
+  it('pressing "Load more" calls adminGetAllPayments with page=1', async () => {
+    const page0 = makePayments(25, 0);
+    const page1 = makePayments(3, 25);
+    mockAdminGetAllPayments
+      .mockResolvedValueOnce(page0)
+      .mockResolvedValueOnce(page1);
+
+    render(<AdminWebPaymentsScreen />);
+    // Wait for first page and "Load more" button to appear
+    await screen.findByTestId('load-more');
+    // Press the button text
+    fireEvent.press(screen.getByText('Load more'));
+
+    await waitFor(() => expect(mockAdminGetAllPayments).toHaveBeenCalledTimes(2));
+    // Second call should be page 1, pageSize 25
+    expect(mockAdminGetAllPayments).toHaveBeenNthCalledWith(2, 1, 25);
+  });
+});
+
 // ── Payment attempts list tests ─────────────────────────────────────────────
 
 describe('AdminWebPaymentAttemptsScreen', () => {

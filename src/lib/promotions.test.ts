@@ -17,6 +17,8 @@ const mockInsert = jest.fn();
 const mockUpdate = jest.fn();
 const mockUpdateEq = jest.fn();
 
+const mockRange = jest.fn();
+
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     rpc: (...a: unknown[]) => mockRpc(...a),
@@ -24,11 +26,21 @@ jest.mock('@/lib/supabase', () => ({
       select: (...a: unknown[]) => {
         mockSelect(...a);
         return {
-          order: (...b: unknown[]) => mockOrder(...b),
+          order: (...b: unknown[]) => {
+            const promise = mockOrder(...b) as Promise<unknown>;
+            (promise as unknown as { range: (...c: unknown[]) => unknown }).range =
+              (...c: unknown[]) => mockRange(...c);
+            return promise;
+          },
           eq: (...b: unknown[]) => {
             mockEq(...b);
             return {
-              order: (...c: unknown[]) => mockOrder(...c),
+              order: (...c: unknown[]) => {
+                const promise = mockOrder(...c) as Promise<unknown>;
+                (promise as unknown as { range: (...d: unknown[]) => unknown }).range =
+                  (...d: unknown[]) => mockRange(...d);
+                return promise;
+              },
             };
           },
         };
@@ -227,5 +239,23 @@ describe('adminGetPromoRedemptions', () => {
     const result = await adminGetPromoRedemptions();
 
     expect(result).toEqual([]);
+  });
+});
+
+// ── adminGetPromoRedemptions pagination ────────────────────────────────────
+
+describe('adminGetPromoRedemptions pagination', () => {
+  it('calls .range(10, 19) when called with page=1, pageSize=10 (no promoCodeId)', async () => {
+    mockRange.mockResolvedValue({ data: [{ id: 'r1' }], error: null });
+    const result = await adminGetPromoRedemptions(undefined, 1, 10);
+    expect(mockRange).toHaveBeenCalledWith(10, 19);
+    expect(result).toEqual([{ id: 'r1' }]);
+  });
+
+  it('does NOT call .range when called with no pagination args', async () => {
+    mockOrder.mockResolvedValue({ data: [{ id: 'r1' }], error: null });
+    const result = await adminGetPromoRedemptions();
+    expect(result).toEqual([{ id: 'r1' }]);
+    expect(mockRange).not.toHaveBeenCalled();
   });
 });

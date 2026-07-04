@@ -13,6 +13,7 @@ import {
 const mockGetUser = jest.fn();
 const mockInsert = jest.fn();
 const mockOrder = jest.fn();
+const mockRange = jest.fn();
 const mockUpdate = jest.fn();
 const mockUpdateEq = jest.fn();
 const mockSingle = jest.fn();
@@ -25,7 +26,14 @@ jest.mock('@/lib/supabase', () => ({
     from: () => ({
       insert: (...a: unknown[]) => mockInsert(...a),
       select: () => ({
-        order: (...a: unknown[]) => mockOrder(...a),
+        // order() returns a thenable that also exposes .range() for paginated callers.
+        order: (...a: unknown[]) => {
+          const promise = mockOrder(...a) as Promise<unknown>;
+          // Attach .range() so paginated helpers can chain it.
+          (promise as unknown as { range: (...b: unknown[]) => unknown }).range =
+            (...b: unknown[]) => mockRange(...b);
+          return promise;
+        },
         eq: (...a: unknown[]) => mockSelectEq(...a),
       }),
       update: (...a: unknown[]) => mockUpdate(...a),
@@ -180,5 +188,55 @@ describe('getBookingProfessional', () => {
     expect(mockRpc).toHaveBeenCalledWith('get_booking_professional', { p_booking_id: 'b1' });
     mockRpc.mockResolvedValue({ data: [], error: null });
     expect(await getBookingProfessional('b1')).toBeNull();
+  });
+});
+
+// ── Pagination tests ───────────────────────────────────────────────────────
+
+describe('getAllBookings pagination', () => {
+  it('calls .range(10, 19) when called with page=1, pageSize=10', async () => {
+    mockRange.mockResolvedValue({ data: [{ id: 'b2' }], error: null });
+    const result = await getAllBookings(1, 10);
+    expect(mockRange).toHaveBeenCalledWith(10, 19);
+    expect(result).toEqual([{ id: 'b2' }]);
+  });
+
+  it('does NOT call .range when called with no args (no-arg stays green)', async () => {
+    mockOrder.mockResolvedValue({ data: [{ id: 'b1' }], error: null });
+    const result = await getAllBookings();
+    expect(result).toEqual([{ id: 'b1' }]);
+    expect(mockRange).not.toHaveBeenCalled();
+  });
+});
+
+describe('getCustomerBookings pagination', () => {
+  it('calls .range(10, 19) when called with page=1, pageSize=10', async () => {
+    mockRange.mockResolvedValue({ data: [{ id: 'b2' }], error: null });
+    const result = await getCustomerBookings(1, 10);
+    expect(mockRange).toHaveBeenCalledWith(10, 19);
+    expect(result).toEqual([{ id: 'b2' }]);
+  });
+
+  it('does NOT call .range when called with no args', async () => {
+    mockOrder.mockResolvedValue({ data: [{ id: 'b1' }], error: null });
+    const result = await getCustomerBookings();
+    expect(result).toEqual([{ id: 'b1' }]);
+    expect(mockRange).not.toHaveBeenCalled();
+  });
+});
+
+describe('getProviderJobs pagination', () => {
+  it('calls .range(10, 19) when called with page=1, pageSize=10', async () => {
+    mockRange.mockResolvedValue({ data: [{ id: 'j2' }], error: null });
+    const result = await getProviderJobs(1, 10);
+    expect(mockRange).toHaveBeenCalledWith(10, 19);
+    expect(result).toEqual([{ id: 'j2' }]);
+  });
+
+  it('does NOT call .range when called with no args', async () => {
+    mockOrder.mockResolvedValue({ data: [{ id: 'j1' }], error: null });
+    const result = await getProviderJobs();
+    expect(result).toEqual([{ id: 'j1' }]);
+    expect(mockRange).not.toHaveBeenCalled();
   });
 });

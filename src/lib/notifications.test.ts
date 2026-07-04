@@ -8,6 +8,7 @@ import {
 
 const getUser = jest.fn();
 const order = jest.fn();
+const range = jest.fn();
 const update = jest.fn();
 const updateEq = jest.fn();
 const updateEqEq = jest.fn();
@@ -15,6 +16,7 @@ const updateEqEq = jest.fn();
 // Note: variables used inside jest.mock() factory must be prefixed with "mock" (Jest rule).
 const mockGetUser = getUser;
 const mockOrder = order;
+const mockRange = range;
 const mockUpdate = update;
 const mockUpdateEq = updateEq;
 const mockUpdateEqEq = updateEqEq;
@@ -24,7 +26,12 @@ jest.mock('@/lib/supabase', () => ({
     auth: { getUser: (...a: unknown[]) => mockGetUser(...a) },
     from: () => ({
       select: () => ({
-        order: (...a: unknown[]) => mockOrder(...a),
+        order: (...a: unknown[]) => {
+          const promise = mockOrder(...a) as Promise<unknown>;
+          (promise as unknown as { range: (...b: unknown[]) => unknown }).range =
+            (...b: unknown[]) => mockRange(...b);
+          return promise;
+        },
       }),
       update: (...a: unknown[]) => mockUpdate(...a),
     }),
@@ -80,5 +87,23 @@ describe('markAllNotificationsRead', () => {
     getUser.mockResolvedValue({ data: { user: null } });
     const res = await markAllNotificationsRead();
     expect(res).toEqual({ ok: false, error: 'You must be signed in.' });
+  });
+});
+
+// ── getMyNotifications pagination ──────────────────────────────────────────
+
+describe('getMyNotifications pagination', () => {
+  it('calls .range(10, 19) when called with page=1, pageSize=10', async () => {
+    range.mockResolvedValue({ data: [{ id: 'n1', is_read: false }], error: null });
+    const result = await getMyNotifications(1, 10);
+    expect(mockRange).toHaveBeenCalledWith(10, 19);
+    expect(result).toEqual([{ id: 'n1', is_read: false }]);
+  });
+
+  it('does NOT call .range when called with no args', async () => {
+    order.mockResolvedValue({ data: [{ id: 'n1', is_read: false }], error: null });
+    const result = await getMyNotifications();
+    expect(result).toEqual([{ id: 'n1', is_read: false }]);
+    expect(mockRange).not.toHaveBeenCalled();
   });
 });

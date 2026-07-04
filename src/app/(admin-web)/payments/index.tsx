@@ -9,15 +9,17 @@
  * needs to return its content (no Shell wrapper here).
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { View } from 'react-native';
 
 import { DataTable, type Column } from '@/components/admin-web/data-table';
 import { PageMeta } from '@/components/admin-web/page-meta';
 import { PaymentStatusBadge } from '@/components/ui/payment-status-badge';
 import { Button } from '@/components/ui/button';
+import { LoadMoreButton } from '@/components/ui/load-more-button';
 import { Text } from '@/components/ui/text';
 import { formatKes } from '@/lib/currency';
+import { usePaginatedList } from '@/hooks/use-paginated-list';
 import {
   adminGetAllPayments,
   adminOverridePaymentStatus,
@@ -115,37 +117,25 @@ function buildColumns(
 // ── Screen ──────────────────────────────────────────────────────────────────
 
 export default function AdminWebPaymentsScreen() {
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
   const [actionError, setActionError] = useState('');
 
-  const load = useCallback(async () => {
-    setLoadError(false);
-    setLoading(true);
-    try {
-      const rows = await adminGetAllPayments();
-      setPayments(rows);
-    } catch {
-      setLoadError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const {
+    items: payments,
+    loading,
+    error: loadError,
+    hasMore,
+    loadMore,
+    reload,
+  } = usePaginatedList((p, s) => adminGetAllPayments(p, s));
 
   async function handleOverride(paymentId: string, status: PaymentStatus) {
     setActionError('');
     const result = await adminOverridePaymentStatus(paymentId, status);
-    if (result.ok) {
-      setPayments((prev) =>
-        prev.map((p) => (p.id === paymentId ? { ...p, status } : p)),
-      );
-    } else {
+    if (!result.ok) {
       setActionError(result.error ?? 'Could not update payment status.');
+    } else {
+      // Reload to get fresh data after override
+      reload();
     }
   }
 
@@ -164,10 +154,11 @@ export default function AdminWebPaymentsScreen() {
         rows={payments}
         keyExtractor={(p) => p.id}
         loading={loading}
-        error={loadError}
-        onRetry={load}
+        error={!!loadError}
+        onRetry={reload}
         emptyLabel="No payments yet."
       />
+      <LoadMoreButton onPress={loadMore} loading={loading} hasMore={hasMore} />
     </>
   );
 }

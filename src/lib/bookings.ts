@@ -109,33 +109,30 @@ export async function createBooking(input: NewBooking): Promise<{ ok: boolean; i
 
 // ── Customer queries ───────────────────────────────────────────────────────
 
-export async function getCustomerBookings(): Promise<Booking[]> {
-  const { data } = await supabase
-    .from('bookings')
-    .select('*')
-    .order('created_at', { ascending: false });
+export async function getCustomerBookings(page?: number, pageSize?: number): Promise<Booking[]> {
+  let q = supabase.from('bookings').select('*').order('created_at', { ascending: false });
+  if (page != null && pageSize != null) q = q.range(page * pageSize, page * pageSize + pageSize - 1);
+  const { data } = await q;
   return (data as Booking[] | null) ?? [];
 }
 
 // ── Admin queries ──────────────────────────────────────────────────────────
 
-/** Returns all bookings, newest first. */
-export async function getAllBookings(): Promise<Booking[]> {
-  const { data } = await supabase
-    .from('bookings')
-    .select('*')
-    .order('created_at', { ascending: false });
+/** Returns all bookings, newest first. Pass page + pageSize for pagination. */
+export async function getAllBookings(page?: number, pageSize?: number): Promise<Booking[]> {
+  let q = supabase.from('bookings').select('*').order('created_at', { ascending: false });
+  if (page != null && pageSize != null) q = q.range(page * pageSize, page * pageSize + pageSize - 1);
+  const { data } = await q;
   return (data as Booking[] | null) ?? [];
 }
 
 // ── Provider queries ───────────────────────────────────────────────────────
 
-/** Returns bookings assigned to the signed-in provider, newest first. */
-export async function getProviderJobs(): Promise<Booking[]> {
-  const { data } = await supabase
-    .from('bookings')
-    .select('*')
-    .order('created_at', { ascending: false });
+/** Returns bookings assigned to the signed-in provider, newest first. Pass page + pageSize for pagination. */
+export async function getProviderJobs(page?: number, pageSize?: number): Promise<Booking[]> {
+  let q = supabase.from('bookings').select('*').order('created_at', { ascending: false });
+  if (page != null && pageSize != null) q = q.range(page * pageSize, page * pageSize + pageSize - 1);
+  const { data } = await q;
   return (data as Booking[] | null) ?? [];
 }
 

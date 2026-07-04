@@ -4,19 +4,20 @@
  */
 
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SERVICES } from '@/constants/services';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { usePaginatedList } from '@/hooks/use-paginated-list';
 import { useAuth } from '@/auth/auth-context';
-import { getProviderJobs, type Booking } from '@/lib/bookings';
+import { getProviderJobs } from '@/lib/bookings';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
+import { LoadMoreButton } from '@/components/ui/load-more-button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 
@@ -24,15 +25,12 @@ export default function ProviderHomeScreen() {
   const theme = useTheme();
   const { approvalStatus, signOut } = useAuth();
 
-  // null = loading; [] = loaded but empty; [...] = loaded with data
-  const [jobs, setJobs] = useState<Booking[] | null>(null);
-
-  useEffect(() => {
-    // Only load jobs when the provider is approved.
-    if (approvalStatus === 'approved') {
-      getProviderJobs().then(setJobs);
-    }
-  }, [approvalStatus]);
+  const {
+    items: jobs,
+    loading: jobsLoading,
+    hasMore: jobsHasMore,
+    loadMore: loadMoreJobs,
+  } = usePaginatedList((p, s) => getProviderJobs(p, s));
 
   // ── Not yet approved ───────────────────────────────────────────────────────
 
@@ -74,8 +72,8 @@ export default function ProviderHomeScreen() {
         <Button label="Sign out" variant="ghost" onPress={signOut} />
       </View>
 
-      {/* Loading skeleton — shown until the first fetch resolves */}
-      {jobs === null ? (
+      {/* Loading skeleton — shown during initial load */}
+      {jobsLoading && jobs.length === 0 ? (
         <View style={styles.skeletons}>
           <Skeleton height={88} radius={16} />
           <Skeleton height={88} radius={16} />
@@ -93,6 +91,9 @@ export default function ProviderHomeScreen() {
           keyExtractor={(j) => j.id}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          ListFooterComponent={
+            <LoadMoreButton onPress={loadMoreJobs} loading={jobsLoading} hasMore={jobsHasMore} />
+          }
           renderItem={({ item: j }) => {
             const service = SERVICES.find((s) => s.id === j.service_id);
             return (

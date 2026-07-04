@@ -14,14 +14,16 @@
  * No RLS/schema/Edge/trigger change — owner-only via existing RLS.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 
 import { DataTable, type Column } from '@/components/admin-web/data-table';
 import { PageMeta } from '@/components/admin-web/page-meta';
 import { Button } from '@/components/ui/button';
+import { LoadMoreButton } from '@/components/ui/load-more-button';
 import { Text } from '@/components/ui/text';
+import { usePaginatedList } from '@/hooks/use-paginated-list';
 import {
   getMyNotifications,
   markNotificationRead,
@@ -113,35 +115,27 @@ function buildColumns(
 // ── Screen ──────────────────────────────────────────────────────────────────
 
 export default function AdminWebNotificationsScreen() {
-  const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
+  const [localReadIds, setLocalReadIds] = useState<Set<string>>(new Set());
 
-  const load = useCallback(async () => {
-    setLoadError(false);
-    setLoading(true);
-    try {
-      const all = await getMyNotifications();
-      // Keep only operational/system rows (admin fan-out: bookings, payments, etc.)
-      setNotifications(all.filter((n) => n.category === 'system'));
-    } catch {
-      setLoadError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const {
+    items: allNotifications,
+    loading,
+    error: loadError,
+    hasMore,
+    loadMore,
+    reload,
+  } = usePaginatedList((p, s) => getMyNotifications(p, s));
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  // Keep only operational/system rows
+  const notifications = allNotifications
+    .filter((n) => n.category === 'system')
+    .map((n) => (localReadIds.has(n.id) ? { ...n, is_read: true } : n));
 
   /** Mark read locally + navigate to route when present. */
   async function handleOpen(row: AppNotification) {
     await markNotificationRead(row.id);
-    // Update local row to is_read: true
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === row.id ? { ...n, is_read: true } : n)),
-    );
+    // Update local read state
+    setLocalReadIds((prev) => new Set(prev).add(row.id));
     if (row.route) {
       router.push(row.route as never);
     }
@@ -160,10 +154,11 @@ export default function AdminWebNotificationsScreen() {
         rows={notifications}
         keyExtractor={(n) => n.id}
         loading={loading}
-        error={loadError}
-        onRetry={load}
+        error={!!loadError}
+        onRetry={reload}
         emptyLabel="No notifications yet."
       />
+      <LoadMoreButton onPress={loadMore} loading={loading} hasMore={hasMore} />
     </>
   );
 }

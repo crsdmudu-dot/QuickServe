@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { SERVICES } from '@/constants/services';
 import { Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { usePaginatedList } from '@/hooks/use-paginated-list';
 import { useAuth } from '@/auth/auth-context';
 import { getAllBookings, type Booking } from '@/lib/bookings';
 import { getPendingProviders, setProviderApproval, type ProviderProfile } from '@/lib/providers';
@@ -33,6 +34,7 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
+import { LoadMoreButton } from '@/components/ui/load-more-button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 
@@ -66,12 +68,17 @@ export default function AdminScreen() {
   const { signOut } = useAuth();
 
   const [tab, setTab] = useState<Tab>('bookings');
-  const [bookings, setBookings] = useState<Booking[] | null>(null);
   const [providers, setProviders] = useState<ProviderProfile[] | null>(null);
   const [bookingFilter, setBookingFilter] = useState<BookingFilter>('all');
 
+  const {
+    items: bookings,
+    loading: bookingsLoading,
+    hasMore: bookingsHasMore,
+    loadMore: loadMoreBookings,
+  } = usePaginatedList((p, s) => getAllBookings(p, s));
+
   useEffect(() => {
-    getAllBookings().then(setBookings);
     getPendingProviders().then(setProviders);
   }, []);
 
@@ -89,10 +96,10 @@ export default function AdminScreen() {
     }
   }
 
-  const isLoading = bookings === null || providers === null;
+  const isLoading = bookingsLoading || providers === null;
 
   /** Bookings after applying the active filter. */
-  const shownBookings = (bookings ?? []).filter((b) => matchesFilter(b, bookingFilter));
+  const shownBookings = bookings.filter((b) => matchesFilter(b, bookingFilter));
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
@@ -163,6 +170,13 @@ export default function AdminScreen() {
               keyExtractor={(b) => b.id}
               contentContainerStyle={styles.list}
               showsVerticalScrollIndicator={false}
+              ListFooterComponent={
+                <LoadMoreButton
+                  onPress={loadMoreBookings}
+                  loading={bookingsLoading}
+                  hasMore={bookingsHasMore}
+                />
+              }
               renderItem={({ item: b }) => {
                 const service = SERVICES.find((s) => s.id === b.service_id);
                 const showRecurrence = b.recurrence && b.recurrence !== 'one_time';

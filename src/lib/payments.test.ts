@@ -17,6 +17,7 @@ const maybeSingle = jest.fn();
 const mockRpc = rpc;
 const mockSelect = select;
 const mockOrder = order;
+const mockRange = jest.fn();
 const mockEq = eq;
 const mockMaybeSingle = maybeSingle;
 
@@ -27,7 +28,12 @@ jest.mock('@/lib/supabase', () => ({
       select: (...a: unknown[]) => {
         mockSelect(...a);
         return {
-          order: (...b: unknown[]) => mockOrder(...b),
+          order: (...b: unknown[]) => {
+            const promise = mockOrder(...b) as Promise<unknown>;
+            (promise as unknown as { range: (...c: unknown[]) => unknown }).range =
+              (...c: unknown[]) => mockRange(...c);
+            return promise;
+          },
           eq: (...b: unknown[]) => {
             mockEq(...b);
             return {
@@ -144,5 +150,23 @@ describe('adminOverridePaymentStatus', () => {
       ok: false,
       error: 'Could not update payment status. Please try again.',
     });
+  });
+});
+
+// ── adminGetAllPayments pagination ─────────────────────────────────────────
+
+describe('adminGetAllPayments pagination', () => {
+  it('calls .range(10, 19) when called with page=1, pageSize=10', async () => {
+    mockRange.mockResolvedValue({ data: [mockPayment], error: null });
+    const result = await adminGetAllPayments(1, 10);
+    expect(mockRange).toHaveBeenCalledWith(10, 19);
+    expect(result).toEqual([mockPayment]);
+  });
+
+  it('does NOT call .range when called with no args', async () => {
+    order.mockResolvedValue({ data: [mockPayment], error: null });
+    const result = await adminGetAllPayments();
+    expect(result).toEqual([mockPayment]);
+    expect(mockRange).not.toHaveBeenCalled();
   });
 });

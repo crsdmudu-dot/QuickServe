@@ -12,7 +12,7 @@
  * and shows a recurring label pill when recurrence !== 'one_time'.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { router, type Href } from 'expo-router';
 import { View, StyleSheet } from 'react-native';
 
@@ -20,9 +20,11 @@ import { DataTable, type Column } from '@/components/admin-web/data-table';
 import { PageMeta } from '@/components/admin-web/page-meta';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
+import { LoadMoreButton } from '@/components/ui/load-more-button';
 import { Text } from '@/components/ui/text';
 import { SERVICES } from '@/constants/services';
 import { Spacing } from '@/constants/theme';
+import { usePaginatedList } from '@/hooks/use-paginated-list';
 import { getAllBookings, type Booking } from '@/lib/bookings';
 import type { QuoteStatus } from '@/lib/quotes';
 import {
@@ -134,27 +136,16 @@ const styles = StyleSheet.create({
 // ── Screen ─────────────────────────────────────────────────────────────────
 
 export default function AdminWebBookingsScreen() {
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
   const [bookingFilter, setBookingFilter] = useState<BookingFilter>('all');
 
-  const load = useCallback(async () => {
-    setError(false);
-    setLoading(true);
-    try {
-      const rows = await getAllBookings();
-      setBookings(rows);
-    } catch {
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const {
+    items: bookings,
+    loading,
+    error,
+    hasMore,
+    loadMore,
+    reload,
+  } = usePaginatedList((p, s) => getAllBookings(p, s));
 
   const shown = bookings.filter((b) => matchesFilter(b, bookingFilter));
 
@@ -179,11 +170,12 @@ export default function AdminWebBookingsScreen() {
         rows={shown}
         keyExtractor={(b) => b.id}
         loading={loading}
-        error={error}
-        onRetry={load}
+        error={!!error}
+        onRetry={reload}
         emptyLabel="No bookings yet."
         onRowPress={(b) => router.push(`/(admin-web)/bookings/${b.id}` as Href)}
       />
+      <LoadMoreButton onPress={loadMore} loading={loading} hasMore={hasMore} />
     </>
   );
 }
