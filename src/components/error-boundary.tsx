@@ -1,4 +1,4 @@
-import { Component, type ReactNode } from 'react';
+import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -6,6 +6,7 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
+import { reportError } from '@/lib/monitoring';
 
 type Props = { children: ReactNode };
 type State = { hasError: boolean };
@@ -32,8 +33,8 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true };
   }
 
-  componentDidCatch(error: unknown) {
-    console.error('ErrorBoundary caught:', error);
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    reportError(error, { componentStack: info.componentStack ?? undefined });
   }
 
   reset = () => this.setState({ hasError: false });

@@ -8,6 +8,10 @@ import { BookingDraftProvider } from '@/booking/booking-draft';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { roleHref } from '@/constants/roles';
 import { registerForPushNotifications, setupNotificationResponseListener } from '@/lib/push';
+import { initMonitoring } from '@/lib/monitoring';
+
+// Initialise crash reporting once at startup (no-op unless EXPO_PUBLIC_SENTRY_DSN is set).
+initMonitoring();
 
 function RootNavigator() {
   const { isLoading, signedIn, role } = useAuth();
