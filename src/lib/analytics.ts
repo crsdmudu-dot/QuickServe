@@ -321,7 +321,11 @@ export function toCsv(rows: Record<string, unknown>[]): string {
 
   function escapeField(value: unknown): string {
     if (value === null || value === undefined) return '';
-    const str = String(value);
+    let str = String(value);
+    // CSV formula-injection guard (CWE-1236): a leading =,+,-,@,tab or CR can be
+    // executed as a formula by Excel/Sheets when the admin opens the export.
+    // Neutralise by prefixing a single quote so the cell is treated as text.
+    if (/^[=+\-@\t\r]/.test(str)) str = "'" + str;
     // RFC-4180: wrap in double quotes when field contains comma, double-quote, newline, or CR
     if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
       return '"' + str.replace(/"/g, '""') + '"';

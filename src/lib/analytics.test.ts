@@ -470,6 +470,18 @@ describe('toCsv', () => {
     expect(csv).toBe('value\n"hello, world"');
   });
 
+  it('neutralises formula-injection (leading =,+,-,@) with a quote prefix', () => {
+    // A malicious value starting with a formula trigger must not execute in Excel/Sheets.
+    expect(toCsv([{ v: '=SUM(A1:A9)' }])).toBe("v\n'=SUM(A1:A9)");
+    expect(toCsv([{ v: '+1' }])).toBe("v\n'+1");
+    expect(toCsv([{ v: '-1+2' }])).toBe("v\n'-1+2");
+    expect(toCsv([{ v: '@cmd' }])).toBe("v\n'@cmd");
+    // A formula trigger PLUS a comma is both neutralised and quoted.
+    expect(toCsv([{ v: '=A,B' }])).toBe('v\n"\'=A,B"');
+    // Plain values are untouched.
+    expect(toCsv([{ v: 'safe' }])).toBe('v\nsafe');
+  });
+
   it('field with double-quote is quoted and internal quote doubled', () => {
     const csv = toCsv([{ value: 'say "hi"' }]);
     expect(csv).toBe('value\n"say ""hi"""');
