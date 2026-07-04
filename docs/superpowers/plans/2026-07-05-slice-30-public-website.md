@@ -1,5 +1,7 @@
 # Slice 30 — Public Marketing Website Implementation Plan
 
+> **SUPERSEDED** — the marketing site is now a standalone Next.js app (`apps/website/`), not marketing routes inside the Expo app. Use `2026-07-05-slice-30-public-website-nextjs.md` instead.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A premium, conversion-focused public marketing website (12 pages) as additive public web routes in the existing Expo static export — no backend/DB/auth/payment/business change.
