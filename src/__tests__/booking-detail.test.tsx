@@ -145,6 +145,7 @@ describe('BookingDetailScreen', () => {
     mockGetBookingActivity.mockResolvedValue([]);
     // Default: no existing review so existing cases keep passing without change.
     mockGetMyReviewForBooking.mockResolvedValue(null);
+    mockSubmitReview.mockClear();
     mockSubmitReview.mockResolvedValue({ ok: true });
     // Default: no payment for this booking.
     mockGetPaymentForBooking.mockResolvedValue(null);
@@ -503,6 +504,92 @@ describe('BookingDetailScreen', () => {
 
     expect(screen.getByText('Promo discount: −KES 200')).toBeOnTheScreen();
     expect(screen.getByText('You saved KES 200')).toBeOnTheScreen();
+  });
+
+  // ── Double-submit guard tests ────────────────────────────────────────────
+
+  it('Guard M-Pesa: button is disabled while payment is in-flight, re-enables after', async () => {
+    const pendingPayment = {
+      id: 'pay-guard',
+      booking_id: 'b1',
+      amount: 1000,
+      status: 'pending' as const,
+      created_at: '2026-06-21T00:00:00Z',
+    };
+
+    mockGetBookingById.mockResolvedValue({
+      ...BASE_BOOKING,
+      status: 'completed' as const,
+      quote_status: 'accepted' as const,
+    });
+    mockGetPaymentForBooking.mockResolvedValue(pendingPayment);
+    mockGetPaymentAttempts.mockResolvedValue([]);
+
+    // Deferred promise — lets us hold the handler in-flight.
+    let resolvePayment!: (v: { ok: boolean }) => void;
+    const deferredPayment = new Promise<{ ok: boolean }>((res) => { resolvePayment = res; });
+    mockInitiateMpesaPayment.mockReturnValue(deferredPayment);
+
+    render(<BookingDetailScreen />);
+
+    // Wait for the button to appear; find via accessibilityRole so we get the Pressable.
+    const payBtn = await screen.findByRole('button', { name: 'Pay with M-Pesa' });
+
+    // Press the button — handler is now in-flight.
+    fireEvent.press(payBtn);
+
+    // While in-flight the button should be disabled.
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Pay with M-Pesa' }).props.accessibilityState?.disabled).toBe(true);
+    });
+
+    // Resolve the deferred promise to complete the handler.
+    resolvePayment({ ok: true });
+
+    // After completion the button should re-enable.
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Pay with M-Pesa' }).props.accessibilityState?.disabled).toBe(false);
+    });
+  });
+
+  it('Guard Submit review: button is disabled while review is in-flight, re-enables after', async () => {
+    mockGetBookingById.mockResolvedValue({
+      ...BASE_BOOKING,
+      status: 'completed' as const,
+      assigned_provider_id: 'p1',
+    });
+    mockGetMyReviewForBooking.mockResolvedValue(null);
+
+    // Deferred promise — holds the submitReview call in-flight.
+    let resolveReview!: (v: { ok: boolean }) => void;
+    const deferredReview = new Promise<{ ok: boolean }>((res) => { resolveReview = res; });
+    mockSubmitReview.mockReturnValue(deferredReview);
+
+    render(<BookingDetailScreen />);
+
+    // Tap star 5 to enable the submit button.
+    const star5 = await screen.findByTestId('star-5');
+    fireEvent.press(star5);
+
+    // Find the submit button via accessibilityRole so we get the Pressable.
+    const submitBtn = screen.getByRole('button', { name: 'Submit review' });
+
+    // Press — handler is now in-flight.
+    fireEvent.press(submitBtn);
+
+    // While in-flight the button should be disabled.
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Submit review' }).props.accessibilityState?.disabled).toBe(true);
+    });
+
+    // Resolve the deferred promise.
+    resolveReview({ ok: true });
+
+    // After completion the button should re-enable (or form disappears when review is set;
+    // either outcome is correct — just assert the handler was called exactly once).
+    await waitFor(() => {
+      expect(mockSubmitReview).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('Case K: wallet balance > 0 shows Apply button; pressing it calls applyWalletToPayment and reloads', async () => {

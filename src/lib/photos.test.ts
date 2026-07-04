@@ -5,6 +5,18 @@ import {
   setPhotoVerified,
 } from '@/lib/photos';
 
+// Use real withRetry / friendlyError so retry behaviour is exercised.
+// (The test sets baseMs to 0 via the mock below to avoid real delays.)
+jest.mock('@/lib/net', () => {
+  const actual = jest.requireActual<typeof import('@/lib/net')>('@/lib/net');
+  return {
+    ...actual,
+    // Override withRetry to use baseMs:0 so tests don't wait for real back-off.
+    withRetry: (fn: () => Promise<unknown>, opts?: { retries?: number; baseMs?: number }) =>
+      actual.withRetry(fn, { ...opts, baseMs: 0 }),
+  };
+});
+
 // ── Mock globals ───────────────────────────────────────────────────────────
 
 // Mock fetch so uploadBookingPhoto can read file bytes without a real network call
@@ -98,11 +110,43 @@ describe('uploadBookingPhoto', () => {
     expect(insertedRow.photo_url.startsWith('bk1/')).toBe(true);
   });
 
-  it('returns error when upload fails', async () => {
+  it('returns error when upload fails (non-transient)', async () => {
     getUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    // Non-transient error — withRetry rethrows immediately; friendlyError maps it.
     upload.mockResolvedValue({ data: null, error: { message: 'upload failed' } });
     const res = await uploadBookingPhoto({ bookingId: 'bk1', uri: 'file://p.jpg', photoType: 'before' });
-    expect(res).toEqual({ ok: false, error: 'Could not upload photo. Please try again.' });
+    expect(res).toEqual({ ok: false, error: 'Something went wrong. Please try again.' });
+  });
+
+  // ── New hardening tests ────────────────────────────────────────────────────
+
+  it('returns No photo selected when uri is empty (no storage call)', async () => {
+    // getUser should never be reached.
+    const res = await uploadBookingPhoto({ bookingId: 'bk1', uri: '', photoType: 'issue' });
+    expect(res).toEqual({ ok: false, error: 'No photo selected.' });
+    expect(storageFrom).not.toHaveBeenCalled();
+  });
+
+  it('retries on a transient error and succeeds on second attempt', async () => {
+    getUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    // Reject once with a real Error whose message matches the transient pattern,
+    // then succeed — withRetry should retry and the overall result should be ok.
+    upload
+      .mockResolvedValueOnce({ data: null, error: new Error('network request failed') })
+      .mockResolvedValue({ data: { path: 'x' }, error: null });
+    insert.mockResolvedValue({ error: null });
+    const res = await uploadBookingPhoto({ bookingId: 'bk1', uri: 'file://p.jpg', photoType: 'issue' });
+    expect(res).toEqual({ ok: true });
+    // Upload was called twice (initial attempt + 1 retry).
+    expect(upload).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns offline message for persistent transient error', async () => {
+    getUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    // Always reject with a transient Error — exhausts all retries then returns offline msg.
+    upload.mockResolvedValue({ data: null, error: new Error('network request failed') });
+    const res = await uploadBookingPhoto({ bookingId: 'bk1', uri: 'file://p.jpg', photoType: 'before' });
+    expect(res).toEqual({ ok: false, error: 'You appear to be offline. Check your connection and try again.' });
   });
 });
 

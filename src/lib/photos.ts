@@ -1,5 +1,6 @@
 // photos.ts — Supabase helpers for uploading and reading booking job photos.
 import { supabase } from '@/lib/supabase';
+import { withRetry, friendlyError } from '@/lib/net';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -43,24 +44,35 @@ export async function uploadBookingPhoto(input: {
   photoType: PhotoType;
   caption?: string;
 }): Promise<{ ok: boolean; error?: string }> {
+  // Validate: a URI is required before doing any network work.
+  if (!input.uri) return { ok: false, error: 'No photo selected.' };
+
   // Ensure user is signed in
   const { data } = await supabase.auth.getUser();
   if (!data.user) return { ok: false, error: 'You must be signed in to upload photos.' };
 
   const ext = extFromUri(input.uri);
+  // Compute the unique path ONCE (before retry) so every attempt targets the
+  // same object — making the upload idempotent across retries.
   const path = `${input.bookingId}/${randomUuid()}.${ext}`;
   const contentType = `image/${ext === 'png' ? 'png' : 'jpeg'}`;
 
-  // Read the file bytes from the local URI
-  const bytes = await (await fetch(input.uri)).arrayBuffer();
+  // Retry the idempotent read+upload up to 2 extra times on transient errors.
+  const doUpload = async () => {
+    const bytes = await (await fetch(input.uri)).arrayBuffer();
+    const { error } = await supabase.storage
+      .from('booking-photos')
+      .upload(path, bytes, { contentType });
+    if (error) throw error; // let withRetry decide: transient → retry, else rethrow
+  };
 
-  // Upload to Storage
-  const { error: uploadError } = await supabase.storage
-    .from('booking-photos')
-    .upload(path, bytes, { contentType });
-  if (uploadError) return { ok: false, error: 'Could not upload photo. Please try again.' };
+  try {
+    await withRetry(doUpload, { retries: 2 });
+  } catch (e) {
+    return { ok: false, error: friendlyError(e) };
+  }
 
-  // Insert metadata row
+  // Insert metadata row — single-shot (not retried; create-once semantics).
   const { error: insertError } = await supabase.from('booking_photos').insert({
     booking_id: input.bookingId,
     uploaded_by: data.user.id,

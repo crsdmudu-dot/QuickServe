@@ -79,6 +79,11 @@ export default function BookingDetailScreen() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [privateFeedback, setPrivateFeedback] = useState('');
   const [quoteError, setQuoteError] = useState<string | null>(null);
+  // In-flight flags — prevent double-tap from firing the same request twice.
+  const [payingMpesa, setPayingMpesa] = useState(false);
+  const [applyingPromo, setApplyingPromo] = useState(false);
+  const [applyingWallet, setApplyingWallet] = useState(false);
+  const [submittingReview, setSubmittingReview] = useState(false);
 
   const loadPhotos = useCallback(() => {
     if (id) {
@@ -139,60 +144,75 @@ export default function BookingDetailScreen() {
 
   async function handleApplyPromo() {
     if (!payment) return;
+    setApplyingPromo(true);
     setPromoError('');
     setPromoMsg('');
-    const res = await redeemPromo(payment.id, promoCode.trim());
-    if (res.ok) {
-      setPromoCode('');
-      setPromoMsg(res.discount ? `You saved ${formatKes(res.discount)}` : 'Promo applied.');
-      await reloadPayment();
-    } else {
-      setPromoError(res.error ?? 'Could not apply promo code.');
+    try {
+      const res = await redeemPromo(payment.id, promoCode.trim());
+      if (res.ok) {
+        setPromoCode('');
+        setPromoMsg(res.discount ? `You saved ${formatKes(res.discount)}` : 'Promo applied.');
+        await reloadPayment();
+      } else {
+        setPromoError(res.error ?? 'Could not apply promo code.');
+      }
+    } finally {
+      setApplyingPromo(false);
     }
   }
 
   async function handlePayMpesa() {
     if (!payment) return;
+    setPayingMpesa(true);
     setPayError(null);
-    const r = await initiateMpesaPayment({
-      paymentId: payment.id,
-      amount: payment.amount,
-      phone,
-      accountReference: booking!.id,
-    });
-    if (r.ok) {
-      setAttempts(await getPaymentAttempts(payment.id));
-    } else {
-      setPayError(r.error ?? 'Could not start payment.');
+    try {
+      const r = await initiateMpesaPayment({
+        paymentId: payment.id,
+        amount: payment.amount,
+        phone,
+        accountReference: booking!.id,
+      });
+      if (r.ok) {
+        setAttempts(await getPaymentAttempts(payment.id));
+      } else {
+        setPayError(r.error ?? 'Could not start payment.');
+      }
+    } finally {
+      setPayingMpesa(false);
     }
   }
 
   async function handleSubmitReview() {
     if (!booking || !booking.assigned_provider_id || rating === 0) return;
+    setSubmittingReview(true);
     setReviewError(null);
-    // Build payload conditionally so an overall-only submit is byte-identical to
-    // the previous behaviour — optional fields are only included when actually set.
-    const payload: Parameters<typeof submitReview>[0] = {
-      bookingId: id,
-      providerId: booking.assigned_provider_id,
-      rating,
-      comment,
-    };
-    if (qualityRating > 0) payload.qualityRating = qualityRating;
-    if (punctualityRating > 0) payload.punctualityRating = punctualityRating;
-    if (communicationRating > 0) payload.communicationRating = communicationRating;
-    if (professionalismRating > 0) payload.professionalismRating = professionalismRating;
-    if (valueRating > 0) payload.valueRating = valueRating;
-    if (wouldRecommend != null) payload.wouldRecommend = wouldRecommend;
-    if (selectedTags.length) payload.tags = selectedTags;
-    if (privateFeedback.trim()) payload.privateFeedback = privateFeedback.trim();
-    const result = await submitReview(payload);
-    if (result.ok) {
-      // Re-fetch the review so the ReviewCard replaces the form.
-      const updated = await getMyReviewForBooking(id);
-      setReview(updated);
-    } else {
-      setReviewError(result.error ?? 'Could not submit review.');
+    try {
+      // Build payload conditionally so an overall-only submit is byte-identical to
+      // the previous behaviour — optional fields are only included when actually set.
+      const payload: Parameters<typeof submitReview>[0] = {
+        bookingId: id,
+        providerId: booking.assigned_provider_id,
+        rating,
+        comment,
+      };
+      if (qualityRating > 0) payload.qualityRating = qualityRating;
+      if (punctualityRating > 0) payload.punctualityRating = punctualityRating;
+      if (communicationRating > 0) payload.communicationRating = communicationRating;
+      if (professionalismRating > 0) payload.professionalismRating = professionalismRating;
+      if (valueRating > 0) payload.valueRating = valueRating;
+      if (wouldRecommend != null) payload.wouldRecommend = wouldRecommend;
+      if (selectedTags.length) payload.tags = selectedTags;
+      if (privateFeedback.trim()) payload.privateFeedback = privateFeedback.trim();
+      const result = await submitReview(payload);
+      if (result.ok) {
+        // Re-fetch the review so the ReviewCard replaces the form.
+        const updated = await getMyReviewForBooking(id);
+        setReview(updated);
+      } else {
+        setReviewError(result.error ?? 'Could not submit review.');
+      }
+    } finally {
+      setSubmittingReview(false);
     }
   }
 
@@ -279,7 +299,7 @@ export default function BookingDetailScreen() {
                       placeholder="Enter promo code"
                       autoCapitalize="characters"
                     />
-                    <Button label="Apply promo" onPress={handleApplyPromo} />
+                    <Button label="Apply promo" onPress={handleApplyPromo} disabled={applyingPromo} />
                     {promoError ? <Text variant="caption" color="error">{promoError}</Text> : null}
                     {promoMsg ? <Text variant="caption" color="success">{promoMsg}</Text> : null}
                   </>
@@ -296,15 +316,21 @@ export default function BookingDetailScreen() {
                 {walletBalance > 0 && amountDue(payment) > 0 && (
                   <Button
                     label={`Apply wallet credit (${formatKes(Math.min(walletBalance, amountDue(payment)))})`}
+                    disabled={applyingWallet}
                     onPress={async () => {
+                      setApplyingWallet(true);
                       setPayError(null);
-                      const due = amountDue(payment);
-                      const amt = Math.min(walletBalance, due);
-                      const res = await applyWalletToPayment(payment.id, amt);
-                      if (res.ok) {
-                        await reloadPayment();
-                      } else {
-                        setPayError(res.error ?? 'Could not apply wallet credit.');
+                      try {
+                        const due = amountDue(payment);
+                        const amt = Math.min(walletBalance, due);
+                        const res = await applyWalletToPayment(payment.id, amt);
+                        if (res.ok) {
+                          await reloadPayment();
+                        } else {
+                          setPayError(res.error ?? 'Could not apply wallet credit.');
+                        }
+                      } finally {
+                        setApplyingWallet(false);
                       }
                     }}
                   />
@@ -318,7 +344,7 @@ export default function BookingDetailScreen() {
                   keyboardType="phone-pad"
                   autoCapitalize="none"
                 />
-                <Button label="Pay with M-Pesa" onPress={handlePayMpesa} />
+                <Button label="Pay with M-Pesa" onPress={handlePayMpesa} disabled={payingMpesa} />
                 <Button label="Card — coming soon" variant="ghost" disabled />
                 {payError ? <Text variant="caption" color="error">{payError}</Text> : null}
               </View>
@@ -498,7 +524,7 @@ export default function BookingDetailScreen() {
               <Button
                 label="Submit review"
                 onPress={handleSubmitReview}
-                disabled={rating === 0}
+                disabled={rating === 0 || submittingReview}
               />
             </View>
           )
