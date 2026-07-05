@@ -209,3 +209,135 @@ describe('account_flags append-only lift metadata', () => {
     expect(sql).toContain('lifted_at');
   });
 });
+
+// ─── 9. All 9 RPC functions are declared ─────────────────────────────────────
+
+describe('RPC functions declared', () => {
+  const rpcs = [
+    'create_support_case',
+    'update_support_case_status',
+    'update_support_case_priority',
+    'assign_support_case',
+    'set_dispute_outcome',
+    'add_support_case_note',
+    'add_internal_note',
+    'flag_account',
+    'lift_account_flag',
+  ];
+
+  test.each(rpcs)('create or replace function public.%s( present', (fn) => {
+    expect(norm(sql)).toContain(`create or replace function public.${fn}(`);
+  });
+});
+
+// ─── 10. Each RPC has security definer, set search_path = public, is_admin() ─
+
+describe('RPC security attributes', () => {
+  // Split the SQL on "create or replace function" boundaries.
+  // Each segment after the split starts with the function name.
+  function getSegment(fnName: string): string {
+    const marker = 'create or replace function';
+    const lower = sql.toLowerCase();
+    const parts = lower.split(marker);
+    // Find the segment that contains this function name right after the marker
+    const segment = parts.find((p) => p.trimStart().startsWith(`public.${fnName}(`));
+    if (!segment) throw new Error(`Segment for ${fnName} not found`);
+    return segment;
+  }
+
+  const allRpcs = [
+    'create_support_case',
+    'update_support_case_status',
+    'update_support_case_priority',
+    'assign_support_case',
+    'set_dispute_outcome',
+    'add_support_case_note',
+    'add_internal_note',
+    'flag_account',
+    'lift_account_flag',
+  ];
+
+  test.each(allRpcs)('%s contains security definer', (fn) => {
+    expect(getSegment(fn)).toContain('security definer');
+  });
+
+  test.each(allRpcs)('%s contains set search_path = public', (fn) => {
+    expect(getSegment(fn)).toContain('set search_path = public');
+  });
+
+  test.each(allRpcs)('%s contains public.is_admin() guard', (fn) => {
+    expect(getSegment(fn)).toContain('public.is_admin()');
+  });
+});
+
+// ─── 11. Case-mutating RPCs write support_case_events (audit) ────────────────
+
+describe('case-mutating RPCs reference support_case_events', () => {
+  function getSegment(fnName: string): string {
+    const marker = 'create or replace function';
+    const lower = sql.toLowerCase();
+    const parts = lower.split(marker);
+    const segment = parts.find((p) => p.trimStart().startsWith(`public.${fnName}(`));
+    if (!segment) throw new Error(`Segment for ${fnName} not found`);
+    return segment;
+  }
+
+  const caseMutatingRpcs = [
+    'create_support_case',
+    'update_support_case_status',
+    'update_support_case_priority',
+    'assign_support_case',
+    'set_dispute_outcome',
+    'add_support_case_note',
+  ];
+
+  test.each(caseMutatingRpcs)('%s references support_case_events', (fn) => {
+    expect(getSegment(fn)).toContain('support_case_events');
+  });
+});
+
+// ─── 12. UPDATE-based case mutations set updated_at = now() ──────────────────
+
+describe('UPDATE-based case mutations set updated_at = now()', () => {
+  function getSegment(fnName: string): string {
+    const marker = 'create or replace function';
+    const lower = sql.toLowerCase();
+    const parts = lower.split(marker);
+    const segment = parts.find((p) => p.trimStart().startsWith(`public.${fnName}(`));
+    if (!segment) throw new Error(`Segment for ${fnName} not found`);
+    return segment;
+  }
+
+  const updateRpcs = [
+    'update_support_case_status',
+    'update_support_case_priority',
+    'assign_support_case',
+    'set_dispute_outcome',
+    'add_support_case_note',
+  ];
+
+  test.each(updateRpcs)('%s sets updated_at = now()', (fn) => {
+    expect(norm(getSegment(fn))).toContain('updated_at = now()');
+  });
+});
+
+// ─── 13. flag_account is record-only (no profiles update / approval_status) ──
+
+describe('flag_account is record-only', () => {
+  function getSegment(fnName: string): string {
+    const marker = 'create or replace function';
+    const lower = sql.toLowerCase();
+    const parts = lower.split(marker);
+    const segment = parts.find((p) => p.trimStart().startsWith(`public.${fnName}(`));
+    if (!segment) throw new Error(`Segment for ${fnName} not found`);
+    return segment;
+  }
+
+  test('flag_account does not reference "update public.profiles"', () => {
+    expect(getSegment('flag_account')).not.toContain('update public.profiles');
+  });
+
+  test('flag_account does not reference "approval_status"', () => {
+    expect(getSegment('flag_account')).not.toContain('approval_status');
+  });
+});
