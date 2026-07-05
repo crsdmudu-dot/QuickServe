@@ -4,7 +4,7 @@
 
 import Link from 'next/link';
 import { buildMetadata } from '@/lib/site';
-import { BRAND, SITE_URL } from '@/lib/site';
+import { BRAND } from '@/lib/site';
 import { PRIMARY_CTA } from '@/content/site';
 
 import SectionHeading from '@/components/SectionHeading';
@@ -90,33 +90,20 @@ export default function ContactPage() {
               </Link>
             </div>
 
-            {/* Social */}
+            {/* Social — handles not yet claimed; shown as coming soon, no live links */}
             <div className="bg-surface border border-border rounded-lg p-6 flex flex-col gap-3">
               <span className="text-3xl" role="img" aria-label="Social media">💬</span>
               <h3 className="text-heading font-semibold text-ink">Social Media</h3>
               <p className="text-label text-textSecondary">
-                Follow us and send a DM for quick informal responses:
+                Our social media channels are coming soon. Check back later!
               </p>
               <ul className="flex flex-col gap-1">
-                {BRAND.socials.map((url) => {
-                  const platform = url.includes('twitter')
-                    ? 'Twitter / X'
-                    : url.includes('facebook')
-                    ? 'Facebook'
-                    : 'Instagram';
-                  return (
-                    <li key={url}>
-                      <a
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-label text-primary underline underline-offset-2 hover:text-primaryDark transition-colors"
-                      >
-                        {platform}
-                      </a>
-                    </li>
-                  );
-                })}
+                {(['Twitter / X', 'Facebook', 'Instagram'] as const).map((platform) => (
+                  <li key={platform} className="text-label text-textSecondary">
+                    {platform}{' '}
+                    <span className="text-xs font-medium text-textSecondary opacity-60">(coming soon)</span>
+                  </li>
+                ))}
               </ul>
             </div>
           </div>

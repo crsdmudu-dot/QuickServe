@@ -73,7 +73,10 @@ export function organizationJsonLd(): Record<string, unknown> {
     url: SITE_URL,
     description: BRAND.description,
     areaServed: 'Nairobi, Kenya',
-    sameAs: BRAND.socials,
+    // sameAs is intentionally empty while social handles are unclaimed placeholders.
+    // TODO: restore real handles into sameAs once accounts are claimed:
+    //   sameAs: BRAND.socials,
+    sameAs: [],
   };
 }
 

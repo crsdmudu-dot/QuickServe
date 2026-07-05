@@ -230,6 +230,25 @@ describe('/contact page', () => {
     expect(forms.length).toBe(0);
   });
 
+  it('renders no live outbound anchor to placeholder social domains', () => {
+    // Placeholder social URLs must not be rendered as live <a href="..."> links.
+    const { container } = render(<ContactPage />);
+    const anchors = Array.from(container.querySelectorAll('a'));
+    const placeholderDomains = ['twitter.com', 'facebook.com', 'instagram.com'];
+    const liveLinks = anchors.filter((a) => {
+      const href = a.getAttribute('href') ?? '';
+      return placeholderDomains.some((d) => href.includes(d));
+    });
+    expect(liveLinks.length).toBe(0);
+  });
+
+  it('shows a coming-soon notice for social channels', () => {
+    render(<ContactPage />);
+    // The "coming soon" text indicates social handles are not yet active.
+    const comingSoonElements = screen.getAllByText(/coming soon/i);
+    expect(comingSoonElements.length).toBeGreaterThanOrEqual(1);
+  });
+
   it('has a defined, non-empty metadata title', () => {
     expect(resolveTitle(contactMeta)).toBeTruthy();
   });

@@ -63,6 +63,23 @@ describe('organizationJsonLd', () => {
   it('name is QuickServe', () => {
     expect(ld['name']).toBe('QuickServe');
   });
+
+  it('sameAs does not contain placeholder social URLs (twitter/facebook/instagram)', () => {
+    // Placeholder handles must NOT be published in JSON-LD sameAs until accounts are claimed.
+    const sameAs = ld['sameAs'] as unknown[];
+    const placeholderDomains = ['twitter.com', 'facebook.com', 'instagram.com'];
+    for (const url of sameAs) {
+      const urlStr = String(url);
+      const isPlaceholder = placeholderDomains.some((d) => urlStr.includes(d));
+      expect(isPlaceholder).toBe(false);
+    }
+  });
+
+  it('sameAs is an empty array while handles are unclaimed', () => {
+    const sameAs = ld['sameAs'];
+    expect(Array.isArray(sameAs)).toBe(true);
+    expect((sameAs as unknown[]).length).toBe(0);
+  });
 });
 
 describe('websiteJsonLd', () => {
