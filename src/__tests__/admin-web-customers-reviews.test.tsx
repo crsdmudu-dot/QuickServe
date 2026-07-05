@@ -126,6 +126,7 @@ jest.mock('@/lib/reviews', () => ({
 }));
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { router } from 'expo-router';
 
 import AdminWebCustomersScreen from '@/app/(admin-web)/customers/index';
 import AdminWebReviewsScreen from '@/app/(admin-web)/reviews/index';
@@ -170,6 +171,26 @@ describe('AdminWebCustomersScreen (read-only list)', () => {
     expect(screen.queryByText('Edit')).toBeNull();
     expect(screen.queryByText('Delete')).toBeNull();
     expect(screen.queryByText('Remove')).toBeNull();
+  });
+
+  // ── Slice 31 Task 5: Create case context-link ─────────────────────────────
+
+  it('renders a "Create case" button in the operations column', async () => {
+    render(<AdminWebCustomersScreen />);
+    await screen.findByText('Alice Wanjiku');
+    expect(screen.getByText('Create case')).toBeOnTheScreen();
+  });
+
+  it('pressing "Create case" navigates to operations/new with the customer id', async () => {
+    (router.push as jest.Mock).mockClear();
+    render(<AdminWebCustomersScreen />);
+    await screen.findByText('Alice Wanjiku');
+    fireEvent.press(screen.getByText('Create case'));
+    await waitFor(() =>
+      expect(router.push).toHaveBeenCalledWith(
+        '/(admin-web)/operations/new?customer_id=cust-aaaa-1111',
+      ),
+    );
   });
 });
 
