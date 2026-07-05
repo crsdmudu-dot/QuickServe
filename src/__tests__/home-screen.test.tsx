@@ -1,3 +1,8 @@
+// Mock recent-services to avoid Supabase import chain in test env
+jest.mock('@/lib/recent-services', () => ({
+  getRecentlyUsedServices: jest.fn().mockResolvedValue([]),
+}));
+
 import { render, screen } from '@testing-library/react-native';
 
 import HomeScreen from '@/app/(customer)/index';
