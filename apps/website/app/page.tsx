@@ -116,7 +116,7 @@ export default function Home() {
             subtitle="We raise the bar on every booking — so you can relax and let the pros handle it."
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {CUSTOMER_BENEFITS.map((benefit) => (
+            {CUSTOMER_BENEFITS.slice(0, 3).map((benefit) => (
               <BenefitItem
                 key={benefit.title}
                 icon={benefit.icon}

@@ -2,10 +2,10 @@
 // No data fetching — pure static export.
 // `dynamic = 'force-static'` is required for `output: 'export'` in Next 15.
 
-export const dynamic = 'force-static';
-
 import type { MetadataRoute } from 'next';
 import { SITE_URL } from '@/lib/site';
+
+export const dynamic = 'force-static';
 
 type RouteConfig = {
   path: string;
