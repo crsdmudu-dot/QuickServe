@@ -118,6 +118,26 @@ jest.mock('@/lib/earnings', () => ({
   adminMarkPayoutPaid: (...args: unknown[]) => mockAdminMarkPayoutPaid(...args),
 }));
 
+// InternalNotesPanel + AccountFlagPanel (added to providers/[id] as context links) pull operations data
+jest.mock('@/lib/operations', () => ({
+  getInternalNotes: jest.fn().mockResolvedValue([]),
+  addInternalNote: jest.fn().mockResolvedValue({ ok: true }),
+  getAccountFlags: jest.fn().mockResolvedValue([]),
+  flagAccount: jest.fn().mockResolvedValue({ ok: true }),
+  liftAccountFlag: jest.fn().mockResolvedValue({ ok: true }),
+  getCaseEvidence: jest.fn().mockResolvedValue([]),
+  getSupportCases: jest.fn().mockResolvedValue([]),
+  getSupportCase: jest.fn().mockResolvedValue(null),
+  getSupportCaseNotes: jest.fn().mockResolvedValue([]),
+  getSupportCaseEvents: jest.fn().mockResolvedValue([]),
+  updateSupportCaseStatus: jest.fn().mockResolvedValue({ ok: true }),
+  updateSupportCasePriority: jest.fn().mockResolvedValue({ ok: true }),
+  assignSupportCase: jest.fn().mockResolvedValue({ ok: true }),
+  setDisputeOutcome: jest.fn().mockResolvedValue({ ok: true }),
+  addSupportCaseNote: jest.fn().mockResolvedValue({ ok: true }),
+  createSupportCase: jest.fn().mockResolvedValue({ ok: true, id: 'new-case-1' }),
+}));
+
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
@@ -255,5 +275,25 @@ describe('AdminWebProviderDetailScreen (detail)', () => {
     expect(await screen.findByText('On time')).toBeOnTheScreen();
     // A category label from the breakdown bars
     expect(await screen.findByText('Quality')).toBeOnTheScreen();
+  });
+
+  // ── Context-link additions (operations) ──────────────────────────────────
+
+  it('renders AccountFlagPanel with "Account flags" section header', async () => {
+    render(<AdminWebProviderDetailScreen />);
+    await screen.findByText('Jane Doe');
+    expect(await screen.findByText('Account flags')).toBeOnTheScreen();
+  });
+
+  it('renders InternalNotesPanel with "Internal notes" section header', async () => {
+    render(<AdminWebProviderDetailScreen />);
+    await screen.findByText('Jane Doe');
+    expect(await screen.findByText('Internal notes')).toBeOnTheScreen();
+  });
+
+  it('renders "Create support case" button (operations context link)', async () => {
+    render(<AdminWebProviderDetailScreen />);
+    await screen.findByText('Jane Doe');
+    expect(await screen.findByText('Create support case')).toBeOnTheScreen();
   });
 });

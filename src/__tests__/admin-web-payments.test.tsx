@@ -86,6 +86,7 @@ jest.mock('@/lib/earnings', () => ({
 }));
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { router } from 'expo-router';
 
 import AdminWebPaymentsScreen from '@/app/(admin-web)/payments/index';
 import AdminWebPaymentAttemptsScreen from '@/app/(admin-web)/payment-attempts/index';
@@ -156,6 +157,25 @@ describe('AdminWebPaymentsScreen', () => {
     mockAdminGetAllPayments.mockResolvedValueOnce([]);
     render(<AdminWebPaymentsScreen />);
     expect(await screen.findByText('No payments yet.')).toBeOnTheScreen();
+  });
+
+  // ── Slice 31 Task 5: Create case context-link ─────────────────────────────
+
+  it('renders a "Create case" button in the operations column', async () => {
+    render(<AdminWebPaymentsScreen />);
+    expect(await screen.findByText('Create case')).toBeOnTheScreen();
+  });
+
+  it('pressing "Create case" navigates to operations/new with the payment id', async () => {
+    (router.push as jest.Mock).mockClear();
+    render(<AdminWebPaymentsScreen />);
+    await screen.findByText('KES 3,000');
+    fireEvent.press(screen.getByText('Create case'));
+    await waitFor(() =>
+      expect(router.push).toHaveBeenCalledWith(
+        '/(admin-web)/operations/new?payment_id=pay1',
+      ),
+    );
   });
 });
 

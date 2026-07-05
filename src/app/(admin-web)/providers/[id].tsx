@@ -11,7 +11,7 @@
  * RN/RN-web safe — no DOM-only APIs.
  */
 
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router, type Href } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
@@ -47,6 +47,8 @@ import { RatingBreakdown } from '@/components/ui/rating-breakdown';
 import { ReviewCard } from '@/components/ui/review-card';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
+import { InternalNotesPanel } from '@/components/admin-web/operations/internal-notes-panel';
+import { AccountFlagPanel } from '@/components/admin-web/operations/account-flag-panel';
 
 // ── Layout breakpoint ──────────────────────────────────────────────────────
 
@@ -298,6 +300,24 @@ export default function AdminWebProviderDetailScreen() {
         placeholder="https://…"
       />
       <Button label="Save profile" onPress={handleSaveProfile} />
+
+      {/* Operations — internal notes for this provider (admin-only, additive) */}
+      <InternalNotesPanel subjectType="provider" subjectId={id} />
+
+      {/* Operations — account flags / suspension records (record-only) */}
+      <AccountFlagPanel subjectId={id} subjectRole="provider" />
+
+      {/* Operations — create a support case linked to this provider */}
+      <SectionHeader title="Support case" />
+      <Button
+        label="Create support case"
+        variant="secondary"
+        onPress={() =>
+          router.push(
+            `/(admin-web)/operations/new?provider_id=${id}` as Href,
+          )
+        }
+      />
     </View>
   );
 

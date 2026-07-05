@@ -1,0 +1,343 @@
+/**
+ * operations-schema.test.ts
+ *
+ * Static assertions against supabase/migrations/0026_operations_portal.sql.
+ * Reads the migration file as TEXT (fs) — no live database required.
+ *
+ * Invariants checked:
+ *  - All 5 tables exist (create table if not exists public.<name>)
+ *  - RLS is enabled for each of the 5 tables
+ *  - Every "create policy" uses public.is_admin()
+ *  - No "for delete" policy exists on any table
+ *  - Immutable tables (support_case_notes, support_case_events, internal_notes)
+ *    have NO update policy
+ *  - support_cases + account_flags DO have an update policy
+ *  - All required check constraint literals are present
+ *  - account_flags has active boolean + lifted_by + lifted_at (append-only metadata)
+ */
+
+import * as fs from 'fs';
+import * as path from 'path';
+
+const MIGRATION_PATH = path.resolve(
+  __dirname,
+  '../../supabase/migrations/0026_operations_portal.sql'
+);
+
+let sql: string;
+
+beforeAll(() => {
+  sql = fs.readFileSync(MIGRATION_PATH, 'utf-8');
+  // Normalise for whitespace-robust matching
+});
+
+// Helper: normalise multiple spaces/newlines for contains checks
+function norm(s: string): string {
+  return s.replace(/\s+/g, ' ').toLowerCase();
+}
+
+// ─── 1. All 5 tables are declared ────────────────────────────────────────────
+
+describe('tables declared', () => {
+  const tables = [
+    'support_cases',
+    'support_case_notes',
+    'support_case_events',
+    'internal_notes',
+    'account_flags',
+  ];
+
+  test.each(tables)('create table if not exists public.%s present', (table) => {
+    expect(norm(sql)).toContain(`create table if not exists public.${table}`);
+  });
+});
+
+// ─── 2. RLS enabled on all 5 tables ──────────────────────────────────────────
+
+describe('RLS enabled', () => {
+  const tables = [
+    'support_cases',
+    'support_case_notes',
+    'support_case_events',
+    'internal_notes',
+    'account_flags',
+  ];
+
+  test.each(tables)('enable row level security on public.%s', (table) => {
+    // Match: alter table public.<table> enable row level security
+    const pattern = new RegExp(
+      `alter\\s+table\\s+public\\.${table}\\s+enable\\s+row\\s+level\\s+security`,
+      'i'
+    );
+    expect(sql).toMatch(pattern);
+  });
+});
+
+// ─── 3. Every create policy uses public.is_admin() ───────────────────────────
+
+describe('admin-only RLS', () => {
+  test('every create policy line references public.is_admin()', () => {
+    // Extract all create policy blocks (simplified: each policy must contain is_admin)
+    const policyMatches = sql.match(/create\s+policy\s+"[^"]+"/gi) ?? [];
+    expect(policyMatches.length).toBeGreaterThan(0);
+
+    // Split SQL into segments around each "create policy" keyword and verify
+    // each segment contains public.is_admin() before the next "create policy"
+    const segments = sql.split(/create\s+policy\s+/i).slice(1); // skip preamble
+    for (const segment of segments) {
+      // The segment starts with the policy name and ends before the next policy.
+      // It should contain is_admin()
+      expect(segment.toLowerCase()).toContain('public.is_admin()');
+    }
+  });
+});
+
+// ─── 4. No "for delete" policy ───────────────────────────────────────────────
+
+describe('no delete policy', () => {
+  test('file does not contain "for delete"', () => {
+    expect(norm(sql)).not.toContain('for delete');
+  });
+});
+
+// ─── 5. Immutable tables: support_case_notes, support_case_events, internal_notes
+//       must NOT have an update policy ─────────────────────────────────────────
+
+describe('immutable tables — no update policy', () => {
+  const immutableTables = [
+    'support_case_notes',
+    'support_case_events',
+    'internal_notes',
+  ];
+
+  test.each(immutableTables)(
+    'no update policy for %s',
+    (table) => {
+      // Check that there is no policy named "<table>_update"
+      expect(sql).not.toContain(`"${table}_update"`);
+
+      // More robust: verify no "for update" appears in a policy block for this table.
+      // We look for the pattern: create policy "... on public.<table> for update
+      const pattern = new RegExp(
+        `create\\s+policy\\s+"[^"]*"\\s+on\\s+public\\.${table}\\s+for\\s+update`,
+        'i'
+      );
+      expect(sql).not.toMatch(pattern);
+    }
+  );
+});
+
+// ─── 6. support_cases + account_flags DO have an update policy ───────────────
+
+describe('mutable tables — update policy present', () => {
+  test('support_cases has an update policy', () => {
+    expect(sql).toContain('"support_cases_update"');
+  });
+
+  test('account_flags has an update policy', () => {
+    expect(sql).toContain('"account_flags_update"');
+  });
+});
+
+// ─── 7. Check constraint literals ────────────────────────────────────────────
+
+describe('check constraint literals', () => {
+  // status — 6 values
+  const statusValues = [
+    'open',
+    'in_review',
+    'waiting_on_customer',
+    'waiting_on_provider',
+    'resolved',
+    'closed',
+  ];
+  test.each(statusValues)('status check contains "%s"', (val) => {
+    expect(sql).toContain(`'${val}'`);
+  });
+
+  // priority — 4 values
+  const priorityValues = ['low', 'medium', 'high', 'urgent'];
+  test.each(priorityValues)('priority check contains "%s"', (val) => {
+    expect(sql).toContain(`'${val}'`);
+  });
+
+  // case_type — support + dispute
+  test('case_type contains "support"', () => {
+    expect(sql).toContain("'support'");
+  });
+  test('case_type contains "dispute"', () => {
+    expect(sql).toContain("'dispute'");
+  });
+
+  // dispute_kind — 4 values
+  const disputeKindValues = [
+    'booking_dispute',
+    'payment_dispute',
+    'customer_complaint',
+    'provider_complaint',
+  ];
+  test.each(disputeKindValues)('dispute_kind contains "%s"', (val) => {
+    expect(sql).toContain(`'${val}'`);
+  });
+
+  // resolution_outcome — 6 values
+  const resolutionOutcomeValues = [
+    'no_action',
+    'refund_recommended',
+    'wallet_credit_recommended',
+    'provider_warning',
+    'provider_suspension_recommended',
+    'customer_warning',
+  ];
+  test.each(resolutionOutcomeValues)('resolution_outcome contains "%s"', (val) => {
+    expect(sql).toContain(`'${val}'`);
+  });
+});
+
+// ─── 8. account_flags append-only metadata ───────────────────────────────────
+
+describe('account_flags append-only lift metadata', () => {
+  test('has "active boolean"', () => {
+    expect(norm(sql)).toContain('active boolean');
+  });
+
+  test('has "lifted_by" column', () => {
+    expect(sql).toContain('lifted_by');
+  });
+
+  test('has "lifted_at" column', () => {
+    expect(sql).toContain('lifted_at');
+  });
+});
+
+// ─── 9. All 9 RPC functions are declared ─────────────────────────────────────
+
+describe('RPC functions declared', () => {
+  const rpcs = [
+    'create_support_case',
+    'update_support_case_status',
+    'update_support_case_priority',
+    'assign_support_case',
+    'set_dispute_outcome',
+    'add_support_case_note',
+    'add_internal_note',
+    'flag_account',
+    'lift_account_flag',
+  ];
+
+  test.each(rpcs)('create or replace function public.%s( present', (fn) => {
+    expect(norm(sql)).toContain(`create or replace function public.${fn}(`);
+  });
+});
+
+// ─── 10. Each RPC has security definer, set search_path = public, is_admin() ─
+
+describe('RPC security attributes', () => {
+  // Split the SQL on "create or replace function" boundaries.
+  // Each segment after the split starts with the function name.
+  function getSegment(fnName: string): string {
+    const marker = 'create or replace function';
+    const lower = sql.toLowerCase();
+    const parts = lower.split(marker);
+    // Find the segment that contains this function name right after the marker
+    const segment = parts.find((p) => p.trimStart().startsWith(`public.${fnName}(`));
+    if (!segment) throw new Error(`Segment for ${fnName} not found`);
+    return segment;
+  }
+
+  const allRpcs = [
+    'create_support_case',
+    'update_support_case_status',
+    'update_support_case_priority',
+    'assign_support_case',
+    'set_dispute_outcome',
+    'add_support_case_note',
+    'add_internal_note',
+    'flag_account',
+    'lift_account_flag',
+  ];
+
+  test.each(allRpcs)('%s contains security definer', (fn) => {
+    expect(getSegment(fn)).toContain('security definer');
+  });
+
+  test.each(allRpcs)('%s contains set search_path = public', (fn) => {
+    expect(getSegment(fn)).toContain('set search_path = public');
+  });
+
+  test.each(allRpcs)('%s contains public.is_admin() guard', (fn) => {
+    expect(getSegment(fn)).toContain('public.is_admin()');
+  });
+});
+
+// ─── 11. Case-mutating RPCs write support_case_events (audit) ────────────────
+
+describe('case-mutating RPCs reference support_case_events', () => {
+  function getSegment(fnName: string): string {
+    const marker = 'create or replace function';
+    const lower = sql.toLowerCase();
+    const parts = lower.split(marker);
+    const segment = parts.find((p) => p.trimStart().startsWith(`public.${fnName}(`));
+    if (!segment) throw new Error(`Segment for ${fnName} not found`);
+    return segment;
+  }
+
+  const caseMutatingRpcs = [
+    'create_support_case',
+    'update_support_case_status',
+    'update_support_case_priority',
+    'assign_support_case',
+    'set_dispute_outcome',
+    'add_support_case_note',
+  ];
+
+  test.each(caseMutatingRpcs)('%s references support_case_events', (fn) => {
+    expect(getSegment(fn)).toContain('support_case_events');
+  });
+});
+
+// ─── 12. UPDATE-based case mutations set updated_at = now() ──────────────────
+
+describe('UPDATE-based case mutations set updated_at = now()', () => {
+  function getSegment(fnName: string): string {
+    const marker = 'create or replace function';
+    const lower = sql.toLowerCase();
+    const parts = lower.split(marker);
+    const segment = parts.find((p) => p.trimStart().startsWith(`public.${fnName}(`));
+    if (!segment) throw new Error(`Segment for ${fnName} not found`);
+    return segment;
+  }
+
+  const updateRpcs = [
+    'update_support_case_status',
+    'update_support_case_priority',
+    'assign_support_case',
+    'set_dispute_outcome',
+    'add_support_case_note',
+  ];
+
+  test.each(updateRpcs)('%s sets updated_at = now()', (fn) => {
+    expect(norm(getSegment(fn))).toContain('updated_at = now()');
+  });
+});
+
+// ─── 13. flag_account is record-only (no profiles update / approval_status) ──
+
+describe('flag_account is record-only', () => {
+  function getSegment(fnName: string): string {
+    const marker = 'create or replace function';
+    const lower = sql.toLowerCase();
+    const parts = lower.split(marker);
+    const segment = parts.find((p) => p.trimStart().startsWith(`public.${fnName}(`));
+    if (!segment) throw new Error(`Segment for ${fnName} not found`);
+    return segment;
+  }
+
+  test('flag_account does not reference "update public.profiles"', () => {
+    expect(getSegment('flag_account')).not.toContain('update public.profiles');
+  });
+
+  test('flag_account does not reference "approval_status"', () => {
+    expect(getSegment('flag_account')).not.toContain('approval_status');
+  });
+});

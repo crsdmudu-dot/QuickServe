@@ -12,9 +12,11 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import { router, type Href } from 'expo-router';
 
 import { DataTable, type Column } from '@/components/admin-web/data-table';
 import { PageMeta } from '@/components/admin-web/page-meta';
+import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { adminGetAllCustomers, type CustomerProfile } from '@/lib/customers';
 import { getAllBookings, type Booking } from '@/lib/bookings';
@@ -65,6 +67,22 @@ function buildColumns(bookings: Booking[]): Column<CustomerProfile>[] {
         );
       },
       width: 90,
+    },
+    {
+      key: 'operations',
+      header: 'Operations',
+      render: (row) => (
+        <Button
+          label="Create case"
+          variant="ghost"
+          onPress={() =>
+            router.push(
+              `/(admin-web)/operations/new?customer_id=${row.id}` as Href,
+            )
+          }
+        />
+      ),
+      width: 120,
     },
   ];
 }
