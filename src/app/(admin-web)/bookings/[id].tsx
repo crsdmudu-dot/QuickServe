@@ -11,7 +11,7 @@
  * RN/RN-web safe — no DOM-only APIs.
  */
 
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router, type Href } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
@@ -57,6 +57,7 @@ import { Text } from '@/components/ui/text';
 import { DestinationSummary } from '@/components/ui/destination-summary';
 import { AdminLiveLocation } from '@/components/ui/admin-live-location';
 import { AdminWalletPanel } from '@/components/admin-web/admin-wallet-panel';
+import { InternalNotesPanel } from '@/components/admin-web/operations/internal-notes-panel';
 
 // ── Layout breakpoint ──────────────────────────────────────────────────────
 
@@ -412,6 +413,21 @@ export default function AdminWebBookingDetailScreen() {
 
       {/* Customer wallet — balance, history, and audited adjustment */}
       <AdminWalletPanel customerId={booking.customer_id} />
+
+      {/* Operations — internal notes for this booking (admin-only, additive) */}
+      <InternalNotesPanel subjectType="booking" subjectId={id} />
+
+      {/* Operations — create a support case linked to this booking */}
+      <SectionHeader title="Support case" />
+      <Button
+        label="Create support case"
+        variant="secondary"
+        onPress={() =>
+          router.push(
+            `/(admin-web)/operations/new?booking_id=${id}` as Href,
+          )
+        }
+      />
     </View>
   );
 

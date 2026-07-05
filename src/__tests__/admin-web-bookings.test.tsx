@@ -122,6 +122,26 @@ jest.mock('@/lib/quotes', () => ({
   canEditQuote: () => true,
 }));
 
+// InternalNotesPanel (added to bookings/[id] as a context link) pulls operations data
+jest.mock('@/lib/operations', () => ({
+  getInternalNotes: jest.fn().mockResolvedValue([]),
+  addInternalNote: jest.fn().mockResolvedValue({ ok: true }),
+  getAccountFlags: jest.fn().mockResolvedValue([]),
+  flagAccount: jest.fn().mockResolvedValue({ ok: true }),
+  liftAccountFlag: jest.fn().mockResolvedValue({ ok: true }),
+  getCaseEvidence: jest.fn().mockResolvedValue([]),
+  getSupportCases: jest.fn().mockResolvedValue([]),
+  getSupportCase: jest.fn().mockResolvedValue(null),
+  getSupportCaseNotes: jest.fn().mockResolvedValue([]),
+  getSupportCaseEvents: jest.fn().mockResolvedValue([]),
+  updateSupportCaseStatus: jest.fn().mockResolvedValue({ ok: true }),
+  updateSupportCasePriority: jest.fn().mockResolvedValue({ ok: true }),
+  assignSupportCase: jest.fn().mockResolvedValue({ ok: true }),
+  setDisputeOutcome: jest.fn().mockResolvedValue({ ok: true }),
+  addSupportCaseNote: jest.fn().mockResolvedValue({ ok: true }),
+  createSupportCase: jest.fn().mockResolvedValue({ ok: true, id: 'new-case-1' }),
+}));
+
 // AdminLiveLocation pulls tracking — stub it so no Supabase calls are made
 jest.mock('@/lib/tracking', () => ({
   getProviderLocationForBooking: jest.fn().mockResolvedValue(null),
@@ -424,5 +444,19 @@ describe('AdminWebBookingDetailScreen (detail)', () => {
     // This exercises the same math the UI live-preview uses.
     const { computeQuickServeShare } = require('@/lib/quotes');
     expect(computeQuickServeShare(3000, 2100)).toBe(900);
+  });
+
+  // ── Context-link additions (operations) ──────────────────────────────────
+
+  it('renders "Create support case" button (operations context link)', async () => {
+    render(<AdminWebBookingDetailScreen />);
+    await screen.findByText('House Cleaning');
+    expect(screen.getByText('Create support case')).toBeOnTheScreen();
+  });
+
+  it('renders InternalNotesPanel with "Internal notes" section header', async () => {
+    render(<AdminWebBookingDetailScreen />);
+    await screen.findByText('House Cleaning');
+    expect(await screen.findByText('Internal notes')).toBeOnTheScreen();
   });
 });

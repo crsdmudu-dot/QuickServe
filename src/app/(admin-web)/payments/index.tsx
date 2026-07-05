@@ -11,6 +11,7 @@
 
 import { useState } from 'react';
 import { View } from 'react-native';
+import { router, type Href } from 'expo-router';
 
 import { DataTable, type Column } from '@/components/admin-web/data-table';
 import { PageMeta } from '@/components/admin-web/page-meta';
@@ -110,6 +111,22 @@ function buildColumns(
         </View>
       ),
       width: 280,
+    },
+    {
+      key: 'operations',
+      header: 'Operations',
+      render: (row) => (
+        <Button
+          label="Create case"
+          variant="ghost"
+          onPress={() =>
+            router.push(
+              `/(admin-web)/operations/new?payment_id=${row.id}` as Href,
+            )
+          }
+        />
+      ),
+      width: 110,
     },
   ];
 }
