@@ -45,3 +45,7 @@ example
 
 # agent scratch
 Claude
+
+# Next.js website build artifacts
+apps/website/.next/
+apps/website/out/
