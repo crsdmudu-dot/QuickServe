@@ -39,10 +39,15 @@ jest.mock('@/lib/activity', () => ({
 
 const mockGetMyReviewForBooking = jest.fn();
 const mockSubmitReview = jest.fn();
+const mockEditReview = jest.fn().mockResolvedValue({ ok: true });
 
 jest.mock('@/lib/reviews', () => ({
   getMyReviewForBooking: (...args: unknown[]) => mockGetMyReviewForBooking(...args),
   submitReview: (...args: unknown[]) => mockSubmitReview(...args),
+  // Slice 34: editReview + canEditReview added; canEditReview uses real logic (pure).
+  editReview: (...args: unknown[]) => mockEditReview(...args),
+  canEditReview: (review: { created_at: string }) =>
+    Date.now() - Date.parse(review.created_at) < 24 * 3600 * 1000,
   // Faithful copy of the 9 tags from src/lib/reviews.ts — needed so tag chips render.
   REVIEW_TAGS: [
     { key: 'on_time',            label: 'On time',            sentiment: 'positive' },
@@ -98,6 +103,28 @@ jest.mock('@/components/ui/photo-upload-button', () => ({
     const { Text } = require('react-native');
     return <Text>{label}</Text>;
   },
+}));
+
+// Slice 34: mock new customer components added to the detail screen.
+jest.mock('@/components/customer/booking-progress-tracker', () => ({
+  BookingProgressTracker: () => null,
+}));
+
+jest.mock('@/components/customer/payment-breakdown-card', () => ({
+  PaymentBreakdownCard: () => null,
+}));
+
+jest.mock('@/components/customer/review-edit-form', () => ({
+  ReviewEditForm: () => null,
+}));
+
+jest.mock('@/lib/receipts', () => ({
+  buildReceipt: () => ({
+    currency: 'KES', status: null, method: null, paidAt: null,
+    lines: [], subtotal: 0, walletApplied: 0, promoDiscount: 0,
+    amountDue: 0, total: 0,
+  }),
+  canDownloadReceipt: false,
 }));
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';

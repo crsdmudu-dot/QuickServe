@@ -26,12 +26,13 @@ import { useTheme } from '@/hooks/use-theme';
 import { getBookingById, getBookingProfessional, type Booking, type Professional } from '@/lib/bookings';
 import { getBookingPhotos, type BookingPhotoView } from '@/lib/photos';
 import { getBookingActivity, type BookingActivity } from '@/lib/activity';
-import { getMyReviewForBooking, submitReview, REVIEW_TAGS, type Review } from '@/lib/reviews';
+import { getMyReviewForBooking, submitReview, editReview, canEditReview, REVIEW_TAGS, type Review } from '@/lib/reviews';
 import { acceptQuote, declineQuote } from '@/lib/quotes';
 import { getPaymentForBooking, type Payment } from '@/lib/payments';
 import { getMyWallet, applyWalletToPayment, amountDue } from '@/lib/wallet';
 import { redeemPromo } from '@/lib/promotions';
 import { formatKes } from '@/lib/currency';
+import { buildReceipt } from '@/lib/receipts';
 import { initiateMpesaPayment, getPaymentAttempts, type PaymentAttempt } from '@/lib/attempts';
 import { AttemptStatusBadge } from '@/components/ui/attempt-status-badge';
 import { BookingSummaryCard } from '@/components/ui/booking-summary-card';
@@ -48,6 +49,9 @@ import { ReviewCard } from '@/components/ui/review-card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { QuoteCard } from '@/components/ui/quote-card';
+import { BookingProgressTracker } from '@/components/customer/booking-progress-tracker';
+import { PaymentBreakdownCard } from '@/components/customer/payment-breakdown-card';
+import { ReviewEditForm } from '@/components/customer/review-edit-form';
 
 export default function BookingDetailScreen() {
   const theme = useTheme();
@@ -84,6 +88,8 @@ export default function BookingDetailScreen() {
   const [applyingPromo, setApplyingPromo] = useState(false);
   const [applyingWallet, setApplyingWallet] = useState(false);
   const [submittingReview, setSubmittingReview] = useState(false);
+  // Slice 34: review edit affordance visibility
+  const [showEditReview, setShowEditReview] = useState(false);
 
   const loadPhotos = useCallback(() => {
     if (id) {
@@ -128,6 +134,13 @@ export default function BookingDetailScreen() {
     setPayment(p);
     const w = await getMyWallet();
     setWalletBalance(w.balance);
+  }
+
+  // Slice 34: refresh the review after an edit and collapse the edit form.
+  async function reloadReview() {
+    const updated = await getMyReviewForBooking(id);
+    setReview(updated);
+    setShowEditReview(false);
   }
 
   async function handleAccept() {
@@ -258,6 +271,22 @@ export default function BookingDetailScreen() {
           <StatusBadge status={booking.status} />
         </View>
 
+        {/* Slice 34: booking progress tracker */}
+        <BookingProgressTracker status={booking.status} />
+
+        {/* Slice 34: service summary — display-only */}
+        {service && (
+          <View style={styles.serviceSummaryRow}>
+            <Text style={styles.serviceIcon}>{service.icon}</Text>
+            <View style={styles.serviceSummaryText}>
+              <Text variant="label" weight="semibold">{service.title}</Text>
+              {service.subtitle ? (
+                <Text variant="caption" color="textSecondary">{service.subtitle}</Text>
+              ) : null}
+            </View>
+          </View>
+        )}
+
         {/* Payment section */}
         <SectionHeader title="Payment" />
         {booking.quote_status === 'sent' ? (
@@ -361,6 +390,19 @@ export default function BookingDetailScreen() {
           </Text>
         ) : null}
 
+        {/* Slice 34: Payment breakdown card — display-only, built from already-loaded payment */}
+        {payment != null && (
+          <View style={styles.section}>
+            <SectionHeader title="Payment Breakdown" />
+            <PaymentBreakdownCard receipt={buildReceipt({ booking, payment })} />
+            <Button
+              label="View Receipt"
+              variant="secondary"
+              onPress={() => router.push(`/booking/receipt?id=${id}`)}
+            />
+          </View>
+        )}
+
         {/* Track button — only shown when provider is on the way or working */}
         {booking.assigned_provider_id != null &&
         (booking.status === 'on_the_way' || booking.status === 'in_progress') ? (
@@ -418,6 +460,21 @@ export default function BookingDetailScreen() {
             <View style={styles.section}>
               <SectionHeader title="Your review" />
               <ReviewCard review={review} />
+              {/* Slice 34: edit affordance — shown when within 24h window */}
+              {canEditReview(review) && !showEditReview && (
+                <Button
+                  label="Edit review"
+                  variant="secondary"
+                  onPress={() => setShowEditReview(true)}
+                />
+              )}
+              {canEditReview(review) && showEditReview && (
+                <ReviewEditForm
+                  review={review}
+                  onSaved={reloadReview}
+                  onCancel={() => setShowEditReview(false)}
+                />
+              )}
             </View>
           ) : (
             <View style={styles.section}>
@@ -549,6 +606,20 @@ const styles = StyleSheet.create({
   attemptBlock: { gap: Spacing.two },
   mpesaBlock: { gap: Spacing.three },
   providerCard: { gap: Spacing.two },
+  // ── Slice 34: service summary styles ──────────────────────────────────────
+  serviceSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+  },
+  serviceIcon: {
+    fontSize: 28,
+    lineHeight: 34,
+  },
+  serviceSummaryText: {
+    flex: 1,
+    gap: Spacing.one,
+  },
   // ── Ratings 2.0 styles ──────────────────────────────────────────────────
   categoryBlock: { gap: Spacing.two },
   categoryRow: {

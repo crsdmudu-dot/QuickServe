@@ -2,26 +2,31 @@
  * My Bookings screen — shows the signed-in customer's booking history.
  *
  * Loads bookings on mount via getCustomerBookings(), renders each as a
- * pressable Card with the service title, status badge, and scheduled date.
- * Tapping a card navigates to the read-only booking detail screen.
- * When there are no bookings an EmptyState is shown instead.
+ * BookingStatusCard (pressable, status-accented). Tapping a card navigates
+ * to the read-only booking detail screen. When there are no bookings an
+ * EmptyState is shown instead.
+ *
+ * Slice 34: replaced inline Card+StatusBadge row with BookingStatusCard;
+ * in-progress bookings also show a compact BookingProgressTracker.
  */
 
 import { router } from 'expo-router';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { SERVICES } from '@/constants/services';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { usePaginatedList } from '@/hooks/use-paginated-list';
 import { getCustomerBookings } from '@/lib/bookings';
-import { StatusBadge } from '@/components/ui/status-badge';
-import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { LoadMoreButton } from '@/components/ui/load-more-button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
+import { BookingStatusCard } from '@/components/customer/booking-status-card';
+import { BookingProgressTracker } from '@/components/customer/booking-progress-tracker';
+
+// Statuses that count as "in-progress" for the compact tracker
+const IN_PROGRESS_STATUSES = new Set(['accepted', 'provider_assigned', 'on_the_way', 'in_progress']);
 
 export default function CustomerBookingsScreen() {
   const theme = useTheme();
@@ -60,20 +65,18 @@ export default function CustomerBookingsScreen() {
           ListFooterComponent={
             <LoadMoreButton onPress={loadMore} loading={loading} hasMore={hasMore} />
           }
-          renderItem={({ item: b }) => {
-            const service = SERVICES.find((s) => s.id === b.service_id);
-            return (
-              <Card onPress={() => router.push(`/booking/${b.id}`)} style={styles.card} elevation="e1">
-                <Text variant="heading">{service?.title ?? b.service_id}</Text>
-                <View style={styles.row}>
-                  <StatusBadge status={b.status} />
-                </View>
-                <Text variant="caption" color="textSecondary">
-                  {new Date(b.scheduled_for).toLocaleString()}
-                </Text>
-              </Card>
-            );
-          }}
+          renderItem={({ item: b }) => (
+            <View style={styles.cardWrapper}>
+              <BookingStatusCard
+                booking={b}
+                onPress={() => router.push(`/booking/${b.id}`)}
+              />
+              {/* Compact progress tracker for in-progress bookings */}
+              {IN_PROGRESS_STATUSES.has(b.status) && (
+                <BookingProgressTracker status={b.status} />
+              )}
+            </View>
+          )}
         />
       )}
     </SafeAreaView>
@@ -88,8 +91,7 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.two,
   },
   list: { padding: Spacing.four, gap: Spacing.three },
-  card: { gap: Spacing.two },
-  row: { flexDirection: 'row' },
+  cardWrapper: { gap: Spacing.two },
   skeletons: {
     padding: Spacing.four,
     gap: Spacing.three,
