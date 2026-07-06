@@ -210,3 +210,54 @@ export async function getReviewPrivateFeedback(
     .maybeSingle();
   return data ?? null;
 }
+
+// ── Review Edit (Slice 34) ─────────────────────────────────────────────────
+
+/**
+ * Edits an existing review.
+ * Calls the `edit_review` RPC which is the AUTHORITY on ownership and the 24-hour edit window.
+ * The RPC will raise an error if the caller is not the owner or the window has closed.
+ * On success: { ok: true }.
+ * On any error: { ok: false, error: 'friendly message' }.
+ */
+export async function editReview(input: {
+  reviewId: string;
+  comment?: string;
+  rating: number;
+  qualityRating?: number;
+  punctualityRating?: number;
+  communicationRating?: number;
+  professionalismRating?: number;
+  valueRating?: number;
+  wouldRecommend?: boolean;
+  tags?: string[];
+}): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await supabase.rpc('edit_review', {
+    p_review_id:       input.reviewId,
+    p_comment:         input.comment ?? null,
+    p_rating:          input.rating,
+    p_quality:         input.qualityRating ?? null,
+    p_punctuality:     input.punctualityRating ?? null,
+    p_communication:   input.communicationRating ?? null,
+    p_professionalism: input.professionalismRating ?? null,
+    p_value:           input.valueRating ?? null,
+    p_would_recommend: input.wouldRecommend ?? null,
+    p_tags:            input.tags ?? [],
+  });
+
+  if (error) {
+    // The RPC raises 'edit window closed or not owner' for auth/window failures.
+    // Map all server errors to a friendly client message.
+    return { ok: false, error: 'Could not update review.' };
+  }
+  return { ok: true };
+}
+
+/**
+ * Pure client-side helper — returns true if the review is still within the 24-hour edit window.
+ * DISPLAY-ONLY: use this to show or hide the Edit affordance in the UI.
+ * The `edit_review` RPC is the AUTHORITY — a stale client can still be rejected server-side.
+ */
+export function canEditReview(review: Pick<Review, 'created_at'>): boolean {
+  return Date.now() - Date.parse(review.created_at) < 24 * 3600 * 1000;
+}

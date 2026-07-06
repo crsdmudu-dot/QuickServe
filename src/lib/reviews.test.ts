@@ -6,6 +6,8 @@ import {
   setReviewHidden,
   getProviderRatingBreakdown,
   getReviewPrivateFeedback,
+  editReview,
+  canEditReview,
   REVIEW_TAGS,
 } from '@/lib/reviews';
 
@@ -319,6 +321,109 @@ describe('getReviewPrivateFeedback', () => {
   it('returns null when not found (RLS blocks provider)', async () => {
     mockPrivateMaybeSingle.mockResolvedValue({ data: null });
     expect(await getReviewPrivateFeedback('r1')).toBeNull();
+  });
+});
+
+// ── editReview (Slice 34) ──────────────────────────────────────────────────
+
+describe('editReview', () => {
+  it('calls edit_review rpc with correct p_ params', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null });
+
+    const res = await editReview({
+      reviewId: 'r-edit-1',
+      rating: 4,
+      comment: 'Updated comment',
+      qualityRating: 5,
+      punctualityRating: 4,
+      communicationRating: 3,
+      professionalismRating: 5,
+      valueRating: 4,
+      wouldRecommend: true,
+      tags: ['on_time', 'friendly'],
+    });
+
+    expect(res).toEqual({ ok: true });
+    expect(mockRpc).toHaveBeenCalledWith('edit_review', {
+      p_review_id:       'r-edit-1',
+      p_comment:         'Updated comment',
+      p_rating:          4,
+      p_quality:         5,
+      p_punctuality:     4,
+      p_communication:   3,
+      p_professionalism: 5,
+      p_value:           4,
+      p_would_recommend: true,
+      p_tags:            ['on_time', 'friendly'],
+    });
+  });
+
+  it('passes nulls for omitted optional fields', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null });
+
+    await editReview({ reviewId: 'r-edit-2', rating: 3 });
+
+    expect(mockRpc).toHaveBeenCalledWith('edit_review', {
+      p_review_id:       'r-edit-2',
+      p_comment:         null,
+      p_rating:          3,
+      p_quality:         null,
+      p_punctuality:     null,
+      p_communication:   null,
+      p_professionalism: null,
+      p_value:           null,
+      p_would_recommend: null,
+      p_tags:            [],
+    });
+  });
+
+  it('returns { ok: false, error } on rpc error (edit window closed or not owner)', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'edit window closed or not owner' } });
+
+    const res = await editReview({ reviewId: 'r-old', rating: 5 });
+
+    expect(res).toEqual({ ok: false, error: 'Could not update review.' });
+  });
+
+  it('returns { ok: false, error } on generic rpc error', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'DB error' } });
+
+    const res = await editReview({ reviewId: 'r-x', rating: 3 });
+
+    expect(res.ok).toBe(false);
+    expect(typeof res.error).toBe('string');
+  });
+});
+
+// ── canEditReview (Slice 34) ───────────────────────────────────────────────
+
+describe('canEditReview', () => {
+  it('returns true when review is 23 hours old (within 24h window)', () => {
+    const twentyThreeHoursAgo = new Date(Date.now() - 23 * 3600 * 1000).toISOString();
+    expect(canEditReview({ created_at: twentyThreeHoursAgo })).toBe(true);
+  });
+
+  it('returns false when review is 25 hours old (outside 24h window)', () => {
+    const twentyFiveHoursAgo = new Date(Date.now() - 25 * 3600 * 1000).toISOString();
+    expect(canEditReview({ created_at: twentyFiveHoursAgo })).toBe(false);
+  });
+
+  it('returns true for a brand-new review (just created)', () => {
+    const justNow = new Date().toISOString();
+    expect(canEditReview({ created_at: justNow })).toBe(true);
+  });
+
+  it('returns false for a review exactly at 24h boundary (exclusive)', () => {
+    // Exactly 24h ago is NOT within the window (< 24h is required)
+    const exactly24hAgo = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+    expect(canEditReview({ created_at: exactly24hAgo })).toBe(false);
+  });
+
+  it('is pure — makes no supabase calls', () => {
+    const time = new Date(Date.now() - 1000).toISOString();
+    canEditReview({ created_at: time });
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(mockSelect).not.toHaveBeenCalled();
   });
 });
 
