@@ -307,6 +307,18 @@ export default function AdminWebProviderDetailScreen() {
       {/* Operations — account flags / suspension records (record-only) */}
       <AccountFlagPanel subjectId={id} subjectRole="provider" />
 
+      {/* Provider Quality — quality dashboard + action history for this provider */}
+      <SectionHeader title="Provider Quality" />
+      <Button
+        label="View provider quality"
+        variant="secondary"
+        onPress={() =>
+          router.push(
+            `/(admin-web)/provider-quality/${id}` as Href,
+          )
+        }
+      />
+
       {/* Operations — create a support case linked to this provider */}
       <SectionHeader title="Support case" />
       <Button

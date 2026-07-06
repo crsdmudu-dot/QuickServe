@@ -5,7 +5,7 @@
  * a read-only Earnings section summarising pending and paid earnings.
  */
 
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -277,6 +277,18 @@ export default function ProviderProfileScreen() {
             ) : null}
 
             <Button label="Save" onPress={handleSave} />
+
+            <Button
+              label="Quality Dashboard"
+              variant="secondary"
+              onPress={() => router.push('/provider/quality' as Href)}
+            />
+
+            <Button
+              label="Code of Conduct"
+              variant="secondary"
+              onPress={() => router.push('/provider/code-of-conduct' as Href)}
+            />
 
             <Button
               label="Notification settings"
