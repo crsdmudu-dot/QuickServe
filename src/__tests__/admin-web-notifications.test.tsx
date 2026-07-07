@@ -28,7 +28,7 @@ const mockGetMyNotifications = jest.fn().mockResolvedValue([] as unknown[]);
 const mockGetUnreadNotificationCount = jest.fn().mockResolvedValue(0);
 const mockMarkNotificationRead = jest.fn().mockResolvedValue({ ok: true });
 const mockMarkAllNotificationsRead = jest.fn().mockResolvedValue({ ok: true });
-const mockFilterNotifications = jest.fn((ns: any[]) => ns);
+const mockFilterNotifications = jest.fn((ns: any[], _filter?: any) => ns);
 
 jest.mock('@/lib/notifications', () => ({
   getMyNotifications: (...args: unknown[]) => mockGetMyNotifications(...args),
