@@ -40,7 +40,7 @@ beforeEach(() => {
 // ── getNotificationPreferences ─────────────────────────────────────────────
 
 describe('getNotificationPreferences', () => {
-  it('maps all 5 fields when a row is present', async () => {
+  it('maps all 9 fields when a row is present (new cols absent → safe defaults)', async () => {
     mockMaybeSingle.mockResolvedValue({
       data: {
         push_enabled: true,
@@ -48,6 +48,11 @@ describe('getNotificationPreferences', () => {
         booking_enabled: true,
         payment_enabled: false,
         marketing_enabled: true,
+        // T1 new cols absent from old rows → null-coalesced to defaults below
+        quality_enabled: null,
+        system_enabled: null,
+        email_enabled: null,
+        sms_enabled: null,
       },
     });
     const prefs = await getNotificationPreferences();
@@ -57,6 +62,10 @@ describe('getNotificationPreferences', () => {
       booking_enabled: true,
       payment_enabled: false,
       marketing_enabled: true,
+      quality_enabled: true,  // default true
+      system_enabled: true,   // default true
+      email_enabled: false,   // default false
+      sms_enabled: false,     // default false
     });
   });
 
