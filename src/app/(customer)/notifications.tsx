@@ -12,7 +12,6 @@
 import { useEffect, useState } from 'react';
 import { Href, router } from 'expo-router';
 import {
-  Pressable,
   ScrollView,
   StyleSheet,
   TouchableOpacity,

@@ -1,122 +1,58 @@
 /**
- * src/app/(admin-web)/notifications/index.tsx — Admin Operational Notifications Feed
+ * src/app/(admin-web)/notifications/index.tsx — Admin Notifications Center
  *
- * Loads own notifications via getMyNotifications() on mount, then filters to
- * category === 'system' (admin/operational fan-out rows: new bookings,
- * provider-pending, failed payments, cancellations, rejections). Displays them
- * in a DataTable with unread emphasis, observability fields, and an "Open"
- * action that marks the row read and navigates to its route.
+ * Enhanced (Task 5):
+ *   - Filter bar: All / Unread / Booking / Payments / Promotions / System
+ *   - Unread count badge (refreshed after mark-all)
+ *   - Mark all read
+ *   - Grouped view (Today / Yesterday / Earlier) via NotificationGroupedList
+ *   - Tap → markNotificationRead + resolveNotificationDeepLink routing
+ *   - Link to Broadcast composer
  *
  * Wrapped by AdminShell via the (admin-web)/_layout.tsx — this screen only
  * needs to return its content (no Shell wrapper here).
  *
- * Reuses Task-4 helpers: getMyNotifications, markNotificationRead, AppNotification.
- * No RLS/schema/Edge/trigger change — owner-only via existing RLS.
+ * Reuses: getMyNotifications, getUnreadNotificationCount, filterNotifications,
+ * markNotificationRead, markAllNotificationsRead (T2); NOTIFICATION_FILTERS,
+ * resolveNotificationDeepLink (constants/notifications); NotificationGroupedList,
+ * NotificationEmptyState, NotificationBadge (T3).
+ *
+ * NO push, NO email/SMS send, NO second pipeline. Mark-read = is_read+read_at only.
  */
 
-import { useState } from 'react';
-import { View } from 'react-native';
-import { router } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Href, router } from 'expo-router';
 
-import { DataTable, type Column } from '@/components/admin-web/data-table';
 import { PageMeta } from '@/components/admin-web/page-meta';
 import { Button } from '@/components/ui/button';
-import { LoadMoreButton } from '@/components/ui/load-more-button';
 import { Text } from '@/components/ui/text';
 import { usePaginatedList } from '@/hooks/use-paginated-list';
 import {
+  NOTIFICATION_FILTERS,
+  type NotificationFilter,
+  resolveNotificationDeepLink,
+} from '@/constants/notifications';
+import {
   getMyNotifications,
+  getUnreadNotificationCount,
+  filterNotifications,
   markNotificationRead,
+  markAllNotificationsRead,
   type AppNotification,
 } from '@/lib/notifications';
-
-// ── Column definitions ─────────────────────────────────────────────────────
-
-function buildColumns(
-  onOpen: (row: AppNotification) => void,
-): Column<AppNotification>[] {
-  return [
-    {
-      key: 'notification',
-      header: 'Notification',
-      render: (row) => (
-        <View style={{ gap: 2 }}>
-          <Text
-            variant="label"
-            color="text"
-            weight={row.is_read ? 'medium' : 'semibold'}>
-            {row.title}
-          </Text>
-          <Text variant="caption" color="textSecondary" numberOfLines={2}>
-            {row.body}
-          </Text>
-        </View>
-      ),
-      width: 260,
-    },
-    {
-      key: 'type',
-      header: 'Type',
-      render: (row) => (
-        <Text variant="caption" color="textSecondary">
-          {row.type ?? '—'}
-        </Text>
-      ),
-      width: 120,
-    },
-    {
-      key: 'category',
-      header: 'Category',
-      render: (row) => (
-        <Text variant="caption" color="textSecondary">
-          {row.category ?? '—'}
-        </Text>
-      ),
-      width: 100,
-    },
-    {
-      key: 'push',
-      header: 'Push',
-      render: (row) => (
-        <Text variant="caption" color="textSecondary">
-          {row.push_status ?? '—'}
-        </Text>
-      ),
-      width: 90,
-    },
-    {
-      key: 'created',
-      header: 'Created',
-      render: (row) => (
-        <Text variant="caption" color="textSecondary">
-          {new Date(row.created_at).toLocaleString()}
-        </Text>
-      ),
-      width: 160,
-    },
-    {
-      key: 'actions',
-      header: 'Action',
-      render: (row) => (
-        <View>
-          <Button
-            label="Open"
-            variant="ghost"
-            size="md"
-            onPress={() => onOpen(row)}
-          />
-        </View>
-      ),
-      width: 80,
-    },
-  ];
-}
+import { NotificationGroupedList } from '@/components/notifications/notification-grouped-list';
+import { NotificationEmptyState } from '@/components/notifications/notification-empty-state';
+import { NotificationBadge } from '@/components/notifications/notification-badge';
+import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 
 // ── Screen ──────────────────────────────────────────────────────────────────
 
 export default function AdminWebNotificationsScreen() {
-  const [localReadIds, setLocalReadIds] = useState<Set<string>>(new Set());
+  const theme = useTheme();
 
+  // ── Paginated notification list ──────────────────────────────────────────
   const {
     items: allNotifications,
     loading,
@@ -126,39 +62,187 @@ export default function AdminWebNotificationsScreen() {
     reload,
   } = usePaginatedList((p, s) => getMyNotifications(p, s));
 
-  // Keep only operational/system rows
-  const notifications = allNotifications
-    .filter((n) => n.category === 'system')
-    .map((n) => (localReadIds.has(n.id) ? { ...n, is_read: true } : n));
+  // ── Filter chip state ────────────────────────────────────────────────────
+  const [filter, setFilter] = useState<NotificationFilter>('all');
 
-  /** Mark read locally + navigate to route when present. */
-  async function handleOpen(row: AppNotification) {
-    await markNotificationRead(row.id);
-    // Update local read state
-    setLocalReadIds((prev) => new Set(prev).add(row.id));
-    if (row.route) {
-      router.push(row.route as never);
+  // ── Unread count ─────────────────────────────────────────────────────────
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const refreshUnread = useCallback(async () => {
+    const count = await getUnreadNotificationCount();
+    setUnreadCount(count);
+  }, []);
+
+  useEffect(() => {
+    void refreshUnread();
+  }, [refreshUnread]);
+
+  // ── Computed filtered list (pure, client-side) ───────────────────────────
+  const shown = filterNotifications(allNotifications, filter);
+
+  // ── Handlers ─────────────────────────────────────────────────────────────
+
+  async function handlePress(n: AppNotification) {
+    // Mark read = is_read + read_at only (via lib). No delete, no history mutation.
+    await markNotificationRead(n.id);
+    void refreshUnread();
+    const route = resolveNotificationDeepLink(n);
+    if (route) {
+      router.push(route as Href);
     }
   }
 
-  const columns = buildColumns(handleOpen);
+  async function handleMarkAll() {
+    await markAllNotificationsRead();
+    reload();
+    void refreshUnread();
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <>
       <PageMeta
         title="Notifications"
-        description="Operational alerts for admins."
+        description="Operational alerts and announcements for admins."
       />
-      <DataTable
-        columns={columns}
-        rows={notifications}
-        keyExtractor={(n) => n.id}
-        loading={loading}
-        error={!!loadError}
-        onRetry={reload}
-        emptyLabel="No notifications yet."
-      />
-      <LoadMoreButton onPress={loadMore} loading={loading} hasMore={hasMore} />
+
+      {/* ── Header row: title + unread badge + mark-all + broadcast link ── */}
+      <View style={styles.headerRow}>
+        <View style={styles.headerLeft}>
+          <Text variant="heading" color="text" weight="semibold">
+            Notifications
+          </Text>
+          {unreadCount > 0 && (
+            <View style={styles.badgeWrap}>
+              <NotificationBadge count={unreadCount} />
+            </View>
+          )}
+        </View>
+        <View style={styles.headerActions}>
+          <Button
+            label="Mark all read"
+            variant="ghost"
+            size="md"
+            onPress={() => void handleMarkAll()}
+          />
+          <Button
+            label="Broadcast"
+            variant="secondary"
+            size="md"
+            onPress={() => router.push('/(admin-web)/broadcast' as Href)}
+          />
+        </View>
+      </View>
+
+      {/* ── Filter chips ──────────────────────────────────────────────────── */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterRow}
+        style={styles.filterScroll}
+      >
+        {NOTIFICATION_FILTERS.map((f) => {
+          const active = filter === f.id;
+          return (
+            <TouchableOpacity
+              key={f.id}
+              testID={`filter-chip-${f.id}`}
+              onPress={() => setFilter(f.id)}
+              accessibilityRole="button"
+              accessibilityLabel={f.label}
+              style={[
+                styles.chip,
+                {
+                  backgroundColor: active ? theme.primary : theme.surface,
+                  borderColor: active ? theme.primary : theme.border,
+                },
+              ]}
+            >
+              <Text
+                variant="caption"
+                style={{ color: active ? '#FFFFFF' : theme.textSecondary }}
+                weight={active ? 'semibold' : 'regular'}
+              >
+                {f.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      {/* ── Notification list ─────────────────────────────────────────────── */}
+      {loadError ? (
+        <View style={styles.errorRow}>
+          <Text variant="body" color="error">
+            Could not load notifications.
+          </Text>
+          <Button label="Retry" variant="ghost" size="md" onPress={reload} />
+        </View>
+      ) : shown.length === 0 && !loading ? (
+        <NotificationEmptyState
+          variant={
+            filter === 'unread' ? 'unread' : filter === 'all' ? 'all' : 'filtered'
+          }
+        />
+      ) : (
+        <NotificationGroupedList notifications={shown} onPressItem={handlePress} />
+      )}
+
+      {/* ── Load more ─────────────────────────────────────────────────────── */}
+      {hasMore && (
+        <Button
+          label={loading ? 'Loading…' : 'Load more'}
+          variant="ghost"
+          size="md"
+          onPress={loadMore}
+          disabled={loading}
+        />
+      )}
     </>
   );
 }
+
+// ── Styles ──────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+    marginBottom: Spacing.three,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  badgeWrap: {
+    marginLeft: Spacing.one,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  filterScroll: {
+    marginBottom: Spacing.three,
+  },
+  filterRow: {
+    gap: Spacing.two,
+    paddingRight: Spacing.two,
+  },
+  chip: {
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.one + 2,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+});

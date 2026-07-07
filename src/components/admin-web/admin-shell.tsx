@@ -19,17 +19,23 @@
  *   │  <ScrollView> children                           │
  *   └──────────────────────────────────────────────────┘
  *
+ * The top-bar always includes an AdminNotificationBell (T5) that shows the
+ * admin's unread count and navigates to /(admin-web)/notifications on press.
+ *
  * RN/RN-web safe — no DOM-only APIs.
  */
 
-import { type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { router, type Href } from 'expo-router';
 
 import { AdminSidebar } from '@/components/admin-web/admin-sidebar';
+import { NotificationBell } from '@/components/notifications/notification-bell';
 import { Text } from '@/components/ui/text';
 import { AdminBreakpoints } from '@/constants/admin-web';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { getUnreadNotificationCount } from '@/lib/notifications';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -51,6 +57,22 @@ export function AdminShell({ title, rightSlot, children }: AdminShellProps) {
   // Tablet/narrow: compact horizontal top-nav stacked above content.
   const isWide = width >= AdminBreakpoints.wide;
 
+  // ── Admin notification bell unread count ──────────────────────────────
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    let mounted = true;
+    getUnreadNotificationCount()
+      .then((count) => { if (mounted) setUnreadCount(count); })
+      .catch(() => { /* silent — bell shows 0 on error */ });
+    return () => { mounted = false; };
+  }, []);
+
+  function handleBellPress() {
+    // Navigate to the admin notifications center
+    router.push('/(admin-web)/notifications' as Href);
+  }
+
   return (
     <View style={[styles.root, { backgroundColor: theme.background }]}>
       {/* Desktop side navigation */}
@@ -61,11 +83,16 @@ export function AdminShell({ title, rightSlot, children }: AdminShellProps) {
         {/* Tablet / narrow horizontal top nav */}
         {!isWide && <AdminSidebar orientation="top" />}
 
-        {/* Top bar — title + optional right slot */}
+        {/* Top bar — title + notification bell + optional right slot */}
         <View style={[styles.topBar, { borderBottomColor: theme.border }]}>
           <Text variant="title" color="text" style={styles.titleText}>
             {title}
           </Text>
+          {/* Admin notification bell — always present in the top bar */}
+          <NotificationBell
+            count={unreadCount}
+            onPress={handleBellPress}
+          />
           {rightSlot ? <View style={styles.rightSlot}>{rightSlot}</View> : null}
         </View>
 
