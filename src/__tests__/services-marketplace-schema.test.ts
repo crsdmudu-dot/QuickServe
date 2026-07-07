@@ -360,3 +360,212 @@ describe('exactly 3 policies per table', () => {
     expect(matches).toHaveLength(3);
   });
 });
+
+// ─── T2 assertions ───────────────────────────────────────────────────────────
+
+// ─── 16. All 9 admin RPCs present + security definer + is_admin guard ────────
+
+const ADMIN_RPCS = [
+  'admin_create_category',
+  'admin_update_category',
+  'admin_set_category_active',
+  'admin_reorder_categories',
+  'admin_create_service',
+  'admin_update_service',
+  'admin_set_service_status',
+  'admin_duplicate_service',
+  'admin_reorder_services',
+];
+
+describe('admin RPCs — present + security definer + is_admin guard', () => {
+  test.each(ADMIN_RPCS)('%s declared as function', (rpcName) => {
+    expect(norm(sql)).toContain(`function public.${rpcName}`);
+  });
+
+  test.each(ADMIN_RPCS)('%s has security definer', (rpcName) => {
+    // find the function block and assert security definer appears in it
+    const idx = norm(sql).indexOf(`function public.${rpcName}`);
+    const block = norm(sql).slice(idx, idx + 2000);
+    expect(block).toContain('security definer');
+  });
+
+  test.each(ADMIN_RPCS)('%s has set search_path = public', (rpcName) => {
+    const idx = norm(sql).indexOf(`function public.${rpcName}`);
+    const block = norm(sql).slice(idx, idx + 2000);
+    expect(block).toContain('set search_path = public');
+  });
+
+  test.each(ADMIN_RPCS)('%s has is_admin() guard as first statement', (rpcName) => {
+    const idx = norm(sql).indexOf(`function public.${rpcName}`);
+    const block = norm(sql).slice(idx, idx + 2000);
+    expect(block).toContain("if not public.is_admin() then raise exception 'not authorized'");
+  });
+});
+
+// ─── 17. admin_set_category_active — active-services guard ───────────────────
+
+describe('admin_set_category_active active-services guard', () => {
+  test("contains status = 'active' guard", () => {
+    const idx = norm(sql).indexOf('function public.admin_set_category_active');
+    const block = norm(sql).slice(idx, idx + 2000);
+    expect(block).toContain("status = 'active'");
+  });
+
+  test('raises category has active services', () => {
+    const idx = norm(sql).indexOf('function public.admin_set_category_active');
+    const block = norm(sql).slice(idx, idx + 2000);
+    expect(block).toContain('category has active services');
+  });
+});
+
+// ─── 18. admin_update_service — slug immutable (no p_slug param or update) ───
+
+describe('admin_update_service slug immutability', () => {
+  test('admin_update_service does not accept p_slug param', () => {
+    const idx = norm(sql).indexOf('function public.admin_update_service');
+    // extract the parameter list (before "returns void")
+    const block = norm(sql).slice(idx, idx + 1000);
+    const returnsIdx = block.indexOf('returns void');
+    const paramList = block.slice(0, returnsIdx);
+    expect(paramList).not.toContain('p_slug');
+  });
+
+  test('admin_update_service body does not write slug column', () => {
+    const idx = norm(sql).indexOf('function public.admin_update_service');
+    const block = norm(sql).slice(idx, idx + 2000);
+    // The body should not contain "slug =" (a slug assignment)
+    // It's fine that the comment mentions "slug immutable"
+    const bodyStart = block.indexOf('begin');
+    const body = block.slice(bodyStart);
+    // slug should not appear as a column assignment "slug ="
+    expect(body).not.toMatch(/\bslug\s*=/);
+  });
+});
+
+// ─── 19. admin_create_service slug format validation ─────────────────────────
+
+describe('admin_create_service slug format validation', () => {
+  test('admin_create_service validates slug format', () => {
+    const idx = norm(sql).indexOf('function public.admin_create_service');
+    const block = norm(sql).slice(idx, idx + 2000);
+    expect(block).toContain('invalid slug format');
+  });
+
+  test('admin_create_category validates slug format', () => {
+    const idx = norm(sql).indexOf('function public.admin_create_category');
+    const block = norm(sql).slice(idx, idx + 2000);
+    expect(block).toContain('invalid slug format');
+  });
+});
+
+// ─── 20. admin_duplicate_service — draft + -copy slug ────────────────────────
+
+describe('admin_duplicate_service', () => {
+  test("sets status to 'draft'", () => {
+    const idx = norm(sql).indexOf('function public.admin_duplicate_service');
+    const block = norm(sql).slice(idx, idx + 2000);
+    expect(block).toContain("'draft'");
+  });
+
+  test('builds a -copy slug', () => {
+    const idx = norm(sql).indexOf('function public.admin_duplicate_service');
+    const block = norm(sql).slice(idx, idx + 2000);
+    expect(block).toContain('-copy');
+  });
+});
+
+// ─── 21. Reorder RPCs set display_order ──────────────────────────────────────
+
+describe('reorder RPCs set display_order', () => {
+  test('admin_reorder_categories sets display_order', () => {
+    const idx = norm(sql).indexOf('function public.admin_reorder_categories');
+    const block = norm(sql).slice(idx, idx + 2000);
+    expect(block).toContain('display_order');
+  });
+
+  test('admin_reorder_services sets display_order', () => {
+    const idx = norm(sql).indexOf('function public.admin_reorder_services');
+    const block = norm(sql).slice(idx, idx + 2000);
+    expect(block).toContain('display_order');
+  });
+});
+
+// ─── 22. Seed — non-destructive, all slugs present, featured/trending ─────────
+
+describe('seed — idempotent non-destructive', () => {
+  test('insert into public.service_categories present', () => {
+    expect(norm(sql)).toContain('insert into public.service_categories');
+  });
+
+  test('insert into public.services present', () => {
+    expect(norm(sql)).toContain('insert into public.services');
+  });
+
+  test('service_categories seed uses on conflict (slug) do nothing', () => {
+    const catSeedIdx = norm(sql).lastIndexOf('insert into public.service_categories');
+    const block = norm(sql).slice(catSeedIdx, catSeedIdx + 400);
+    expect(block).toContain('on conflict (slug) do nothing');
+  });
+
+  test('services seed uses on conflict (slug) do nothing', () => {
+    const svcSeedIdx = norm(sql).lastIndexOf('insert into public.services');
+    const block = norm(sql).slice(svcSeedIdx, svcSeedIdx + 8000);
+    expect(block).toContain('on conflict (slug) do nothing');
+  });
+
+  test('seed does NOT use do update (non-destructive)', () => {
+    // Neither seed block should use "do update"
+    const catSeedIdx = norm(sql).lastIndexOf('insert into public.service_categories');
+    const svcSeedIdx = norm(sql).lastIndexOf('insert into public.services');
+    const catBlock = norm(sql).slice(catSeedIdx, catSeedIdx + 400);
+    const svcBlock = norm(sql).slice(svcSeedIdx, svcSeedIdx + 8000);
+    expect(catBlock).not.toContain('do update');
+    expect(svcBlock).not.toContain('do update');
+  });
+
+  // 4 category slugs
+  const CAT_SLUGS = ['home', 'auto', 'delivery', 'personal'];
+  test.each(CAT_SLUGS)("category slug '%s' in seed", (slug) => {
+    const catSeedIdx = norm(sql).lastIndexOf('insert into public.service_categories');
+    const block = norm(sql).slice(catSeedIdx, catSeedIdx + 400);
+    expect(block).toContain(`'${slug}'`);
+  });
+
+  // All 19 service slugs
+  const SERVICE_SLUGS = [
+    'house-cleaning', 'plumbing', 'electrical', 'ac-repair', 'painting',
+    'pest-control', 'handyman', 'appliance-repair', 'movers-packers',
+    'mechanic', 'tire-replacement', 'car-towing',
+    'grocery-delivery', 'food-delivery', 'medicine-delivery', 'package-delivery',
+    'haircuts', 'makeup', 'massage',
+  ];
+  test.each(SERVICE_SLUGS)("service slug '%s' in seed", (slug) => {
+    const svcSeedIdx = norm(sql).lastIndexOf('insert into public.services');
+    const block = norm(sql).slice(svcSeedIdx, svcSeedIdx + 8000);
+    expect(block).toContain(`'${slug}'`);
+  });
+
+  // Featured slugs spot-check (FEATURED_SERVICE_IDS from discovery.ts)
+  const FEATURED_SLUGS = ['house-cleaning', 'mechanic', 'food-delivery', 'massage', 'ac-repair'];
+  test.each(FEATURED_SLUGS)("featured slug '%s' seeded with featured=true", (slug) => {
+    // Find the line for this slug in the seed and check true appears nearby
+    const svcSeedIdx = norm(sql).lastIndexOf('insert into public.services');
+    const block = norm(sql).slice(svcSeedIdx, svcSeedIdx + 8000);
+    // Find the slug in the seed block, then look at the next 300 chars for 'true'
+    const slugIdx = block.indexOf(`'${slug}'`);
+    expect(slugIdx).toBeGreaterThan(-1);
+    const lineSegment = block.slice(slugIdx, slugIdx + 300);
+    expect(lineSegment).toContain('true');
+  });
+
+  // Trending slugs spot-check (TRENDING_SERVICE_IDS from discovery.ts)
+  const TRENDING_SLUGS = ['plumbing', 'grocery-delivery', 'handyman', 'haircuts', 'movers-packers', 'tire-replacement'];
+  test.each(TRENDING_SLUGS)("trending slug '%s' seeded with trending=true", (slug) => {
+    const svcSeedIdx = norm(sql).lastIndexOf('insert into public.services');
+    const block = norm(sql).slice(svcSeedIdx, svcSeedIdx + 8000);
+    const slugIdx = block.indexOf(`'${slug}'`);
+    expect(slugIdx).toBeGreaterThan(-1);
+    const lineSegment = block.slice(slugIdx, slugIdx + 300);
+    expect(lineSegment).toContain('true');
+  });
+});
