@@ -1,6 +1,6 @@
 # Slice 36 — Communication Center: Verification & Pilot Guide
 
-Accurate as of migration `0031_communication_center.sql` and commit range `5f23d66..b5a2727` (branch `feat/slice-36-communication-center`).
+Accurate as of migration `0031_communication_center.sql` and commit range `5f23d66..dd10151` (branch `feat/slice-36-communication-center`).
 
 ---
 
@@ -302,7 +302,7 @@ No public/anon access to notifications. `emit_notification` and `broadcast_annou
 
 ## 8. Guardrails Honored
 
-`git diff --name-only 5f23d66..b5a2727` output (38 files):
+`git diff --name-only 5f23d66..dd10151` output (38 files):
 
 ```
 src/__tests__/admin-web-notifications.test.tsx
@@ -408,14 +408,14 @@ Because no existing column, trigger, function, RLS policy, or index was modified
 | Check | Result |
 |---|---|
 | `npm test` | PASS — 210 suites, 2852 tests, 0 failures |
-| `npx tsc --noEmit` | FAIL — 1 error: `src/__tests__/admin-web-notifications.test.tsx(36,97): TS2554 Expected 1 arguments, but got 2` (see concern below) |
-| `npx expo export --platform android` | PASS — exported to `dist/` (run before tsc to regenerate route types) |
+| `npx tsc --noEmit` | PASS — clean (run `npx expo export --platform android` first to regenerate route types) |
+| `npx expo export --platform android` | PASS — exported to `dist/` |
 | `npx expo export --platform web` | PASS — exported to `dist/` |
-| `git status` | `On branch feat/slice-36-communication-center` — only `supabase/.temp/` untracked; working tree otherwise clean |
+| `git status` | Clean working tree (branch `feat/slice-36-communication-center`) |
 
-### Known concern — tsc error in test file
+### Resolved concern — tsc error in test file (fixed)
 
-`src/__tests__/admin-web-notifications.test.tsx:36` defines `mockFilterNotifications` as `jest.fn((ns: any[]) => ns)` (one parameter), then calls it with two arguments `(ns as any[], filter as any)` in the mock factory. TypeScript correctly flags this as `TS2554`. This is a type annotation defect in the test file only — it does NOT affect runtime behavior (tests pass 2852/2852) and does NOT affect the production app bundle. The error predates this task (introduced in T5, commit `b5a2727`). No production code is affected; this task does not fix it per guardrail (documentation + verification only).
+During verification, `npx tsc --noEmit` surfaced one pre-existing type defect from T5: `src/__tests__/admin-web-notifications.test.tsx:31` declared `mockFilterNotifications` as `jest.fn((ns: any[]) => ns)` (one parameter) but invoked it with two arguments on line 36, tripping `TS2554`. Runtime was unaffected (tests passed 2852/2852) and no production code was involved. Per the T6 guardrail the verification task did not modify code; the controller applied the one-line fix (added the optional `_filter` param) in commit `dd10151`, after which `tsc --noEmit` is clean. The final gate above reflects the fixed head.
 
 ### Total test count
 
