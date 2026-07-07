@@ -27,6 +27,11 @@ jest.mock('@/lib/recent-services', () => ({
   getRecentlyUsedServices: (...args: unknown[]) => mockGetRecentlyUsedServices(...args),
 }));
 
+// Mock notifications — home screen imports getUnreadNotificationCount for the bell
+jest.mock('@/lib/notifications', () => ({
+  getUnreadNotificationCount: jest.fn().mockResolvedValue(0),
+}));
+
 // Mock ServicesProvider — home screen uses useServices() for lists + getServiceBySlug
 jest.mock('@/services/services-provider', () => {
   const { mockServicesProviderModule } = require('../../test/mock-services');

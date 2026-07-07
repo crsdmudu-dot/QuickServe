@@ -3,6 +3,7 @@
  * approval status: pending, rejected, or approved (shows assigned jobs).
  */
 
+import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +14,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { usePaginatedList } from '@/hooks/use-paginated-list';
 import { useAuth } from '@/auth/auth-context';
 import { getProviderJobs } from '@/lib/bookings';
+import { getUnreadNotificationCount } from '@/lib/notifications';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -20,6 +22,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { LoadMoreButton } from '@/components/ui/load-more-button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
+import { NotificationBell } from '@/components/notifications/notification-bell';
 
 export default function ProviderHomeScreen() {
   const theme = useTheme();
@@ -32,6 +35,13 @@ export default function ProviderHomeScreen() {
     hasMore: jobsHasMore,
     loadMore: loadMoreJobs,
   } = usePaginatedList((p, s) => getProviderJobs(p, s));
+
+  // ── Notification bell unread count ────────────────────────────────────────
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+
+  useEffect(() => {
+    getUnreadNotificationCount().then(setUnreadNotifications);
+  }, []);
 
   // ── Not yet approved ───────────────────────────────────────────────────────
 
@@ -67,10 +77,16 @@ export default function ProviderHomeScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
-      {/* Header row with sign-out */}
+      {/* Header row with notification bell and sign-out */}
       <View style={styles.header}>
         <Text variant="title">My Jobs</Text>
-        <Button label="Sign out" variant="ghost" onPress={signOut} />
+        <View style={styles.headerActions}>
+          <NotificationBell
+            count={unreadNotifications}
+            onPress={() => router.push('/provider/notifications')}
+          />
+          <Button label="Sign out" variant="ghost" onPress={signOut} />
+        </View>
       </View>
 
       {/* Loading skeleton — shown during initial load */}
@@ -124,6 +140,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.three,
     paddingBottom: Spacing.two,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
   },
   list: { padding: Spacing.four, gap: Spacing.three },
   card: { gap: Spacing.two },

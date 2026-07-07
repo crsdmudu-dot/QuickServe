@@ -7,6 +7,7 @@ import { type Service } from '@/constants/services';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { getGreeting } from '@/lib/greeting';
 import { getRecentlyUsedServiceIds } from '@/lib/recent-services';
+import { getUnreadNotificationCount } from '@/lib/notifications';
 import { useTheme } from '@/hooks/use-theme';
 import { useBookingDraft } from '@/booking/booking-draft';
 import { useServices } from '@/services/services-provider';
@@ -15,6 +16,7 @@ import { SectionHeader } from '@/components/ui/section-header';
 import { ServiceCard } from '@/components/ui/service-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
+import { NotificationBell } from '@/components/notifications/notification-bell';
 
 export default function HomeScreen() {
   const theme = useTheme();
@@ -41,6 +43,13 @@ export default function HomeScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── Notification bell unread count ───────────────────────────────────────
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+
+  useEffect(() => {
+    getUnreadNotificationCount().then(setUnreadNotifications);
+  }, []);
+
   function handleServicePress(service: Service) {
     start(service.id);
     router.push('/booking/address');
@@ -58,7 +67,13 @@ export default function HomeScreen() {
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         {/* ── Hero header ──────────────────────────────────────────── */}
         <View style={styles.hero}>
-          <Text variant="display">{getGreeting()}</Text>
+          <View style={styles.heroTop}>
+            <Text variant="display">{getGreeting()}</Text>
+            <NotificationBell
+              count={unreadNotifications}
+              onPress={() => router.push('/(customer)/notifications')}
+            />
+          </View>
           <Text variant="body" color="textSecondary">
             What service do you need today?
           </Text>
@@ -287,6 +302,12 @@ const styles = StyleSheet.create({
   hero: {
     paddingTop: Spacing.four,
     gap: Spacing.two,
+  },
+  // Row that places greeting text and notification bell side-by-side.
+  heroTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   // Quick-entry row: browse providers + favorites
   entryLinks: {
