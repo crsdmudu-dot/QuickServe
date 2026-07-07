@@ -12,8 +12,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { SERVICES } from '@/constants/services';
 import { FUTURE_READY_PREFERENCES } from '@/constants/customer-profile';
+import { useServices } from '@/services/services-provider';
 import { MaxContentWidth, Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -34,6 +34,7 @@ import { FavoriteServiceToggle } from '@/components/customer/favorite-service-to
 
 export default function PreferencesScreen() {
   const theme = useTheme();
+  const { services } = useServices();
 
   // ── Favorite services state ──────────────────────────────────────────────────
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
@@ -105,7 +106,7 @@ export default function PreferencesScreen() {
                 <Skeleton key={i} height={52} />
               ))}
             </View>
-          ) : SERVICES.length === 0 ? (
+          ) : services.length === 0 ? (
             <EmptyState
               icon="🤍"
               title="No services"
@@ -114,12 +115,12 @@ export default function PreferencesScreen() {
           ) : (
             <Card elevation="e1">
               <View style={styles.serviceList}>
-                {SERVICES.map((service, index) => (
+                {services.map((service, index) => (
                   <View
                     key={service.id}
                     style={[
                       styles.serviceRow,
-                      index < SERVICES.length - 1 && {
+                      index < services.length - 1 && {
                         borderBottomWidth: StyleSheet.hairlineWidth,
                         borderBottomColor: theme.border,
                       },

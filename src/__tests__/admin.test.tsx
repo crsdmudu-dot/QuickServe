@@ -17,6 +17,12 @@ const pastIso     = new Date(Date.now() - 2 * 86_400_000).toISOString();
 
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 
+// Mock ServicesProvider — admin/index.tsx uses useServices() for getServiceBySlug
+jest.mock('@/services/services-provider', () => {
+  const { mockServicesProviderModule } = require('../../test/mock-services');
+  return mockServicesProviderModule();
+});
+
 jest.mock('@/lib/bookings', () => ({
   getAllBookings: jest.fn().mockResolvedValue([
     {

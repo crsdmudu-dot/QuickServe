@@ -9,8 +9,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Linking, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { SERVICES } from '@/constants/services';
 import { PROVIDER_NEXT_STATUSES, STATUS_LABELS } from '@/constants/booking-status';
+import { useServices } from '@/services/services-provider';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getBookingById, updateBookingStatus, type Booking } from '@/lib/bookings';
@@ -96,7 +96,8 @@ export default function ProviderJobDetailScreen() {
     );
   }
 
-  const service = SERVICES.find((s) => s.id === booking.service_id);
+  const { getServiceBySlug } = useServices();
+  const service = getServiceBySlug(booking.service_id);
   const nextStatuses = PROVIDER_NEXT_STATUSES[booking.status];
 
   return (
@@ -109,7 +110,7 @@ export default function ProviderJobDetailScreen() {
 
         {/* ── Booking summary (service, address, date, notes) ──────────── */}
         <BookingSummaryCard
-          serviceTitle={service?.title ?? booking.service_id}
+          serviceTitle={service.title}
           address={booking.address}
           scheduledFor={booking.scheduled_for}
           notes={booking.notes ?? ''}

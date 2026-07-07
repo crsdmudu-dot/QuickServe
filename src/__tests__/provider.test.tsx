@@ -7,6 +7,12 @@
 
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 
+// Mock ServicesProvider — provider home screen uses useServices() for getServiceBySlug
+jest.mock('@/services/services-provider', () => {
+  const { mockServicesProviderModule } = require('../../test/mock-services');
+  return mockServicesProviderModule();
+});
+
 const mockGetProviderJobs = jest.fn().mockResolvedValue([
   {
     id: 'j1',

@@ -17,6 +17,12 @@ jest.mock('@/hooks/use-provider-location-sharing', () => ({
   useProviderLocationSharing: () => ({ sharing: false, permission: 'undetermined' }),
 }));
 
+// Mock ServicesProvider — provider/job/[id].tsx uses useServices() for getServiceBySlug
+jest.mock('@/services/services-provider', () => {
+  const { mockServicesProviderModule } = require('../../test/mock-services');
+  return mockServicesProviderModule();
+});
+
 // booking state is controlled per test via this variable.
 let mockBookingStatus: string = 'provider_assigned';
 

@@ -15,8 +15,8 @@ import { useEffect, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { SERVICES } from '@/constants/services';
 import { Radii, Spacing } from '@/constants/theme';
+import { useServices } from '@/services/services-provider';
 import { useTheme } from '@/hooks/use-theme';
 import { usePaginatedList } from '@/hooks/use-paginated-list';
 import { useAuth } from '@/auth/auth-context';
@@ -66,6 +66,7 @@ function matchesFilter(b: Booking, filter: BookingFilter): boolean {
 export default function AdminScreen() {
   const theme = useTheme();
   const { signOut } = useAuth();
+  const { getServiceBySlug } = useServices();
 
   const [tab, setTab] = useState<Tab>('bookings');
   const [providers, setProviders] = useState<ProviderProfile[] | null>(null);
@@ -178,11 +179,11 @@ export default function AdminScreen() {
                 />
               }
               renderItem={({ item: b }) => {
-                const service = SERVICES.find((s) => s.id === b.service_id);
+                const service = getServiceBySlug(b.service_id);
                 const showRecurrence = b.recurrence && b.recurrence !== 'one_time';
                 return (
                   <Card onPress={() => router.push(`/admin/booking/${b.id}`)} style={styles.card} elevation="e1">
-                    <Text variant="heading">{service?.title ?? b.service_id}</Text>
+                    <Text variant="heading">{service.title}</Text>
                     <View style={styles.row}>
                       <StatusBadge status={b.status} />
                       {showRecurrence && (

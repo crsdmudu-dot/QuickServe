@@ -9,6 +9,12 @@ jest.mock('expo-router', () => ({
   router: { push: jest.fn(), replace: jest.fn() },
 }));
 
+// Mock ServicesProvider — BookingStatusCard (used by bookings screen) uses useServices()
+jest.mock('@/services/services-provider', () => {
+  const { mockServicesProviderModule } = require('../../test/mock-services');
+  return mockServicesProviderModule();
+});
+
 const mockGetCustomerBookings = jest.fn().mockResolvedValue([
   {
     id: 'b1',

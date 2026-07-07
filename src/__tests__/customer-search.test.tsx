@@ -11,6 +11,12 @@ jest.mock('expo-router', () => ({
   router: { push: jest.fn(), back: jest.fn() },
 }));
 
+// Mock ServicesProvider — search.tsx uses useServices() for the services list
+jest.mock('@/services/services-provider', () => {
+  const { mockServicesProviderModule } = require('../../test/mock-services');
+  return mockServicesProviderModule();
+});
+
 const mockStart = jest.fn();
 jest.mock('@/booking/booking-draft', () => ({
   useBookingDraft: () => ({ start: mockStart }),
@@ -122,7 +128,8 @@ describe('SearchScreen', () => {
   });
 
   it('tapping a popular/recent term sets the query (drives instant results)', async () => {
-    mockSearchServices.mockImplementation((q: string) =>
+    // searchServices now takes (services: Service[], query: string) — Slice 35 Task 5
+    mockSearchServices.mockImplementation((_services: unknown[], q: string) =>
       q.toLowerCase().includes('plumb') ? [SERVICE_CLEANING] : [],
     );
     render(<SearchScreen />);

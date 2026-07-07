@@ -11,6 +11,12 @@
  * react-native-svg in jsdom. Uses findBy* / waitFor for async loads.
  */
 
+// Mock ServicesProvider — analytics screen uses useServices() for getServiceBySlug (label lookup)
+jest.mock('@/services/services-provider', () => {
+  const { mockServicesProviderModule } = require('../../test/mock-services');
+  return mockServicesProviderModule();
+});
+
 // ── Chart component stubs (avoid react-native-svg in jsdom) ──────────────────
 
 jest.mock('@/components/admin-web/charts/trend-card', () => ({

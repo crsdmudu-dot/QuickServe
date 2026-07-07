@@ -22,6 +22,7 @@ import type { Service } from '@/constants/services';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useBookingDraft } from '@/booking/booking-draft';
+import { useServices } from '@/services/services-provider';
 import {
   addRecentSearch,
   clearRecentSearches,
@@ -41,6 +42,7 @@ import { Text } from '@/components/ui/text';
 export default function SearchScreen() {
   const theme = useTheme();
   const { start } = useBookingDraft();
+  const { services } = useServices();
 
   const [query, setQuery] = useState('');
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
@@ -72,7 +74,7 @@ export default function SearchScreen() {
     router.push('/booking/address');
   }
 
-  const results = query.trim() ? searchServices(query) : [];
+  const results = query.trim() ? searchServices(services, query) : [];
   const hasQuery = query.trim().length > 0;
   const hasResults = results.length > 0;
   const noResults = hasQuery && !hasResults;

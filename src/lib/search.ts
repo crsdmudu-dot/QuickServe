@@ -51,19 +51,22 @@ export async function clearRecentSearches(): Promise<void> {
   await AsyncStorage.removeItem(RECENT_SEARCHES_KEY);
 }
 
-// ── Keyword search (pure, over SERVICES) ─────────────────────────────────
+// ── Keyword search (pure, over a supplied services list) ─────────────────
 
 /**
  * Returns services whose title, subtitle, or category label contains the query
  * (case-insensitive). Empty/whitespace query returns [].
- * Preserves the order from SERVICES.
+ * Preserves the order from the supplied list.
+ *
+ * @param services - The list to search over (pass useServices().services from a screen).
+ * @param query    - The search string.
  */
-export function searchServices(query: string): Service[] {
+export function searchServices(services: Service[], query: string): Service[] {
   const q = query.trim().toLowerCase();
   if (!q) return [];
 
-  return SERVICES.filter((svc) => {
-    const categoryLabel = CATEGORY_LABELS[svc.category].toLowerCase();
+  return services.filter((svc) => {
+    const categoryLabel = (CATEGORY_LABELS[svc.category] ?? svc.category).toLowerCase();
     return (
       svc.title.toLowerCase().includes(q) ||
       (svc.subtitle?.toLowerCase().includes(q) ?? false) ||

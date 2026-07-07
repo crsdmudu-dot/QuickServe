@@ -13,6 +13,12 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 
+// Mock ServicesProvider — preferences.tsx uses useServices() for the services list
+jest.mock('@/services/services-provider', () => {
+  const { mockServicesProviderModule } = require('../../test/mock-services');
+  return mockServicesProviderModule();
+});
+
 const mockGetFavoriteServiceIds = jest.fn().mockResolvedValue(['house-cleaning']);
 const mockAddFavoriteService    = jest.fn().mockResolvedValue({ ok: true });
 const mockRemoveFavoriteService = jest.fn().mockResolvedValue({ ok: true });

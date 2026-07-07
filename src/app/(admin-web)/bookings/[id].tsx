@@ -15,8 +15,8 @@ import { useLocalSearchParams, router, type Href } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
-import { SERVICES } from '@/constants/services';
 import { ALL_STATUSES, STATUS_LABELS, type BookingStatus } from '@/constants/booking-status';
+import { useServices } from '@/services/services-provider';
 import { Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -70,6 +70,7 @@ export default function AdminWebBookingDetailScreen() {
   const theme = useTheme();
   const { width } = useWindowDimensions();
   const isWide = width >= WIDE_BREAKPOINT;
+  const { getServiceBySlug } = useServices();
 
   const { id } = useLocalSearchParams<{ id: string }>();
 
@@ -110,7 +111,7 @@ export default function AdminWebBookingDetailScreen() {
         setAdminNotes(b.admin_notes ?? '');
         setAmountInput(
           b.quoted_amount?.toString() ??
-            SERVICES.find((s) => s.id === b.service_id)?.startingPrice?.toString() ??
+            getServiceBySlug(b.service_id).startingPrice?.toString() ??
             '',
         );
         setShareInput(b.provider_share?.toString() ?? '');
@@ -244,7 +245,7 @@ export default function AdminWebBookingDetailScreen() {
     );
   }
 
-  const service = SERVICES.find((s) => s.id === booking.service_id);
+  const service = getServiceBySlug(booking.service_id);
 
   // ── Left column content ────────────────────────────────────────────────
 
@@ -255,7 +256,7 @@ export default function AdminWebBookingDetailScreen() {
       <Card>
         <View style={styles.summaryContent}>
           <Text variant="heading" weight="semibold">
-            {service?.title ?? booking.service_id}
+            {service.title}
           </Text>
           <StatusBadge status={booking.status} />
           <Text variant="body" color="textSecondary">

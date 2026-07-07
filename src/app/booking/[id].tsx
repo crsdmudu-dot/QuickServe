@@ -20,8 +20,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { SERVICES } from '@/constants/services';
 import { Spacing } from '@/constants/theme';
+import { useServices } from '@/services/services-provider';
 import { useTheme } from '@/hooks/use-theme';
 import { getBookingById, getBookingProfessional, type Booking, type Professional } from '@/lib/bookings';
 import { getBookingPhotos, type BookingPhotoView } from '@/lib/photos';
@@ -56,6 +56,7 @@ import { ReviewEditForm } from '@/components/customer/review-edit-form';
 export default function BookingDetailScreen() {
   const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { getServiceBySlug } = useServices();
 
   const [booking, setBooking] = useState<Booking | null>(null);
   const [professional, setProfessional] = useState<Professional | null>(null);
@@ -241,7 +242,7 @@ export default function BookingDetailScreen() {
     );
   }
 
-  const service = SERVICES.find((s) => s.id === booking.service_id);
+  const service = getServiceBySlug(booking.service_id);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
@@ -255,7 +256,7 @@ export default function BookingDetailScreen() {
 
         {/* Booking summary */}
         <BookingSummaryCard
-          serviceTitle={service?.title ?? booking.service_id}
+          serviceTitle={service.title}
           address={booking.address}
           scheduledFor={booking.scheduled_for}
           notes={booking.notes ?? ''}
@@ -275,17 +276,15 @@ export default function BookingDetailScreen() {
         <BookingProgressTracker status={booking.status} />
 
         {/* Slice 34: service summary — display-only */}
-        {service && (
-          <View style={styles.serviceSummaryRow}>
-            <Text style={styles.serviceIcon}>{service.icon}</Text>
-            <View style={styles.serviceSummaryText}>
-              <Text variant="label" weight="semibold">{service.title}</Text>
-              {service.subtitle ? (
-                <Text variant="caption" color="textSecondary">{service.subtitle}</Text>
-              ) : null}
-            </View>
+        <View style={styles.serviceSummaryRow}>
+          <Text style={styles.serviceIcon}>{service.icon}</Text>
+          <View style={styles.serviceSummaryText}>
+            <Text variant="label" weight="semibold">{service.title}</Text>
+            {service.subtitle ? (
+              <Text variant="caption" color="textSecondary">{service.subtitle}</Text>
+            ) : null}
           </View>
-        )}
+        </View>
 
         {/* Payment section */}
         <SectionHeader title="Payment" />

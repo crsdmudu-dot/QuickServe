@@ -4,18 +4,19 @@
  * Verifies: service title rendered, StatusBadge shown, date shown,
  * onPress fires, status variants render.
  *
- * Mocks @/constants/services to avoid pulling the full constant list.
+ * BookingStatusCard was refactored in Slice 35 Task 5 to use useServices()
+ * (getServiceBySlug) instead of SERVICES.find(). The mock now uses the
+ * shared mockServicesProviderModule which mimics the 3-step fallback chain.
  */
+
+// Mock ServicesProvider so the component can call useServices()
+jest.mock('@/services/services-provider', () => {
+  const { mockServicesProviderModule } = require('../../../test/mock-services');
+  return mockServicesProviderModule();
+});
+
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import { BookingStatusCard } from '@/components/customer/booking-status-card';
-
-// ── Mock services ──────────────────────────────────────────────────────────────
-jest.mock('@/constants/services', () => ({
-  SERVICES: [
-    { id: 'plumbing', title: 'Plumbing', icon: '🔧', category: 'home', startingPrice: 2000 },
-    { id: 'house-cleaning', title: 'House Cleaning', icon: '🧹', category: 'home', startingPrice: 1500 },
-  ],
-}));
 
 // StatusBadge calls STATUS_LABELS/STATUS_COLORS from booking-status — no mock needed as they're constants.
 
@@ -63,9 +64,11 @@ describe('BookingStatusCard', () => {
     expect(screen.getByText('Cancelled')).toBeOnTheScreen();
   });
 
-  it('falls back to service_id when service is unknown', () => {
+  it('unknown service_id → renders generic humanized label (3-step fallback, no crash)', () => {
+    // 'unknown-svc' is not in SERVICES constants, so step-3 generic fallback kicks in:
+    // humanize('unknown-svc') = 'Unknown Svc'
     render(<BookingStatusCard booking={{ ...BASE_BOOKING, service_id: 'unknown-svc' }} />);
-    expect(screen.getByText('unknown-svc')).toBeOnTheScreen();
+    expect(screen.getByText('Unknown Svc')).toBeOnTheScreen();
   });
 
   it('falls back to "Booking" when service_id is absent', () => {

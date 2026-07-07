@@ -23,6 +23,12 @@ jest.mock('expo-router', () => ({
   router: { push: jest.fn() },
 }));
 
+// Mock ServicesProvider — admin-web booking screens use useServices() for getServiceBySlug
+jest.mock('@/services/services-provider', () => {
+  const { mockServicesProviderModule } = require('../../test/mock-services');
+  return mockServicesProviderModule();
+});
+
 const MOCK_BOOKING = {
   id: 'bk1',
   service_id: 'house-cleaning',

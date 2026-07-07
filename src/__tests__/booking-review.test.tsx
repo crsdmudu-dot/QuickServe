@@ -10,6 +10,12 @@
 
 jest.mock('expo-router', () => ({ router: { push: jest.fn(), replace: jest.fn() } }));
 
+// Mock ServicesProvider — review.tsx uses useServices() for getServiceBySlug
+jest.mock('@/services/services-provider', () => {
+  const { mockServicesProviderModule } = require('../../test/mock-services');
+  return mockServicesProviderModule();
+});
+
 const mockReset = jest.fn();
 let mockDraft = {
   serviceId: 'house-cleaning',
