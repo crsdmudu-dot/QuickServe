@@ -30,6 +30,7 @@ import { useProviderLocationSharing } from '@/hooks/use-provider-location-sharin
 export default function ProviderJobDetailScreen() {
   const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { getServiceBySlug } = useServices();
 
   const [booking, setBooking] = useState<Booking | null>(null);
   const [error, setError] = useState('');
@@ -96,7 +97,6 @@ export default function ProviderJobDetailScreen() {
     );
   }
 
-  const { getServiceBySlug } = useServices();
   const service = getServiceBySlug(booking.service_id);
   const nextStatuses = PROVIDER_NEXT_STATUSES[booking.status];
 
