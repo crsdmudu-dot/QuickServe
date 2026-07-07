@@ -17,8 +17,8 @@ import { useState } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { SERVICES } from '@/constants/services';
 import { Spacing } from '@/constants/theme';
+import { useServices } from '@/services/services-provider';
 import { useTheme } from '@/hooks/use-theme';
 import { useBookingDraft } from '@/booking/booking-draft';
 import { createBooking } from '@/lib/bookings';
@@ -30,6 +30,7 @@ import { Text } from '@/components/ui/text';
 
 export default function ReviewScreen() {
   const theme = useTheme();
+  const { getServiceBySlug } = useServices();
   const {
     serviceId,
     address,
@@ -56,7 +57,7 @@ export default function ReviewScreen() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const service = SERVICES.find((s) => s.id === serviceId);
+  const service = serviceId ? getServiceBySlug(serviceId) : null;
   const ready = Boolean(serviceId && address.trim() && scheduledFor);
 
   async function handlePlaceBooking() {
@@ -129,7 +130,7 @@ export default function ReviewScreen() {
         />
 
         <BookingSummaryCard
-          serviceTitle={service?.title ?? 'Service'}
+          serviceTitle={service?.title ?? serviceId ?? 'Service'}
           address={address}
           scheduledFor={scheduledFor ?? ''}
           notes={notes}

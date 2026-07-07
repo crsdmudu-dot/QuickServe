@@ -8,7 +8,7 @@ import { StyleSheet, View } from 'react-native';
 import { Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { type BookingStatus } from '@/constants/booking-status';
-import { SERVICES } from '@/constants/services';
+import { useServices } from '@/services/services-provider';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -30,12 +30,11 @@ export type BookingStatusCardProps = {
 
 export function BookingStatusCard({ booking, onPress }: BookingStatusCardProps) {
   const theme = useTheme();
+  const { getServiceBySlug } = useServices();
 
-  // Resolve a human-readable service title (fall back to service_id or "Booking")
-  const service = booking.service_id
-    ? SERVICES.find((s) => s.id === booking.service_id)
-    : undefined;
-  const serviceTitle = service?.title ?? booking.service_id ?? 'Booking';
+  // Resolve a human-readable service title via the 3-step fallback (never throws)
+  const service = booking.service_id ? getServiceBySlug(booking.service_id) : null;
+  const serviceTitle = service?.title ?? 'Booking';
   const serviceIcon  = service?.icon ?? '📋';
 
   // Format date — prefer scheduled_for, fallback to created_at

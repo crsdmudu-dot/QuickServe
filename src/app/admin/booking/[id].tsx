@@ -8,8 +8,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { SERVICES } from '@/constants/services';
 import { ALL_STATUSES, STATUS_LABELS, type BookingStatus } from '@/constants/booking-status';
+import { useServices } from '@/services/services-provider';
 import { Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -51,6 +51,7 @@ import { AdminLiveLocation } from '@/components/ui/admin-live-location';
 export default function AdminBookingDetailScreen() {
   const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { getServiceBySlug } = useServices();
 
   const [booking, setBooking] = useState<Booking | null>(null);
   const [error, setError] = useState('');
@@ -92,7 +93,7 @@ export default function AdminBookingDetailScreen() {
           setAdminNotes(b.admin_notes ?? '');
           setAmountInput(
             b.quoted_amount?.toString() ??
-              SERVICES.find((s) => s.id === b.service_id)?.startingPrice?.toString() ??
+              getServiceBySlug(b.service_id).startingPrice?.toString() ??
               '',
           );
           setShareInput(b.provider_share?.toString() ?? '');
@@ -223,7 +224,7 @@ export default function AdminBookingDetailScreen() {
     );
   }
 
-  const service = SERVICES.find((s) => s.id === booking.service_id);
+  const service = getServiceBySlug(booking.service_id);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
@@ -232,7 +233,7 @@ export default function AdminBookingDetailScreen() {
 
         {/* Summary */}
         <BookingSummaryCard
-          serviceTitle={service?.title ?? booking.service_id}
+          serviceTitle={service.title}
           address={booking.address}
           scheduledFor={booking.scheduled_for}
           notes={booking.notes ?? ''}

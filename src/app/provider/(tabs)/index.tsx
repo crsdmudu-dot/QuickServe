@@ -7,8 +7,8 @@ import { router } from 'expo-router';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { SERVICES } from '@/constants/services';
 import { Spacing } from '@/constants/theme';
+import { useServices } from '@/services/services-provider';
 import { useTheme } from '@/hooks/use-theme';
 import { usePaginatedList } from '@/hooks/use-paginated-list';
 import { useAuth } from '@/auth/auth-context';
@@ -24,6 +24,7 @@ import { Text } from '@/components/ui/text';
 export default function ProviderHomeScreen() {
   const theme = useTheme();
   const { approvalStatus, signOut } = useAuth();
+  const { getServiceBySlug } = useServices();
 
   const {
     items: jobs,
@@ -95,10 +96,10 @@ export default function ProviderHomeScreen() {
             <LoadMoreButton onPress={loadMoreJobs} loading={jobsLoading} hasMore={jobsHasMore} />
           }
           renderItem={({ item: j }) => {
-            const service = SERVICES.find((s) => s.id === j.service_id);
+            const service = getServiceBySlug(j.service_id);
             return (
               <Card onPress={() => router.push(`/provider/job/${j.id}`)} style={styles.card} elevation="e1">
-                <Text variant="heading">{service?.title ?? j.service_id}</Text>
+                <Text variant="heading">{service.title}</Text>
                 <View style={styles.row}>
                   <StatusBadge status={j.status} />
                 </View>

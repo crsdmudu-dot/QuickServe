@@ -5,6 +5,7 @@ import { useColorScheme } from 'react-native';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AuthProvider, useAuth } from '@/auth/auth-context';
 import { BookingDraftProvider } from '@/booking/booking-draft';
+import { ServicesProvider } from '@/services/services-provider';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { OfflineBanner } from '@/components/ui/offline-banner';
 import { roleHref } from '@/constants/roles';
@@ -50,12 +51,14 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
       <AuthProvider>
-        <BookingDraftProvider>
-          <OfflineBanner />
-          <ErrorBoundary>
-            <RootNavigator />
-          </ErrorBoundary>
-        </BookingDraftProvider>
+        <ServicesProvider>
+          <BookingDraftProvider>
+            <OfflineBanner />
+            <ErrorBoundary>
+              <RootNavigator />
+            </ErrorBoundary>
+          </BookingDraftProvider>
+        </ServicesProvider>
       </AuthProvider>
     </ThemeProvider>
   );

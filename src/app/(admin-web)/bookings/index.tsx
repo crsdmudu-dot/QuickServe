@@ -22,8 +22,8 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { LoadMoreButton } from '@/components/ui/load-more-button';
 import { Text } from '@/components/ui/text';
-import { SERVICES } from '@/constants/services';
 import { Spacing } from '@/constants/theme';
+import { useServices } from '@/services/services-provider';
 import { usePaginatedList } from '@/hooks/use-paginated-list';
 import { getAllBookings, type Booking } from '@/lib/bookings';
 import type { QuoteStatus } from '@/lib/quotes';
@@ -67,53 +67,55 @@ function matchesFilter(b: Booking, filter: BookingFilter): boolean {
   }
 }
 
-// ── Table columns ──────────────────────────────────────────────────────────
+// ── Table columns (built inside component to access getServiceBySlug) ─────────
 
-const COLUMNS: Column<Booking>[] = [
-  {
-    key: 'service_id',
-    header: 'Service',
-    render: (row) => (
-      <Text variant="label" color="text">
-        {SERVICES.find((s) => s.id === row.service_id)?.title ?? row.service_id}
-      </Text>
-    ),
-    width: '25%',
-  },
-  {
-    key: 'status',
-    header: 'Status',
-    render: (row) => <StatusBadge status={row.status} />,
-    width: '15%',
-  },
-  {
-    key: 'scheduled_for',
-    header: 'Scheduled',
-    render: (row) => (
-      <View style={styles.scheduleCell}>
-        <Text variant="caption" color="textSecondary">
-          {describeSchedule(row)}
+function buildColumns(getServiceBySlug: (slug: string) => { title: string }): Column<Booking>[] {
+  return [
+    {
+      key: 'service_id',
+      header: 'Service',
+      render: (row) => (
+        <Text variant="label" color="text">
+          {getServiceBySlug(row.service_id).title}
         </Text>
-        {row.recurrence && row.recurrence !== 'one_time' && (
-          <Text variant="caption" color="textSecondary" style={styles.recurrenceText}>
-            {recurrenceLabel(row.recurrence)}
+      ),
+      width: '25%',
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (row) => <StatusBadge status={row.status} />,
+      width: '15%',
+    },
+    {
+      key: 'scheduled_for',
+      header: 'Scheduled',
+      render: (row) => (
+        <View style={styles.scheduleCell}>
+          <Text variant="caption" color="textSecondary">
+            {describeSchedule(row)}
           </Text>
-        )}
-      </View>
-    ),
-    width: '35%',
-  },
-  {
-    key: 'quote_status',
-    header: 'Quote',
-    render: (row) => (
-      <Text variant="caption" color="textSecondary">
-        {QUOTE_STATUS_LABELS[row.quote_status]}
-      </Text>
-    ),
-    width: '25%',
-  },
-];
+          {row.recurrence && row.recurrence !== 'one_time' && (
+            <Text variant="caption" color="textSecondary" style={styles.recurrenceText}>
+              {recurrenceLabel(row.recurrence)}
+            </Text>
+          )}
+        </View>
+      ),
+      width: '35%',
+    },
+    {
+      key: 'quote_status',
+      header: 'Quote',
+      render: (row) => (
+        <Text variant="caption" color="textSecondary">
+          {QUOTE_STATUS_LABELS[row.quote_status]}
+        </Text>
+      ),
+      width: '25%',
+    },
+  ];
+}
 
 // ── Styles ─────────────────────────────────────────────────────────────────
 
@@ -137,6 +139,7 @@ const styles = StyleSheet.create({
 
 export default function AdminWebBookingsScreen() {
   const [bookingFilter, setBookingFilter] = useState<BookingFilter>('all');
+  const { getServiceBySlug } = useServices();
 
   const {
     items: bookings,
@@ -148,6 +151,7 @@ export default function AdminWebBookingsScreen() {
   } = usePaginatedList((p, s) => getAllBookings(p, s));
 
   const shown = bookings.filter((b) => matchesFilter(b, bookingFilter));
+  const COLUMNS = buildColumns(getServiceBySlug);
 
   return (
     <>

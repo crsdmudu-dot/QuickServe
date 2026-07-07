@@ -18,11 +18,20 @@ jest.mock('@/booking/booking-draft', () => ({
   BookingDraftProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
+const mockGetRecentlyUsedServiceIds = jest.fn().mockResolvedValue([]);
+// Keep getRecentlyUsedServices for backward-compat with existing assertions
 const mockGetRecentlyUsedServices = jest.fn().mockResolvedValue([]);
 
 jest.mock('@/lib/recent-services', () => ({
+  getRecentlyUsedServiceIds: (...args: unknown[]) => mockGetRecentlyUsedServiceIds(...args),
   getRecentlyUsedServices: (...args: unknown[]) => mockGetRecentlyUsedServices(...args),
 }));
+
+// Mock ServicesProvider — home screen uses useServices() for lists + getServiceBySlug
+jest.mock('@/services/services-provider', () => {
+  const { mockServicesProviderModule } = require('../../test/mock-services');
+  return mockServicesProviderModule();
+});
 
 // ── Imports ─────────────────────────────────────────────────────────────────
 import React from 'react';
@@ -33,6 +42,7 @@ import HomeScreen from '@/app/(customer)/index';
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockGetRecentlyUsedServiceIds.mockResolvedValue([]);
   mockGetRecentlyUsedServices.mockResolvedValue([]);
 });
 
@@ -112,26 +122,18 @@ describe('HomeScreen (enhanced — additive sections)', () => {
     expect(router.push).toHaveBeenCalledWith('/(customer)/search');
   });
 
-  it('renders Recently Used section when recent services exist', async () => {
-    const recentService = {
-      id: 'house-cleaning',
-      title: 'House Cleaning',
-      subtitle: 'Deep clean',
-      icon: '🧹',
-      startingPrice: 1500,
-      category: 'home' as const,
-      badge: 'Popular' as const,
-    };
-    mockGetRecentlyUsedServices.mockResolvedValue([recentService]);
+  it('renders Recently Used section when recent service ids exist', async () => {
+    // Return a slug that is in the constants so getServiceBySlug resolves it
+    mockGetRecentlyUsedServiceIds.mockResolvedValue(['house-cleaning']);
     render(<HomeScreen />);
     expect(await screen.findByText('Recently Used')).toBeOnTheScreen();
   });
 
-  it('does NOT render Recently Used section when no recent services', async () => {
-    mockGetRecentlyUsedServices.mockResolvedValue([]);
+  it('does NOT render Recently Used section when no recent service ids', async () => {
+    mockGetRecentlyUsedServiceIds.mockResolvedValue([]);
     render(<HomeScreen />);
     // Let the async settle
-    await waitFor(() => expect(mockGetRecentlyUsedServices).toHaveBeenCalled());
+    await waitFor(() => expect(mockGetRecentlyUsedServiceIds).toHaveBeenCalled());
     // May have skeleton briefly but no "Recently Used" heading after load
     await waitFor(() =>
       expect(screen.queryByText('Recently Used')).toBeNull(),

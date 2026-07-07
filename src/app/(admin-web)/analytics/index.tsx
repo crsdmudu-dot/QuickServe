@@ -30,8 +30,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { Spacing } from '@/constants/theme';
-import { SERVICES } from '@/constants/services';
 import { formatKes } from '@/lib/currency';
+import { useServices } from '@/services/services-provider';
 import {
   analyticsRange,
   exportCsv,
@@ -111,6 +111,7 @@ function SectionHeading({
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 export default function AdminWebAnalyticsScreen() {
+  const { getServiceBySlug } = useServices();
   // ── Filter state ───────────────────────────────────────────────────────────
   const [preset, setPreset] = useState<RangePreset>('last30');
   const [customFrom, setCustomFrom] = useState('');
@@ -233,17 +234,17 @@ export default function AdminWebAnalyticsScreen() {
     .sort((a, b) => (a.avg_rating ?? 0) - (b.avg_rating ?? 0))
     .slice(0, 5);
 
-  /** Services → BarChart data (by bookings, with title lookup) */
+  /** Services → BarChart data (by bookings, with title lookup — display labels only) */
   const servicesBarData: BarDatum[] = services.map((s) => ({
-    label: SERVICES.find((svc) => svc.id === s.service_id)?.title ?? s.service_id,
+    label: getServiceBySlug(s.service_id).title,
     value: s.bookings,
   }));
 
-  /** Services → PieChart data (by revenue) */
+  /** Services → PieChart data (by revenue — display labels only) */
   const servicesPieSlices: PieSlice[] = services
     .filter((s) => s.revenue > 0)
     .map((s) => ({
-      label: SERVICES.find((svc) => svc.id === s.service_id)?.title ?? s.service_id,
+      label: getServiceBySlug(s.service_id).title,
       value: s.revenue,
     }));
 

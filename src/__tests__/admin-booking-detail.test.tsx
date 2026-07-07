@@ -10,6 +10,12 @@ jest.mock('expo-router', () => ({
   router: { push: jest.fn(), replace: jest.fn() },
 }));
 
+// Mock ServicesProvider — admin/booking/[id].tsx uses useServices() for getServiceBySlug
+jest.mock('@/services/services-provider', () => {
+  const { mockServicesProviderModule } = require('../../test/mock-services');
+  return mockServicesProviderModule();
+});
+
 const mockGetBookingById = jest.fn().mockResolvedValue({
   id: 'b1',
   service_id: 'house-cleaning',

@@ -1,12 +1,27 @@
 // discovery.ts — Static discovery constants for the Search, Discovery & Marketplace slice.
-// Featured/Trending are STATIC curated lists (no DB, no admin).
 // ProviderSorts/Filters are pure config consumed by the UI and T3 filterProviders/sortProviders.
+//
+// ── IMPORTANT: LEGACY FALLBACK ────────────────────────────────────────────────
+// FEATURED_SERVICE_IDS, TRENDING_SERVICE_IDS, getFeaturedServices(), and
+// getTrendingServices() are NO LONGER the source of truth for featured/trending
+// data. The DB flags (services.featured / services.trending) are the source of
+// truth, exposed via ServicesProvider.getFeatured() / getTrending().
+//
+// These constants are KEPT as a FALLBACK: ServicesProvider falls back to them
+// when the DB cache is empty (e.g. the DB read failed or returned no rows).
+// Do NOT delete them. Do NOT use them directly in new UI code — use useServices()
+// from @/services/services-provider instead.
+// ─────────────────────────────────────────────────────────────────────────────
 
 import { SERVICES, type Service, type ServiceCategory } from '@/constants/services';
 
-// ── Featured & Trending (static curation) ─────────────────────────────────
+// ── Featured & Trending (LEGACY FALLBACK — see note above) ────────────────
 
-/** A curated mix of services to highlight on the discovery home screen. */
+/**
+ * @legacy FALLBACK — DB flags are the source of truth (via ServicesProvider).
+ * A curated mix of service ids to highlight on the discovery home screen.
+ * Used only when the ServicesProvider DB cache is empty.
+ */
 export const FEATURED_SERVICE_IDS: string[] = [
   'house-cleaning',
   'mechanic',
@@ -15,7 +30,11 @@ export const FEATURED_SERVICE_IDS: string[] = [
   'ac-repair',
 ];
 
-/** A curated list of trending services — overlaps minimally with featured. */
+/**
+ * @legacy FALLBACK — DB flags are the source of truth (via ServicesProvider).
+ * A curated list of trending service ids.
+ * Used only when the ServicesProvider DB cache is empty.
+ */
 export const TRENDING_SERVICE_IDS: string[] = [
   'plumbing',
   'grocery-delivery',
@@ -25,7 +44,11 @@ export const TRENDING_SERVICE_IDS: string[] = [
   'tire-replacement',
 ];
 
-/** Returns Service objects for FEATURED_SERVICE_IDS in order; unknown ids are silently dropped. */
+/**
+ * @legacy FALLBACK — DB flags are the source of truth (via ServicesProvider).
+ * Returns Service objects for FEATURED_SERVICE_IDS in order; unknown ids are silently dropped.
+ * Used only when the ServicesProvider DB cache is empty.
+ */
 export function getFeaturedServices(): Service[] {
   return FEATURED_SERVICE_IDS.flatMap((id) => {
     const s = SERVICES.find((svc) => svc.id === id);
@@ -33,7 +56,11 @@ export function getFeaturedServices(): Service[] {
   });
 }
 
-/** Returns Service objects for TRENDING_SERVICE_IDS in order; unknown ids are silently dropped. */
+/**
+ * @legacy FALLBACK — DB flags are the source of truth (via ServicesProvider).
+ * Returns Service objects for TRENDING_SERVICE_IDS in order; unknown ids are silently dropped.
+ * Used only when the ServicesProvider DB cache is empty.
+ */
 export function getTrendingServices(): Service[] {
   return TRENDING_SERVICE_IDS.flatMap((id) => {
     const s = SERVICES.find((svc) => svc.id === id);

@@ -3,19 +3,13 @@ import { router } from 'expo-router';
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import {
-  CATEGORY_LABELS,
-  CATEGORY_ORDER,
-  getPopularServices,
-  getServicesByCategory,
-  type Service,
-} from '@/constants/services';
-import { getFeaturedServices, getTrendingServices } from '@/constants/discovery';
+import { type Service } from '@/constants/services';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { getGreeting } from '@/lib/greeting';
-import { getRecentlyUsedServices } from '@/lib/recent-services';
+import { getRecentlyUsedServiceIds } from '@/lib/recent-services';
 import { useTheme } from '@/hooks/use-theme';
 import { useBookingDraft } from '@/booking/booking-draft';
+import { useServices } from '@/services/services-provider';
 import { SearchBar } from '@/components/ui/search-bar';
 import { SectionHeader } from '@/components/ui/section-header';
 import { ServiceCard } from '@/components/ui/service-card';
@@ -25,15 +19,26 @@ import { Text } from '@/components/ui/text';
 export default function HomeScreen() {
   const theme = useTheme();
   const { start } = useBookingDraft();
+  const {
+    services,
+    categories,
+    loading: servicesLoading,
+    getFeatured,
+    getTrending,
+    getServicesByCategory,
+    getServiceBySlug,
+  } = useServices();
 
-  // ── New: recently-used services (async, from booking history) ────────────
+  // ── Recently-used services (async, from booking history) ────────────────
   const [recentServices, setRecentServices] = useState<Service[]>([]);
   const [recentLoading, setRecentLoading] = useState(true);
 
   useEffect(() => {
-    getRecentlyUsedServices()
+    getRecentlyUsedServiceIds()
+      .then((ids) => ids.map((id) => getServiceBySlug(id)))
       .then(setRecentServices)
       .finally(() => setRecentLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function handleServicePress(service: Service) {
@@ -41,9 +46,8 @@ export default function HomeScreen() {
     router.push('/booking/address');
   }
 
-  const popular = getPopularServices();
-  const featured = getFeaturedServices();
-  const trending = getTrendingServices();
+  const featured = getFeatured();
+  const trending = getTrending();
 
   return (
     <ScrollView
@@ -98,70 +102,91 @@ export default function HomeScreen() {
         {/* ── Popular (horizontal scroll) ──────────────────────────── */}
         <View style={styles.section}>
           <SectionHeader title="Popular" />
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.popularRow}
-          >
-            {popular.map((service) => (
-              <View key={service.id} style={styles.popularItem}>
-                <ServiceCard
-                  icon={service.icon}
-                  title={service.title}
-                  subtitle={service.subtitle}
-                  startingPrice={service.startingPrice}
-                  badge={service.badge}
-                  onPress={() => handleServicePress(service)}
-                />
-              </View>
-            ))}
-          </ScrollView>
+          {servicesLoading ? (
+            <View style={styles.popularRow}>
+              <Skeleton width={220} height={120} radius={16} />
+              <Skeleton width={220} height={120} radius={16} />
+            </View>
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.popularRow}
+            >
+              {featured.map((service) => (
+                <View key={service.id} style={styles.popularItem}>
+                  <ServiceCard
+                    icon={service.icon}
+                    title={service.title}
+                    subtitle={service.subtitle}
+                    startingPrice={service.startingPrice}
+                    badge={service.badge}
+                    onPress={() => handleServicePress(service)}
+                  />
+                </View>
+              ))}
+            </ScrollView>
+          )}
         </View>
 
         {/* ── Featured ─────────────────────────────────────────────── */}
         <View style={styles.section}>
           <SectionHeader title="Featured" />
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.popularRow}
-          >
-            {featured.map((service) => (
-              <View key={service.id} style={styles.popularItem}>
-                <ServiceCard
-                  icon={service.icon}
-                  title={service.title}
-                  subtitle={service.subtitle}
-                  startingPrice={service.startingPrice}
-                  badge={service.badge}
-                  onPress={() => handleServicePress(service)}
-                />
-              </View>
-            ))}
-          </ScrollView>
+          {servicesLoading ? (
+            <View style={styles.popularRow}>
+              <Skeleton width={220} height={120} radius={16} />
+              <Skeleton width={220} height={120} radius={16} />
+            </View>
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.popularRow}
+            >
+              {featured.map((service) => (
+                <View key={service.id} style={styles.popularItem}>
+                  <ServiceCard
+                    icon={service.icon}
+                    title={service.title}
+                    subtitle={service.subtitle}
+                    startingPrice={service.startingPrice}
+                    badge={service.badge}
+                    onPress={() => handleServicePress(service)}
+                  />
+                </View>
+              ))}
+            </ScrollView>
+          )}
         </View>
 
         {/* ── Trending ─────────────────────────────────────────────── */}
         <View style={styles.section}>
           <SectionHeader title="Trending" />
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.popularRow}
-          >
-            {trending.map((service) => (
-              <View key={service.id} style={styles.popularItem}>
-                <ServiceCard
-                  icon={service.icon}
-                  title={service.title}
-                  subtitle={service.subtitle}
-                  startingPrice={service.startingPrice}
-                  badge={service.badge}
-                  onPress={() => handleServicePress(service)}
-                />
-              </View>
-            ))}
-          </ScrollView>
+          {servicesLoading ? (
+            <View style={styles.popularRow}>
+              <Skeleton width={220} height={120} radius={16} />
+              <Skeleton width={220} height={120} radius={16} />
+            </View>
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.popularRow}
+            >
+              {trending.map((service) => (
+                <View key={service.id} style={styles.popularItem}>
+                  <ServiceCard
+                    icon={service.icon}
+                    title={service.title}
+                    subtitle={service.subtitle}
+                    startingPrice={service.startingPrice}
+                    badge={service.badge}
+                    onPress={() => handleServicePress(service)}
+                  />
+                </View>
+              ))}
+            </ScrollView>
+          )}
         </View>
 
         {/* ── Recently used (only when non-empty; skeleton while loading) ── */}
@@ -198,25 +223,37 @@ export default function HomeScreen() {
         ) : null}
 
         {/* ── Category grids (one section per category) ────────────── */}
-        {CATEGORY_ORDER.map((category) => (
-          <View key={category} style={styles.section}>
-            <SectionHeader title={CATEGORY_LABELS[category]} />
+        {servicesLoading ? (
+          <View style={styles.section}>
+            <Skeleton height={32} radius={8} />
             <View style={styles.grid}>
-              {getServicesByCategory(category).map((service) => (
-                <View key={service.id} style={styles.gridItem}>
-                  <ServiceCard
-                    icon={service.icon}
-                    title={service.title}
-                    subtitle={service.subtitle}
-                    startingPrice={service.startingPrice}
-                    badge={service.badge}
-                    onPress={() => handleServicePress(service)}
-                  />
-                </View>
-              ))}
+              <Skeleton width="47%" height={120} radius={16} />
+              <Skeleton width="47%" height={120} radius={16} />
+              <Skeleton width="47%" height={120} radius={16} />
+              <Skeleton width="47%" height={120} radius={16} />
             </View>
           </View>
-        ))}
+        ) : (
+          categories.map((category) => (
+            <View key={category.slug} style={styles.section}>
+              <SectionHeader title={category.name} />
+              <View style={styles.grid}>
+                {getServicesByCategory(category.slug).map((service) => (
+                  <View key={service.id} style={styles.gridItem}>
+                    <ServiceCard
+                      icon={service.icon}
+                      title={service.title}
+                      subtitle={service.subtitle}
+                      startingPrice={service.startingPrice}
+                      badge={service.badge}
+                      onPress={() => handleServicePress(service)}
+                    />
+                  </View>
+                ))}
+              </View>
+            </View>
+          ))
+        )}
 
         {/* ── Browse all categories footer link ────────────────────── */}
         <TouchableOpacity

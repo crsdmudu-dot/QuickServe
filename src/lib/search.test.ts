@@ -116,30 +116,34 @@ describe('clearRecentSearches', () => {
 });
 
 // ── searchServices ─────────────────────────────────────────────────────────
+// searchServices now takes (services: Service[], query: string) — updated in Slice 35 Task 5.
+// Pass SERVICES from the constants module so tests exercise the same list as before.
+
+import { SERVICES } from '@/constants/services';
 
 describe('searchServices', () => {
   it('returns [] for empty query', () => {
-    expect(searchServices('')).toEqual([]);
+    expect(searchServices(SERVICES, '')).toEqual([]);
   });
 
   it('returns [] for whitespace-only query', () => {
-    expect(searchServices('   ')).toEqual([]);
+    expect(searchServices(SERVICES, '   ')).toEqual([]);
   });
 
   it('matches by title (case-insensitive)', () => {
-    const result = searchServices('plumbing');
+    const result = searchServices(SERVICES, 'plumbing');
     expect(result.some((s) => s.id === 'plumbing')).toBe(true);
   });
 
   it('matches by subtitle (case-insensitive)', () => {
     // "Leaks, fittings & repairs" is the subtitle for plumbing
-    const result = searchServices('leaks');
+    const result = searchServices(SERVICES, 'leaks');
     expect(result.some((s) => s.id === 'plumbing')).toBe(true);
   });
 
   it('matches by category label (case-insensitive)', () => {
     // "Home Services" is the category label for 'home'
-    const result = searchServices('home services');
+    const result = searchServices(SERVICES, 'home services');
     expect(result.length).toBeGreaterThan(0);
     for (const s of result) {
       expect(s.category).toBe('home');
@@ -147,14 +151,14 @@ describe('searchServices', () => {
   });
 
   it('is case-insensitive for title match', () => {
-    const upper = searchServices('MASSAGE');
-    const lower = searchServices('massage');
+    const upper = searchServices(SERVICES, 'MASSAGE');
+    const lower = searchServices(SERVICES, 'massage');
     expect(upper.map((s) => s.id)).toEqual(lower.map((s) => s.id));
   });
 
   it('preserves SERVICES order among matches', () => {
     // "delivery" matches multiple services by category label
-    const result = searchServices('delivery');
+    const result = searchServices(SERVICES, 'delivery');
     const ids = result.map((s) => s.id);
     // grocery-delivery and food-delivery should both appear, grocery first
     const groceryIdx = ids.indexOf('grocery-delivery');
@@ -165,12 +169,23 @@ describe('searchServices', () => {
   });
 
   it('returns multiple results for a broad query', () => {
-    const result = searchServices('repair');
+    const result = searchServices(SERVICES, 'repair');
     expect(result.length).toBeGreaterThan(1);
   });
 
   it('returns [] for a query that matches nothing', () => {
-    expect(searchServices('zzzyyyxxx')).toEqual([]);
+    expect(searchServices(SERVICES, 'zzzyyyxxx')).toEqual([]);
+  });
+
+  it('searches only the supplied list (custom services)', () => {
+    const custom = [
+      { id: 'yoga-classes', title: 'Yoga Classes', icon: '🧘', category: 'personal' as const },
+    ];
+    const result = searchServices(custom, 'yoga');
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('yoga-classes');
+    // Passing SERVICES (which lacks yoga-classes) returns nothing
+    expect(searchServices(SERVICES, 'yoga')).toHaveLength(0);
   });
 });
 

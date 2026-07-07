@@ -11,6 +11,25 @@ export type Service = {
   /** Starting price in KES. */
   startingPrice?: number;
   badge?: ServiceBadge;
+  // ── Extended fields (optional) — populated by ServicesProvider from DB ───
+  /** Lifecycle status from the DB (e.g. 'active', 'archived'). */
+  status?: string;
+  /** True when this service should be highlighted as featured. */
+  featured?: boolean;
+  /** True when this service should be highlighted as trending. */
+  trending?: boolean;
+  /** True when this service offers emergency / urgent availability. */
+  emergencyAvailable?: boolean;
+  /** True when an inspection is required before work can begin. */
+  inspectionRequired?: boolean;
+  /** True when this service is available 24 hours a day, 7 days a week. */
+  available247?: boolean;
+  /** Long-form marketing description. */
+  fullDescription?: string;
+  /** Human-readable estimated service duration (e.g. '2–3 hours'). */
+  estimatedDuration?: string;
+  /** Hex/brand color associated with the service tile. */
+  color?: string;
 };
 
 export const CATEGORY_ORDER: ServiceCategory[] = ['home', 'auto', 'delivery', 'personal'];
@@ -54,4 +73,13 @@ export function getServicesByCategory(category: ServiceCategory): Service[] {
 
 export function getPopularServices(): Service[] {
   return SERVICES.filter((s) => s.badge === 'Popular');
+}
+
+/**
+ * Returns the Service from the constants array whose id matches `id`,
+ * or `undefined` if no match is found.
+ * Used as the "constants shim" fallback layer in ServicesProvider.getServiceBySlug.
+ */
+export function getServiceById(id: string): Service | undefined {
+  return SERVICES.find((s) => s.id === id);
 }
