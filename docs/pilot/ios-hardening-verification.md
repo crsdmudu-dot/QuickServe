@@ -7,7 +7,7 @@
 
 ## 1. Isolation Proof (whole-branch diff)
 
-`git diff --stat 8dd8fc3..HEAD` — 9 files:
+`git diff --stat 8dd8fc3..HEAD` — the 9 files below (plus this verification doc itself, `docs/pilot/ios-hardening-verification.md`, once committed = 10 total):
 
 | File | Category |
 |---|---|
@@ -100,4 +100,6 @@ The four Task-3 findings (`file://` upload, root `SafeAreaProvider`, `KeyboardAv
 
 ## 8. Verdict
 
-Pending the independent whole-branch review (§7 of the plan). If that review returns no Critical/Important findings: **READY TO MERGE**.
+Independent whole-branch review (opus, base `8dd8fc3`): **READY TO MERGE** — 0 Critical, 0 Important. Confirmed: production surface is exactly 3 files (app.json + maps.ts + provider job rewire); Android provably unchanged (android block byte-identical; maps Android branch verbatim); no new dependency; `photos.ts` unchanged (four deferrals honored, not silently patched); associated-domains inert; capability matrix locked; docs accurate; tests substantive. Minor (non-blocking): plan snippet still shows `Platform.select` (superseded by the documented `Platform.OS` branching in `maps.ts`); `eas.json` doc claims are audit-based (file intentionally not in the diff).
+
+**Final verdict: READY TO MERGE.**
