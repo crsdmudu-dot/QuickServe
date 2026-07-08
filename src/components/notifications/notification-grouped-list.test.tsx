@@ -78,6 +78,17 @@ const N_EARLIER: AppNotification = {
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('NotificationGroupedList', () => {
+  // Pin the clock to the fixtures' "today" (2026-07-07). The NotificationCard
+  // renders formatNotificationTime(created_at) against the real clock, so
+  // without this the N_TODAY card would label itself "Yesterday" on any later
+  // calendar day and collide with the "no Yesterday" assertions below.
+  beforeAll(() => {
+    jest.useFakeTimers({ now: new Date('2026-07-07T12:00:00Z') });
+  });
+  afterAll(() => {
+    jest.useRealTimers();
+  });
+
   it('renders NotificationEmptyState when list is empty', () => {
     render(<NotificationGroupedList notifications={[]} />);
     // NotificationEmptyState with variant "all" renders this title
