@@ -13,7 +13,8 @@
     "ios": {
       "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.quickserve.app",
-      "buildNumber": "1"
+      "buildNumber": "1",
+      "associatedDomains": ["applinks:REPLACE_ME.quickserve.app"]
     },
     "android": {
       "adaptiveIcon": {
@@ -36,6 +37,7 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#FFFFFF",
+          "image": "./assets/images/splash-icon.png",
           "android": {
             "image": "./assets/images/splash-icon.png",
             "imageWidth": 76
