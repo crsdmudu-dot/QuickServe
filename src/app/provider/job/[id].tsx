@@ -6,7 +6,7 @@
 
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Linking, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PROVIDER_NEXT_STATUSES, STATUS_LABELS } from '@/constants/booking-status';
@@ -14,6 +14,7 @@ import { useServices } from '@/services/services-provider';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getBookingById, updateBookingStatus, type Booking } from '@/lib/bookings';
+import { buildDirectionsUrl } from '@/lib/maps';
 import { getBookingPhotos, type BookingPhotoView } from '@/lib/photos';
 import { getBookingActivity, type BookingActivity } from '@/lib/activity';
 import { BookingSummaryCard } from '@/components/ui/booking-summary-card';
@@ -132,12 +133,7 @@ export default function ProviderJobDetailScreen() {
               onPress={() => {
                 const lat = booking.latitude as number;
                 const lng = booking.longitude as number;
-                const url = Platform.select({
-                  ios: `http://maps.apple.com/?daddr=${lat},${lng}`,
-                  android: `google.navigation:q=${lat},${lng}`,
-                  default: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
-                }) as string;
-                void Linking.openURL(url);
+                void Linking.openURL(buildDirectionsUrl(lat, lng));
               }}
             />
           ) : null}
