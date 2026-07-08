@@ -158,6 +158,12 @@ Single comprehensive doc — the **permanent iOS release checklist** — with th
   - **Notification pipeline unchanged** — no diff in `notify_user`/triggers/`emit_notification`/`broadcast_announcement`/push pipeline (Slice 36 infra untouched).
   - **Deep links unchanged** — `quickserve://` scheme and `resolveNotificationDeepLink` route behavior unchanged; the associated-domains scaffold is inert.
   - **Push notifications unchanged** — `src/lib/push.ts` registration/token/handler logic untouched.
+- **Navigation Verification** — prove, by inspection and `git diff` review, that:
+  - All existing navigation routes remain unchanged (no route file added/removed/renamed under `src/app/`).
+  - All existing tabs remain unchanged (customer/provider tab layouts and declared tabs untouched).
+  - All existing navigation stacks remain unchanged (stack/layout `_layout.tsx` files untouched in structure).
+  - No existing deep-link routes are modified (`scheme`, linking config, and `resolveNotificationDeepLink` route mappings unchanged; the associated-domains scaffold is inert).
+  - Any iOS-specific change does not alter navigation behavior (config/asset/helper changes do not add, remove, or reorder any screen, tab, or route).
 - **Final gate:** `npm test`, `npx tsc --noEmit`, `npx expo export --platform android`, `npx expo export --platform ios` (or `web`, recording which), `git status` clean.
 - Independent **whole-branch review** (most-capable model): iOS parity, no Android regression, guardrails honored, config correctness, doc accuracy, code quality, tests. Fix only Critical/Important. Then **pause before merge**.
 
@@ -199,7 +205,13 @@ No migration, no schema, no destructive operation → clean revert of the branch
 | 4 | `docs/pilot/ios-app-store-readiness.md` (EAS/APNs/TestFlight/App-Store/Privacy-Nutrition/ATT/Privacy-Manifest/Universal-Links/Associated-Domains/QA + App Store Compliance Checklist) | docs |
 | 5 | `docs/pilot/ios-hardening-verification.md` + unchanged-proofs + final gate + whole-branch review | docs + verify |
 
-## 10. Explicit non-goals
+## 10. Implementation guardrail
+
+> **If a proposed code change cannot be proven necessary by static inspection, document it in the iOS Readiness Checklist instead of modifying production code.**
+
+This is a binding scope guardrail on every task: the default action for any unprovable concern is documentation, not a code edit.
+
+## 11. Explicit non-goals
 
 - No macOS/device execution in this slice (checklists hand that to the human).
 - No App Store / TestFlight submission.
