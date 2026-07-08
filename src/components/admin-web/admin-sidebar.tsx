@@ -41,6 +41,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Services', route: '/(admin-web)/services', segment: 'services' },
   { label: 'Operations', route: '/(admin-web)/operations', segment: 'operations' },
   { label: 'Notifications', route: '/(admin-web)/notifications', segment: 'notifications' },
+  { label: 'Broadcast', route: '/(admin-web)/broadcast', segment: 'broadcast' },
   { label: 'Promotions', route: '/(admin-web)/promos', segment: 'promos' },
   { label: 'Analytics', route: '/(admin-web)/analytics', segment: 'analytics' },
 ];

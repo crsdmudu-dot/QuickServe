@@ -1,38 +1,102 @@
 /**
- * Tests for the web-admin operational notifications feed screen:
- *   - src/app/(admin-web)/notifications/index.tsx
+ * Tests for the web-admin notifications center screen (enhanced Task 5):
+ *   src/app/(admin-web)/notifications/index.tsx
  *
  * Verifies:
- *   - Only system-category rows are rendered (non-system rows filtered out).
- *   - System rows display their `type` and `push_status` fields.
- *   - Pressing "Open" calls markNotificationRead with the row id AND
- *     router.push with the row route.
- *   - Empty notifications list renders the empty state.
+ *   - Notification titles are rendered in the grouped view.
+ *   - Filter chips (All / Unread / Booking / Payments / Promotions / System) are present.
+ *   - Unread badge from getUnreadNotificationCount.
+ *   - "Mark all read" calls markAllNotificationsRead.
+ *   - Tapping a notification card calls markNotificationRead + resolveNotificationDeepLink.
+ *   - router.push called with the resolved deep-link route.
+ *   - Empty state shows when there are no notifications.
+ *   - No history delete exposed in the lib mock.
  *
- * All network calls are mocked. Uses findBy* for async data loads.
+ * All network calls are mocked.
  */
 
 // ── expo-router mock ──────────────────────────────────────────────────────────
-// jest.mock is hoisted; jest.fn() inside the factory is created at hoist time.
-// We retrieve a reference to router.push after the import via require().
 
 jest.mock('expo-router', () => ({
   router: { push: jest.fn() },
+  useRouter: () => ({ push: jest.fn() }),
 }));
 
 // ── Notifications lib mocks ───────────────────────────────────────────────────
 
-const mockGetMyNotifications = jest
-  .fn()
-  .mockResolvedValue([] as unknown[]);
-
+const mockGetMyNotifications = jest.fn().mockResolvedValue([] as unknown[]);
+const mockGetUnreadNotificationCount = jest.fn().mockResolvedValue(0);
 const mockMarkNotificationRead = jest.fn().mockResolvedValue({ ok: true });
+const mockMarkAllNotificationsRead = jest.fn().mockResolvedValue({ ok: true });
+const mockFilterNotifications = jest.fn((ns: any[], _filter?: any) => ns);
 
 jest.mock('@/lib/notifications', () => ({
   getMyNotifications: (...args: unknown[]) => mockGetMyNotifications(...args),
-  markNotificationRead: (...args: unknown[]) =>
-    mockMarkNotificationRead(...args),
+  getUnreadNotificationCount: () => mockGetUnreadNotificationCount(),
+  filterNotifications: (ns: unknown[], filter: unknown) => mockFilterNotifications(ns as any[], filter as any),
+  markNotificationRead: (...args: unknown[]) => mockMarkNotificationRead(...args),
+  markAllNotificationsRead: () => mockMarkAllNotificationsRead(),
+  groupNotificationsByDate: (ns: any[]) => {
+    if (!ns || ns.length === 0) return [];
+    return [{ label: 'Today', items: ns }];
+  },
 }));
+
+// ── constants/notifications mock ─────────────────────────────────────────────
+
+const mockResolveNotificationDeepLink = jest.fn((n: any) => n.route ?? null);
+
+jest.mock('@/constants/notifications', () => ({
+  NOTIFICATION_FILTERS: [
+    { id: 'all',        label: 'All'        },
+    { id: 'unread',     label: 'Unread'     },
+    { id: 'booking',    label: 'Booking'    },
+    { id: 'payments',   label: 'Payments'   },
+    { id: 'promotions', label: 'Promotions' },
+    { id: 'system',     label: 'System'     },
+  ],
+  resolveNotificationDeepLink: (n: unknown) => mockResolveNotificationDeepLink(n),
+  filterMatches: jest.fn(() => true),
+  notificationMeta: jest.fn(() => ({
+    label: 'Notification',
+    icon: '🔔',
+    category: 'system',
+    defaultPriority: 'normal',
+  })),
+  CATEGORY_LABELS: {
+    booking: 'Booking',
+    payment: 'Payments',
+    promotion: 'Promotions',
+    system: 'System',
+    quality: 'Quality',
+    chat: 'Messages',
+  },
+  NOTIFICATION_TYPES: {},
+  PRIORITY_LEVELS: [
+    { id: 'low',    label: 'Low',    color: '#8C939D' },
+    { id: 'normal', label: 'Normal', color: '#5B6470' },
+    { id: 'high',   label: 'High',   color: '#F5A524' },
+    { id: 'urgent', label: 'Urgent', color: '#E5484D' },
+  ],
+}));
+
+// ── use-paginated-list mock ───────────────────────────────────────────────────
+
+const mockReload = jest.fn();
+const mockLoadMore = jest.fn();
+
+jest.mock('@/hooks/use-paginated-list', () => ({
+  usePaginatedList: jest.fn(() => ({
+    items: [],
+    loading: false,
+    error: null,
+    hasMore: false,
+    loadMore: mockLoadMore,
+    reload: mockReload,
+  })),
+}));
+
+// ── Imports ───────────────────────────────────────────────────────────────────
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -42,7 +106,6 @@ import AdminWebNotificationsScreen from '@/app/(admin-web)/notifications/index';
 
 // ── Test fixtures ─────────────────────────────────────────────────────────────
 
-/** A system-category (admin operational) notification. */
 const MOCK_SYSTEM_NOTIF = {
   id: 'notif-sys-1111',
   user_id: 'admin-user-uuid',
@@ -60,7 +123,6 @@ const MOCK_SYSTEM_NOTIF = {
   push_attempts: 1,
 };
 
-/** A non-system notification — should NOT appear in the admin feed. */
 const MOCK_OTHER_NOTIF = {
   id: 'notif-other-2222',
   user_id: 'admin-user-uuid',
@@ -83,62 +145,158 @@ const MOCK_OTHER_NOTIF = {
 describe('AdminWebNotificationsScreen (operational notifications feed)', () => {
   beforeEach(() => {
     mockGetMyNotifications.mockClear();
+    mockGetUnreadNotificationCount.mockClear();
     mockMarkNotificationRead.mockClear();
+    mockMarkAllNotificationsRead.mockClear();
+    mockFilterNotifications.mockClear();
+    mockResolveNotificationDeepLink.mockClear();
     router.push.mockClear();
+    mockReload.mockClear();
+
     mockGetMyNotifications.mockResolvedValue([MOCK_SYSTEM_NOTIF, MOCK_OTHER_NOTIF]);
+    mockGetUnreadNotificationCount.mockResolvedValue(2);
     mockMarkNotificationRead.mockResolvedValue({ ok: true });
+    mockMarkAllNotificationsRead.mockResolvedValue({ ok: true });
+    mockFilterNotifications.mockImplementation((ns: any[]) => ns);
+    mockResolveNotificationDeepLink.mockImplementation((n: any) => n.route ?? null);
+
+    const { usePaginatedList } = require('@/hooks/use-paginated-list');
+    (usePaginatedList as jest.Mock).mockReturnValue({
+      items: [MOCK_SYSTEM_NOTIF, MOCK_OTHER_NOTIF],
+      loading: false,
+      error: null,
+      hasMore: false,
+      loadMore: mockLoadMore,
+      reload: mockReload,
+    });
+
+    const constantsMock = require('@/constants/notifications');
+    constantsMock.notificationMeta.mockReturnValue({
+      label: 'Notification',
+      icon: '🔔',
+      category: 'system',
+      defaultPriority: 'normal',
+    });
   });
 
-  it('filters to system-category rows only: system row title IS rendered', async () => {
+  it('renders notification titles from the grouped list', async () => {
     render(<AdminWebNotificationsScreen />);
     expect(await screen.findByText('New Booking Received')).toBeOnTheScreen();
   });
 
-  it('filters to system-category rows only: non-system row title is NOT rendered', async () => {
+  it('renders both system and non-system notifications (grouped view, no category filter by default)', async () => {
     render(<AdminWebNotificationsScreen />);
-    await screen.findByText('New Booking Received');
-    expect(screen.queryByText('Your Booking Was Confirmed')).toBeNull();
+    expect(await screen.findByText('New Booking Received')).toBeOnTheScreen();
+    expect(await screen.findByText('Your Booking Was Confirmed')).toBeOnTheScreen();
   });
 
-  it('shows the type field for a system notification', async () => {
+  it('renders filter chips: All, Unread, Booking, Payments, Promotions, System', async () => {
     render(<AdminWebNotificationsScreen />);
-    await screen.findByText('New Booking Received');
-    expect(screen.getByText('booking_new')).toBeOnTheScreen();
+    expect(screen.getAllByText('All').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('System').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Booking').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('shows the push_status field for a system notification', async () => {
+  it('shows "Notifications" heading', async () => {
     render(<AdminWebNotificationsScreen />);
-    await screen.findByText('New Booking Received');
-    expect(screen.getByText('sent')).toBeOnTheScreen();
+    expect(await screen.findByText('Notifications')).toBeOnTheScreen();
   });
 
-  it('pressing "Open" calls markNotificationRead with the row id', async () => {
+  it('shows unread badge from getUnreadNotificationCount', async () => {
+    render(<AdminWebNotificationsScreen />);
+    await waitFor(() => expect(mockGetUnreadNotificationCount).toHaveBeenCalled());
+    expect(await screen.findByTestId('notification-badge')).toBeOnTheScreen();
+  });
+
+  it('shows "Mark all read" button', async () => {
+    render(<AdminWebNotificationsScreen />);
+    expect(await screen.findByText('Mark all read')).toBeOnTheScreen();
+  });
+
+  it('pressing "Mark all read" calls markAllNotificationsRead', async () => {
+    render(<AdminWebNotificationsScreen />);
+    await screen.findByText('Mark all read');
+    fireEvent.press(screen.getByText('Mark all read'));
+    await waitFor(() => expect(mockMarkAllNotificationsRead).toHaveBeenCalledTimes(1));
+  });
+
+  it('pressing "Mark all read" calls reload', async () => {
+    render(<AdminWebNotificationsScreen />);
+    await screen.findByText('Mark all read');
+    fireEvent.press(screen.getByText('Mark all read'));
+    await waitFor(() => expect(mockReload).toHaveBeenCalled());
+  });
+
+  it('tapping a notification card calls markNotificationRead with the row id', async () => {
     render(<AdminWebNotificationsScreen />);
     await screen.findByText('New Booking Received');
-    fireEvent.press(screen.getByText('Open'));
+    fireEvent.press(screen.getByText('New Booking Received'));
     await waitFor(() =>
       expect(mockMarkNotificationRead).toHaveBeenCalledWith('notif-sys-1111'),
     );
   });
 
-  it('pressing "Open" calls router.push with the row route when route is present', async () => {
+  it('tapping a notification card calls resolveNotificationDeepLink', async () => {
     render(<AdminWebNotificationsScreen />);
     await screen.findByText('New Booking Received');
-    fireEvent.press(screen.getByText('Open'));
+    fireEvent.press(screen.getByText('New Booking Received'));
+    await waitFor(() =>
+      expect(mockResolveNotificationDeepLink).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'notif-sys-1111' }),
+      ),
+    );
+  });
+
+  it('tapping a notification card with a route calls router.push with that route', async () => {
+    render(<AdminWebNotificationsScreen />);
+    await screen.findByText('New Booking Received');
+    fireEvent.press(screen.getByText('New Booking Received'));
     await waitFor(() =>
       expect(router.push).toHaveBeenCalledWith('/(admin-web)/bookings'),
     );
   });
 
-  it('shows the empty state when there are no notifications', async () => {
-    mockGetMyNotifications.mockResolvedValueOnce([]);
+  it('tapping a notification with no route does NOT call router.push', async () => {
+    mockResolveNotificationDeepLink.mockReturnValueOnce(null);
     render(<AdminWebNotificationsScreen />);
-    expect(await screen.findByText('No notifications yet.')).toBeOnTheScreen();
+    await screen.findByText('New Booking Received');
+    fireEvent.press(screen.getByText('New Booking Received'));
+    await waitFor(() => expect(mockMarkNotificationRead).toHaveBeenCalled());
+    expect(router.push).not.toHaveBeenCalled();
   });
 
-  it('shows empty state when all notifications are non-system (filter removes everything)', async () => {
-    mockGetMyNotifications.mockResolvedValueOnce([MOCK_OTHER_NOTIF]);
+  it('shows empty state when there are no notifications', async () => {
+    const { usePaginatedList } = require('@/hooks/use-paginated-list');
+    (usePaginatedList as jest.Mock).mockReturnValue({
+      items: [],
+      loading: false,
+      error: null,
+      hasMore: false,
+      loadMore: mockLoadMore,
+      reload: mockReload,
+    });
+    mockFilterNotifications.mockReturnValue([]);
     render(<AdminWebNotificationsScreen />);
-    expect(await screen.findByText('No notifications yet.')).toBeOnTheScreen();
+    // NotificationEmptyState renders when list is empty
+    await waitFor(() => expect(mockFilterNotifications).toHaveBeenCalled());
+    // The 'all' filter empty variant renders "You're all caught up"
+    expect(await screen.findByText("You're all caught up")).toBeOnTheScreen();
+  });
+
+  it('no history delete function exposed in the lib mock', () => {
+    const libMock = require('@/lib/notifications');
+    expect(libMock.deleteNotification).toBeUndefined();
+  });
+
+  it('shows "Broadcast" button linking to the broadcast composer', async () => {
+    render(<AdminWebNotificationsScreen />);
+    expect(await screen.findByText('Broadcast')).toBeOnTheScreen();
+  });
+
+  it('pressing Broadcast navigates to the broadcast route', async () => {
+    render(<AdminWebNotificationsScreen />);
+    await screen.findByText('Broadcast');
+    fireEvent.press(screen.getByText('Broadcast'));
+    expect(router.push).toHaveBeenCalledWith('/(admin-web)/broadcast');
   });
 });

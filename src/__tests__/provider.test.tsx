@@ -33,6 +33,11 @@ jest.mock('@/lib/bookings', () => ({
   getProviderJobs: (...args: unknown[]) => mockGetProviderJobs(...args),
 }));
 
+// Mock notifications — provider home imports getUnreadNotificationCount for the bell
+jest.mock('@/lib/notifications', () => ({
+  getUnreadNotificationCount: jest.fn().mockResolvedValue(0),
+}));
+
 const mockSignOut = jest.fn().mockResolvedValue(undefined);
 
 // approvalStatus is controlled per test via this variable.
