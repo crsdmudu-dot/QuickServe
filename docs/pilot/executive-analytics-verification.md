@@ -114,4 +114,12 @@ The only shared-component touch is `src/components/ui/button.tsx`: an **additive
 
 ## 8. Verdict
 
-Pending the independent whole-branch review (plan §T6). If that review returns no Critical/Important findings: **READY TO MERGE** (awaiting explicit user approval).
+Independent whole-branch review (opus, base `725f60e`): **READY TO MERGE** — 0 Critical, 0 Important. Confirmed: additive read-only SQL only; every RPC `is_admin()`-guarded + security-definer + SELECT-only; scope limited to the 9 production files; reuse-not-duplicate honored (commission=`quickserve_share`, revenue scoped to `paid_at` in range incl. `analytics_service_categories`); metric-class correctness; no workflow/nav/dependency change; detailed screen faithfully relocated.
+
+**Minor findings (non-blocking):**
+1. **`GrowthDeltaBadge` unwired** — the component is built + tested but not imported by `index.tsx`; the spec's Growth-section period delta is unrealized (Growth renders line charts only). Decision pending: wire it in (needs a prior-period fetch) or remove the dead component.
+2. Shared `overviewError` flag across Platform Health / Activity / Operational (same RPC) → three inline error rows on one overview failure. Correct, mildly redundant.
+3. "Notifications Sent" KPI sums all `push_status` values (label imprecise vs "notifications total").
+4. `this_year` uses local-time Jan 1 while other presets use UTC `now` — inconsequential for a dashboard.
+
+**Final verdict: READY TO MERGE** (awaiting explicit user approval; the branch is NOT merged).
