@@ -1,589 +1,877 @@
 /**
- * src/app/(admin-web)/analytics/index.tsx — Web Admin Analytics Dashboard
+ * (admin-web)/analytics/index.tsx — Executive Analytics Dashboard (landing).
  *
- * Read-only analytics dashboard for admins. Consumes the 9 analytics wrappers
- * from @/lib/analytics and renders charts/KPI cards for each section:
- *   - Executive KPIs
- *   - Booking analytics
- *   - Financial analytics
- *   - Provider analytics
- *   - Service analytics
- *   - Geographic analytics
- *   - Customer analytics
+ * Aggregates platform-wide data via the Slice-38 executive-analytics wrappers
+ * and the reused Slice-25 analytics wrappers. Display-only — no mutations, no
+ * dispatch/ranking/payout influence, no AI. Admin-web only.
  *
- * Filter controls: preset date range + time-series bucket (day/week/month).
- * Each section has a "Download CSV" button that calls exportCsv().
+ * Sections:
+ *   1. Platform Health (snapshot KPIs)
+ *   2. Activity – selected period
+ *   3. Operational
+ *   4. Growth (timeseries: customer + provider growth)
+ *   5. Service analytics (categories + top services)
+ *   6. Provider analytics (top earners / highest rated / most active)
+ *   7. Geographic analytics
  *
- * Wrapped by AdminShell via (admin-web)/_layout.tsx — returns only content.
- * Display-only — NO mutations, NO dispatch/ranking/payout influence.
+ * Section-level loading: each dataset has its OWN loading flag. Sections render
+ * independently as their data arrives — the whole page is never blocked on the
+ * slowest call. KPI cards display their built-in skeleton while their section's
+ * data is loading.
+ *
+ * Controls:
+ *   - Range filter bar (Today / Last 7 / Last 30 / Last 90 / This year / Custom)
+ *   - Last Updated timestamp
+ *   - Refresh button (invalidates cache + reloads)
+ *   - Drill-down button → /(admin-web)/analytics/detailed  (Slice-25 dashboard)
+ *   - <!-- ExportMenu mount point — Task 5 -->
+ *
+ * Detailed Slice-25 analytics live at ./detailed.
  */
 
-import { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { useEffect, useState, useCallback } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { router, type Href } from 'expo-router';
 
 import { PageMeta } from '@/components/admin-web/page-meta';
 import { BarChart, type BarDatum } from '@/components/admin-web/charts/bar-chart';
 import { LineChart, type SeriesPoint } from '@/components/admin-web/charts/line-chart';
-import { PieChart, type PieSlice } from '@/components/admin-web/charts/pie-chart';
-import { TrendCard } from '@/components/admin-web/charts/trend-card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/text';
 import { Spacing } from '@/constants/theme';
 import { formatKes } from '@/lib/currency';
 import { useServices } from '@/services/services-provider';
+import { ExecutiveKpiCard } from '@/components/admin-web/analytics/executive-kpi-card';
+import { MetricSection } from '@/components/admin-web/analytics/metric-section';
+import { ExportMenu } from '@/components/admin-web/analytics/export-menu';
+
 import {
-  analyticsRange,
-  exportCsv,
-  getAnalyticsKpis,
+  executiveRange,
+  previousPeriod,
+  pctDelta,
+  invalidateExecutiveCache,
+  getOverviewTimestamp,
+  getExecutiveOverview,
+  getServiceCategories,
+  getGrowthTimeseries,
+  getNotificationDelivery,
+  type ExecRangePreset,
+  type ExecutiveOverview,
+  type GrowthPoint,
+  type ServiceCategoryStat,
+  type NotificationDelivery,
+} from '@/lib/executive-analytics';
+import { GrowthDeltaBadge } from '@/components/admin-web/analytics/growth-delta-badge';
+import {
   getAnalyticsBookingsTimeseries,
-  getAnalyticsBookingsSummary,
   getAnalyticsFinancialTimeseries,
-  getAnalyticsFinancialSummary,
   getAnalyticsProviders,
   getAnalyticsServices,
   getAnalyticsGeography,
-  getAnalyticsCustomers,
-  type AnalyticsBucket,
-  type RangePreset,
-  type AnalyticsKpis,
-  type BookingsPoint,
-  type BookingsSummary,
-  type FinancialPoint,
-  type FinancialSummary,
   type ProviderStat,
   type ServiceStat,
   type GeoStat,
-  type CustomerStats,
+  type BookingsPoint,
+  type FinancialPoint,
 } from '@/lib/analytics';
 
-// ── Preset labels ─────────────────────────────────────────────────────────────
+// ── Preset filter bar ─────────────────────────────────────────────────────────
 
-type PresetOption = { label: string; value: RangePreset };
-
-const PRESETS: PresetOption[] = [
-  { label: 'Today', value: 'today' },
-  { label: 'Last 7 days', value: 'last7' },
-  { label: 'Last 30 days', value: 'last30' },
-  { label: 'This month', value: 'this_month' },
-  { label: 'Custom', value: 'custom' },
+const PRESETS: { id: ExecRangePreset; label: string }[] = [
+  { id: 'today', label: 'Today' },
+  { id: 'last7', label: 'Last 7 days' },
+  { id: 'last30', label: 'Last 30 days' },
+  { id: 'last90', label: 'Last 90 days' },
+  { id: 'this_year', label: 'This year' },
+  { id: 'custom', label: 'Custom' },
 ];
-
-type BucketOption = { label: string; value: AnalyticsBucket };
-
-const BUCKETS: BucketOption[] = [
-  { label: 'Day', value: 'day' },
-  { label: 'Week', value: 'week' },
-  { label: 'Month', value: 'month' },
-];
-
-// ── Section heading helper ────────────────────────────────────────────────────
-
-function SectionHeading({
-  title,
-  onDownload,
-}: {
-  title: string;
-  onDownload: () => void;
-}) {
-  return (
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: Spacing.three,
-        marginTop: Spacing.five,
-      }}>
-      <Text variant="heading" color="text" weight="semibold">
-        {title}
-      </Text>
-      <Button
-        label="Download CSV"
-        variant="ghost"
-        size="md"
-        onPress={onDownload}
-      />
-    </View>
-  );
-}
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
-export default function AdminWebAnalyticsScreen() {
+export default function ExecutiveDashboard() {
   const { getServiceBySlug } = useServices();
-  // ── Filter state ───────────────────────────────────────────────────────────
-  const [preset, setPreset] = useState<RangePreset>('last30');
-  const [customFrom, setCustomFrom] = useState('');
-  const [customTo, setCustomTo] = useState('');
-  const [bucket, setBucket] = useState<AnalyticsBucket>('day');
 
-  // ── Load / error state ─────────────────────────────────────────────────────
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  // ── Filter state ───────────────────────────────────────────────────────────
+  const [preset, setPreset] = useState<ExecRangePreset>('last30');
+
+  // ── Per-section loading flags (section-level loading, NOT page-level) ──────
+  const [overviewLoading, setOverviewLoading] = useState(true);
+  const [growthLoading, setGrowthLoading] = useState(true);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [providersLoading, setProvidersLoading] = useState(true);
+  const [servicesLoading, setServicesLoading] = useState(true);
+  const [geoLoading, setGeoLoading] = useState(true);
+  const [bookingsTsLoading, setBookingsTsLoading] = useState(true);
+  const [financialTsLoading, setFinancialTsLoading] = useState(true);
+  const [notificationsLoading, setNotificationsLoading] = useState(true);
+
+  // ── Per-section error flags (inline error per section, others stay functional) ─
+  // Each flag is reset to false at the start of load() and set to true only if
+  // supabase.rpc throws (not a query error — those return safe defaults).
+  // Refresh (invalidateExecutiveCache + load()) resets all flags and retries.
+  const [overviewError, setOverviewError] = useState(false);
+  const [growthError, setGrowthError] = useState(false);
+  const [categoriesError, setCategoriesError] = useState(false);
+  const [providersError, setProvidersError] = useState(false);
+  const [servicesError, setServicesError] = useState(false);
+  const [geoError, setGeoError] = useState(false);
+  const [bookingsTsError, setBookingsTsError] = useState(false);
+  const [financialTsError, setFinancialTsError] = useState(false);
+  const [notificationsError, setNotificationsError] = useState(false);
+
+  // ── Last Updated timestamp ─────────────────────────────────────────────────
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+
+  // ── Prior-period comparison state (Growth section delta badges) ───────────
+  const [prevOverview, setPrevOverview] = useState<ExecutiveOverview | null>(null);
+  const [prevOverviewError, setPrevOverviewError] = useState(false);
 
   // ── Dataset state ──────────────────────────────────────────────────────────
-  const [kpis, setKpis] = useState<AnalyticsKpis>({
-    revenue: 0,
-    gross_bookings: 0,
-    completed_bookings: 0,
-    active_providers: 0,
-    active_customers: 0,
-    avg_booking_value: 0,
-  });
-  const [bookingsTs, setBookingsTs] = useState<BookingsPoint[]>([]);
-  const [bookingsSummary, setBookingsSummary] = useState<BookingsSummary>({
-    completion_rate: 0,
-    cancellation_rate: 0,
-    avg_completion_minutes: null,
-    pending: 0,
-    completed: 0,
-  });
-  const [financialTs, setFinancialTs] = useState<FinancialPoint[]>([]);
-  const [financialSummary, setFinancialSummary] = useState<FinancialSummary>({
-    revenue: 0,
-    provider_payouts: 0,
-    quickserve_revenue: 0,
-    wallet_used: 0,
-    promo_used: 0,
-  });
+  const [overview, setOverview] = useState<ExecutiveOverview | null>(null);
+  const [growthTs, setGrowthTs] = useState<GrowthPoint[]>([]);
+  const [categories, setCategories] = useState<ServiceCategoryStat[]>([]);
   const [providers, setProviders] = useState<ProviderStat[]>([]);
   const [services, setServices] = useState<ServiceStat[]>([]);
   const [geography, setGeography] = useState<GeoStat[]>([]);
-  const [customers, setCustomers] = useState<CustomerStats>({
-    new_customers: 0,
-    returning_customers: 0,
-    repeat_booking_rate: 0,
-    retention_rate: 0,
-  });
+  const [bookingsTs, setBookingsTs] = useState<BookingsPoint[]>([]);
+  const [financialTs, setFinancialTs] = useState<FinancialPoint[]>([]);
+  const [notifications, setNotifications] = useState<NotificationDelivery[]>([]);
 
-  // ── Derived range ──────────────────────────────────────────────────────────
-  const { from, to } = analyticsRange(preset, customFrom, customTo);
+  // ── Load — each dataset is independent; sections update as data arrives ────
+  const load = useCallback(async () => {
+    const { from, to } = executiveRange(preset);
+    const prev = previousPeriod(from, to);
 
-  // ── Load all data ──────────────────────────────────────────────────────────
-  async function loadAll() {
-    setLoading(true);
-    setError('');
-    try {
-      const [
-        kpisData,
-        bookingsTsData,
-        bookingsSummaryData,
-        financialTsData,
-        financialSummaryData,
-        providersData,
-        servicesData,
-        geographyData,
-        customersData,
-      ] = await Promise.all([
-        getAnalyticsKpis(from, to),
-        getAnalyticsBookingsTimeseries(from, to, bucket),
-        getAnalyticsBookingsSummary(from, to),
-        getAnalyticsFinancialTimeseries(from, to, bucket),
-        getAnalyticsFinancialSummary(from, to),
-        getAnalyticsProviders(from, to),
-        getAnalyticsServices(from, to),
-        getAnalyticsGeography(from, to),
-        getAnalyticsCustomers(from, to),
-      ]);
-      setKpis(kpisData);
-      setBookingsTs(bookingsTsData);
-      setBookingsSummary(bookingsSummaryData);
-      setFinancialTs(financialTsData);
-      setFinancialSummary(financialSummaryData);
-      setProviders(providersData);
-      setServices(servicesData);
-      setGeography(geographyData);
-      setCustomers(customersData);
-    } catch {
-      setError('Could not load analytics.');
-    } finally {
-      setLoading(false);
-    }
-  }
+    // Reset per-section loading flags (all loading again)
+    setOverviewLoading(true);
+    setGrowthLoading(true);
+    setCategoriesLoading(true);
+    setProvidersLoading(true);
+    setServicesLoading(true);
+    setGeoLoading(true);
+    setBookingsTsLoading(true);
+    setFinancialTsLoading(true);
+    setNotificationsLoading(true);
 
-  // Re-load whenever filters change.
+    // Reset per-section error flags — a fresh load clears all errors.
+    // Refresh (invalidateExecutiveCache + load) satisfies "Retry retries failed sections."
+    setOverviewError(false);
+    setGrowthError(false);
+    setCategoriesError(false);
+    setProvidersError(false);
+    setServicesError(false);
+    setGeoError(false);
+    setBookingsTsError(false);
+    setFinancialTsError(false);
+    setNotificationsError(false);
+    setPrevOverviewError(false);
+
+    // Kick off all fetches in parallel — each resolves independently.
+    // We use void + individual .then/.catch/.finally so sections update the
+    // moment their own data arrives rather than waiting for the slowest call.
+    // .catch() flags only fire when supabase.rpc itself throws (network/auth);
+    // query errors return safe defaults and do NOT set the error flag.
+
+    void getExecutiveOverview(from, to)
+      .then((data) => {
+        setOverview(data);
+        setLastUpdated(getOverviewTimestamp(from, to));
+      })
+      .catch(() => setOverviewError(true))
+      .finally(() => setOverviewLoading(false));
+
+    // Prior-period fetch for delta badges in the Growth section (cached, 60s TTL).
+    // Section-scoped: failure sets prevOverviewError but does NOT affect any other section.
+    void getExecutiveOverview(prev.from, prev.to)
+      .then(setPrevOverview)
+      .catch(() => setPrevOverviewError(true));
+
+    void getGrowthTimeseries(from, to, 'day')
+      .then(setGrowthTs)
+      .catch(() => setGrowthError(true))
+      .finally(() => setGrowthLoading(false));
+
+    void getServiceCategories(from, to)
+      .then(setCategories)
+      .catch(() => setCategoriesError(true))
+      .finally(() => setCategoriesLoading(false));
+
+    void getAnalyticsProviders(from, to)
+      .then(setProviders)
+      .catch(() => setProvidersError(true))
+      .finally(() => setProvidersLoading(false));
+
+    void getAnalyticsServices(from, to)
+      .then(setServices)
+      .catch(() => setServicesError(true))
+      .finally(() => setServicesLoading(false));
+
+    void getAnalyticsGeography(from, to)
+      .then(setGeography)
+      .catch(() => setGeoError(true))
+      .finally(() => setGeoLoading(false));
+
+    void getAnalyticsBookingsTimeseries(from, to, 'day')
+      .then(setBookingsTs)
+      .catch(() => setBookingsTsError(true))
+      .finally(() => setBookingsTsLoading(false));
+
+    void getAnalyticsFinancialTimeseries(from, to, 'day')
+      .then(setFinancialTs)
+      .catch(() => setFinancialTsError(true))
+      .finally(() => setFinancialTsLoading(false));
+
+    void getNotificationDelivery(from, to)
+      .then(setNotifications)
+      .catch(() => setNotificationsError(true))
+      .finally(() => setNotificationsLoading(false));
+  }, [preset]);
+
   useEffect(() => {
-    void loadAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preset, bucket, customFrom, customTo]);
+    void load();
+  }, [load]);
 
-  // ── Derived chart data ─────────────────────────────────────────────────────
+  // ── Refresh: clear cache then reload ─────────────────────────────────────
+  const refresh = useCallback(() => {
+    invalidateExecutiveCache();
+    void load();
+  }, [load]);
 
-  /** Bookings timeseries → LineChart series */
+  // ── Derived chart series ───────────────────────────────────────────────────
+
+  /** Customer growth → LineChart */
+  const customerGrowthSeries: SeriesPoint[] = growthTs.map((pt) => ({
+    label: pt.period.slice(0, 10),
+    value: pt.new_customers,
+  }));
+
+  /** Provider growth → LineChart */
+  const providerGrowthSeries: SeriesPoint[] = growthTs.map((pt) => ({
+    label: pt.period.slice(0, 10),
+    value: pt.new_providers,
+  }));
+
+  /** Bookings timeseries → LineChart */
   const bookingsLineSeries: SeriesPoint[] = bookingsTs.map((pt) => ({
-    label: pt.period.slice(0, 10), // e.g. "2026-06-01"
+    label: pt.period.slice(0, 10),
     value: pt.total,
   }));
 
-  /** Financial timeseries → LineChart series */
-  const financialLineSeries: SeriesPoint[] = financialTs.map((pt) => ({
+  /** Revenue timeseries → LineChart */
+  const revenueLineSeries: SeriesPoint[] = financialTs.map((pt) => ({
     label: pt.period.slice(0, 10),
     value: pt.revenue,
   }));
 
-  /** Providers → BarChart data (top by total_earnings) */
-  const providerBarData: BarDatum[] = providers.map((p) => ({
-    label: p.full_name ?? `#${p.provider_id.slice(0, 6)}`,
-    value: p.total_earnings,
-  }));
+  /** Top services by bookings → BarChart (display-only) */
+  const topServicesBarData: BarDatum[] = [...services]
+    .sort((a, b) => b.bookings - a.bookings)
+    .slice(0, 10)
+    .map((s) => ({
+      label: getServiceBySlug(s.service_id).title,
+      value: s.bookings,
+    }));
 
-  /** Lowest-rated providers (display-only, not for ranking/dispatch/payouts) */
-  const lowestRated = [...providers]
-    .filter((p) => p.avg_rating !== null)
-    .sort((a, b) => (a.avg_rating ?? 0) - (b.avg_rating ?? 0))
-    .slice(0, 5);
-
-  /** Services → BarChart data (by bookings, with title lookup — display labels only) */
-  const servicesBarData: BarDatum[] = services.map((s) => ({
-    label: getServiceBySlug(s.service_id).title,
-    value: s.bookings,
-  }));
-
-  /** Services → PieChart data (by revenue — display labels only) */
-  const servicesPieSlices: PieSlice[] = services
-    .filter((s) => s.revenue > 0)
+  /** Top services by revenue → BarChart (display-only) */
+  const servicesRevenueBarData: BarDatum[] = [...services]
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 10)
     .map((s) => ({
       label: getServiceBySlug(s.service_id).title,
       value: s.revenue,
     }));
 
-  /** Geography → BarChart data */
-  const geoBarData: BarDatum[] = geography.map((g) => ({
-    label: g.area,
-    value: g.bookings,
+  /** Service categories → BarChart (display-only) */
+  const categoriesBarData: BarDatum[] = categories.map((c) => ({
+    label: c.category,
+    value: c.bookings,
   }));
+
+  /** Top providers by earnings → BarChart (display-only, no ranking influence) */
+  const topProvidersByEarnings: BarDatum[] = [...providers]
+    .sort((a, b) => b.total_earnings - a.total_earnings)
+    .slice(0, 10)
+    .map((p) => ({
+      label: p.full_name ?? `#${p.provider_id.slice(0, 6)}`,
+      value: p.total_earnings,
+    }));
+
+  /** Top providers by rating → list (display-only) */
+  const topProvidersByRating = [...providers]
+    .filter((p) => p.avg_rating !== null)
+    .sort((a, b) => (b.avg_rating ?? 0) - (a.avg_rating ?? 0))
+    .slice(0, 5);
+
+  /** Top providers by jobs → list (display-only) */
+  const topProvidersByJobs = [...providers]
+    .sort((a, b) => b.completed_jobs - a.completed_jobs)
+    .slice(0, 5);
+
+  /** Geographic bookings → BarChart (display-only) */
+  const geoBarData: BarDatum[] = [...geography]
+    .sort((a, b) => b.bookings - a.bookings)
+    .slice(0, 10)
+    .map((g) => ({
+      label: g.area,
+      value: g.bookings,
+    }));
+
+  // ── Notification delivery stats ────────────────────────────────────────────
+  const totalNotifications = notifications.reduce((sum, n) => sum + n.total, 0);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <>
-      <PageMeta title="Analytics" description="Business analytics dashboard for admins." />
+      <PageMeta title="Executive analytics" description="Executive overview of platform performance." />
 
-      {/* ── Filter controls ──────────────────────────────────────────────── */}
-
-      {/* Preset buttons */}
-      <View
-        style={{
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          gap: Spacing.two,
-          marginBottom: Spacing.two,
-        }}>
-        {PRESETS.map((p) => (
-          <Button
-            key={p.value}
-            label={p.label}
-            variant={preset === p.value ? 'primary' : 'secondary'}
-            size="md"
-            onPress={() => setPreset(p.value)}
-          />
-        ))}
-      </View>
-
-      {/* Custom date range inputs */}
-      {preset === 'custom' && (
-        <View
-          style={{
-            flexDirection: 'row',
-            gap: Spacing.three,
-            marginBottom: Spacing.two,
-            flexWrap: 'wrap',
-          }}>
-          <View style={{ flex: 1, minWidth: 160 }}>
-            <Input
-              label="From (ISO date)"
-              value={customFrom}
-              onChangeText={setCustomFrom}
-              placeholder="e.g. 2026-06-01"
+      {/* ── Header: filter bar + controls ────────────────────────────────── */}
+      <View style={styles.header}>
+        {/* Range preset buttons */}
+        <View style={styles.presets}>
+          {PRESETS.map((p) => (
+            <Button
+              key={p.id}
+              label={p.label}
+              onPress={() => setPreset(p.id)}
+              variant={p.id === preset ? 'primary' : 'secondary'}
+              size="md"
             />
-          </View>
-          <View style={{ flex: 1, minWidth: 160 }}>
-            <Input
-              label="To (ISO date)"
-              value={customTo}
-              onChangeText={setCustomTo}
-              placeholder="e.g. 2026-06-30"
-            />
-          </View>
-        </View>
-      )}
-
-      {/* Bucket buttons */}
-      <View
-        style={{
-          flexDirection: 'row',
-          gap: Spacing.two,
-          marginBottom: Spacing.four,
-        }}>
-        {BUCKETS.map((b) => (
-          <Button
-            key={b.value}
-            label={b.label}
-            variant={bucket === b.value ? 'primary' : 'secondary'}
-            size="md"
-            onPress={() => setBucket(b.value)}
-          />
-        ))}
-      </View>
-
-      {/* Global loading indicator */}
-      {loading && (
-        <Text variant="caption" color="textSecondary" style={{ marginBottom: Spacing.three }}>
-          Loading analytics…
-        </Text>
-      )}
-
-      {/* Global error state */}
-      {error ? (
-        <View style={{ marginBottom: Spacing.three, gap: Spacing.two }}>
-          <Text variant="caption" color="error">
-            {error}
-          </Text>
-          <Button label="Retry" variant="secondary" size="md" onPress={() => void loadAll()} />
-        </View>
-      ) : null}
-
-      {/* ── Executive KPIs ─────────────────────────────────────────────── */}
-      <SectionHeading
-        title="Executive KPIs"
-        onDownload={() =>
-          void exportCsv('kpis.csv', [kpis as unknown as Record<string, unknown>])
-        }
-      />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three, marginBottom: Spacing.three }}>
-        <TrendCard
-          title="Revenue"
-          value={formatKes(kpis.revenue)}
-          testID="kpi-revenue"
-        />
-        <TrendCard
-          title="Gross Bookings"
-          value={kpis.gross_bookings}
-          testID="kpi-gross-bookings"
-        />
-        <TrendCard
-          title="Completed Bookings"
-          value={kpis.completed_bookings}
-          testID="kpi-completed-bookings"
-        />
-        <TrendCard
-          title="Active Providers"
-          value={kpis.active_providers}
-          testID="kpi-active-providers"
-        />
-        <TrendCard
-          title="Active Customers"
-          value={kpis.active_customers}
-          testID="kpi-active-customers"
-        />
-        <TrendCard
-          title="Avg Booking Value"
-          value={formatKes(kpis.avg_booking_value)}
-          testID="kpi-avg-booking-value"
-        />
-      </View>
-
-      {/* ── Booking analytics ──────────────────────────────────────────── */}
-      <SectionHeading
-        title="Booking analytics"
-
-        onDownload={() =>
-          void exportCsv('bookings.csv', bookingsTs as unknown as Record<string, unknown>[])
-        }
-      />
-      <LineChart
-        series={bookingsLineSeries}
-        loading={loading}
-        testID="chart-bookings-ts"
-      />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three, marginTop: Spacing.three }}>
-        <TrendCard
-          title="Completion Rate"
-          value={`${bookingsSummary.completion_rate.toFixed(1)}%`}
-          testID="kpi-completion-rate"
-        />
-        <TrendCard
-          title="Cancellation Rate"
-          value={`${bookingsSummary.cancellation_rate.toFixed(1)}%`}
-          testID="kpi-cancellation-rate"
-        />
-        <TrendCard
-          title="Avg Completion (min)"
-          value={
-            bookingsSummary.avg_completion_minutes !== null
-              ? bookingsSummary.avg_completion_minutes.toFixed(0)
-              : null
-          }
-          testID="kpi-avg-completion"
-        />
-        <TrendCard
-          title="Pending"
-          value={bookingsSummary.pending}
-          testID="kpi-pending"
-        />
-        <TrendCard
-          title="Completed"
-          value={bookingsSummary.completed}
-          testID="kpi-completed"
-        />
-      </View>
-
-      {/* ── Financial analytics ───────────────────────────────────────── */}
-      <SectionHeading
-        title="Financial analytics"
-
-        onDownload={() =>
-          void exportCsv('financial.csv', financialTs as unknown as Record<string, unknown>[])
-        }
-      />
-      <LineChart
-        series={financialLineSeries}
-        format={formatKes}
-        loading={loading}
-        testID="chart-financial-ts"
-      />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three, marginTop: Spacing.three }}>
-        <TrendCard
-          title="Revenue"
-          value={formatKes(financialSummary.revenue)}
-          testID="kpi-fin-revenue"
-        />
-        <TrendCard
-          title="Provider Payouts"
-          value={formatKes(financialSummary.provider_payouts)}
-          testID="kpi-fin-payouts"
-        />
-        <TrendCard
-          title="QuickServe Revenue"
-          value={formatKes(financialSummary.quickserve_revenue)}
-          testID="kpi-fin-qs-revenue"
-        />
-        <TrendCard
-          title="Wallet Used"
-          value={formatKes(financialSummary.wallet_used)}
-          testID="kpi-fin-wallet"
-        />
-        <TrendCard
-          title="Promo Used"
-          value={formatKes(financialSummary.promo_used)}
-          testID="kpi-fin-promo"
-        />
-      </View>
-
-      {/* ── Provider analytics ────────────────────────────────────────── */}
-      <SectionHeading
-        title="Provider analytics"
-
-        onDownload={() =>
-          void exportCsv('providers.csv', providers as unknown as Record<string, unknown>[])
-        }
-      />
-      <Text variant="label" color="textSecondary" style={{ marginBottom: Spacing.two }}>
-        Top providers by earnings (display-only)
-      </Text>
-      <BarChart
-        data={providerBarData}
-        format={formatKes}
-        loading={loading}
-        testID="chart-providers-bar"
-      />
-
-      {/* Lowest-rated list — display only */}
-      {lowestRated.length > 0 && (
-        <View style={{ marginTop: Spacing.three }}>
-          <Text variant="label" color="textSecondary" style={{ marginBottom: Spacing.two }}>
-            Lowest-rated providers (display-only — not used for dispatch or payouts)
-          </Text>
-          {lowestRated.map((p) => (
-            <View
-              key={p.provider_id}
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                paddingVertical: Spacing.one,
-              }}>
-              <Text variant="caption" color="text">
-                {p.full_name ?? `#${p.provider_id.slice(0, 8)}`}
-              </Text>
-              <Text variant="caption" color="textSecondary">
-                {p.avg_rating !== null ? `${p.avg_rating.toFixed(1)} ★` : '—'}
-              </Text>
-            </View>
           ))}
         </View>
-      )}
 
-      {/* ── Service analytics ─────────────────────────────────────────── */}
-      <SectionHeading
-        title="Service analytics"
-
-        onDownload={() =>
-          void exportCsv('services.csv', services as unknown as Record<string, unknown>[])
-        }
-      />
-      <BarChart
-        data={servicesBarData}
-        loading={loading}
-        testID="chart-services-bar"
-      />
-      {servicesPieSlices.length > 0 && (
-        <View style={{ marginTop: Spacing.three }}>
-          <Text variant="label" color="textSecondary" style={{ marginBottom: Spacing.two }}>
-            Revenue by service
+        {/* Right-side controls: last updated + refresh + export (Task 5) */}
+        <View style={styles.headerRight}>
+          <Text variant="caption" color="textSecondary">
+            {lastUpdated
+              ? `Last updated ${new Date(lastUpdated).toLocaleTimeString()}`
+              : 'Last updated —'}
           </Text>
-          <PieChart
-            slices={servicesPieSlices}
-            loading={loading}
-            testID="chart-services-pie"
-          />
+          <Button label="Refresh" onPress={refresh} variant="secondary" size="md" />
+          <ExportMenu />
         </View>
-      )}
 
-      {/* ── Geographic analytics ──────────────────────────────────────── */}
-      <SectionHeading
-        title="Geographic analytics"
-
-        onDownload={() =>
-          void exportCsv('geography.csv', geography as unknown as Record<string, unknown>[])
-        }
-      />
-      <BarChart
-        data={geoBarData}
-        loading={loading}
-        testID="chart-geography-bar"
-      />
-
-      {/* ── Customer analytics ────────────────────────────────────────── */}
-      <SectionHeading
-        title="Customer analytics"
-
-        onDownload={() =>
-          void exportCsv('customers.csv', [customers as unknown as Record<string, unknown>])
-        }
-      />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.three }}>
-        <TrendCard
-          title="New Customers"
-          value={customers.new_customers}
-          testID="kpi-new-customers"
-        />
-        <TrendCard
-          title="Returning Customers"
-          value={customers.returning_customers}
-          testID="kpi-returning-customers"
-        />
-        <TrendCard
-          title="Retention Rate"
-          value={`${customers.retention_rate.toFixed(1)}%`}
-          testID="kpi-retention-rate"
-        />
-        <TrendCard
-          title="Repeat Booking Rate"
-          value={`${customers.repeat_booking_rate.toFixed(1)}%`}
-          testID="kpi-repeat-booking-rate"
+        {/* Drill-down to Slice-25 detailed dashboard */}
+        <Button
+          label="View detailed analytics"
+          onPress={() => router.push('/(admin-web)/analytics/detailed' as Href)}
+          variant="secondary"
+          size="md"
         />
       </View>
+
+      {/* ── 1. Platform Health ────────────────────────────────────────────── */}
+      <MetricSection title="Platform Health">
+        {/* Inline error — only this section is affected; others stay functional */}
+        {overviewError ? (
+          <View style={styles.sectionError}>
+            <Text variant="caption" color="error">
+              Could not load platform health data.
+            </Text>
+            <Button label="Retry" variant="secondary" size="md" onPress={refresh} />
+          </View>
+        ) : null}
+        <ExecutiveKpiCard
+          label="Current Wallet Balance"
+          value={overview ? formatKes(overview.current_wallet_balance) : '—'}
+          kind="snapshot"
+          loading={overviewLoading}
+        />
+        <ExecutiveKpiCard
+          label="Current Active Customers"
+          value={overview ? String(overview.current_active_customers) : '—'}
+          kind="snapshot"
+          loading={overviewLoading}
+        />
+        <ExecutiveKpiCard
+          label="Current Active Providers"
+          value={overview ? String(overview.current_active_providers) : '—'}
+          kind="snapshot"
+          loading={overviewLoading}
+        />
+        <ExecutiveKpiCard
+          label="Current Platform Rating"
+          value={overview ? overview.current_platform_rating.toFixed(2) : '—'}
+          kind="snapshot"
+          loading={overviewLoading}
+        />
+        <ExecutiveKpiCard
+          label="Active Disputes"
+          value={overview ? String(overview.active_disputes) : '—'}
+          kind="snapshot"
+          loading={overviewLoading}
+        />
+        <ExecutiveKpiCard
+          label="Open Support Tickets"
+          value={overview ? String(overview.open_support_tickets) : '—'}
+          kind="snapshot"
+          loading={overviewLoading}
+        />
+      </MetricSection>
+
+      {/* ── 2. Activity (selected period) ────────────────────────────────── */}
+      <MetricSection title="Activity (selected period)">
+        {/* overviewError shared with Platform Health / Operational — inline only */}
+        {overviewError ? (
+          <View style={styles.sectionError}>
+            <Text variant="caption" color="error">
+              Could not load activity data.
+            </Text>
+            <Button label="Retry" variant="secondary" size="md" onPress={refresh} />
+          </View>
+        ) : null}
+        <ExecutiveKpiCard
+          label="Total Bookings"
+          value={overview ? String(overview.total_bookings) : '—'}
+          kind="period"
+          loading={overviewLoading}
+        />
+        <ExecutiveKpiCard
+          label="Active Bookings"
+          value={overview ? String(overview.active_bookings) : '—'}
+          kind="period"
+          loading={overviewLoading}
+        />
+        <ExecutiveKpiCard
+          label="Completed Bookings"
+          value={overview ? String(overview.completed_bookings) : '—'}
+          kind="period"
+          loading={overviewLoading}
+        />
+        <ExecutiveKpiCard
+          label="Cancelled Bookings"
+          value={overview ? String(overview.cancelled_bookings) : '—'}
+          kind="period"
+          loading={overviewLoading}
+        />
+        <ExecutiveKpiCard
+          label="Total Revenue"
+          value={overview ? formatKes(overview.total_revenue) : '—'}
+          kind="period"
+          loading={overviewLoading}
+        />
+        <ExecutiveKpiCard
+          label="Platform Commission"
+          value={overview ? formatKes(overview.platform_commission) : '—'}
+          kind="period"
+          loading={overviewLoading}
+        />
+        <ExecutiveKpiCard
+          label="Average Booking Value"
+          value={overview ? formatKes(overview.avg_booking_value) : '—'}
+          kind="period"
+          loading={overviewLoading}
+        />
+        <ExecutiveKpiCard
+          label="Repeat Customer Rate"
+          value={overview ? `${(overview.repeat_customer_rate * 100).toFixed(0)}%` : '—'}
+          kind="period"
+          loading={overviewLoading}
+        />
+        <ExecutiveKpiCard
+          label="New Customers"
+          value={overview ? String(overview.new_customers) : '—'}
+          kind="period"
+          loading={overviewLoading}
+        />
+        <ExecutiveKpiCard
+          label="New Providers"
+          value={overview ? String(overview.new_providers) : '—'}
+          kind="period"
+          loading={overviewLoading}
+        />
+        <ExecutiveKpiCard
+          label="Period Avg Rating"
+          value={overview ? overview.period_avg_rating.toFixed(2) : '—'}
+          kind="period"
+          loading={overviewLoading}
+        />
+      </MetricSection>
+
+      {/* ── 3. Operational ───────────────────────────────────────────────── */}
+      <MetricSection title="Operational">
+        {overviewError ? (
+          <View style={styles.sectionError}>
+            <Text variant="caption" color="error">
+              Could not load operational data.
+            </Text>
+            <Button label="Retry" variant="secondary" size="md" onPress={refresh} />
+          </View>
+        ) : null}
+        {notificationsError ? (
+          <View style={styles.sectionError}>
+            <Text variant="caption" color="error">
+              Could not load notification delivery data.
+            </Text>
+            <Button label="Retry" variant="secondary" size="md" onPress={refresh} />
+          </View>
+        ) : null}
+        <ExecutiveKpiCard
+          label="Pending Jobs"
+          value={overview ? String(overview.pending_jobs) : '—'}
+          kind="snapshot"
+          loading={overviewLoading}
+        />
+        <ExecutiveKpiCard
+          label="In-Progress Jobs"
+          value={overview ? String(overview.in_progress_jobs) : '—'}
+          kind="snapshot"
+          loading={overviewLoading}
+        />
+        <ExecutiveKpiCard
+          label="Avg Response Time"
+          value={
+            overviewLoading
+              ? '—'
+              : overview?.avg_response_minutes == null
+                ? '—'
+                : `${overview.avg_response_minutes.toFixed(0)} min`
+          }
+          kind="period"
+          loading={overviewLoading}
+        />
+        <ExecutiveKpiCard
+          label="Avg Completion Time"
+          value={
+            overviewLoading
+              ? '—'
+              : overview?.avg_completion_minutes == null
+                ? '—'
+                : `${overview.avg_completion_minutes.toFixed(0)} min`
+          }
+          kind="period"
+          loading={overviewLoading}
+        />
+        <ExecutiveKpiCard
+          label="Failed Payments"
+          value={overview ? String(overview.failed_payments) : '—'}
+          kind="period"
+          loading={overviewLoading}
+        />
+        <ExecutiveKpiCard
+          label="Notifications Sent"
+          value={notificationsLoading ? '—' : String(totalNotifications)}
+          kind="period"
+          loading={notificationsLoading}
+        />
+      </MetricSection>
+
+      {/* ── 4. Growth ────────────────────────────────────────────────────── */}
+      <MetricSection title="Growth">
+        {growthError ? (
+          <View style={styles.sectionError}>
+            <Text variant="caption" color="error">
+              Could not load growth data.
+            </Text>
+            <Button label="Retry" variant="secondary" size="md" onPress={refresh} />
+          </View>
+        ) : null}
+        {financialTsError ? (
+          <View style={styles.sectionError}>
+            <Text variant="caption" color="error">
+              Could not load revenue timeseries.
+            </Text>
+            <Button label="Retry" variant="secondary" size="md" onPress={refresh} />
+          </View>
+        ) : null}
+        {bookingsTsError ? (
+          <View style={styles.sectionError}>
+            <Text variant="caption" color="error">
+              Could not load bookings timeseries.
+            </Text>
+            <Button label="Retry" variant="secondary" size="md" onPress={refresh} />
+          </View>
+        ) : null}
+
+        {/* Period vs previous period — delta badges for 4 Growth KPIs.
+            Shown only when both current and previous data are available.
+            Graceful degradation: when prior fetch failed or baseline is 0,
+            the badge is omitted — value label always renders. */}
+        <View style={styles.deltaBlock}>
+          <Text variant="label" color="textSecondary" style={styles.chartLabel}>
+            Period vs previous period
+          </Text>
+          {/* New Customers */}
+          <View style={styles.deltaRow}>
+            <Text variant="caption" color="textSecondary">New Customers</Text>
+            <Text variant="body">{overview ? String(overview.new_customers) : '—'}</Text>
+            {(() => {
+              const delta =
+                overview && prevOverview && !prevOverviewError
+                  ? pctDelta(overview.new_customers, prevOverview.new_customers)
+                  : null;
+              return delta !== null ? <GrowthDeltaBadge delta={delta} /> : null;
+            })()}
+          </View>
+          {/* New Providers */}
+          <View style={styles.deltaRow}>
+            <Text variant="caption" color="textSecondary">New Providers</Text>
+            <Text variant="body">{overview ? String(overview.new_providers) : '—'}</Text>
+            {(() => {
+              const delta =
+                overview && prevOverview && !prevOverviewError
+                  ? pctDelta(overview.new_providers, prevOverview.new_providers)
+                  : null;
+              return delta !== null ? <GrowthDeltaBadge delta={delta} /> : null;
+            })()}
+          </View>
+          {/* Revenue */}
+          <View style={styles.deltaRow}>
+            <Text variant="caption" color="textSecondary">Revenue</Text>
+            <Text variant="body">{overview ? formatKes(overview.total_revenue) : '—'}</Text>
+            {(() => {
+              const delta =
+                overview && prevOverview && !prevOverviewError
+                  ? pctDelta(overview.total_revenue, prevOverview.total_revenue)
+                  : null;
+              return delta !== null ? <GrowthDeltaBadge delta={delta} /> : null;
+            })()}
+          </View>
+          {/* Bookings */}
+          <View style={styles.deltaRow}>
+            <Text variant="caption" color="textSecondary">Bookings</Text>
+            <Text variant="body">{overview ? String(overview.total_bookings) : '—'}</Text>
+            {(() => {
+              const delta =
+                overview && prevOverview && !prevOverviewError
+                  ? pctDelta(overview.total_bookings, prevOverview.total_bookings)
+                  : null;
+              return delta !== null ? <GrowthDeltaBadge delta={delta} /> : null;
+            })()}
+          </View>
+        </View>
+
+        <View style={styles.chartBlock}>
+          <Text variant="label" color="textSecondary" style={styles.chartLabel}>
+            Customer growth over time
+          </Text>
+          <LineChart
+            series={customerGrowthSeries}
+            loading={growthLoading}
+            testID="chart-customer-growth"
+          />
+        </View>
+        <View style={styles.chartBlock}>
+          <Text variant="label" color="textSecondary" style={styles.chartLabel}>
+            Provider growth over time
+          </Text>
+          <LineChart
+            series={providerGrowthSeries}
+            loading={growthLoading}
+            testID="chart-provider-growth"
+          />
+        </View>
+        <View style={styles.chartBlock}>
+          <Text variant="label" color="textSecondary" style={styles.chartLabel}>
+            Revenue over time
+          </Text>
+          <LineChart
+            series={revenueLineSeries}
+            format={formatKes}
+            loading={financialTsLoading}
+            testID="chart-revenue-ts"
+          />
+        </View>
+        <View style={styles.chartBlock}>
+          <Text variant="label" color="textSecondary" style={styles.chartLabel}>
+            Bookings over time
+          </Text>
+          <LineChart
+            series={bookingsLineSeries}
+            loading={bookingsTsLoading}
+            testID="chart-bookings-ts"
+          />
+        </View>
+      </MetricSection>
+
+      {/* ── 5. Service analytics ─────────────────────────────────────────── */}
+      <MetricSection title="Service analytics">
+        {servicesError ? (
+          <View style={styles.sectionError}>
+            <Text variant="caption" color="error">
+              Could not load service analytics.
+            </Text>
+            <Button label="Retry" variant="secondary" size="md" onPress={refresh} />
+          </View>
+        ) : null}
+        {categoriesError ? (
+          <View style={styles.sectionError}>
+            <Text variant="caption" color="error">
+              Could not load category analytics.
+            </Text>
+            <Button label="Retry" variant="secondary" size="md" onPress={refresh} />
+          </View>
+        ) : null}
+        <View style={styles.chartBlock}>
+          <Text variant="label" color="textSecondary" style={styles.chartLabel}>
+            Top services by bookings (display-only)
+          </Text>
+          <BarChart
+            data={topServicesBarData}
+            loading={servicesLoading}
+            testID="chart-top-services-bar"
+          />
+        </View>
+        <View style={styles.chartBlock}>
+          <Text variant="label" color="textSecondary" style={styles.chartLabel}>
+            Top services by revenue (display-only)
+          </Text>
+          <BarChart
+            data={servicesRevenueBarData}
+            format={formatKes}
+            loading={servicesLoading}
+            testID="chart-services-revenue-bar"
+          />
+        </View>
+        {categories.length > 0 && (
+          <View style={styles.chartBlock}>
+            <Text variant="label" color="textSecondary" style={styles.chartLabel}>
+              Bookings by category (display-only)
+            </Text>
+            <BarChart
+              data={categoriesBarData}
+              loading={categoriesLoading}
+              testID="chart-categories-bar"
+            />
+          </View>
+        )}
+      </MetricSection>
+
+      {/* ── 6. Provider analytics ─────────────────────────────────────────── */}
+      <MetricSection title="Provider analytics">
+        {providersError ? (
+          <View style={styles.sectionError}>
+            <Text variant="caption" color="error">
+              Could not load provider analytics.
+            </Text>
+            <Button label="Retry" variant="secondary" size="md" onPress={refresh} />
+          </View>
+        ) : null}
+        <View style={styles.chartBlock}>
+          <Text variant="label" color="textSecondary" style={styles.chartLabel}>
+            Top providers by earnings (display-only — no ranking influence)
+          </Text>
+          <BarChart
+            data={topProvidersByEarnings}
+            format={formatKes}
+            loading={providersLoading}
+            testID="chart-top-providers-earnings"
+          />
+        </View>
+
+        {/* Highest-rated providers — display-only list */}
+        {!providersLoading && topProvidersByRating.length > 0 && (
+          <View style={styles.listBlock}>
+            <Text variant="label" color="textSecondary" style={styles.chartLabel}>
+              Highest-rated providers (display-only)
+            </Text>
+            {topProvidersByRating.map((p) => (
+              <View key={p.provider_id} style={styles.listRow}>
+                <Text variant="caption" color="text">
+                  {p.full_name ?? `#${p.provider_id.slice(0, 8)}`}
+                </Text>
+                <Text variant="caption" color="textSecondary">
+                  {p.avg_rating !== null ? `${p.avg_rating.toFixed(1)} ★` : '—'}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Most active providers (by completed jobs) — display-only list */}
+        {!providersLoading && topProvidersByJobs.length > 0 && (
+          <View style={styles.listBlock}>
+            <Text variant="label" color="textSecondary" style={styles.chartLabel}>
+              Most active providers by completed jobs (display-only)
+            </Text>
+            {topProvidersByJobs.map((p) => (
+              <View key={p.provider_id} style={styles.listRow}>
+                <Text variant="caption" color="text">
+                  {p.full_name ?? `#${p.provider_id.slice(0, 8)}`}
+                </Text>
+                <Text variant="caption" color="textSecondary">
+                  {p.completed_jobs} jobs
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </MetricSection>
+
+      {/* ── 7. Geographic analytics ───────────────────────────────────────── */}
+      <MetricSection title="Geographic analytics">
+        {geoError ? (
+          <View style={styles.sectionError}>
+            <Text variant="caption" color="error">
+              Could not load geographic analytics.
+            </Text>
+            <Button label="Retry" variant="secondary" size="md" onPress={refresh} />
+          </View>
+        ) : null}
+        <View style={styles.chartBlock}>
+          <Text variant="label" color="textSecondary" style={styles.chartLabel}>
+            Top areas by bookings (display-only)
+          </Text>
+          <BarChart
+            data={geoBarData}
+            loading={geoLoading}
+            testID="chart-geography-bar"
+          />
+        </View>
+      </MetricSection>
     </>
   );
 }
+
+// ── Styles ────────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  header: {
+    gap: Spacing.two,
+    marginBottom: Spacing.four,
+  },
+  presets: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.one,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    flexWrap: 'wrap',
+  },
+  chartBlock: {
+    width: '100%',
+    gap: Spacing.one,
+  },
+  chartLabel: {
+    marginBottom: Spacing.one,
+  },
+  listBlock: {
+    width: '100%',
+    gap: Spacing.one,
+  },
+  listRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.one,
+  },
+  /** Inline per-section error row — mirrors detailed.tsx error pattern. */
+  sectionError: {
+    gap: Spacing.two,
+    marginBottom: Spacing.three,
+  },
+  /** Container for the "Period vs previous period" delta badge block. */
+  deltaBlock: {
+    width: '100%',
+    gap: Spacing.one,
+    marginBottom: Spacing.two,
+  },
+  /** Single metric row: label + value + optional badge, all on one line. */
+  deltaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+});

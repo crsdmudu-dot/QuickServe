@@ -13,6 +13,8 @@ export type ButtonProps = {
   fullWidth?: boolean;
   disabled?: boolean;
   loading?: boolean;
+  /** Forwarded to the root Pressable — useful for test assertions. */
+  testID?: string;
 };
 
 export function Button({
@@ -23,6 +25,7 @@ export function Button({
   fullWidth = false,
   disabled = false,
   loading = false,
+  testID,
 }: ButtonProps) {
   const theme = useTheme();
 
@@ -57,6 +60,7 @@ export function Button({
 
   return (
     <Pressable
+      testID={testID}
       onPress={handlePress}
       disabled={isDisabled}
       accessibilityRole="button"
