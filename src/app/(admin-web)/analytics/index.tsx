@@ -43,7 +43,7 @@ import { formatKes } from '@/lib/currency';
 import { useServices } from '@/services/services-provider';
 import { ExecutiveKpiCard } from '@/components/admin-web/analytics/executive-kpi-card';
 import { MetricSection } from '@/components/admin-web/analytics/metric-section';
-// <ExportMenu /> will be mounted here in Task 5 — see comment below in JSX
+import { ExportMenu } from '@/components/admin-web/analytics/export-menu';
 
 import {
   executiveRange,
@@ -102,6 +102,20 @@ export default function ExecutiveDashboard() {
   const [financialTsLoading, setFinancialTsLoading] = useState(true);
   const [notificationsLoading, setNotificationsLoading] = useState(true);
 
+  // ── Per-section error flags (inline error per section, others stay functional) ─
+  // Each flag is reset to false at the start of load() and set to true only if
+  // supabase.rpc throws (not a query error — those return safe defaults).
+  // Refresh (invalidateExecutiveCache + load()) resets all flags and retries.
+  const [overviewError, setOverviewError] = useState(false);
+  const [growthError, setGrowthError] = useState(false);
+  const [categoriesError, setCategoriesError] = useState(false);
+  const [providersError, setProvidersError] = useState(false);
+  const [servicesError, setServicesError] = useState(false);
+  const [geoError, setGeoError] = useState(false);
+  const [bookingsTsError, setBookingsTsError] = useState(false);
+  const [financialTsError, setFinancialTsError] = useState(false);
+  const [notificationsError, setNotificationsError] = useState(false);
+
   // ── Last Updated timestamp ─────────────────────────────────────────────────
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
 
@@ -131,47 +145,70 @@ export default function ExecutiveDashboard() {
     setFinancialTsLoading(true);
     setNotificationsLoading(true);
 
+    // Reset per-section error flags — a fresh load clears all errors.
+    // Refresh (invalidateExecutiveCache + load) satisfies "Retry retries failed sections."
+    setOverviewError(false);
+    setGrowthError(false);
+    setCategoriesError(false);
+    setProvidersError(false);
+    setServicesError(false);
+    setGeoError(false);
+    setBookingsTsError(false);
+    setFinancialTsError(false);
+    setNotificationsError(false);
+
     // Kick off all fetches in parallel — each resolves independently.
     // We use void + individual .then/.catch/.finally so sections update the
     // moment their own data arrives rather than waiting for the slowest call.
+    // .catch() flags only fire when supabase.rpc itself throws (network/auth);
+    // query errors return safe defaults and do NOT set the error flag.
 
     void getExecutiveOverview(from, to)
       .then((data) => {
         setOverview(data);
         setLastUpdated(getOverviewTimestamp(from, to));
       })
+      .catch(() => setOverviewError(true))
       .finally(() => setOverviewLoading(false));
 
     void getGrowthTimeseries(from, to, 'day')
       .then(setGrowthTs)
+      .catch(() => setGrowthError(true))
       .finally(() => setGrowthLoading(false));
 
     void getServiceCategories(from, to)
       .then(setCategories)
+      .catch(() => setCategoriesError(true))
       .finally(() => setCategoriesLoading(false));
 
     void getAnalyticsProviders(from, to)
       .then(setProviders)
+      .catch(() => setProvidersError(true))
       .finally(() => setProvidersLoading(false));
 
     void getAnalyticsServices(from, to)
       .then(setServices)
+      .catch(() => setServicesError(true))
       .finally(() => setServicesLoading(false));
 
     void getAnalyticsGeography(from, to)
       .then(setGeography)
+      .catch(() => setGeoError(true))
       .finally(() => setGeoLoading(false));
 
     void getAnalyticsBookingsTimeseries(from, to, 'day')
       .then(setBookingsTs)
+      .catch(() => setBookingsTsError(true))
       .finally(() => setBookingsTsLoading(false));
 
     void getAnalyticsFinancialTimeseries(from, to, 'day')
       .then(setFinancialTs)
+      .catch(() => setFinancialTsError(true))
       .finally(() => setFinancialTsLoading(false));
 
     void getNotificationDelivery(from, to)
       .then(setNotifications)
+      .catch(() => setNotificationsError(true))
       .finally(() => setNotificationsLoading(false));
   }, [preset]);
 
@@ -296,7 +333,7 @@ export default function ExecutiveDashboard() {
               : 'Last updated —'}
           </Text>
           <Button label="Refresh" onPress={refresh} variant="secondary" size="md" />
-          {/* <ExportMenu /> — Task 5 mount point */}
+          <ExportMenu />
         </View>
 
         {/* Drill-down to Slice-25 detailed dashboard */}
@@ -310,6 +347,15 @@ export default function ExecutiveDashboard() {
 
       {/* ── 1. Platform Health ────────────────────────────────────────────── */}
       <MetricSection title="Platform Health">
+        {/* Inline error — only this section is affected; others stay functional */}
+        {overviewError ? (
+          <View style={styles.sectionError}>
+            <Text variant="caption" color="error">
+              Could not load platform health data.
+            </Text>
+            <Button label="Retry" variant="secondary" size="md" onPress={refresh} />
+          </View>
+        ) : null}
         <ExecutiveKpiCard
           label="Current Wallet Balance"
           value={overview ? formatKes(overview.current_wallet_balance) : '—'}
@@ -350,6 +396,15 @@ export default function ExecutiveDashboard() {
 
       {/* ── 2. Activity (selected period) ────────────────────────────────── */}
       <MetricSection title="Activity (selected period)">
+        {/* overviewError shared with Platform Health / Operational — inline only */}
+        {overviewError ? (
+          <View style={styles.sectionError}>
+            <Text variant="caption" color="error">
+              Could not load activity data.
+            </Text>
+            <Button label="Retry" variant="secondary" size="md" onPress={refresh} />
+          </View>
+        ) : null}
         <ExecutiveKpiCard
           label="Total Bookings"
           value={overview ? String(overview.total_bookings) : '—'}
@@ -420,6 +475,22 @@ export default function ExecutiveDashboard() {
 
       {/* ── 3. Operational ───────────────────────────────────────────────── */}
       <MetricSection title="Operational">
+        {overviewError ? (
+          <View style={styles.sectionError}>
+            <Text variant="caption" color="error">
+              Could not load operational data.
+            </Text>
+            <Button label="Retry" variant="secondary" size="md" onPress={refresh} />
+          </View>
+        ) : null}
+        {notificationsError ? (
+          <View style={styles.sectionError}>
+            <Text variant="caption" color="error">
+              Could not load notification delivery data.
+            </Text>
+            <Button label="Retry" variant="secondary" size="md" onPress={refresh} />
+          </View>
+        ) : null}
         <ExecutiveKpiCard
           label="Pending Jobs"
           value={overview ? String(overview.pending_jobs) : '—'}
@@ -472,6 +543,30 @@ export default function ExecutiveDashboard() {
 
       {/* ── 4. Growth ────────────────────────────────────────────────────── */}
       <MetricSection title="Growth">
+        {growthError ? (
+          <View style={styles.sectionError}>
+            <Text variant="caption" color="error">
+              Could not load growth data.
+            </Text>
+            <Button label="Retry" variant="secondary" size="md" onPress={refresh} />
+          </View>
+        ) : null}
+        {financialTsError ? (
+          <View style={styles.sectionError}>
+            <Text variant="caption" color="error">
+              Could not load revenue timeseries.
+            </Text>
+            <Button label="Retry" variant="secondary" size="md" onPress={refresh} />
+          </View>
+        ) : null}
+        {bookingsTsError ? (
+          <View style={styles.sectionError}>
+            <Text variant="caption" color="error">
+              Could not load bookings timeseries.
+            </Text>
+            <Button label="Retry" variant="secondary" size="md" onPress={refresh} />
+          </View>
+        ) : null}
         <View style={styles.chartBlock}>
           <Text variant="label" color="textSecondary" style={styles.chartLabel}>
             Customer growth over time
@@ -517,6 +612,22 @@ export default function ExecutiveDashboard() {
 
       {/* ── 5. Service analytics ─────────────────────────────────────────── */}
       <MetricSection title="Service analytics">
+        {servicesError ? (
+          <View style={styles.sectionError}>
+            <Text variant="caption" color="error">
+              Could not load service analytics.
+            </Text>
+            <Button label="Retry" variant="secondary" size="md" onPress={refresh} />
+          </View>
+        ) : null}
+        {categoriesError ? (
+          <View style={styles.sectionError}>
+            <Text variant="caption" color="error">
+              Could not load category analytics.
+            </Text>
+            <Button label="Retry" variant="secondary" size="md" onPress={refresh} />
+          </View>
+        ) : null}
         <View style={styles.chartBlock}>
           <Text variant="label" color="textSecondary" style={styles.chartLabel}>
             Top services by bookings (display-only)
@@ -554,6 +665,14 @@ export default function ExecutiveDashboard() {
 
       {/* ── 6. Provider analytics ─────────────────────────────────────────── */}
       <MetricSection title="Provider analytics">
+        {providersError ? (
+          <View style={styles.sectionError}>
+            <Text variant="caption" color="error">
+              Could not load provider analytics.
+            </Text>
+            <Button label="Retry" variant="secondary" size="md" onPress={refresh} />
+          </View>
+        ) : null}
         <View style={styles.chartBlock}>
           <Text variant="label" color="textSecondary" style={styles.chartLabel}>
             Top providers by earnings (display-only — no ranking influence)
@@ -607,6 +726,14 @@ export default function ExecutiveDashboard() {
 
       {/* ── 7. Geographic analytics ───────────────────────────────────────── */}
       <MetricSection title="Geographic analytics">
+        {geoError ? (
+          <View style={styles.sectionError}>
+            <Text variant="caption" color="error">
+              Could not load geographic analytics.
+            </Text>
+            <Button label="Retry" variant="secondary" size="md" onPress={refresh} />
+          </View>
+        ) : null}
         <View style={styles.chartBlock}>
           <Text variant="label" color="textSecondary" style={styles.chartLabel}>
             Top areas by bookings (display-only)
@@ -655,5 +782,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: Spacing.one,
+  },
+  /** Inline per-section error row — mirrors detailed.tsx error pattern. */
+  sectionError: {
+    gap: Spacing.two,
+    marginBottom: Spacing.three,
   },
 });

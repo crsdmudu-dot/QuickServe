@@ -126,6 +126,9 @@ import ExecutiveDashboard from '@/app/(admin-web)/analytics/index';
 describe('ExecutiveDashboard (executive analytics landing)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Restore the default mock implementations after each clearAllMocks().
+    // clearAllMocks resets call history but NOT mock implementations set via
+    // jest.mock(), so the factory defaults apply automatically here.
   });
 
   test('renders health snapshot + activity KPIs and Last Updated', async () => {
@@ -184,5 +187,77 @@ describe('ExecutiveDashboard (executive analytics landing)', () => {
     await waitFor(() => expect(screen.getByText('Platform Health')).toBeOnTheScreen());
     expect(screen.getByText('Current Wallet Balance')).toBeOnTheScreen();
     expect(screen.getByText('Total Bookings')).toBeOnTheScreen();
+  });
+});
+
+// ── Task 5: Per-section error state tests ─────────────────────────────────────
+// These tests verify that when ONE wrapper rejects, only that section shows its
+// inline error + Retry. Other sections remain fully functional (their data loads).
+
+describe('ExecutiveDashboard per-section error states (Task 5)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('getExecutiveOverview reject → Platform Health inline error + Retry; Growth section still renders', async () => {
+    // Make overview reject once — simulates supabase.rpc throwing (not a query error)
+    const { getExecutiveOverview } = require('@/lib/executive-analytics');
+    (getExecutiveOverview as jest.Mock).mockRejectedValueOnce(new Error('network'));
+
+    render(<ExecutiveDashboard />);
+
+    // Platform Health section: inline error + Retry button
+    await waitFor(() =>
+      expect(screen.getByText(/could not load platform health data/i)).toBeOnTheScreen(),
+    );
+    // Retry buttons render (one per section that shares overviewError)
+    const retryButtons = screen.getAllByText('Retry');
+    expect(retryButtons.length).toBeGreaterThan(0);
+
+    // Growth section still renders its heading — its data was NOT the one that failed
+    expect(screen.getByText('Growth')).toBeOnTheScreen();
+    // Geographic analytics also still renders
+    expect(screen.getByText('Geographic analytics')).toBeOnTheScreen();
+  });
+
+  test('getAnalyticsGeography reject → geo inline error; Platform Health section still renders its KPI cards', async () => {
+    // Make geography reject once; everything else resolves normally
+    const { getAnalyticsGeography } = require('@/lib/analytics');
+    (getAnalyticsGeography as jest.Mock).mockRejectedValueOnce(new Error('geo fail'));
+
+    render(<ExecutiveDashboard />);
+
+    // Geographic analytics section: inline error + at least one Retry
+    await waitFor(() =>
+      expect(screen.getByText(/could not load geographic analytics/i)).toBeOnTheScreen(),
+    );
+    expect(screen.getAllByText('Retry').length).toBeGreaterThan(0);
+
+    // Platform Health section renders normally (overview resolved fine)
+    expect(screen.getByText('Platform Health')).toBeOnTheScreen();
+    expect(screen.getByText('Current Wallet Balance')).toBeOnTheScreen();
+  });
+
+  test('Refresh re-invokes getExecutiveOverview after an error', async () => {
+    const { getExecutiveOverview, invalidateExecutiveCache } =
+      require('@/lib/executive-analytics');
+    (getExecutiveOverview as jest.Mock).mockRejectedValueOnce(new Error('network'));
+
+    const { fireEvent } = require('@testing-library/react-native');
+    render(<ExecutiveDashboard />);
+
+    // Wait for error to appear
+    await waitFor(() =>
+      expect(screen.getByText(/could not load platform health data/i)).toBeOnTheScreen(),
+    );
+
+    // Press Refresh
+    fireEvent.press(screen.getAllByText('Refresh')[0]);
+
+    // invalidateExecutiveCache + getExecutiveOverview called again
+    await waitFor(() => {
+      expect(invalidateExecutiveCache).toHaveBeenCalled();
+      expect((getExecutiveOverview as jest.Mock).mock.calls.length).toBeGreaterThanOrEqual(2);
+    });
   });
 });
