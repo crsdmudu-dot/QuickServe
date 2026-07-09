@@ -106,7 +106,7 @@ jest.mock('@/lib/analytics', () => ({
 // ── Imports ───────────────────────────────────────────────────────────────────
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import AdminWebAnalyticsScreen from '@/app/(admin-web)/analytics/index';
+import AdminWebAnalyticsScreen from '@/app/(admin-web)/analytics/detailed';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
