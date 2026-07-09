@@ -4,6 +4,8 @@
 
 import {
   executiveRange,
+  previousPeriod,
+  pctDelta,
   getExecutiveOverview,
   getServiceCategories,
   getGrowthTimeseries,
@@ -238,5 +240,74 @@ describe('getNotificationDelivery', () => {
     mockRpc.mockResolvedValue({ data: null, error: { message: 'err' } });
     const r = await getNotificationDelivery('A', 'B');
     expect(r).toEqual([]);
+  });
+});
+
+// ── previousPeriod ────────────────────────────────────────────────────────────
+
+describe('previousPeriod', () => {
+  test('prev.to equals from', () => {
+    const from = '2026-07-02T00:00:00.000Z';
+    const to = '2026-07-09T00:00:00.000Z';
+    const prev = previousPeriod(from, to);
+    expect(prev.to).toBe(from);
+  });
+
+  test('prev.from is from minus the window duration', () => {
+    const from = '2026-07-02T00:00:00.000Z';
+    const to = '2026-07-09T00:00:00.000Z';
+    const duration = new Date(to).getTime() - new Date(from).getTime();
+    const prev = previousPeriod(from, to);
+    expect(new Date(prev.from).getTime()).toBe(new Date(from).getTime() - duration);
+  });
+
+  test('7-day window: prev covers the preceding 7 days', () => {
+    const from = '2026-07-02T00:00:00.000Z';
+    const to = '2026-07-09T00:00:00.000Z';
+    const prev = previousPeriod(from, to);
+    expect(prev.from).toBe('2026-06-25T00:00:00.000Z');
+    expect(prev.to).toBe(from);
+  });
+
+  test('30-day window: prev.from is 30 days before from', () => {
+    const from = '2026-06-09T12:00:00.000Z';
+    const to = '2026-07-09T12:00:00.000Z';
+    const prev = previousPeriod(from, to);
+    const expectedFrom = new Date(new Date(from).getTime() - (new Date(to).getTime() - new Date(from).getTime())).toISOString();
+    expect(prev.from).toBe(expectedFrom);
+    expect(prev.to).toBe(from);
+  });
+});
+
+// ── pctDelta ──────────────────────────────────────────────────────────────────
+
+describe('pctDelta', () => {
+  test('positive delta: current > previous', () => {
+    expect(pctDelta(125, 100)).toBe(25);
+  });
+
+  test('negative delta: current < previous', () => {
+    expect(pctDelta(3, 8)).toBe(-62.5);
+  });
+
+  test('returns null when previous is 0', () => {
+    expect(pctDelta(10, 0)).toBeNull();
+  });
+
+  test('returns null when previous is negative', () => {
+    expect(pctDelta(10, -5)).toBeNull();
+  });
+
+  test('rounds to 1 decimal place', () => {
+    // 1/3 ≈ 33.333... → rounds to 33.3
+    expect(pctDelta(4, 3)).toBe(33.3);
+  });
+
+  test('zero delta: current equals previous', () => {
+    expect(pctDelta(50, 50)).toBe(0);
+  });
+
+  test('exact 100% increase', () => {
+    expect(pctDelta(200, 100)).toBe(100);
   });
 });

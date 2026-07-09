@@ -47,6 +47,8 @@ import { ExportMenu } from '@/components/admin-web/analytics/export-menu';
 
 import {
   executiveRange,
+  previousPeriod,
+  pctDelta,
   invalidateExecutiveCache,
   getOverviewTimestamp,
   getExecutiveOverview,
@@ -59,6 +61,7 @@ import {
   type ServiceCategoryStat,
   type NotificationDelivery,
 } from '@/lib/executive-analytics';
+import { GrowthDeltaBadge } from '@/components/admin-web/analytics/growth-delta-badge';
 import {
   getAnalyticsBookingsTimeseries,
   getAnalyticsFinancialTimeseries,
@@ -119,6 +122,10 @@ export default function ExecutiveDashboard() {
   // ── Last Updated timestamp ─────────────────────────────────────────────────
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
 
+  // ── Prior-period comparison state (Growth section delta badges) ───────────
+  const [prevOverview, setPrevOverview] = useState<ExecutiveOverview | null>(null);
+  const [prevOverviewError, setPrevOverviewError] = useState(false);
+
   // ── Dataset state ──────────────────────────────────────────────────────────
   const [overview, setOverview] = useState<ExecutiveOverview | null>(null);
   const [growthTs, setGrowthTs] = useState<GrowthPoint[]>([]);
@@ -133,6 +140,7 @@ export default function ExecutiveDashboard() {
   // ── Load — each dataset is independent; sections update as data arrives ────
   const load = useCallback(async () => {
     const { from, to } = executiveRange(preset);
+    const prev = previousPeriod(from, to);
 
     // Reset per-section loading flags (all loading again)
     setOverviewLoading(true);
@@ -156,6 +164,7 @@ export default function ExecutiveDashboard() {
     setBookingsTsError(false);
     setFinancialTsError(false);
     setNotificationsError(false);
+    setPrevOverviewError(false);
 
     // Kick off all fetches in parallel — each resolves independently.
     // We use void + individual .then/.catch/.finally so sections update the
@@ -170,6 +179,12 @@ export default function ExecutiveDashboard() {
       })
       .catch(() => setOverviewError(true))
       .finally(() => setOverviewLoading(false));
+
+    // Prior-period fetch for delta badges in the Growth section (cached, 60s TTL).
+    // Section-scoped: failure sets prevOverviewError but does NOT affect any other section.
+    void getExecutiveOverview(prev.from, prev.to)
+      .then(setPrevOverview)
+      .catch(() => setPrevOverviewError(true));
 
     void getGrowthTimeseries(from, to, 'day')
       .then(setGrowthTs)
@@ -567,6 +582,65 @@ export default function ExecutiveDashboard() {
             <Button label="Retry" variant="secondary" size="md" onPress={refresh} />
           </View>
         ) : null}
+
+        {/* Period vs previous period — delta badges for 4 Growth KPIs.
+            Shown only when both current and previous data are available.
+            Graceful degradation: when prior fetch failed or baseline is 0,
+            the badge is omitted — value label always renders. */}
+        <View style={styles.deltaBlock}>
+          <Text variant="label" color="textSecondary" style={styles.chartLabel}>
+            Period vs previous period
+          </Text>
+          {/* New Customers */}
+          <View style={styles.deltaRow}>
+            <Text variant="caption" color="textSecondary">New Customers</Text>
+            <Text variant="body">{overview ? String(overview.new_customers) : '—'}</Text>
+            {(() => {
+              const delta =
+                overview && prevOverview && !prevOverviewError
+                  ? pctDelta(overview.new_customers, prevOverview.new_customers)
+                  : null;
+              return delta !== null ? <GrowthDeltaBadge delta={delta} /> : null;
+            })()}
+          </View>
+          {/* New Providers */}
+          <View style={styles.deltaRow}>
+            <Text variant="caption" color="textSecondary">New Providers</Text>
+            <Text variant="body">{overview ? String(overview.new_providers) : '—'}</Text>
+            {(() => {
+              const delta =
+                overview && prevOverview && !prevOverviewError
+                  ? pctDelta(overview.new_providers, prevOverview.new_providers)
+                  : null;
+              return delta !== null ? <GrowthDeltaBadge delta={delta} /> : null;
+            })()}
+          </View>
+          {/* Revenue */}
+          <View style={styles.deltaRow}>
+            <Text variant="caption" color="textSecondary">Revenue</Text>
+            <Text variant="body">{overview ? formatKes(overview.total_revenue) : '—'}</Text>
+            {(() => {
+              const delta =
+                overview && prevOverview && !prevOverviewError
+                  ? pctDelta(overview.total_revenue, prevOverview.total_revenue)
+                  : null;
+              return delta !== null ? <GrowthDeltaBadge delta={delta} /> : null;
+            })()}
+          </View>
+          {/* Bookings */}
+          <View style={styles.deltaRow}>
+            <Text variant="caption" color="textSecondary">Bookings</Text>
+            <Text variant="body">{overview ? String(overview.total_bookings) : '—'}</Text>
+            {(() => {
+              const delta =
+                overview && prevOverview && !prevOverviewError
+                  ? pctDelta(overview.total_bookings, prevOverview.total_bookings)
+                  : null;
+              return delta !== null ? <GrowthDeltaBadge delta={delta} /> : null;
+            })()}
+          </View>
+        </View>
+
         <View style={styles.chartBlock}>
           <Text variant="label" color="textSecondary" style={styles.chartLabel}>
             Customer growth over time
@@ -787,5 +861,17 @@ const styles = StyleSheet.create({
   sectionError: {
     gap: Spacing.two,
     marginBottom: Spacing.three,
+  },
+  /** Container for the "Period vs previous period" delta badge block. */
+  deltaBlock: {
+    width: '100%',
+    gap: Spacing.one,
+    marginBottom: Spacing.two,
+  },
+  /** Single metric row: label + value + optional badge, all on one line. */
+  deltaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
   },
 });

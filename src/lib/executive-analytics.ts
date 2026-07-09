@@ -108,6 +108,21 @@ async function cached<T>(key: string, loader: () => Promise<T>): Promise<T> {
   return value;
 }
 
+/** The immediately preceding equal-duration window before [from, to). */
+export function previousPeriod(from: string, to: string): { from: string; to: string } {
+  const f = new Date(from).getTime();
+  const t = new Date(to).getTime();
+  const d = t - f;
+  return { from: new Date(f - d).toISOString(), to: new Date(f).toISOString() };
+}
+
+/** Period-over-period % change, rounded to 1 decimal. Returns null when there is
+ *  no valid baseline (previous <= 0) so callers can hide the badge gracefully. */
+export function pctDelta(current: number, previous: number): number | null {
+  if (!(previous > 0)) return null;
+  return Math.round(((current - previous) / previous) * 1000) / 10;
+}
+
 /** Clears the executive cache (used by the dashboard's manual refresh). */
 export function invalidateExecutiveCache(): void {
   cache.clear();

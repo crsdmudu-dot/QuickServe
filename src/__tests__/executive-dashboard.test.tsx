@@ -73,34 +73,42 @@ jest.mock('@/services/services-provider', () => ({
 
 // ── executive-analytics lib mock ──────────────────────────────────────────────
 
+const CURRENT_OVERVIEW = {
+  current_wallet_balance: 5000,
+  current_active_customers: 12,
+  current_active_providers: 4,
+  current_platform_rating: 4.6,
+  active_disputes: 1,
+  open_support_tickets: 2,
+  pending_jobs: 3,
+  in_progress_jobs: 2,
+  total_bookings: 40,
+  active_bookings: 10,
+  completed_bookings: 25,
+  cancelled_bookings: 5,
+  total_revenue: 90000,
+  platform_commission: 9000,
+  avg_booking_value: 3600,
+  repeat_customer_rate: 0.3,
+  new_customers: 8,
+  new_providers: 2,
+  avg_response_minutes: 12,
+  avg_completion_minutes: 90,
+  failed_payments: 1,
+  period_avg_rating: 4.5,
+};
+
 jest.mock('@/lib/executive-analytics', () => ({
   executiveRange: () => ({ from: 'F', to: 'T' }),
+  previousPeriod: jest.fn(() => ({ from: 'PF', to: 'PT' })),
+  // pctDelta is a pure math function — inline the real impl so the dashboard computes real deltas
+  pctDelta: (current: number, previous: number) => {
+    if (!(previous > 0)) return null;
+    return Math.round(((current - previous) / previous) * 1000) / 10;
+  },
   invalidateExecutiveCache: jest.fn(),
   getOverviewTimestamp: () => Date.parse('2026-07-09T12:00:00Z'),
-  getExecutiveOverview: jest.fn().mockResolvedValue({
-    current_wallet_balance: 5000,
-    current_active_customers: 12,
-    current_active_providers: 4,
-    current_platform_rating: 4.6,
-    active_disputes: 1,
-    open_support_tickets: 2,
-    pending_jobs: 3,
-    in_progress_jobs: 2,
-    total_bookings: 40,
-    active_bookings: 10,
-    completed_bookings: 25,
-    cancelled_bookings: 5,
-    total_revenue: 90000,
-    platform_commission: 9000,
-    avg_booking_value: 3600,
-    repeat_customer_rate: 0.3,
-    new_customers: 8,
-    new_providers: 2,
-    avg_response_minutes: 12,
-    avg_completion_minutes: 90,
-    failed_payments: 1,
-    period_avg_rating: 4.5,
-  }),
+  getExecutiveOverview: jest.fn().mockResolvedValue(CURRENT_OVERVIEW),
   getServiceCategories: jest.fn().mockResolvedValue([]),
   getGrowthTimeseries: jest.fn().mockResolvedValue([]),
   getNotificationDelivery: jest.fn().mockResolvedValue([]),
@@ -259,5 +267,70 @@ describe('ExecutiveDashboard per-section error states (Task 5)', () => {
       expect(invalidateExecutiveCache).toHaveBeenCalled();
       expect((getExecutiveOverview as jest.Mock).mock.calls.length).toBeGreaterThanOrEqual(2);
     });
+  });
+});
+
+// ── Task 7: GrowthDeltaBadge wired in Growth section ─────────────────────────
+
+describe('ExecutiveDashboard GrowthDeltaBadge (Task 7)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('GrowthDeltaBadge renders in Growth section when current and previous differ', async () => {
+    // The dashboard calls getExecutiveOverview twice: once for current period,
+    // once for previous period. Use mockResolvedValueOnce sequencing so they
+    // return different values — giving a non-null pctDelta for new_customers.
+    const PREV_OVERVIEW = {
+      ...CURRENT_OVERVIEW,
+      new_customers: 4,   // current=8 → +100%
+      new_providers: 1,   // current=2 → +100%
+      total_revenue: 45000, // current=90000 → +100%
+      total_bookings: 20,   // current=40 → +100%
+    };
+
+    const { getExecutiveOverview } = require('@/lib/executive-analytics');
+    (getExecutiveOverview as jest.Mock)
+      .mockResolvedValueOnce(CURRENT_OVERVIEW) // first call: current period
+      .mockResolvedValueOnce(PREV_OVERVIEW);   // second call: previous period
+
+    render(<ExecutiveDashboard />);
+
+    // Wait for Growth section to render
+    await waitFor(() => expect(screen.getByText('Growth')).toBeOnTheScreen());
+
+    // The delta badge shows ▲ 100% for new_customers (8 vs 4 → +100%)
+    // GrowthDeltaBadge renders "▲ 100%" — match on the arrow symbol
+    await waitFor(() => {
+      const badges = screen.queryAllByText(/[▲▼–]/);
+      expect(badges.length).toBeGreaterThan(0);
+    });
+  });
+
+  test('no GrowthDeltaBadge renders when prior-period fetch rejects, but Growth section still renders', async () => {
+    // First call (current period) resolves; second call (prior period) rejects
+    const { getExecutiveOverview } = require('@/lib/executive-analytics');
+    (getExecutiveOverview as jest.Mock)
+      .mockResolvedValueOnce(CURRENT_OVERVIEW)
+      .mockRejectedValueOnce(new Error('prior period unavailable'));
+
+    render(<ExecutiveDashboard />);
+
+    // Growth section heading renders
+    await waitFor(() => expect(screen.getByText('Growth')).toBeOnTheScreen());
+
+    // The "Period vs previous period" label still renders
+    await waitFor(() =>
+      expect(screen.getByText('Period vs previous period')).toBeOnTheScreen(),
+    );
+
+    // "New Customers" label renders in the delta block (graceful: value shown without badge)
+    // It also appears in the Activity section KPI card, so use getAllByText
+    const newCustomersLabels = screen.getAllByText('New Customers');
+    expect(newCustomersLabels.length).toBeGreaterThan(0);
+
+    // No delta badge arrows should be present
+    const badges = screen.queryAllByText(/[▲▼–]/);
+    expect(badges.length).toBe(0);
   });
 });
