@@ -36,7 +36,6 @@ returns table(
 )
 language plpgsql security definer set search_path = public as $$
 declare
-  v_completed_in_range int;
   v_distinct_customers int;
   v_repeat_customers   int;
 begin
@@ -141,7 +140,7 @@ begin
   return query
     select coalesce(sc.name, 'Uncategorized') as category,
            count(b.id)::int as bookings,
-           coalesce(sum(p.amount) filter (where p.status = 'paid'), 0) as revenue,
+           coalesce(sum(p.amount) filter (where p.status = 'paid' and p.paid_at between p_from and p_to), 0) as revenue,
            count(b.id) filter (where s.featured)::int as featured_bookings
       from public.bookings b
       left join public.services s on s.slug = b.service_id
