@@ -39,10 +39,12 @@ test.describe('framework self-tests', () => {
     expect(() => log.error('boom')).not.toThrow();
   });
 
-  test('isOnPath matches exact and prefix', () => {
+  test('isOnPath matches exact and path-segment prefix (not string prefix)', () => {
     expect(isOnPath('/login', '/login')).toBe(true);
     expect(isOnPath('/(admin-web)/login', '/(admin-web)')).toBe(true);
     expect(isOnPath('/other', '/login')).toBe(false);
+    // Segment-aware: a shared string prefix without a slash boundary is NOT a match.
+    expect(isOnPath('/login-extra', '/login')).toBe(false);
   });
 
   test('filterSevereConsoleErrors drops benign warnings', () => {

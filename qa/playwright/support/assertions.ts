@@ -1,10 +1,11 @@
 import { expect as baseExpect, type Page } from '@playwright/test';
 
-/** Pure: true when `current` equals `expected` or is nested under it. */
+/** Pure: true when `current` equals `expected` or is a path-segment child of it.
+ *  Segment-aware: `/login-extra` is NOT considered under `/login` (only `/login/…` is). */
 export function isOnPath(current: string, expected: string): boolean {
   if (current === expected) return true;
   const prefix = expected.endsWith('/') ? expected : `${expected}/`;
-  return current.startsWith(prefix) || current.startsWith(expected);
+  return current.startsWith(prefix);
 }
 
 /** Pure: drop benign console noise, keep severe errors. */
