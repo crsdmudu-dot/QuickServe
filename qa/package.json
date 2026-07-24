@@ -10,7 +10,7 @@
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:chromium": "playwright test --project=chromium",
-    "test:framework": "playwright test playwright/tests/framework.spec.ts playwright/tests/sanity.spec.ts",
+    "test:framework": "playwright test playwright/tests/framework.spec.ts",
     "test:list": "playwright test --list",
     "report": "playwright show-report reports/html"
   },

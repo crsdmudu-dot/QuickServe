@@ -1,10 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
+import { loadEnv } from './shared/env';
 
-// Inline env resolution (Task 3 refactors this to `import { loadEnv } from './shared/env'`).
-const providedBaseUrl = process.env.BASE_URL?.trim();
-const BASE_URL = providedBaseUrl && providedBaseUrl.length > 0 ? providedBaseUrl : 'http://localhost:8081';
-const START_SERVER = !(providedBaseUrl && providedBaseUrl.length > 0);
-const CI = !!process.env.CI;
+const env = loadEnv();
+const { BASE_URL, START_SERVER, CI } = env;
 
 export default defineConfig({
   testDir: './playwright',
