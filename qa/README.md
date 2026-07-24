@@ -356,6 +356,9 @@ The **Admin Detailed Analytics** suite (`qa/playwright/admin/detailed-analytics.
 - The suite is **Chromium-only** (desktop admin-web); it skips on Firefox/WebKit.
 - Optional connected real-session mode (`QA_DASHBOARD_CONNECTED=1` + `E2E_ADMIN_*`) is preserved; a
   connected confirmation is recommended before production releases.
+- It **reuses the shared QA infrastructure** introduced in previous slices (`mockAdminSession`, the
+  network guard, and the strict RPC tracker pattern). New admin-analytics suites should **extend those
+  shared components rather than duplicating them**.
 
 ## Future Maestro integration
 
