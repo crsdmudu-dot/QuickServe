@@ -321,6 +321,24 @@ test runs without creds.
 
 ---
 
+## Dashboard isolation testing (Executive Dashboard suite)
+
+The **Admin Executive Dashboard** suite (`qa/playwright/admin/executive-dashboard.spec.ts`)
+intentionally uses the **`mockAdminSession`** fixture (`qa/playwright/support/mock-admin-session.ts`)
+to establish an authenticated admin deterministically, so the dashboard can be
+isolated and thoroughly tested offline (with the analytics RPCs stubbed).
+
+- `mockAdminSession` exists **only** for deterministic dashboard isolation — it
+  is not a substitute for real-login testing. It satisfies the real `(admin-web)`
+  route guard through the normal application route (no guard bypass, no direct
+  component mount) and stubs only the minimum auth/session/profile traffic.
+- The **Admin Authentication suite** (`qa/playwright/admin/authentication.spec.ts`)
+  remains the **source of truth for real authentication behavior**.
+- An **optional connected-environment confirmation** using real authentication
+  (`QA_DASHBOARD_CONNECTED=1` with `E2E_ADMIN_*` against a reachable backend) is
+  **recommended before production releases**, to confirm the mocked dashboard and
+  the real dashboard agree.
+
 ## Future Maestro integration
 
 `qa/maestro/` is reserved for native Android/iOS UI automation using
