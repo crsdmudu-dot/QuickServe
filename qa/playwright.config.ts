@@ -14,6 +14,8 @@ export default defineConfig({
   workers: CI ? 1 : undefined,
   timeout: 60_000,
   expect: { timeout: 10_000 },
+  globalSetup: require.resolve('./playwright/support/global-setup'),
+  globalTeardown: require.resolve('./playwright/support/global-teardown'),
   reporter: [
     ['list'],
     ['html', { outputFolder: 'reports/html', open: 'never' }],
