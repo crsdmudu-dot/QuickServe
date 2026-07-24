@@ -202,7 +202,7 @@ Every test file imports `{ test, expect }` from `../fixtures` (not from
 4. Use `testData` for values that need to be deterministic across runs.
 
 ```ts
-import { test, expect } from '../fixtures';
+import { test, expect, adminStorageState } from '../fixtures';
 import { BookingsPage } from '../pages/admin/bookings.page';
 
 test.describe('admin bookings @admin', () => {
@@ -306,6 +306,10 @@ test runs without creds.
   npm install --prefix qa
   npm --prefix qa run install:chromium
   ```
+  On Linux CI runners, the browsers also need OS libraries. Install them from
+  the `qa/` directory with `npx playwright install --with-deps chromium` (the
+  `--with-deps` flag pulls the required system packages; it is unnecessary on
+  Windows/macOS).
 - Provide `BASE_URL` pointing at a pre-started server (or a staging URL) to
   avoid the auto-start path in CI — the expo bundler can be slow and the
   3-minute timeout may not be enough on slow runners.
