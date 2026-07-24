@@ -20,6 +20,7 @@
   ],
   "exclude": [
     "_parked",
+    "qa",
     "apps/website",
     "supabase/functions/mpesa-stk-push/index.ts",
     "supabase/functions/mpesa-callback/index.ts",
