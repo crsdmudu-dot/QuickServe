@@ -56,3 +56,16 @@ test.describe('framework self-tests', () => {
     expect(severe).toEqual(['Uncaught TypeError: x is not a function']);
   });
 });
+
+// --- Task 5: Fixtures self-tests ---
+// Import the extended test/expect from fixtures (created in Task 5).
+import { test as qaTest, expect as qaExpect } from '../fixtures';
+
+qaTest('fixtures provide logger and deterministic testData', ({ logger, testData }) => {
+  qaExpect(typeof logger.info).toBe('function');
+  qaExpect(testData.email()).toContain('@example.com');
+});
+
+qaTest('adminPage fixture yields a Page', async ({ adminPage }) => {
+  qaExpect(typeof adminPage.goto).toBe('function');
+});
