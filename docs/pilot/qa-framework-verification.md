@@ -21,7 +21,7 @@ An isolated `qa/` workspace with its **own** `package.json` / `node_modules` / `
 - `tsconfig.json` — `exclude += "qa"` (mirrors existing `"apps/website"`).
 - `metro.config.js` — **new**; block-lists `qa/` from Metro's bundle graph (see §4). *This is a third file beyond the two originally approved — flagged for explicit sign-off.*
 
-No `src/`, `supabase/`, `app.json`, root `package.json`, or `package-lock.json` change. Confirmed:
+No `src/`, `supabase/`, `app.json`, **root** `package.json`, or **root** `package-lock.json` change. (A *new* `qa/package-lock.json` is committed — the isolated workspace's own lockfile, which is correct and intended; the root lockfile is untouched.) Confirmed:
 `git diff --name-only cd54329..HEAD | grep -vE '^qa/|^docs/'` → `jest.config.js`, `tsconfig.json`, `metro.config.js` only.
 
 ## 3. No Production Code / No Business Automation
@@ -93,6 +93,15 @@ Chromium (primary), Firefox, WebKit — three Playwright projects. Chromium + Fi
 - **CI:** set `CI=true` (serial, retries=2, no `test.only`); prefer a pre-started server via `BASE_URL`; on Linux install browsers with `--with-deps`; upload `qa/reports/` + `qa/test-results/` as artifacts.
 - **Keep the three root exclusions in sync** if the QA dir is ever renamed (jest/tsconfig/metro all reference `qa`).
 
-## 13. Verdict
+## 13. Independent Whole-Branch Review
 
-Framework verified end-to-end; app regression gate green; isolation proven; no business automation. **Pending:** (a) explicit user sign-off on the third additive root file (`metro.config.js`), and (b) the independent whole-branch review (§ below). If the review returns no unresolved Critical/Important: **READY TO MERGE** (awaiting user approval; not merged).
+Independent whole-branch review (opus, base `cd54329`): **READY TO MERGE — 0 Critical, 0 Important.** Confirmed: infrastructure-only (smoke asserts only the admin login renders; the only `booking` reference is `data-factory.bookingDraft()`, a value generator); isolation (no `src/`/`@/` import in `qa/**`; no root `package.json` change; `qa/node_modules` not committed); all three root edits additive/behaviour-neutral; the `metro.config.js` regex has **no** over-match (verified `find node_modules -path '*/qa/*'` → 0); no secrets; deps minimal; README accurate; config correct; guarded global-setup never throws.
+
+**Minor findings (documented, non-blocking — not fixed per the "cosmetic → document" rule):**
+1. **metro regex is unanchored** (`metro.config.js`: `/[\\/]qa[\\/].*/`) — it would also block any *future* nested dir literally named `qa` (none exists today under `src/`/`app/`; `docs/qa/` matches but docs never enter Metro's RN graph, so it's inconsequential). If a real `qa` *source* folder is ever added, anchor the regex to the repo root (`path.resolve(__dirname, 'qa')`). Left as-is now because the current regex is proven-green and changing the flagged third file adds risk for no present benefit.
+2. **qa/.gitignore** ignores `screenshots/` and `videos/` though the config routes artifacts under `test-results/` + `reports/` — harmless leftover lines from the spec's folder map.
+3. (Wording clarified in §2 above re: the root vs `qa/` lockfile.)
+
+## 14. Verdict
+
+Framework verified end-to-end; app regression gate green; isolation proven; no business automation; independent whole-branch review clean (0 Critical, 0 Important). **READY TO MERGE — pending only explicit user sign-off on the third additive root file (`metro.config.js`).** The branch is **not** merged.
