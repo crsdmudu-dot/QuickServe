@@ -339,6 +339,24 @@ isolated and thoroughly tested offline (with the analytics RPCs stubbed).
   **recommended before production releases**, to confirm the mocked dashboard and
   the real dashboard agree.
 
+## Detailed Analytics suite (Slice 42)
+
+The **Admin Detailed Analytics** suite (`qa/playwright/admin/detailed-analytics.spec.ts`,
+`/(admin-web)/analytics/detailed`) follows the same isolation pattern as the Executive Dashboard:
+
+- It **reuses `mockAdminSession` unchanged** — no fork, no duplicate — to satisfy the real admin
+  route guard offline.
+- It adds a **separate, detailed-scoped stub module** (`qa/playwright/support/detailed-analytics-stubs.ts`)
+  for the nine Slice-25/28 analytics RPCs (`analytics_kpis`, `bookings_timeseries`/`summary`,
+  `financial_timeseries`/`summary`, `providers`, `services`, `geography`, `customers`), with strict
+  request-shape validation (incl. `p_bucket`/`p_limit`) and called/missing/unexpected tracking. It is
+  **not** a generic mocking framework.
+- CSV exports are verified against the **real download content** (headers, ordering, escaping, row
+  count, and the formula-injection guard).
+- The suite is **Chromium-only** (desktop admin-web); it skips on Firefox/WebKit.
+- Optional connected real-session mode (`QA_DASHBOARD_CONNECTED=1` + `E2E_ADMIN_*`) is preserved; a
+  connected confirmation is recommended before production releases.
+
 ## Future Maestro integration
 
 `qa/maestro/` is reserved for native Android/iOS UI automation using
