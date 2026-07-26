@@ -11,10 +11,10 @@ business behaviour is asserted here.
 
 ## Architecture & policy
 
-The official architecture, locator/tagging rules, and merge/release gate policy
-live in **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**; the flake-management
-policy is in **[docs/FLAKES.md](docs/FLAKES.md)**. Key principle: **only extract a
-shared helper once it has two real consumers** (ARCHITECTURE §31).
+The official architecture, locator/tagging rules, the shared-helper extraction
+principle, and the merge/release gate policy live in
+**[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** (the authoritative source); the
+flake-management policy is in **[docs/FLAKES.md](docs/FLAKES.md)**.
 
 Convenience scripts (thin wrappers — see `package.json`):
 
