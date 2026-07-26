@@ -12,7 +12,14 @@
     "test:e2e:chromium": "playwright test --project=chromium",
     "test:framework": "playwright test playwright/tests/framework.spec.ts",
     "test:list": "playwright test --list",
-    "report": "playwright show-report reports/html"
+    "report": "playwright show-report reports/html",
+    "qa:test:chromium": "playwright test --project=chromium",
+    "qa:test:all-browsers": "playwright test --workers=2",
+    "qa:test:connected": "playwright test --project=chromium --grep @connected",
+    "qa:test:stability": "node scripts/stability.mjs",
+    "qa:health": "playwright test playwright/tests --project=chromium",
+    "qa:typecheck": "tsc --noEmit",
+    "qa:report": "playwright show-report reports/html"
   },
   "devDependencies": {
     "@playwright/test": "^1.48.0",

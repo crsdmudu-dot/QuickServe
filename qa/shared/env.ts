@@ -10,6 +10,8 @@ export type QaEnv = {
   adminEmail?: string;
   adminPassword?: string;
   hasAdminCreds: boolean;
+  /** Opt-in connected (real-backend) mode: QA_DASHBOARD_CONNECTED=1. */
+  connected: boolean;
 };
 
 const DEFAULT_BASE_URL = 'http://localhost:8081';
@@ -26,5 +28,6 @@ export function loadEnv(): QaEnv {
     adminEmail,
     adminPassword,
     hasAdminCreds: !!(adminEmail && adminPassword),
+    connected: process.env.QA_DASHBOARD_CONNECTED === '1',
   };
 }
