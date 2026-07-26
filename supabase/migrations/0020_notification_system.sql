@@ -485,9 +485,17 @@ create trigger tg_notify_payment_paid
   execute function public.tg_notify_payment_paid();
 
 -- ----------------------------------------------------------------
--- 2d. tg_notify_payment_failed — AFTER INSERT OR UPDATE ON payment_attempts
+-- 2d. tg_notify_payment_failed — split INSERT + UPDATE ON payment_attempts
 -- ----------------------------------------------------------------
--- On INSERT old.status is null so (null is distinct from 'failed') = true → fires once.
+-- PostgreSQL forbids referencing OLD in the WHEN clause of any trigger that can
+-- fire on INSERT (OLD is undefined on INSERT), so a single AFTER INSERT OR UPDATE
+-- trigger whose WHEN reads old.status is illegal. We therefore split it into two
+-- triggers that reuse the SAME function (the function body references NEW only):
+--   * INSERT: fire whenever new.status = 'failed'. Equivalent to the original
+--     intent — on INSERT old.status was null, so (null is distinct from 'failed')
+--     was always true, i.e. it fired whenever the new row was already 'failed'.
+--   * UPDATE: fire only on a transition INTO 'failed'
+--     (new.status = 'failed' and old.status is distinct from 'failed').
 -- Dedup key is per attempt-id so a retry on a new attempt row notifies once per row.
 
 create or replace function public.tg_notify_payment_failed()
@@ -508,9 +516,22 @@ begin
   return new;
 end; $$;
 
+-- Drop the old single trigger (if a prior/partial run created it) and the two
+-- split triggers, so this block is safe to re-run.
 drop trigger if exists tg_notify_payment_failed on public.payment_attempts;
-create trigger tg_notify_payment_failed
-  after insert or update on public.payment_attempts
+drop trigger if exists tg_notify_payment_failed_ins on public.payment_attempts;
+drop trigger if exists tg_notify_payment_failed_upd on public.payment_attempts;
+
+-- INSERT: no OLD available → fire whenever the new attempt is already 'failed'.
+create trigger tg_notify_payment_failed_ins
+  after insert on public.payment_attempts
+  for each row
+  when (new.status = 'failed')
+  execute function public.tg_notify_payment_failed();
+
+-- UPDATE: OLD is valid → fire only on a transition into 'failed'.
+create trigger tg_notify_payment_failed_upd
+  after update on public.payment_attempts
   for each row
   when (new.status = 'failed' and old.status is distinct from 'failed')
   execute function public.tg_notify_payment_failed();
