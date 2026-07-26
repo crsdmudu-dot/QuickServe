@@ -1,5 +1,6 @@
 import { type Page, type Locator, expect } from '@playwright/test';
 import { BasePage } from '../base.page';
+import { hydratedFill } from '../../support/rn-web';
 
 /**
  * Page Object for the Admin **Detailed Analytics** screen
@@ -113,17 +114,8 @@ export class DetailedAnalyticsPage extends BasePage {
    */
   async enterCustomRange(from: string, to: string): Promise<void> {
     await this.selectPreset('Custom');
-    await this.typeInto(this.customFromInput, from);
-    await this.typeInto(this.customToInput, to);
-  }
-
-  private async typeInto(input: Locator, value: string): Promise<void> {
-    await input.waitFor({ state: 'visible' });
-    await expect(async () => {
-      await input.fill('');
-      await input.pressSequentially(value);
-      await expect(input).toHaveValue(value, { timeout: 1500 });
-    }).toPass({ timeout: 30_000, intervals: [300, 800, 1500] });
+    await hydratedFill(this.customFromInput, from);
+    await hydratedFill(this.customToInput, to);
   }
 
   /** Click the "Download CSV" for a section index and return the captured download. */

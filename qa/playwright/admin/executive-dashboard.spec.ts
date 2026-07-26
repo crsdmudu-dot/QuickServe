@@ -7,6 +7,7 @@ import {
   type AnalyticsTracker,
 } from '../support/analytics-stubs';
 import { installMockAdminSession, type NetworkGuard } from '../support/mock-admin-session';
+import { isConnected, hasAdminCreds, connectedAdminLogin } from '../support/connected-mode';
 
 /**
  * Admin Executive Dashboard — automated suite (QA Slice 41).
@@ -26,22 +27,16 @@ import { installMockAdminSession, type NetworkGuard } from '../support/mock-admi
  * (no unexpected/mis-shaped RPCs; required RPCs were requested).
  */
 
-const CONNECTED = process.env.QA_DASHBOARD_CONNECTED === '1';
-const hasCreds = !!(process.env.E2E_ADMIN_EMAIL && process.env.E2E_ADMIN_PASSWORD);
-
 /** Authenticate as admin for the dashboard, install analytics stubs, return handles.
  *  Does NOT navigate — the caller navigates (so loading tests can observe skeletons). */
 async function setupDashboard(
   page: import('@playwright/test').Page,
   stub: StubOptions,
 ): Promise<{ dash: ExecutiveDashboardPage; tracker: AnalyticsTracker; guard: NetworkGuard | null }> {
-  const guard = CONNECTED ? null : await installMockAdminSession(page);
+  const guard = isConnected() ? null : await installMockAdminSession(page);
   const tracker = await stubExecutiveAnalytics(page, stub);
-  if (CONNECTED) {
-    const login = new LoginPage(page);
-    await login.goto();
-    await login.login(process.env.E2E_ADMIN_EMAIL as string, process.env.E2E_ADMIN_PASSWORD as string);
-    await page.waitForURL((u) => !new URL(u).pathname.includes('login'), { timeout: 30_000 });
+  if (isConnected()) {
+    await connectedAdminLogin(page);
   }
   return { dash: new ExecutiveDashboardPage(page), tracker, guard };
 }
@@ -62,8 +57,8 @@ test.describe('Admin Executive Dashboard', { tag: ['@admin', '@executive-dashboa
   // ── Authenticated dashboard (mock by default; real-session when connected) ──
   test.describe('authenticated', () => {
     test.beforeEach(() => {
-      if (CONNECTED) {
-        test.skip(!hasCreds, 'Connected mode requires E2E_ADMIN_* (a pre-existing admin) + a reachable backend.');
+      if (isConnected()) {
+        test.skip(!hasAdminCreds(), 'Connected mode requires E2E_ADMIN_* (a pre-existing admin) + a reachable backend.');
       }
     });
 

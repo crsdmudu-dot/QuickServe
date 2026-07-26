@@ -3,6 +3,9 @@ import { loadEnv } from '../../shared/env';
 import { createLogger } from '../../shared/logger';
 import { createDataFactory } from '../../shared/data-factory';
 import { isOnPath, filterSevereConsoleErrors } from '../support/assertions';
+import { validateRpcShape } from '../support/validate-rpc-shape';
+import { createRpcTrackerState } from '../support/rpc-interceptor';
+import { isConnected } from '../support/connected-mode';
 
 test.describe('framework self-tests', () => {
   test('data factory is deterministic for a given seed', () => {
@@ -68,4 +71,75 @@ qaTest('fixtures provide logger and deterministic testData', ({ logger, testData
 
 qaTest('adminPage fixture yields a Page', async ({ adminPage }) => {
   qaExpect(typeof adminPage.goto).toBe('function');
+});
+
+// --- Slice 43: QA infrastructure health-tests (L0 — pure, no browser) ---
+test.describe('QA infrastructure health (unit) @infra @meta', () => {
+  // H1 — the request-shape validator catches every malformed-request class.
+  test('validateRpcShape flags missing params, non-POST, bad enums, and non-numbers', () => {
+    const post = (body: unknown) => ({ method: () => 'POST', postDataJSON: () => body });
+
+    expect(validateRpcShape(post({ p_from: 'a', p_to: 'b' }), { requireParams: ['p_from', 'p_to'] })).toEqual([]);
+    expect(validateRpcShape(post({ p_from: 'a' }), { requireParams: ['p_from', 'p_to'] })).toContain('missing p_to');
+    expect(
+      validateRpcShape({ method: () => 'GET', postDataJSON: () => ({ p_from: 'a', p_to: 'b' }) }, { requireParams: ['p_from', 'p_to'] }),
+    ).toContain('method=GET');
+    expect(
+      validateRpcShape(post({ p_from: 'a', p_to: 'b', p_bucket: 'hour' }), {
+        requireParams: ['p_from', 'p_to'],
+        enums: { p_bucket: ['day', 'week', 'month'] },
+      }),
+    ).toContain('bad p_bucket=hour');
+    expect(
+      validateRpcShape(post({ p_from: 'a', p_to: 'b' }), { requireParams: ['p_from', 'p_to'], enums: { p_bucket: ['day'] } }),
+    ).toContain('missing p_bucket');
+    expect(
+      validateRpcShape(post({ p_from: 'a', p_to: 'b', p_limit: 'x' }), { requireParams: ['p_from', 'p_to'], numbers: ['p_limit'] }),
+    ).toContain('bad p_limit=x');
+  });
+
+  // H2 — the tracker assertions actually fail on missing/unexpected/bad-shape.
+  test('tracker assertCalled/assertNoAnomalies fail on missing, unexpected, and bad-shape', () => {
+    const clean = createRpcTrackerState();
+    clean.recordCalled('analytics_kpis', { p_from: 'a', p_to: 'b' });
+    expect(() => clean.assertNoAnomalies()).not.toThrow();
+    expect(() => clean.assertCalled(['analytics_kpis'])).not.toThrow();
+    expect(() => clean.assertCalled(['analytics_kpis', 'analytics_customers'])).toThrow(/analytics_customers/);
+
+    const unexpected = createRpcTrackerState();
+    unexpected.recordUnexpected('analytics_rogue');
+    expect(() => unexpected.assertNoAnomalies()).toThrow(/analytics_rogue/);
+
+    const bad = createRpcTrackerState();
+    bad.recordBadShape('analytics_kpis (missing p_to)');
+    expect(() => bad.assertNoAnomalies()).toThrow(/shape/i);
+  });
+
+  // H3 — installs are isolated; lastParamsFor returns the latest capture.
+  test('two tracker states are independent and lastParamsFor returns the latest', () => {
+    const a = createRpcTrackerState();
+    const b = createRpcTrackerState();
+    a.recordCalled('analytics_kpis', { p_from: 'x1', p_to: 'y1' });
+    a.recordCalled('analytics_kpis', { p_from: 'x2', p_to: 'y2' });
+    expect(a.lastParamsFor('analytics_kpis')?.p_from).toBe('x2');
+    // b is untouched — no cross-install leakage.
+    expect(b.called).toHaveLength(0);
+    expect(b.lastParamsFor('analytics_kpis')).toBeUndefined();
+  });
+
+  // H4 — connected mode never activates implicitly.
+  test('connected mode does not activate without QA_DASHBOARD_CONNECTED=1', () => {
+    const original = process.env.QA_DASHBOARD_CONNECTED;
+    try {
+      delete process.env.QA_DASHBOARD_CONNECTED;
+      expect(isConnected()).toBe(false);
+      process.env.QA_DASHBOARD_CONNECTED = '0';
+      expect(isConnected()).toBe(false);
+      process.env.QA_DASHBOARD_CONNECTED = '1';
+      expect(isConnected()).toBe(true);
+    } finally {
+      if (original === undefined) delete process.env.QA_DASHBOARD_CONNECTED;
+      else process.env.QA_DASHBOARD_CONNECTED = original;
+    }
+  });
 });

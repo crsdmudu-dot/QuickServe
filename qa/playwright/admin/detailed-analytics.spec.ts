@@ -1,4 +1,3 @@
-import * as fs from 'fs';
 import { test, expect } from '../fixtures';
 import { DetailedAnalyticsPage } from '../pages/admin/detailed-analytics.page';
 import { ExecutiveDashboardPage } from '../pages/admin/executive-dashboard.page';
@@ -15,6 +14,8 @@ import {
 } from '../support/detailed-analytics-stubs';
 import { stubExecutiveAnalytics } from '../support/analytics-stubs';
 import { installMockAdminSession, type NetworkGuard } from '../support/mock-admin-session';
+import { isConnected, hasAdminCreds, connectedAdminLogin } from '../support/connected-mode';
+import { readDownloadText } from '../support/download';
 
 /**
  * Admin Detailed Analytics — automated suite (QA Slice 42).
@@ -28,9 +29,6 @@ import { installMockAdminSession, type NetworkGuard } from '../support/mock-admi
  * Chromium-only (Decision B): this is a desktop admin-web surface; the suite
  * skips on Firefox/WebKit so the full multi-project run stays deterministic.
  */
-
-const CONNECTED = process.env.QA_DASHBOARD_CONNECTED === '1';
-const hasCreds = !!(process.env.E2E_ADMIN_EMAIL && process.env.E2E_ADMIN_PASSWORD);
 
 /** Every KPI card testID (for NaN/undefined sweeps). */
 const ALL_KPI_TESTIDS = [
@@ -46,20 +44,12 @@ async function setupDetailed(
   page: import('@playwright/test').Page,
   stub: DetailedStubOptions = {},
 ): Promise<{ dash: DetailedAnalyticsPage; tracker: DetailedAnalyticsTracker; guard: NetworkGuard | null }> {
-  const guard = CONNECTED ? null : await installMockAdminSession(page);
+  const guard = isConnected() ? null : await installMockAdminSession(page);
   const tracker = await installDetailedAnalyticsStubs(page, stub);
-  if (CONNECTED) {
-    const login = new LoginPage(page);
-    await login.goto();
-    await login.login(process.env.E2E_ADMIN_EMAIL as string, process.env.E2E_ADMIN_PASSWORD as string);
-    await page.waitForURL((u) => !new URL(u).pathname.includes('login'), { timeout: 30_000 });
+  if (isConnected()) {
+    await connectedAdminLogin(page);
   }
   return { dash: new DetailedAnalyticsPage(page), tracker, guard };
-}
-
-async function readDownload(download: import('@playwright/test').Download): Promise<string> {
-  const filePath = await download.path();
-  return fs.readFileSync(filePath, 'utf-8');
 }
 
 test.describe('Admin Detailed Analytics', { tag: ['@admin', '@detailed-analytics'] }, () => {
@@ -85,7 +75,7 @@ test.describe('Admin Detailed Analytics', { tag: ['@admin', '@detailed-analytics
     'drill-down from the Executive Dashboard opens Detailed Analytics',
     { tag: ['@p1', '@nav', '@regression'] },
     async ({ page }) => {
-      test.skip(CONNECTED, 'Drill-down test runs in offline mock mode only.');
+      test.skip(isConnected(), 'Drill-down test runs in offline mock mode only.');
       const guard = await installMockAdminSession(page);
       await stubExecutiveAnalytics(page, { mode: 'populated' }); // Executive index RPCs
       await installDetailedAnalyticsStubs(page, { mode: 'populated' }); // Detailed screen RPCs
@@ -104,8 +94,8 @@ test.describe('Admin Detailed Analytics', { tag: ['@admin', '@detailed-analytics
   // ── Authenticated (mock by default; real-session when connected) ────────────
   test.describe('authenticated', () => {
     test.beforeEach(() => {
-      if (CONNECTED) {
-        test.skip(!hasCreds, 'Connected mode requires E2E_ADMIN_* (a pre-existing admin) + a reachable backend.');
+      if (isConnected()) {
+        test.skip(!hasAdminCreds(), 'Connected mode requires E2E_ADMIN_* (a pre-existing admin) + a reachable backend.');
       }
     });
 
@@ -435,7 +425,7 @@ test.describe('Admin Detailed Analytics', { tag: ['@admin', '@detailed-analytics
         await dash.goto();
         const download = await dash.downloadCsv(DetailedAnalyticsPage.CSV_SECTION_INDEX.kpis);
         expect(download.suggestedFilename()).toBe('kpis.csv');
-        const content = await readDownload(download);
+        const content = await readDownloadText(download);
         expect(content).toBe(EXPECTED_KPIS_CSV);
         expect(content.split('\n')).toHaveLength(2); // header + 1 row
         tracker.assertNoAnomalies();
@@ -452,7 +442,7 @@ test.describe('Admin Detailed Analytics', { tag: ['@admin', '@detailed-analytics
         await dash.goto();
         const download = await dash.downloadCsv(DetailedAnalyticsPage.CSV_SECTION_INDEX.providers);
         expect(download.suggestedFilename()).toBe('providers.csv');
-        const content = await readDownload(download);
+        const content = await readDownloadText(download);
         expect(content).toBe(EXPECTED_PROVIDERS_CSV);
         expect(content.split('\n')).toHaveLength(4); // header + 3 rows
         expect(content).toContain("'=SUM(A1)"); // formula-injection guard applied

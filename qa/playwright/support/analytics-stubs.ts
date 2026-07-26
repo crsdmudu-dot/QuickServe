@@ -1,4 +1,11 @@
 import { type Page, type Route } from '@playwright/test';
+import {
+  createRpcInterceptor,
+  respondJson,
+  abortRoute,
+  type RpcTracker,
+} from './rpc-interceptor';
+import { validateRpcShape } from './validate-rpc-shape';
 
 /**
  * Deterministic network stubs for the Executive Dashboard's Supabase analytics
@@ -121,69 +128,14 @@ export type StubOptions = {
   distinctPreviousPeriod?: boolean;
 };
 
-/** Strict interception tracker returned by `stubExecutiveAnalytics`. */
-export type AnalyticsTracker = {
-  /** Analytics RPC names that were actually requested (in order; overview may repeat). */
-  readonly called: string[];
-  /** Analytics RPCs requested that were NOT expected/stubbed. */
-  readonly unexpected: string[];
-  /** Requests that failed method/shape validation (wrong method or missing p_from/p_to). */
-  readonly badShape: string[];
-  /** Fails with a diagnostic if any unexpected RPC or bad-shaped request occurred. */
-  assertNoAnomalies(): void;
-  /** Fails naming any RPC in `required` that was never requested. */
-  assertCalled(required: readonly AnalyticsRpc[]): void;
-};
-
-function jsonBody(rows: unknown): string {
-  return JSON.stringify(rows);
-}
-
-async function respond(route: Route, rows: unknown, delayMs?: number): Promise<void> {
-  if (delayMs && delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
-  await route.fulfill({ status: 200, contentType: 'application/json', body: jsonBody(rows) });
-}
-
-async function respondError(route: Route, delayMs?: number): Promise<void> {
-  // Abort at the network level (not a 500 body): the app's analytics wrappers
-  // swallow query-level errors into safe defaults, so only a *rejected* call
-  // (network failure) drives the dashboard's per-section inline error state.
-  if (delayMs && delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
-  await route.abort('failed');
-}
-
-/** Overview row selection, optionally distinguishing current vs previous by `p_from`. */
-function overviewRowsFor(route: Route, opts: StubOptions): unknown[] {
-  if (opts.mode === 'empty') return [ZERO_OVERVIEW];
-  if (!opts.distinctPreviousPeriod) return [POPULATED_OVERVIEW];
-  try {
-    const body = route.request().postDataJSON() as { p_from?: string; p_to?: string } | null;
-    const from = body?.p_from ? Date.parse(body.p_from) : Number.NaN;
-    // The dashboard issues two overview calls; the previous period has the earlier p_from.
-    // We remember the earliest p_from seen and treat that call as "previous".
-    if (!Number.isNaN(from)) {
-      overviewFromSeen.push(from);
-      const earliest = Math.min(...overviewFromSeen);
-      if (from === earliest && overviewFromSeen.length > 1) return [PREVIOUS_OVERVIEW];
-    }
-  } catch {
-    /* fall through to the populated default */
-  }
-  return [POPULATED_OVERVIEW];
-}
-
-// Per-install scratch for the distinct-period heuristic. Reset on each install.
-let overviewFromSeen: number[] = [];
+/** Strict interception tracker returned by `stubExecutiveAnalytics` (shared core). */
+export type AnalyticsTracker = RpcTracker;
 
 /**
  * Install analytics RPC stubs on `page` and return a strict interception tracker.
- * Call BEFORE navigating to the dashboard. Routes stay active for the page's life.
- *
- * Strictness: an analytics RPC catch-all (registered first, lowest priority)
- * records any analytics RPC that is not explicitly stubbed as `unexpected`; each
- * specific handler records the call and validates the request is a POST carrying
- * `p_from` + `p_to`. Use `assertNoAnomalies()` and `assertCalled([...])` in the
- * spec to fail on unexpected, missing, or mis-shaped requests.
+ * Call BEFORE navigating to the dashboard. The interception plumbing (catch-all,
+ * per-RPC recording, tracker) is delegated to `createRpcInterceptor`; the executive
+ * fixtures, RPC set, and distinct-previous-period logic stay here.
  */
 export async function stubExecutiveAnalytics(
   page: Page,
@@ -191,70 +143,48 @@ export async function stubExecutiveAnalytics(
 ): Promise<AnalyticsTracker> {
   const opts: StubOptions = { mode: 'populated', ...options };
   const failing = new Set(opts.failing ?? []);
-  overviewFromSeen = [];
+  // Per-install scratch for the distinct-period heuristic — closure-scoped, so
+  // there is no module-level global state and no cross-install leakage.
+  const overviewFromSeen: number[] = [];
 
-  const called: string[] = [];
-  const unexpected: string[] = [];
-  const badShape: string[] = [];
-  const known = new Set<string>(ANALYTICS_RPCS);
-
-  function rpcNameFromUrl(url: string): string {
-    return new URL(url).pathname.split('/rpc/')[1] ?? '';
+  /** Overview row selection, optionally distinguishing current vs previous by `p_from`. */
+  function overviewRowsFor(route: Route): unknown[] {
+    if (opts.mode === 'empty') return [ZERO_OVERVIEW];
+    if (!opts.distinctPreviousPeriod) return [POPULATED_OVERVIEW];
+    try {
+      const body = route.request().postDataJSON() as { p_from?: string } | null;
+      const from = body?.p_from ? Date.parse(body.p_from) : Number.NaN;
+      // The dashboard issues two overview calls; the previous period has the
+      // earlier p_from. Remember the earliest seen and treat it as "previous".
+      if (!Number.isNaN(from)) {
+        overviewFromSeen.push(from);
+        const earliest = Math.min(...overviewFromSeen);
+        if (from === earliest && overviewFromSeen.length > 1) return [PREVIOUS_OVERVIEW];
+      }
+    } catch {
+      /* fall through to the populated default */
+    }
+    return [POPULATED_OVERVIEW];
   }
 
-  // Catch-all for analytics RPCs — records any not covered by a specific route.
-  await page.route(/\/rest\/v1\/rpc\/analytics_/, async (route) => {
-    const name = rpcNameFromUrl(route.request().url());
-    if (!known.has(name)) unexpected.push(name);
-    await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-  });
-
-  // Specific, validated handlers (registered later → higher priority).
-  for (const rpc of ANALYTICS_RPCS) {
-    await page.route(`**/rest/v1/rpc/${rpc}`, async (route) => {
-      const req = route.request();
-      called.push(rpc);
-      // Shape validation: analytics RPCs are POSTs carrying a p_from/p_to window.
-      let body: Record<string, unknown> | null = null;
-      try {
-        body = req.postDataJSON() as Record<string, unknown> | null;
-      } catch {
-        body = null;
-      }
-      if (req.method() !== 'POST' || !body || body.p_from === undefined || body.p_to === undefined) {
-        badShape.push(`${rpc} (${req.method()}, body=${JSON.stringify(body)})`);
-      }
-
-      if (failing.has(rpc) || opts.mode === 'error') {
-        await respondError(route, opts.delayMs);
+  return createRpcInterceptor(page, {
+    prefixRegex: /\/rest\/v1\/rpc\/analytics_/,
+    rpcs: ANALYTICS_RPCS,
+    validate: (req) => validateRpcShape(req, { requireParams: ['p_from', 'p_to'] }),
+    respond: async (route, rpc) => {
+      if (failing.has(rpc as AnalyticsRpc) || opts.mode === 'error') {
+        await abortRoute(route, opts.delayMs);
         return;
       }
       if (rpc === 'analytics_executive_overview') {
-        await respond(route, overviewRowsFor(route, opts), opts.delayMs);
+        await respondJson(route, overviewRowsFor(route), opts.delayMs);
         return;
       }
-      const rows = opts.mode === 'empty' ? [] : LIST_FIXTURES[rpc];
-      await respond(route, rows, opts.delayMs);
-    });
-  }
-
-  return {
-    called,
-    unexpected,
-    badShape,
-    assertNoAnomalies() {
-      if (unexpected.length > 0) {
-        throw new Error(`Unexpected analytics RPC(s) requested: ${unexpected.join(', ')}`);
-      }
-      if (badShape.length > 0) {
-        throw new Error(`Analytics RPC request(s) failed method/shape validation:\n  - ${badShape.join('\n  - ')}`);
-      }
+      const rows =
+        opts.mode === 'empty'
+          ? []
+          : LIST_FIXTURES[rpc as Exclude<AnalyticsRpc, 'analytics_executive_overview'>];
+      await respondJson(route, rows, opts.delayMs);
     },
-    assertCalled(required) {
-      const missing = required.filter((r) => !called.includes(r));
-      if (missing.length > 0) {
-        throw new Error(`Expected analytics RPC(s) were never requested: ${missing.join(', ')}`);
-      }
-    },
-  };
+  });
 }

@@ -1,6 +1,7 @@
 import { type Page, type Locator, expect } from '@playwright/test';
 import { BasePage } from '../base.page';
 import { ADMIN_LOGIN_PATH, ADMIN_EMAIL_PLACEHOLDER } from '../../support/auth';
+import { hydratedFill } from '../../support/rn-web';
 
 /**
  * Page Object for the QuickServe admin login screen (`(admin-web)/login`).
@@ -46,12 +47,9 @@ export class LoginPage extends BasePage {
    * (fill / submit) land on a fully-hydrated form — the key to a flake-free suite.
    */
   async waitForReady(): Promise<void> {
-    await this.emailInput.waitFor({ state: 'visible' });
-    await expect(async () => {
-      await this.emailInput.fill('');
-      await this.emailInput.pressSequentially('probe');
-      await expect(this.emailInput).toHaveValue('probe', { timeout: 1500 });
-    }).toPass({ timeout: 30_000, intervals: [500, 1000, 2000] });
+    // Probe the email field with the shared hydration gate until it echoes typed
+    // text (React wired `onChangeText`), then clear it so the form starts empty.
+    await hydratedFill(this.emailInput, 'probe');
     await this.emailInput.fill('');
     await expect(this.emailInput).toHaveValue('');
   }

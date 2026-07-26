@@ -1,4 +1,11 @@
-import { type Page, type Route } from '@playwright/test';
+import { type Page } from '@playwright/test';
+import {
+  createRpcInterceptor,
+  respondJson,
+  abortRoute,
+  type RpcTracker,
+} from './rpc-interceptor';
+import { validateRpcShape, type RpcShapeRules } from './validate-rpc-shape';
 
 /**
  * Deterministic network stubs for the **Detailed Analytics** screen
@@ -266,49 +273,26 @@ export type DetailedStubOptions = {
   bookingsSummary?: BookingsSummary;
 };
 
-/** Captured request parameters for a single RPC invocation. */
-export type RpcParams = {
-  p_from?: string;
-  p_to?: string;
-  p_bucket?: string;
-  p_limit?: number;
-};
+/** Strict interception tracker returned by `installDetailedAnalyticsStubs` (shared core). */
+export type DetailedAnalyticsTracker = RpcTracker;
 
-export type DetailedAnalyticsTracker = {
-  /** RPC names actually requested (in order; a name repeats once per re-fetch). */
-  readonly called: string[];
-  /** Analytics RPCs requested that were NOT in the known set. */
-  readonly unexpected: string[];
-  /** Requests that failed method/shape validation, with a diagnostic string. */
-  readonly badShape: string[];
-  /** Fails if any unexpected RPC or bad-shaped request occurred. */
-  assertNoAnomalies(): void;
-  /** Fails naming any RPC in `required` that was never requested. */
-  assertCalled(required: readonly DetailedRpc[]): void;
-  /** The most recent captured params for `rpc` (for filter assertions), or undefined. */
-  lastParamsFor(rpc: DetailedRpc): RpcParams | undefined;
-};
-
-function jsonBody(rows: unknown): string {
-  return JSON.stringify(rows);
-}
-
-async function respond(route: Route, rows: unknown, delayMs?: number): Promise<void> {
-  if (delayMs && delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
-  await route.fulfill({ status: 200, contentType: 'application/json', body: jsonBody(rows) });
-}
-
-async function respondError(route: Route, delayMs?: number): Promise<void> {
-  // Abort at the network level. The app's wrappers convert this into safe
-  // defaults (they never throw), so this drives graceful degradation.
-  if (delayMs && delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
-  await route.abort('failed');
+/** Per-RPC shape rules for the detailed analytics contract. */
+function shapeRulesFor(rpc: DetailedRpc): RpcShapeRules {
+  if (BUCKETED_RPCS.has(rpc)) {
+    return { requireParams: ['p_from', 'p_to'], enums: { p_bucket: ['day', 'week', 'month'] } };
+  }
+  if (rpc === 'analytics_providers') {
+    return { requireParams: ['p_from', 'p_to'], numbers: ['p_limit'] };
+  }
+  return { requireParams: ['p_from', 'p_to'] };
 }
 
 /**
  * Install detailed-analytics RPC stubs on `page` and return a strict tracker.
  * Call BEFORE navigating. Register AFTER `installMockAdminSession` so these
- * specific analytics routes take priority over the mock's REST catch-all.
+ * specific analytics routes take priority over the mock's REST catch-all. The
+ * interception plumbing is delegated to `createRpcInterceptor`; the detailed
+ * fixtures, RPC set, and shape rules stay here.
  */
 export async function installDetailedAnalyticsStubs(
   page: Page,
@@ -318,91 +302,20 @@ export async function installDetailedAnalyticsStubs(
   const failing = new Set(opts.failing ?? []);
   const forcedEmpty = new Set(opts.emptyRpcs ?? []);
 
-  const called: string[] = [];
-  const unexpected: string[] = [];
-  const badShape: string[] = [];
-  const paramsByRpc = new Map<string, RpcParams[]>();
-  const known = new Set<string>(DETAILED_ANALYTICS_RPCS);
-
-  function rpcNameFromUrl(url: string): string {
-    return new URL(url).pathname.split('/rpc/')[1] ?? '';
-  }
-
-  // Catch-all — records any analytics RPC not covered by a specific handler.
-  await page.route(/\/rest\/v1\/rpc\/analytics_/, async (route) => {
-    const name = rpcNameFromUrl(route.request().url());
-    if (!known.has(name)) unexpected.push(name);
-    await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-  });
-
-  // Specific, validated handlers (registered later → higher priority).
-  for (const rpc of DETAILED_ANALYTICS_RPCS) {
-    await page.route(`**/rest/v1/rpc/${rpc}`, async (route) => {
-      const req = route.request();
-      called.push(rpc);
-
-      // Capture + validate request shape.
-      let body: RpcParams | null = null;
-      try {
-        body = req.postDataJSON() as RpcParams | null;
-      } catch {
-        body = null;
-      }
-      if (body) {
-        const list = paramsByRpc.get(rpc) ?? [];
-        list.push(body);
-        paramsByRpc.set(rpc, list);
-      }
-
-      const problems: string[] = [];
-      if (req.method() !== 'POST') problems.push(`method=${req.method()}`);
-      if (!body || body.p_from === undefined || body.p_to === undefined) problems.push('missing p_from/p_to');
-      if (BUCKETED_RPCS.has(rpc)) {
-        const b = body?.p_bucket;
-        if (b === undefined) problems.push('missing p_bucket');
-        else if (b !== 'day' && b !== 'week' && b !== 'month') problems.push(`bad p_bucket=${b}`);
-      }
-      if (rpc === 'analytics_providers') {
-        if (body?.p_limit === undefined) problems.push('missing p_limit');
-        else if (typeof body.p_limit !== 'number') problems.push(`bad p_limit=${String(body.p_limit)}`);
-      }
-      if (problems.length > 0) {
-        badShape.push(`${rpc} (${problems.join(', ')}; body=${JSON.stringify(body)})`);
-      }
-
-      if (failing.has(rpc)) {
-        await respondError(route, opts.delayMs);
+  return createRpcInterceptor(page, {
+    prefixRegex: /\/rest\/v1\/rpc\/analytics_/,
+    rpcs: DETAILED_ANALYTICS_RPCS,
+    validate: (req, rpc) => validateRpcShape(req, shapeRulesFor(rpc as DetailedRpc)),
+    respond: async (route, rpc) => {
+      const detailedRpc = rpc as DetailedRpc;
+      if (failing.has(detailedRpc)) {
+        await abortRoute(route, opts.delayMs);
         return;
       }
-
-      const empty = opts.mode === 'empty' || forcedEmpty.has(rpc);
-      await respond(route, responseFor(rpc, empty, opts), opts.delayMs);
-    });
-  }
-
-  return {
-    called,
-    unexpected,
-    badShape,
-    assertNoAnomalies() {
-      if (unexpected.length > 0) {
-        throw new Error(`Unexpected detailed-analytics RPC(s) requested: ${unexpected.join(', ')}`);
-      }
-      if (badShape.length > 0) {
-        throw new Error(`Detailed-analytics request(s) failed method/shape validation:\n  - ${badShape.join('\n  - ')}`);
-      }
+      const empty = opts.mode === 'empty' || forcedEmpty.has(detailedRpc);
+      await respondJson(route, responseFor(detailedRpc, empty, opts), opts.delayMs);
     },
-    assertCalled(required) {
-      const missing = required.filter((r) => !called.includes(r));
-      if (missing.length > 0) {
-        throw new Error(`Expected detailed-analytics RPC(s) were never requested: ${missing.join(', ')}`);
-      }
-    },
-    lastParamsFor(rpc) {
-      const list = paramsByRpc.get(rpc);
-      return list && list.length > 0 ? list[list.length - 1] : undefined;
-    },
-  };
+  });
 }
 
 /** Payload for a given RPC, honouring empty vs populated + per-RPC overrides. */

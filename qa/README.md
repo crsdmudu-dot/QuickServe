@@ -9,6 +9,28 @@ business behaviour is asserted here.
 
 ---
 
+## Architecture & policy
+
+The official architecture, locator/tagging rules, and merge/release gate policy
+live in **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**; the flake-management
+policy is in **[docs/FLAKES.md](docs/FLAKES.md)**. Key principle: **only extract a
+shared helper once it has two real consumers** (ARCHITECTURE §31).
+
+Convenience scripts (thin wrappers — see `package.json`):
+
+| Script | Purpose |
+|---|---|
+| `npm run qa:test:chromium` | default feature validation (Chromium) |
+| `npm run qa:test:all-browsers` | multi-browser advisory run (`--workers=2`) |
+| `npm run qa:test:connected` | connected run — set `QA_DASHBOARD_CONNECTED=1` + `E2E_ADMIN_*` first |
+| `npm run qa:test:stability` | Gate B stability cycle (2 serial + 1 parallel, Chromium) |
+| `npm run qa:health` | framework + infra health-tests |
+| `npm run qa:typecheck` | QA TypeScript check |
+| `npm run qa:report` | open the HTML report |
+
+A full release aggregate lives at the repo root: `npm run qa:release` (Jest +
+TypeScript + Expo web/android exports + the multi-browser QA suite).
+
 ## Prerequisites
 
 - **Node 24+** (the same version used by the main project)
