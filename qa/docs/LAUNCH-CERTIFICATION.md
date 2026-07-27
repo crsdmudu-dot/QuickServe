@@ -143,7 +143,8 @@ touched**.
 | **M3: customer booking** | real create + persistence read-back + tenant isolation + deterministic cleanup, **green vs real QA backend** | ✅ |
 | **M4: admin dispatch** | queue → assign P1 → reassign P2 + provider access transfer (RLS) + accept/reject + invalid-value rejection + booking_activity audit, **green vs real QA backend** | ✅ |
 | **M5: provider progression** | assigned-job visibility + forward path + auth negatives + backward/reopen/repeat rejection + idempotency + forward-skip design finding, **green vs real QA backend** | ✅ |
-| Cross-role golden path | X1–X5 | 🚧 next |
+| **M6: golden path (E2E)** | one continuous transaction: book → assign → progress → completed, with per-step state/audit/notifications/RLS for all 5 actors + exact audit ordering + monotonic timestamps, **green vs real QA backend** | ✅ |
+| Security/integrity + B2 demonstration | S1–S7 | 🚧 next (M7) |
 | Admin visibility/dispatch | A1–A9 | 🚧 |
 | Provider progression | P1–P7 | 🚧 |
 | Cross-role consistency | X1–X5 | 🚧 |

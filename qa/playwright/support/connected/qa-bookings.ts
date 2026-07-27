@@ -168,6 +168,20 @@ export async function readBookingActivity(
   return (await res.json()) as Record<string, unknown>[];
 }
 
+/** Read notifications for a booking that are visible to `ctx` (RLS: user_id = auth.uid()). */
+export async function readBookingNotifications(
+  ctx: APIRequestContext,
+  bookingId: string,
+): Promise<Record<string, unknown>[]> {
+  const res = await ctx.get(
+    `/rest/v1/notifications?booking_id=eq.${bookingId}&select=id,user_id,type,title,created_at&order=created_at.asc`,
+  );
+  if (res.status() !== 200) {
+    throw new Error(`readBookingNotifications failed: HTTP ${res.status()} — ${await res.text()}`);
+  }
+  return (await res.json()) as Record<string, unknown>[];
+}
+
 /** Delete specific bookings by id via the service role (guaranteed teardown). */
 export async function deleteBookingsByIds(ids: string[]): Promise<void> {
   if (ids.length === 0) return;
