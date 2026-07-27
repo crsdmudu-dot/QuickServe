@@ -55,6 +55,14 @@ insufficient; add a server-side unique/idempotency guard) or formally accepted i
   accounts are absent — they never fall back to production.
 - **Proof standard:** every connected test asserts REAL DB state (rows created, statuses advanced, RLS
   denials). Mocked persistence is never presented as backend proof.
+- **Execution model:** certification runs **serially** (`--workers=1`) and **caches one session per role
+  per worker**. Supabase Auth rate-limits the token endpoint, so re-authenticating on every parallel
+  test throttles and produces intermittent empty reads (an infra artifact, not a product defect —
+  verified by an isolated serial diagnostic). Serial + session cache keeps runs deterministic; the small
+  suite stays fast (~30s).
+- **Cleanup:** the service-role context is used ONLY for teardown (bookings has no DELETE RLS policy).
+  Each test deletes the rows it created in `afterEach` (even on failure); an `afterAll` marker-prefix
+  sweep guarantees repeated runs leave the DB clean. Verified: 0 residual rows after runs.
 
 ---
 
@@ -96,7 +104,8 @@ touched**.
 | Provisioning script (auto-loads `qa/.env`) | 4 persistent accounts | ✅ (operator-run) |
 | Findings (B1, B2) | product truth | ✅ |
 | **M2: connected client + backend smoke** | auth (4 accounts) + RLS, **run green vs real QA backend** | ✅ |
-| Customer booking suite | C1–C13 | 🚧 next |
+| **M3: customer booking** | real create + persistence read-back + tenant isolation + deterministic cleanup, **green vs real QA backend** | ✅ |
+| Admin visibility / dispatch | A1–A9 | 🚧 next |
 | Admin visibility/dispatch | A1–A9 | 🚧 |
 | Provider progression | P1–P7 | 🚧 |
 | Cross-role consistency | X1–X5 | 🚧 |
