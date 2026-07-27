@@ -20,13 +20,25 @@
  *   QA_PROVIDER1_EMAIL / QA_PROVIDER1_PASSWORD
  *   QA_PROVIDER2_EMAIL / QA_PROVIDER2_PASSWORD
  *
- * RUN FROM THE REPO ROOT so `@supabase/supabase-js` resolves from the app's
- * node_modules:
+ * Run from the repo root (so `@supabase/supabase-js` resolves from the app's
+ * node_modules):
  *   node qa/scripts/provision-accounts.mjs
+ *
+ * `qa/.env` is loaded automatically (resolved relative to this script, not the
+ * CWD). Values already set in the shell/CI are never overwritten. No `--env-file`
+ * flag is needed.
  *
  * Safety: refuses to run if QA_SUPABASE_URL matches EXPO_PUBLIC_SUPABASE_URL host.
  */
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
+import { loadEnvFileIfPresent } from './lib/load-env.mjs';
+
+// Auto-load qa/.env (this script lives in qa/scripts, so ../.env is qa/.env),
+// filling only variables not already provided by the shell/CI. Must run BEFORE
+// any env validation below.
+loadEnvFileIfPresent(resolve(dirname(fileURLToPath(import.meta.url)), '..', '.env'));
 
 function requireEnv(name) {
   const v = process.env[name]?.trim();
