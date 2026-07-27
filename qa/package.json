@@ -18,6 +18,7 @@
     "qa:test:connected": "playwright test --project=chromium --grep @connected",
     "qa:test:stability": "node scripts/stability.mjs",
     "qa:health": "playwright test playwright/tests --project=chromium",
+    "qa:test:certification": "playwright test playwright/certification --project=chromium",
     "qa:typecheck": "tsc --noEmit",
     "qa:report": "playwright show-report reports/html"
   },

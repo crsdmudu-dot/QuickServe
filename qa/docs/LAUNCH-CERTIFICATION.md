@@ -93,8 +93,9 @@ touched**.
 | Milestone | Scope | Status |
 |---|---|---|
 | Infra + gating (`qa-accounts.ts`, `assertNotProduction`) | connected config | ✅ |
-| Provisioning script | 4 persistent accounts | ✅ (operator-run) |
+| Provisioning script (auto-loads `qa/.env`) | 4 persistent accounts | ✅ (operator-run) |
 | Findings (B1, B2) | product truth | ✅ |
+| **M2: connected client + backend smoke** | auth (4 accounts) + RLS, **run green vs real QA backend** | ✅ |
 | Customer booking suite | C1–C13 | 🚧 next |
 | Admin visibility/dispatch | A1–A9 | 🚧 |
 | Provider progression | P1–P7 | 🚧 |
