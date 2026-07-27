@@ -44,34 +44,24 @@ insufficient; add a server-side unique/idempotency guard) or formally accepted i
 
 ---
 
-### B2 — Duplicate booking protection → **DEMONSTRATED, confirmed P0**
+### B2 — Duplicate booking protection → **FIXED (RC1, migration 0033)** ✅
 
-Certified live (`integrity.spec.ts`): an **identical** payload (same customer,
-service, `scheduled_for`, address, notes) submitted **twice sequentially** and
-**twice concurrently** each creates **two distinct bookings** (both HTTP 201), each
-with its own `booking_activity` + notifications. No unique constraint, no
-idempotency key. *API:* `POST /rest/v1/bookings`. *Tables:* `bookings` (+cascaded
-`booking_activity`, `notifications`). *Impact:* double-charging risk, duplicate
-dispatch, inflated metrics on any client retry / double-tap / network replay.
-*Mitigation (do not implement here):* server-side idempotency — a partial unique
-index on `(customer_id, service_id, scheduled_for)` over active statuses, or an
-Idempotency-Key. **Block launch until fixed or explicitly accepted in writing.**
+Was P0. **Fix:** a partial unique index `bookings_active_dedup (customer_id,
+service_id, scheduled_for) WHERE status NOT IN ('cancelled','completed')`. A
+customer now holds at most one *active* booking per service+slot; a duplicate
+`POST /rest/v1/bookings` returns **409**. Re-booking is allowed once the prior
+booking is terminal. Certified: identical payloads (sequential **and** concurrent)
+→ exactly one booking; re-book after cancel → 201 (`integrity.spec.ts` "B2 FIXED").
 
-### F4 — Cancellation is not terminal for the assigned provider → **P1 (authorization/integrity)**
+### F4 — Cancellation not terminal for the provider → **FIXED (RC1, migration 0034)** ✅
 
-Certified live: after an **admin cancels** a booking, the **assigned provider can
-still drive it to `on_the_way` / `in_progress` / `completed`** (deterministic, no
-race needed). Root cause: the provider RLS forward-only check ranks `cancelled` at
-`-1`, so `rank(any provider status) > -1` always passes. *API:* `PATCH
-/rest/v1/bookings` (provider token). *Tables:* `bookings`, `booking_activity`,
-`notifications`. *Impact:* an admin cancellation (fraud, dispute, customer request)
-can be silently overridden by the assigned provider, firing completion effects
-(customer "job complete" notifications, review reminders, any completion-tied
-payout). The provider UI masks it (`PROVIDER_NEXT_STATUSES['cancelled'] = []`), so
-only a custom/malicious client exploits it. *Mitigation:* make terminal states
-terminal in the provider RLS `WITH CHECK` — add `and (select b.status …) not in
-('cancelled','completed')`. **Strongly recommend fixing before GA; acceptable for a
-controlled beta with awareness.**
+Was P1. **Fix:** the provider RLS `bookings_update_provider` `WITH CHECK` now
+requires the pre-update status to be a progressable state
+(`provider_assigned`/`on_the_way`/`in_progress`), so `cancelled` and `completed` are
+terminal for the provider. Certified: after admin cancel, provider cannot move the
+booking to `completed`/`in_progress`/`on_the_way` (all rejected, cancellation
+stands) while the normal forward path is unaffected (`integrity.spec.ts` "F4
+FIXED"). Admin override remains by design (admin is trusted).
 
 ### Concurrency — last-write-wins, no optimistic locking → **P2/P1 (hardening)**
 

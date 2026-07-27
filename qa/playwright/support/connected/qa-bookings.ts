@@ -19,6 +19,17 @@ export function makeBookingMarker(): string {
   return `${BOOKING_MARKER_PREFIX}-${crypto.randomUUID()}`;
 }
 
+// Distinct default scheduled_for per created booking. The RC1 dedup index
+// (customer_id, service_id, scheduled_for over active statuses) means two active
+// bookings for the same customer+service+time collide by design — so, to keep each
+// certification booking independent, the default slot advances one minute per call.
+// Tests that must submit IDENTICAL payloads (the dedup test) pass `scheduledFor`
+// explicitly to force a collision.
+let scheduledSlotSeq = 0;
+function nextDefaultScheduledFor(): string {
+  return new Date(Date.UTC(2030, 0, 1, 9, 0, 0) + scheduledSlotSeq++ * 60_000).toISOString();
+}
+
 export type CreatedBooking = { id: string; marker: string; row: Record<string, unknown> };
 
 export type BookingOverrides = {
@@ -43,8 +54,9 @@ export async function createCustomerBooking(
     customer_id: customerId,
     service_id: overrides.serviceId ?? 'house-cleaning',
     address: overrides.address ?? 'QA Certification Address, Nairobi',
-    // Deterministic far-future slot so the value is stable across runs.
-    scheduled_for: overrides.scheduledFor ?? '2030-01-01T09:00:00.000Z',
+    // Distinct far-future slot per booking (see nextDefaultScheduledFor) so the
+    // RC1 dedup index never collides between independent certification bookings.
+    scheduled_for: overrides.scheduledFor ?? nextDefaultScheduledFor(),
     notes: marker,
     scheduling_type: 'datetime',
     recurrence: 'one_time',

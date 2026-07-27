@@ -27,8 +27,6 @@ import {
  * "another authenticated user cannot see it" check uses provider2 — a non-owner,
  * non-admin, non-assigned user — which is the RLS-meaningful negative.
  */
-const SCHEDULED_FOR = '2030-01-01T09:00:00.000Z';
-
 test.describe('Launch Certification — Customer booking', { tag: ['@certification', '@connected'] }, () => {
   const createdIds: string[] = [];
 
@@ -68,7 +66,9 @@ test.describe('Launch Certification — Customer booking', { tag: ['@certificati
         expect(row.customer_id).toBe(userId);
         expect(row.service_id).toBe('house-cleaning');
         expect(row.address).toBe('QA Certification Address, Nairobi');
-        expect(Date.parse(row.scheduled_for as string)).toBe(Date.parse(SCHEDULED_FOR));
+        // Round-trip: the persisted slot matches exactly what was submitted.
+        expect(row.scheduled_for).toBe(created.row.scheduled_for);
+        expect(Number.isNaN(Date.parse(row.scheduled_for as string))).toBe(false);
         expect(row.notes).toBe(created.marker);
         expect(row.status).toBe('pending'); // initial lifecycle state
         expect(row.assigned_provider_id).toBeNull(); // unassigned at creation

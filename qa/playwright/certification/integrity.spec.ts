@@ -45,32 +45,54 @@ test.describe('Launch Certification — Integrity & concurrency', { tag: ['@cert
   });
 
   test(
-    'DEFECT B2 (P0): identical bookings are duplicated — no server-side idempotency (sequential + concurrent)',
-    { tag: ['@p0', '@finding'] },
+    'B2 FIXED (P0): a duplicate active booking is rejected server-side (sequential + concurrent)',
+    { tag: ['@p0', '@integrity'] },
     async () => {
       const { ctx: customer, userId } = await authedContextWithUser('customer');
       try {
-        // Identical payload = same customer, service, scheduled_for, address, notes marker.
-        const seqMarker = makeBookingMarker();
-        const a = await createCustomerBooking(customer, userId, { marker: seqMarker });
-        const b = await createCustomerBooking(customer, userId, { marker: seqMarker });
-        createdIds.push(a.id, b.id);
-        // Sequential: TWO distinct bookings persist from an identical payload.
-        expect(a.id).not.toBe(b.id);
-        expect((await readBookingById(customer, a.id))[0].notes).toBe(seqMarker);
-        expect((await readBookingById(customer, b.id))[0].notes).toBe(seqMarker);
+        // Identical payload = same customer, service, scheduled_for, address, notes.
+        // (migration 0033 partial unique index over active statuses).
+        const seqSlot = '2030-03-01T09:00:00.000Z';
+        const body = (marker: string, slot: string) => ({
+          customer_id: userId,
+          service_id: 'house-cleaning',
+          address: 'QA Dedup Address',
+          scheduled_for: slot,
+          notes: marker,
+        });
 
-        // Concurrent: an identical payload submitted at once also duplicates.
-        const concMarker = makeBookingMarker();
+        // Sequential: first commits (201), the identical second is REJECTED (409).
+        const first = await insertBookingRaw(customer, body(makeBookingMarker(), seqSlot));
+        expect(first.status).toBe(201);
+        expect(first.id).not.toBeNull();
+        createdIds.push(first.id as string);
+        const second = await insertBookingRaw(customer, body(makeBookingMarker(), seqSlot));
+        expect(second.status, 'duplicate active booking rejected').toBe(409);
+        expect(second.id).toBeNull();
+        // Exactly one active booking exists for that slot.
+        expect(await readBookingById(customer, first.id as string)).toHaveLength(1);
+
+        // Concurrent: two identical inserts at once → exactly one wins, one 409.
+        const concSlot = '2030-03-01T10:00:00.000Z';
         const [c1, c2] = await Promise.all([
-          createCustomerBooking(customer, userId, { marker: concMarker }),
-          createCustomerBooking(customer, userId, { marker: concMarker }),
+          insertBookingRaw(customer, body(makeBookingMarker(), concSlot)),
+          insertBookingRaw(customer, body(makeBookingMarker(), concSlot)),
         ]);
-        createdIds.push(c1.id, c2.id);
-        expect(c1.id).not.toBe(c2.id);
-        // Each duplicate carries its OWN activity + notifications (independent rows).
-        expect((await readBookingActivity(customer, c1.id)).length).toBeGreaterThan(0);
-        expect((await readBookingActivity(customer, c2.id)).length).toBeGreaterThan(0);
+        const codes = [c1.status, c2.status].sort();
+        expect(codes, 'exactly one 201 and one 409').toEqual([201, 409]);
+        const winner = c1.status === 201 ? c1.id : c2.id;
+        createdIds.push(winner as string);
+
+        // Once the first booking is terminal (cancelled), the slot frees up again.
+        const admin = await authedContext('admin');
+        try {
+          await setBookingStatus(admin, first.id as string, 'cancelled');
+          const rebook = await insertBookingRaw(customer, body(makeBookingMarker(), seqSlot));
+          expect(rebook.status, 'slot re-bookable after prior booking is terminal').toBe(201);
+          if (rebook.id) createdIds.push(rebook.id);
+        } finally {
+          await admin.dispose();
+        }
       } finally {
         await customer.dispose();
       }
@@ -112,8 +134,8 @@ test.describe('Launch Certification — Integrity & concurrency', { tag: ['@cert
   );
 
   test(
-    'DEFECT F4 (P1): an assigned provider can complete an admin-CANCELLED booking (cancellation not terminal at backend)',
-    { tag: ['@p1', '@finding', '@security'] },
+    'F4 FIXED (P1): a cancelled booking is terminal — the assigned provider cannot complete it',
+    { tag: ['@p1', '@integrity', '@security'] },
     async () => {
       const { ctx: customer, userId } = await authedContextWithUser('customer');
       const { ctx: p1, userId: p1Id } = await authedContextWithUser('provider1');
@@ -126,11 +148,14 @@ test.describe('Launch Certification — Integrity & concurrency', { tag: ['@cert
         // Admin cancels the booking.
         expect((await setBookingStatus(admin, created.id, 'cancelled')).row?.status).toBe('cancelled');
 
-        // The assigned provider can nevertheless drive it to completed — the
-        // provider RLS rank check ranks 'cancelled' at -1, so rank(completed)=3 > -1.
-        const done = await setBookingStatus(p1, created.id, 'completed');
-        expect(done.changed, 'provider overrides admin cancellation').toBe(true);
-        expect((await readBookingById(admin, created.id))[0].status).toBe('completed');
+        // The assigned provider can no longer drive it forward (migration 0034:
+        // the pre-update status must be provider_assigned/on_the_way/in_progress).
+        for (const attempt of ['completed', 'in_progress', 'on_the_way'] as const) {
+          const r = await setBookingStatus(p1, created.id, attempt);
+          expect(r.changed, `provider cannot move cancelled → ${attempt}`).toBe(false);
+        }
+        // Cancellation stands.
+        expect((await readBookingById(admin, created.id))[0].status).toBe('cancelled');
       } finally {
         await customer.dispose();
         await p1.dispose();
