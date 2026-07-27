@@ -49,3 +49,6 @@ Claude
 # Next.js website build artifacts
 apps/website/.next/
 apps/website/out/
+
+# Supabase CLI local state
+supabase/.temp/
