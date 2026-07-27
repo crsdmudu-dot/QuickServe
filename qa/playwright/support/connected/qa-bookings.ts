@@ -61,6 +61,23 @@ export async function createCustomerBooking(
   return { id: row.id as string, marker, row };
 }
 
+/** Raw booking insert that does NOT throw — returns the HTTP status (for negative/integrity tests). */
+export async function insertBookingRaw(
+  ctx: APIRequestContext,
+  body: Record<string, unknown>,
+): Promise<{ status: number; id: string | null; text: string }> {
+  const res = await ctx.post('/rest/v1/bookings', {
+    headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
+    data: body,
+  });
+  const status = res.status();
+  if (status === 201) {
+    const arr = (await res.json()) as Record<string, unknown>[];
+    return { status, id: (arr[0]?.id as string) ?? null, text: '' };
+  }
+  return { status, id: null, text: await res.text() };
+}
+
 /** Read bookings visible to `ctx` filtered to a single id (RLS applies). */
 export async function readBookingById(
   ctx: APIRequestContext,

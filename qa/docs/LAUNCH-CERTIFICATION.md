@@ -44,6 +44,52 @@ insufficient; add a server-side unique/idempotency guard) or formally accepted i
 
 ---
 
+### B2 — Duplicate booking protection → **DEMONSTRATED, confirmed P0**
+
+Certified live (`integrity.spec.ts`): an **identical** payload (same customer,
+service, `scheduled_for`, address, notes) submitted **twice sequentially** and
+**twice concurrently** each creates **two distinct bookings** (both HTTP 201), each
+with its own `booking_activity` + notifications. No unique constraint, no
+idempotency key. *API:* `POST /rest/v1/bookings`. *Tables:* `bookings` (+cascaded
+`booking_activity`, `notifications`). *Impact:* double-charging risk, duplicate
+dispatch, inflated metrics on any client retry / double-tap / network replay.
+*Mitigation (do not implement here):* server-side idempotency — a partial unique
+index on `(customer_id, service_id, scheduled_for)` over active statuses, or an
+Idempotency-Key. **Block launch until fixed or explicitly accepted in writing.**
+
+### F4 — Cancellation is not terminal for the assigned provider → **P1 (authorization/integrity)**
+
+Certified live: after an **admin cancels** a booking, the **assigned provider can
+still drive it to `on_the_way` / `in_progress` / `completed`** (deterministic, no
+race needed). Root cause: the provider RLS forward-only check ranks `cancelled` at
+`-1`, so `rank(any provider status) > -1` always passes. *API:* `PATCH
+/rest/v1/bookings` (provider token). *Tables:* `bookings`, `booking_activity`,
+`notifications`. *Impact:* an admin cancellation (fraud, dispute, customer request)
+can be silently overridden by the assigned provider, firing completion effects
+(customer "job complete" notifications, review reminders, any completion-tied
+payout). The provider UI masks it (`PROVIDER_NEXT_STATUSES['cancelled'] = []`), so
+only a custom/malicious client exploits it. *Mitigation:* make terminal states
+terminal in the provider RLS `WITH CHECK` — add `and (select b.status …) not in
+('cancelled','completed')`. **Strongly recommend fixing before GA; acceptable for a
+controlled beta with awareness.**
+
+### Concurrency — last-write-wins, no optimistic locking → **P2/P1 (hardening)**
+
+Certified live: two concurrent admin assignments both return 200; the later write
+wins (no lost-booking, no duplicate audit, but the earlier assignment is silently
+overwritten). There is **no version column / optimistic lock / `updated_at`
+guard**, so concurrent admin+provider writes are last-write-wins and one action can
+be silently lost (e.g., admin-cancel vs provider-complete → see F4). *Impact:* rare
+but possible silent loss of a concurrent action. *Mitigation:* optimistic
+concurrency (version/`updated_at` precondition) on booking mutations.
+
+### Replay — no idempotency keys; identical mutations are safe, inserts are not
+
+Replaying an **identical PATCH** (same assignment) causes **no** duplicate audit or
+notification (the change-detecting triggers fire only on real change). Replaying an
+**insert** duplicates (see B2). There are no idempotency keys; mutation safety comes
+from change-on-write triggers, not replay protection.
+
 ### F3 — Provider progression is forward-only but NOT single-step → **design finding (P2 hardening)**
 
 The provider RLS (`bookings_update_provider`, migration 0004) enforces
@@ -144,7 +190,7 @@ touched**.
 | **M4: admin dispatch** | queue → assign P1 → reassign P2 + provider access transfer (RLS) + accept/reject + invalid-value rejection + booking_activity audit, **green vs real QA backend** | ✅ |
 | **M5: provider progression** | assigned-job visibility + forward path + auth negatives + backward/reopen/repeat rejection + idempotency + forward-skip design finding, **green vs real QA backend** | ✅ |
 | **M6: golden path (E2E)** | one continuous transaction: book → assign → progress → completed, with per-step state/audit/notifications/RLS for all 5 actors + exact audit ordering + monotonic timestamps, **green vs real QA backend** | ✅ |
-| Security/integrity + B2 demonstration | S1–S7 | 🚧 next (M7) |
+| **M7: integrity & concurrency** | B2 duplicate (seq+concurrent) demonstrated · concurrent-assign last-write-wins · F4 cancellation-not-terminal · replay idempotency · insert atomicity, **green vs real QA backend** | ✅ |
 | Admin visibility/dispatch | A1–A9 | 🚧 |
 | Provider progression | P1–P7 | 🚧 |
 | Cross-role consistency | X1–X5 | 🚧 |
