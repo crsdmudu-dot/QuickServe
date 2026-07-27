@@ -77,6 +77,38 @@ export async function readBookingById(
 
 export type ProviderInfo = { providerId: string; name: string; phone: string };
 
+export type PatchResult = {
+  status: number;
+  /** True only when the UPDATE actually changed a row (200 + a returned row). */
+  changed: boolean;
+  row: Record<string, unknown> | null;
+  text: string;
+};
+
+/**
+ * Generic authenticated PATCH on a booking (mirrors the app's PostgREST updates).
+ * Distinguishes three outcomes so callers can assert them honestly:
+ *  - success: 200 + a returned row (`changed: true`)
+ *  - RLS USING excluded the row (e.g., not owner/assigned): 200 + `[]` (`changed: false`)
+ *  - RLS WITH CHECK / constraint violation: 4xx (`changed: false`, `text` has detail)
+ */
+export async function patchBooking(
+  ctx: APIRequestContext,
+  bookingId: string,
+  body: Record<string, unknown>,
+): Promise<PatchResult> {
+  const res = await ctx.patch(`/rest/v1/bookings?id=eq.${bookingId}`, {
+    headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
+    data: body,
+  });
+  const status = res.status();
+  if (status === 200) {
+    const row = ((await res.json()) as Record<string, unknown>[])[0] ?? null;
+    return { status, changed: !!row, row, text: '' };
+  }
+  return { status, changed: false, row: null, text: await res.text() };
+}
+
 /**
  * Admin assigns a provider — mirrors the app's `assignProvider`: sets
  * assigned_provider_id/name/phone and status='provider_assigned' in one UPDATE.
@@ -87,39 +119,39 @@ export async function assignProvider(
   bookingId: string,
   p: ProviderInfo,
 ): Promise<Record<string, unknown>> {
-  const res = await adminCtx.patch(`/rest/v1/bookings?id=eq.${bookingId}`, {
-    headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
-    data: {
-      assigned_provider_id: p.providerId,
-      assigned_provider_name: p.name,
-      assigned_provider_phone: p.phone,
-      status: 'provider_assigned',
-    },
+  const r = await patchBooking(adminCtx, bookingId, {
+    assigned_provider_id: p.providerId,
+    assigned_provider_name: p.name,
+    assigned_provider_phone: p.phone,
+    status: 'provider_assigned',
   });
-  if (res.status() !== 200) {
-    throw new Error(`assignProvider failed: HTTP ${res.status()} — ${await res.text()}`);
-  }
-  return ((await res.json()) as Record<string, unknown>[])[0];
+  if (!r.changed || !r.row) throw new Error(`assignProvider failed: HTTP ${r.status} — ${r.text}`);
+  return r.row;
 }
 
 /**
- * Admin sets a booking status — mirrors the app's `updateBookingStatus`.
- * Returns the HTTP status + row (on success) or error text, so callers can assert
- * both accepted transitions (200) and rejected ones (4xx).
+ * Set a booking status — mirrors the app's `updateBookingStatus`. Works for any
+ * authed role; the returned `changed`/`status` reflect RLS. Callers assert both
+ * accepted transitions (changed) and rejected ones (not changed / 4xx).
  */
 export async function setBookingStatus(
-  adminCtx: APIRequestContext,
+  ctx: APIRequestContext,
   bookingId: string,
   status: string,
-): Promise<{ status: number; row: Record<string, unknown> | null; text: string }> {
-  const res = await adminCtx.patch(`/rest/v1/bookings?id=eq.${bookingId}`, {
-    headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
-    data: { status },
-  });
-  if (res.status() === 200) {
-    return { status: 200, row: ((await res.json()) as Record<string, unknown>[])[0], text: '' };
-  }
-  return { status: res.status(), row: null, text: await res.text() };
+): Promise<PatchResult> {
+  return patchBooking(ctx, bookingId, { status });
+}
+
+/** Create a booking as customer then assign a provider as admin (returns the booking). */
+export async function createAssignedBooking(
+  customerCtx: APIRequestContext,
+  customerId: string,
+  adminCtx: APIRequestContext,
+  provider: ProviderInfo,
+): Promise<CreatedBooking> {
+  const created = await createCustomerBooking(customerCtx, customerId);
+  await assignProvider(adminCtx, created.id, provider);
+  return created;
 }
 
 /** Read booking_activity audit rows for a booking (app-created on status change). */

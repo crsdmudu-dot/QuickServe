@@ -44,6 +44,42 @@ insufficient; add a server-side unique/idempotency guard) or formally accepted i
 
 ---
 
+### F3 — Provider progression is forward-only but NOT single-step → **design finding (P2 hardening)**
+
+The provider RLS (`bookings_update_provider`, migration 0004) enforces
+`rank(new) > rank(old)` for `{on_the_way, in_progress, completed}`. Verified live:
+it correctly **rejects** backward (`in_progress→on_the_way`), reopen
+(`completed→in_progress`), and repeat (same-status) transitions — each returns
+403, leaves state unchanged, and writes **no** `booking_activity` row. However it
+**permits forward-skips** (e.g. `provider_assigned → completed`, `3 > 0`).
+
+This matches the provider-experience design spec ("blocks moving backwards,
+reopening, cancelling, or jumping outside the chain") — single-step progression is
+a **UI-only** convention (`PROVIDER_NEXT_STATUSES` renders one button), not a
+backend rule. Only the legitimately-assigned provider can do it (no privilege
+escalation). **Severity P2 (optional hardening), not a launch blocker:** a
+custom/buggy provider client could mark a job complete without passing through
+`on_the_way`/`in_progress`, skipping tracking/evidence steps. To enforce
+single-step, change the rank check to `rank(new) = rank(old) + 1`. Certified as
+ACTUAL behavior (no faked rejection).
+
+### Idempotency (repeat same-status) — observed behavior
+
+A provider re-submitting the current status is **rejected (403)** by the same
+forward-only rank check and creates **no duplicate** `booking_activity` row. The
+backend is not idempotent-accepting; it safely refuses the no-op. No defect.
+
+### Cleanup baseline note (notifications)
+
+The certification suite leaves **zero of its own artifacts** — all booking-linked
+rows (bookings, `booking_activity`, booking-linked notifications) cascade-delete
+on booking teardown, verified 0 after every run and **non-accumulating** across
+runs. Two residual `notifications` rows (`admin_provider_pending`,
+`booking_id = null`) are a fixed **provisioning baseline** created when the
+provider accounts were first made (before approval); they are unrelated to
+certification and intentionally left untouched (Decision: do not modify the QA
+environment).
+
 ## 2. Connected architecture (Decision A — dedicated QA project)
 
 - The suite targets a **dedicated QA/staging Supabase project** via a separate `QA_*` env namespace
@@ -106,7 +142,8 @@ touched**.
 | **M2: connected client + backend smoke** | auth (4 accounts) + RLS, **run green vs real QA backend** | ✅ |
 | **M3: customer booking** | real create + persistence read-back + tenant isolation + deterministic cleanup, **green vs real QA backend** | ✅ |
 | **M4: admin dispatch** | queue → assign P1 → reassign P2 + provider access transfer (RLS) + accept/reject + invalid-value rejection + booking_activity audit, **green vs real QA backend** | ✅ |
-| Provider progression | P1–P7 | 🚧 next |
+| **M5: provider progression** | assigned-job visibility + forward path + auth negatives + backward/reopen/repeat rejection + idempotency + forward-skip design finding, **green vs real QA backend** | ✅ |
+| Cross-role golden path | X1–X5 | 🚧 next |
 | Admin visibility/dispatch | A1–A9 | 🚧 |
 | Provider progression | P1–P7 | 🚧 |
 | Cross-role consistency | X1–X5 | 🚧 |
