@@ -105,7 +105,8 @@ touched**.
 | Findings (B1, B2) | product truth | ✅ |
 | **M2: connected client + backend smoke** | auth (4 accounts) + RLS, **run green vs real QA backend** | ✅ |
 | **M3: customer booking** | real create + persistence read-back + tenant isolation + deterministic cleanup, **green vs real QA backend** | ✅ |
-| Admin visibility / dispatch | A1–A9 | 🚧 next |
+| **M4: admin dispatch** | queue → assign P1 → reassign P2 + provider access transfer (RLS) + accept/reject + invalid-value rejection + booking_activity audit, **green vs real QA backend** | ✅ |
+| Provider progression | P1–P7 | 🚧 next |
 | Admin visibility/dispatch | A1–A9 | 🚧 |
 | Provider progression | P1–P7 | 🚧 |
 | Cross-role consistency | X1–X5 | 🚧 |

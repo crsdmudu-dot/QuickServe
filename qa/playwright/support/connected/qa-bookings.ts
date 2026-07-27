@@ -73,6 +73,69 @@ export async function readBookingById(
   return (await res.json()) as Record<string, unknown>[];
 }
 
+// ── Admin dispatch (same PostgREST path as the app's assignProvider/updateBookingStatus) ──
+
+export type ProviderInfo = { providerId: string; name: string; phone: string };
+
+/**
+ * Admin assigns a provider — mirrors the app's `assignProvider`: sets
+ * assigned_provider_id/name/phone and status='provider_assigned' in one UPDATE.
+ * Requires an authed ADMIN context (RLS bookings_update_admin). Returns the row.
+ */
+export async function assignProvider(
+  adminCtx: APIRequestContext,
+  bookingId: string,
+  p: ProviderInfo,
+): Promise<Record<string, unknown>> {
+  const res = await adminCtx.patch(`/rest/v1/bookings?id=eq.${bookingId}`, {
+    headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
+    data: {
+      assigned_provider_id: p.providerId,
+      assigned_provider_name: p.name,
+      assigned_provider_phone: p.phone,
+      status: 'provider_assigned',
+    },
+  });
+  if (res.status() !== 200) {
+    throw new Error(`assignProvider failed: HTTP ${res.status()} — ${await res.text()}`);
+  }
+  return ((await res.json()) as Record<string, unknown>[])[0];
+}
+
+/**
+ * Admin sets a booking status — mirrors the app's `updateBookingStatus`.
+ * Returns the HTTP status + row (on success) or error text, so callers can assert
+ * both accepted transitions (200) and rejected ones (4xx).
+ */
+export async function setBookingStatus(
+  adminCtx: APIRequestContext,
+  bookingId: string,
+  status: string,
+): Promise<{ status: number; row: Record<string, unknown> | null; text: string }> {
+  const res = await adminCtx.patch(`/rest/v1/bookings?id=eq.${bookingId}`, {
+    headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
+    data: { status },
+  });
+  if (res.status() === 200) {
+    return { status: 200, row: ((await res.json()) as Record<string, unknown>[])[0], text: '' };
+  }
+  return { status: res.status(), row: null, text: await res.text() };
+}
+
+/** Read booking_activity audit rows for a booking (app-created on status change). */
+export async function readBookingActivity(
+  ctx: APIRequestContext,
+  bookingId: string,
+): Promise<Record<string, unknown>[]> {
+  const res = await ctx.get(
+    `/rest/v1/booking_activity?booking_id=eq.${bookingId}&select=event_type,message,actor_id,created_at&order=created_at.asc`,
+  );
+  if (res.status() !== 200) {
+    throw new Error(`readBookingActivity failed: HTTP ${res.status()} — ${await res.text()}`);
+  }
+  return (await res.json()) as Record<string, unknown>[];
+}
+
 /** Delete specific bookings by id via the service role (guaranteed teardown). */
 export async function deleteBookingsByIds(ids: string[]): Promise<void> {
   if (ids.length === 0) return;
