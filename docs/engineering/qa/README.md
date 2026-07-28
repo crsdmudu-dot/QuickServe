@@ -38,8 +38,8 @@ Three independent test systems plus manual checklists:
 - **Root Jest** (`jest.config.js`, jest-expo) — **unit tests with a mocked backend** (Supabase,
   AsyncStorage, and the services provider are `jest.mock`-ed; `test/setup.ts`,
   `test/mock-services.ts`). Excludes `/qa/` and `/apps/website/`.
-- **Website Jest** (`apps/website/`) — unit/render tests for the **separate** Next.js marketing
-  site.
+- **Website Vitest** (`apps/website/`) — unit/render tests (runner: **Vitest**, not Jest) for
+  the **separate** Next.js marketing site.
 - **Playwright** (`qa/playwright.config.ts`, isolated `qa/` workspace) — offline health/framework
   tests, mock-mode admin E2E, and **connected certification** against a dedicated QA Supabase
   project.
@@ -50,8 +50,8 @@ graph TD
     subgraph Jest["Root Jest (unit — mocked backend)"]
         U["~2943 tests / 220 suites<br/>src/lib · screens · components"]
     end
-    subgraph Web["Website Jest"]
-        W["30 tests (apps/website)"]
+    subgraph Web["Website Vitest"]
+        W["102 tests / 7 files (apps/website)"]
     end
     subgraph PW["Playwright (qa/)"]
         H["Health/framework 19 (offline + infra)"]
@@ -76,7 +76,8 @@ graph TD
   progression, the golden path, and integrity.
 - **Playwright (mock/E2E)** — admin dashboards (`qa/playwright/admin/`, **43**: auth 6,
   executive 15, detailed 22) run mock-mode (Chromium-only) with optional connected mode.
-- **Website tests** — `apps/website/__tests__/` (**30**): components, content, home, lib, pages,
+- **Website tests** — `apps/website/__tests__/` run on **Vitest** (**102 tests across 7 files**
+  observed in Phase 1A; the historical figure was 30): components, content, home, lib, pages,
   seo, smoke. Separate from the QuickServe app.
 - **Health verification** — `qa/playwright/tests/` (**19**: framework 13, infra-health 3,
   provisioning-env 2, smoke 1).
