@@ -1,12 +1,11 @@
 # QuickServe Engineering Documentation
 
 **Purpose:** The permanent technical reference for QuickServe engineering. This index
-links every documentation section. Each section currently holds a **placeholder**
-describing its scope only — documents are written and added over time, and nothing
-here asserts system behavior beyond what links to already-verified documents.
+links every documentation section. Each section below is a written, repository-verified
+reference; where a capability is not implemented, the section says so rather than implying it.
 
-**Status:** Structure established (Engineering Documentation phase). Folders are
-scaffolding; they are not yet populated.
+**Status:** All twelve sections are populated and merged. The documents distinguish current
+implementation from planned work and do not claim Full Platform Certification.
 
 ---
 
@@ -23,9 +22,9 @@ scaffolding; they are not yet populated.
 | [deployment/](deployment/) | Build, environments, and release/deploy procedures. |
 | [operations/](operations/) | Runbooks, monitoring, incident response, and pilot operations. |
 | [qa/](qa/) | QA automation, launch certification, and test strategy. |
-| [releases/](releases/) | Release candidates, changelogs, and version history. |
-| [frontend/](frontend/) | Web admin UI and the design system. |
-| [mobile/](mobile/) | Customer and provider React Native applications. |
+| [releases/](releases/) | Release process, gates, artifacts, and version management. |
+| [frontend/](frontend/) | The Expo React Native frontend: structure, navigation, state, styling, and data flow. |
+| [mobile/](mobile/) | Native mobile concerns: Android/iOS configuration, Expo services, and device features. |
 
 ---
 
