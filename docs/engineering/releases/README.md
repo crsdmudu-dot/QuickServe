@@ -187,7 +187,7 @@ type-check, successful web/Android **builds**, the QA-browser suite, and the **c
 spine** (21/21). It does **not** prove payments settlement, push delivery, storage, native
 Android/iOS journeys, performance, security, or accessibility — all of which remain **Not
 tested**. Full Platform Certification, as defined in [qa/](../qa/README.md) §11, **has not been
-achieved**, and a green release gate must not be reported as full platform certification.
+achieved**, and a green release gate must not be reported as Full Platform Certification.
 
 ## 12. Related Documentation
 
@@ -223,7 +223,7 @@ sequenceDiagram
         Op->>QA: qa:test:certification (21) + qa:health (19)
         QA-->>Op: 21/21 + 19/19 (booking spine only)
         Op->>Rel: EAS builds · expo export web→Vercel · supabase db push
-        Note over Op,Rel: manual submit (Play/App Store); NOT full platform certification
+        Note over Op,Rel: manual submit (Play/App Store); NOT Full Platform Certification
     end
 ```
 
