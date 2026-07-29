@@ -21,6 +21,7 @@
     "qa:test:stability": "node scripts/stability.mjs",
     "qa:health": "playwright test playwright/tests --project=chromium",
     "qa:test:certification": "playwright test playwright/certification --project=chromium --workers=1",
+    "qa:test:web": "playwright test --config=playwright.web.config.ts",
     "qa:typecheck": "tsc --noEmit",
     "qa:report": "playwright show-report reports/html"
   },
