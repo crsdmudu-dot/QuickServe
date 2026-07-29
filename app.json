@@ -62,12 +62,13 @@
     ],
     "extra": {
       "eas": {
-        "projectId": ""
+        "projectId": "587f8663-a722-4882-ab56-9007413003ee"
       }
     },
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "owner": "dalmarmudu"
   }
 }
