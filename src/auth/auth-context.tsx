@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Session } from '@supabase/supabase-js';
 
 import type { Role } from '@/constants/roles';
@@ -50,14 +50,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authError, setAuthError] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
 
+  // The user id whose role/profile is currently resolved. Used so a session change for
+  // a NEW user re-enters the loading state while the role is fetched (making "role
+  // resolving" a distinct, explicit state), while a same-user token refresh does not
+  // (no spurious loading flash mid-session).
+  const resolvedUserId = useRef<string | null>(null);
+
   useEffect(() => {
     let active = true;
     async function applySession(s: Session | null) {
       if (!active) return;
       setSession(s);
       if (s) {
+        // Re-enter loading while the role resolves for a newly signed-in user, so
+        // consumers (the admin route guard) can distinguish "role resolving" (show a
+        // loading state) from "resolved, not an admin" (show not-authorized) instead of
+        // briefly treating an unresolved role as a rejection.
+        if (s.user.id !== resolvedUserId.current) setIsLoading(true);
         const p = await fetchProfile(s.user.id);
         if (!active) return;
+        resolvedUserId.current = s.user.id;
         setRole(p.role);
         setApprovalStatus(p.approvalStatus);
         if (p.error) {
@@ -67,6 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setProfileError(null);
         }
       } else {
+        resolvedUserId.current = null;
         setRole(null);
         setApprovalStatus(null);
         setProfileError(null);
