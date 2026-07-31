@@ -45,11 +45,20 @@ export type AdminShellProps = {
   /** Optional element rendered at the right end of the top bar (e.g. action buttons). */
   rightSlot?: ReactNode;
   children: ReactNode;
+  /**
+   * Whether to render the admin chrome (sidebar + top bar + notification bell). When
+   * false the shell renders only its children in the same position — used by the
+   * (admin-web) guard to keep the navigator (<Slot/>) mounted at a STABLE position while
+   * a user is loading / not an authorized admin, WITHOUT exposing admin navigation.
+   * Children stay at the same index whether or not the chrome is shown, so toggling this
+   * never remounts the navigator subtree. Defaults to true.
+   */
+  showChrome?: boolean;
 };
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export function AdminShell({ title, rightSlot, children }: AdminShellProps) {
+export function AdminShell({ title, rightSlot, children, showChrome = true }: AdminShellProps) {
   const theme = useTheme();
   const { width } = useWindowDimensions();
 
@@ -61,12 +70,13 @@ export function AdminShell({ title, rightSlot, children }: AdminShellProps) {
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
+    if (!showChrome) return; // no bell rendered → don't issue the admin-only count query
     let mounted = true;
     getUnreadNotificationCount()
       .then((count) => { if (mounted) setUnreadCount(count); })
       .catch(() => { /* silent — bell shows 0 on error */ });
     return () => { mounted = false; };
-  }, []);
+  }, [showChrome]);
 
   function handleBellPress() {
     // Navigate to the admin notifications center
@@ -75,28 +85,33 @@ export function AdminShell({ title, rightSlot, children }: AdminShellProps) {
 
   return (
     <View style={[styles.root, { backgroundColor: theme.background }]}>
-      {/* Desktop side navigation */}
-      {isWide && <AdminSidebar orientation="side" />}
+      {/* Desktop side navigation (index 0 — becomes an empty slot when chrome hidden,
+          so the content column below keeps its position and the navigator is preserved). */}
+      {showChrome && isWide && <AdminSidebar orientation="side" />}
 
       {/* Main content column */}
       <View style={[styles.content, { backgroundColor: theme.surface }]}>
         {/* Tablet / narrow horizontal top nav */}
-        {!isWide && <AdminSidebar orientation="top" />}
+        {showChrome && !isWide && <AdminSidebar orientation="top" />}
 
         {/* Top bar — title + notification bell + optional right slot */}
-        <View style={[styles.topBar, { borderBottomColor: theme.border }]}>
-          <Text variant="title" color="text" style={styles.titleText}>
-            {title}
-          </Text>
-          {/* Admin notification bell — always present in the top bar */}
-          <NotificationBell
-            count={unreadCount}
-            onPress={handleBellPress}
-          />
-          {rightSlot ? <View style={styles.rightSlot}>{rightSlot}</View> : null}
-        </View>
+        {showChrome && (
+          <View style={[styles.topBar, { borderBottomColor: theme.border }]}>
+            <Text variant="title" color="text" style={styles.titleText}>
+              {title}
+            </Text>
+            {/* Admin notification bell — always present in the top bar */}
+            <NotificationBell
+              count={unreadCount}
+              onPress={handleBellPress}
+            />
+            {rightSlot ? <View style={styles.rightSlot}>{rightSlot}</View> : null}
+          </View>
+        )}
 
-        {/* Scrollable page body constrained to MaxContentWidth */}
+        {/* Scrollable page body constrained to MaxContentWidth. Kept at a stable index
+            (last child of the content column) regardless of `showChrome` so the navigator
+            subtree it contains is never destroyed/recreated by an auth-state change. */}
         <ScrollView
           style={styles.scrollArea}
           contentContainerStyle={[

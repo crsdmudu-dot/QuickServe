@@ -63,6 +63,14 @@ jest.mock('expo-router', () => ({
   router: { push: jest.fn() },
 }));
 
+// ── Auth mock ─────────────────────────────────────────────────────────────────
+// The screen defers activation until an admin session resolves (Phase 3E). These
+// tests exercise the resolved-admin dashboard, so report ready. (Also avoids pulling
+// the real auth-context → supabase env at module load.)
+jest.mock('@/auth/auth-context', () => ({
+  useAdminReady: () => true,
+}));
+
 // ── ServicesProvider mock ─────────────────────────────────────────────────────
 
 jest.mock('@/services/services-provider', () => ({
