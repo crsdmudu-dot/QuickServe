@@ -41,6 +41,7 @@ import { Text } from '@/components/ui/text';
 import { Spacing } from '@/constants/theme';
 import { formatKes } from '@/lib/currency';
 import { useServices } from '@/services/services-provider';
+import { useAdminReady } from '@/auth/auth-context';
 import { ExecutiveKpiCard } from '@/components/admin-web/analytics/executive-kpi-card';
 import { MetricSection } from '@/components/admin-web/analytics/metric-section';
 import { ExportMenu } from '@/components/admin-web/analytics/export-menu';
@@ -227,15 +228,36 @@ export default function ExecutiveDashboard() {
       .finally(() => setNotificationsLoading(false));
   }, [preset]);
 
+  // Defer the initial fetch until auth has resolved to a confirmed admin. The screen
+  // stays mounted through the post-login role-resolution window (Phase 3D keeps the
+  // navigator mounted), but must not execute admin data fetches before authorization
+  // completes — otherwise it fetches during the loading window (racing tests) or for a
+  // non-admin user. See docs/qa/PHASE-3E-PROTECTED-ROUTE-ACTIVATION.md.
+  const adminReady = useAdminReady();
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (adminReady) void load();
+  }, [adminReady, load]);
 
   // ── Refresh: clear cache then reload ─────────────────────────────────────
   const refresh = useCallback(() => {
     invalidateExecutiveCache();
     void load();
   }, [load]);
+
+  // ── Deferred activation ────────────────────────────────────────────────────
+  // Under the Phase 3D navigator fix the (admin-web) <Slot/> stays mounted through
+  // the post-login role-resolution window, so this screen mounts before auth is
+  // confirmed. It must NOT present its protected content (or fetch) until then:
+  // the guard already shows an opaque Loading / Not-authorized overlay on top, and
+  // rendering the real sections underneath would (a) expose protected structure in
+  // the DOM before authorization and (b) let a section become "visible" before the
+  // data fetch runs — the exact loading-window regression Phase 3E fixes. The screen
+  // stays MOUNTED (a stable placeholder), so the navigator is never disturbed; it
+  // activates its content + data fetch only once admin is confirmed.
+  // See docs/qa/PHASE-3E-PROTECTED-ROUTE-ACTIVATION.md.
+  if (!adminReady) {
+    return <View style={styles.activationPlaceholder} />;
+  }
 
   // ── Derived chart series ───────────────────────────────────────────────────
 
@@ -826,6 +848,12 @@ export default function ExecutiveDashboard() {
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
+  // Deferred-activation placeholder — the screen stays mounted (navigator invariant)
+  // but renders this until auth resolves to a confirmed admin. The guard's opaque
+  // Loading / Not-authorized overlay sits on top during that window.
+  activationPlaceholder: {
+    flex: 1,
+  },
   header: {
     gap: Spacing.two,
     marginBottom: Spacing.four,

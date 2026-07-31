@@ -157,3 +157,21 @@ export function useAuth(): AuthState {
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
 }
+
+/**
+ * True once auth has RESOLVED to an authenticated admin.
+ *
+ * Protected admin screens gate their data fetches on this. Under the Phase 3D
+ * navigator-stabilization fix the (admin-web) `<Slot/>` stays mounted through the
+ * post-login "session set, role not yet resolved" window, so protected screens now
+ * mount *before* authorization completes. Without a gate they would execute their
+ * data effects during that window — racing tests and issuing admin fetches for a
+ * not-yet-authorized (or non-admin) user. This hook lets a screen stay mounted (so
+ * the native navigator is never destroyed) while staying idle until admin is
+ * confirmed. It never fetches for a non-admin. See
+ * docs/qa/PHASE-3E-PROTECTED-ROUTE-ACTIVATION.md.
+ */
+export function useAdminReady(): boolean {
+  const { isLoading, role } = useAuth();
+  return !isLoading && role === 'admin';
+}
