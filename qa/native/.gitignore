@@ -1,0 +1,4 @@
+# Local Maestro test output (screenshots/hierarchy/logs) — never commit.
+.maestro/
+tests/
+*.log
