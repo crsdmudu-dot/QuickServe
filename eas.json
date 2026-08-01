@@ -18,6 +18,10 @@
       "environment": "preview",
       "android": { "buildType": "apk" }
     },
+    "ios-simulator": {
+      "extends": "preview",
+      "ios": { "simulator": true }
+    },
     "production": {
       "channel": "production",
       "environment": "production",
