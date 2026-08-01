@@ -17,7 +17,7 @@ jest.mock('@/services/services-provider', () => {
 
 import { render, screen } from '@testing-library/react-native';
 
-import HomeScreen from '@/app/(customer)/index';
+import HomeScreen from '@/app/(customer)/home';
 import { BookingDraftProvider } from '@/booking/booking-draft';
 
 function renderHome() {

@@ -5,7 +5,7 @@ jest.mock('@/auth/auth-context', () => ({
   useAuth: () => ({ signIn: jest.fn().mockResolvedValue(false), authError: 'Incorrect email or password.' }),
 }));
 
-import LoginScreen from '@/app/(onboarding)/login';
+import LoginScreen from '@/app/(onboarding)/signin';
 
 it('renders authError message when present', () => {
   render(<LoginScreen />);

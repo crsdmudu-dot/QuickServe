@@ -19,10 +19,10 @@ export const ROLES: RoleOption[] = [
 
 // `Role` still includes 'admin' and `roleHref` still routes it — for manually-created
 // admin accounts signing in (admin screens/routes are unchanged for now).
-export function roleHref(role: Role): '/' | '/provider' | '/admin' {
+export function roleHref(role: Role): '/home' | '/provider' | '/admin' {
   switch (role) {
     case 'customer':
-      return '/';
+      return '/home';
     case 'provider':
       return '/provider';
     case 'admin':

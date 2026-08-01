@@ -68,7 +68,7 @@ describe('AdminSidebar', () => {
   it('navigates to Dashboard route when Dashboard is pressed', () => {
     render(<AdminSidebar />);
     fireEvent.press(screen.getByText('Dashboard'));
-    expect(mockRouterPush).toHaveBeenCalledWith('/(admin-web)');
+    expect(mockRouterPush).toHaveBeenCalledWith('/(admin-web)/dashboard');
   });
 
   it('renders all nav item labels in orientation="top"', () => {

@@ -27,7 +27,7 @@ describe('SuccessScreen', () => {
   it('navigates home when Back to Home is pressed', () => {
     render(<SuccessScreen />);
     fireEvent.press(screen.getByText('Back to Home'));
-    expect(router.replace).toHaveBeenCalledWith('/');
+    expect(router.replace).toHaveBeenCalledWith('/home');
   });
 
   it('shows photo warning when photoWarning param is "1"', () => {

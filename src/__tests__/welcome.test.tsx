@@ -22,6 +22,6 @@ describe('WelcomeScreen', () => {
   it('pressing Log in navigates to login', () => {
     render(<WelcomeScreen />);
     fireEvent.press(screen.getByText('Log in'));
-    expect(mockPush).toHaveBeenCalledWith('/login');
+    expect(mockPush).toHaveBeenCalledWith('/signin');
   });
 });

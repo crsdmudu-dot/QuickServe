@@ -105,7 +105,7 @@ export default function RegisterScreen() {
 
           <View style={styles.linkRow}>
             <Text variant="body" color="textSecondary">Have an account? </Text>
-            <Text variant="label" color="primary" onPress={() => router.push('/login')}>
+            <Text variant="label" color="primary" onPress={() => router.push('/signin')}>
               Login
             </Text>
           </View>

@@ -1,25 +1,39 @@
-# Phase 3F — Native entry-point reachability probe.
+# Phase 3G — Native entry reachability (regression guard).
 #
-# Documents the Phase 3F BLOCKER: on the native Android build the default
-# unauthenticated entry is the (admin-web) "Admin Panel" login, and the customer/
-# provider onboarding (/welcome) is NOT reachable — neither as the default route nor
-# via the app's custom-scheme deep links. This flow asserts the ACTUAL behaviour
-# (admin login is shown) and demonstrates that a deep link to /welcome does not route
-# there. It is EVIDENCE of the blocker, not a passing customer journey.
+# After the Phase 3G routing fix the native app deterministically enters the
+# customer/provider flow: a cold launch reaches the customer/provider WELCOME
+# (onboarding), NOT the admin login. Also verifies the onboarding surfaces are
+# reachable: role selection and the customer/provider sign-in.
 #
 # Run: qa\native\maestro.bat test qa\native\flows\entry-reachability.yaml
 appId: com.quickserve.app
 ---
-# 1) Fresh launch → the app lands on the admin login, not customer onboarding.
+# Cold launch → customer/provider welcome (never the admin "Admin Panel" login).
 - launchApp:
     clearState: true
 - extendedWaitUntil:
-    visible: "Sign in with your admin account."
+    visible: "Get Started"
     timeout: 30000
-- takeScreenshot: 01-default-entry-is-admin-login
-# 2) A custom-scheme deep link to the customer onboarding does NOT route there:
-#    the admin login remains; "Get Started" (welcome) never appears.
-- openLink: quickserve:///welcome
-- assertVisible: "Sign in with your admin account."
-- assertNotVisible: "Get Started"
-- takeScreenshot: 02-welcome-deeplink-still-admin-login
+- assertVisible: "QuickServe"
+- assertNotVisible: "Sign in with your admin account."
+- takeScreenshot: 01-native-entry-is-welcome
+# Role selection reachable.
+- tapOn: "Get Started"
+- extendedWaitUntil:
+    visible: "Choose your role"
+    timeout: 15000
+- assertVisible: "Customer"
+- assertVisible: "Service Provider"
+- takeScreenshot: 02-role-select-reachable
+# Back to welcome → customer/provider sign-in reachable.
+- back
+- extendedWaitUntil:
+    visible: "Log in"
+    timeout: 10000
+- tapOn: "Log in"
+- extendedWaitUntil:
+    visible: "Welcome back"
+    timeout: 15000
+- assertVisible: "Sign in to continue."
+- assertNotVisible: "Sign in with your admin account."
+- takeScreenshot: 03-customer-provider-signin-reachable

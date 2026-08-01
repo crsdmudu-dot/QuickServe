@@ -42,7 +42,7 @@ export default function SuccessScreen() {
         )}
       </View>
 
-      <Button label="Back to Home" fullWidth onPress={() => router.replace('/')} />
+      <Button label="Back to Home" fullWidth onPress={() => router.replace('/home')} />
     </SafeAreaView>
   );
 }
