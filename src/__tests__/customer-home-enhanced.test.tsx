@@ -43,7 +43,7 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react-native';
 import { fireEvent } from '@testing-library/react-native';
 import { router } from 'expo-router';
-import HomeScreen from '@/app/(customer)/index';
+import HomeScreen from '@/app/(customer)/home';
 
 beforeEach(() => {
   jest.clearAllMocks();

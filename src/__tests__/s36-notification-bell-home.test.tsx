@@ -58,7 +58,7 @@ jest.mock('@/auth/auth-context', () => ({
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
-import CustomerHomeScreen from '@/app/(customer)/index';
+import CustomerHomeScreen from '@/app/(customer)/home';
 import ProviderHomeScreen from '@/app/provider/(tabs)/index';
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

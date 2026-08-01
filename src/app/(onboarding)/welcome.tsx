@@ -35,7 +35,7 @@ export default function WelcomeScreen() {
         <Button label="Get Started" fullWidth size="lg" onPress={() => router.push('/role-select')} />
         <View style={styles.loginRow}>
           <Text variant="body" color="textSecondary">Already have an account? </Text>
-          <Text variant="label" color="primary" onPress={() => router.push('/login')}>Log in</Text>
+          <Text variant="label" color="primary" onPress={() => router.push('/signin')}>Log in</Text>
         </View>
       </View>
     </SafeAreaView>

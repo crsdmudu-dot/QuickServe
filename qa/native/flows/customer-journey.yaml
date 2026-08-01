@@ -1,0 +1,56 @@
+# Phase 3F — Customer native journey: login → home → search → create booking → confirm → history.
+# Credentials + booking marker are passed via `-e` (never stored here):
+#   maestro.bat test customer-journey.yaml -e CUST_EMAIL=... -e CUST_PW=... -e MARKER=...
+appId: com.quickserve.app
+---
+- launchApp: { clearState: true }
+- extendedWaitUntil: { visible: "Get Started", timeout: 30000 }
+# Customer sign-in
+- tapOn: "Log in"
+- extendedWaitUntil: { visible: "Welcome back", timeout: 15000 }
+- tapOn: "you@example.com"
+- inputText: "${CUST_EMAIL}"
+- tapOn: "Your password"
+- inputText: "${CUST_PW}"
+- hideKeyboard
+- tapOn: "Continue"
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 25000 }
+- assertNotVisible: "Sign in with your admin account."
+- assertNotVisible: "Not authorized"
+- takeScreenshot: c1-customer-home
+# Browse services on the home screen, then select "House Cleaning" (a Popular card).
+- assertVisible: "Popular"
+- assertVisible: "House Cleaning"
+- tapOn: "House Cleaning"
+# Booking step 1 — address (manual entry; avoids the Google Places autocomplete path)
+- extendedWaitUntil: { visible: "Your Address", timeout: 15000 }
+- tapOn: "Enter address manually"
+- extendedWaitUntil: { visible: "123 Main St, City", timeout: 8000 }
+- tapOn: "123 Main St, City"
+- inputText: "QA P3F Test Address, Nairobi"
+- hideKeyboard
+- tapOn: "Continue"
+# Booking step 2 — schedule (ASAP)
+- extendedWaitUntil: { visible: "When do you need it?", timeout: 15000 }
+- tapOn: "ASAP"
+- tapOn: "Continue"
+# Booking step 3 — notes (embed the unique marker so the booking is findable)
+- extendedWaitUntil: { visible: "Any special notes?", timeout: 15000 }
+- tapOn: "E.g. use the back entrance, bring your own supplies…"
+- inputText: "${MARKER}"
+- hideKeyboard
+- tapOn: "Continue"
+# Booking step 4 — review → place
+- extendedWaitUntil: { visible: "Review your booking", timeout: 15000 }
+- takeScreenshot: c2-review
+- tapOn: "Place Booking"
+# Confirmation
+- extendedWaitUntil: { visible: "Booking created successfully", timeout: 25000 }
+- takeScreenshot: c3-booking-success
+- tapOn: "Back to Home"
+# History — booking appears
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 15000 }
+- tapOn: "My Bookings"
+- extendedWaitUntil: { visible: "My Bookings", timeout: 15000 }
+- assertVisible: "House Cleaning"
+- takeScreenshot: c4-booking-in-history

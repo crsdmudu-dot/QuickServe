@@ -44,7 +44,8 @@ function mockSetSegments(next: string[]) {
   mockRouterListeners.forEach((l) => l());
 }
 const mockReplaceSpy = jest.fn((href: string) => {
-  if (href === '/(admin-web)') mockSetSegments(['(admin-web)']);
+  // Phase 3G: admin login redirects to /(admin-web)/dashboard (the dashboard moved off "/").
+  if (href === '/(admin-web)/dashboard') mockSetSegments(['(admin-web)', 'dashboard']);
   else if (href.includes('login')) mockSetSegments(['(admin-web)', 'login']);
   else mockSetSegments([href.replace(/^\//, '')]);
 });
@@ -68,8 +69,10 @@ jest.mock('expo-router', () => {
       const segs = useSegmentsHook();
       const onLogin = segs[segs.length - 1] === 'login';
       const Screen = onLogin
+        // Admin login/dashboard are web-only route files (Phase 3G platform-split);
+        // require the explicit .web variants so jest resolves them on its native platform.
         ? require('@/app/(admin-web)/login').default
-        : require('@/app/(admin-web)/index').default;
+        : require('@/app/(admin-web)/dashboard').default;
       return React.createElement(Screen);
     },
     Redirect: ({ href }: { href: string }) => {
@@ -158,7 +161,7 @@ test('admin login → Loading (protected UI hidden) → dashboard, no error boun
     .flat()
     .filter((a) => typeof a === 'string' && /maximum update depth exceeded/i.test(a));
   expect(maxDepth).toHaveLength(0);
-  expect(mockReplaceSpy.mock.calls.filter((c) => c[0] === '/(admin-web)').length).toBe(1);
+  expect(mockReplaceSpy.mock.calls.filter((c) => c[0] === '/(admin-web)/dashboard').length).toBe(1);
 
   errorSpy.mockRestore();
 });

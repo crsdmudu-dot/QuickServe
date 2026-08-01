@@ -4,7 +4,7 @@ const mockSignIn = jest.fn().mockResolvedValue(true);
 jest.mock('expo-router', () => ({ router: { push: jest.fn(), replace: jest.fn() } }));
 jest.mock('@/auth/auth-context', () => ({ useAuth: () => ({ signIn: mockSignIn, authError: null }) }));
 
-import LoginScreen from '@/app/(onboarding)/login';
+import LoginScreen from '@/app/(onboarding)/signin';
 
 describe('LoginScreen', () => {
   beforeEach(() => {

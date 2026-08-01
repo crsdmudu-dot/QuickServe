@@ -1,0 +1,31 @@
+# Phase 3F — Customer review submission (after job completion).
+# Creds via -e; the completed House Cleaning booking must exist + be assigned.
+appId: com.quickserve.app
+---
+- launchApp: { clearState: true }
+- extendedWaitUntil: { visible: "Get Started", timeout: 30000 }
+- tapOn: "Log in"
+- extendedWaitUntil: { visible: "Welcome back", timeout: 15000 }
+- tapOn: "you@example.com"
+- inputText: "${CUST_EMAIL}"
+- tapOn: "Your password"
+- inputText: "${CUST_PW}"
+- hideKeyboard
+- tapOn: "Continue"
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 25000 }
+- tapOn: "My Bookings"
+- extendedWaitUntil: { visible: "House Cleaning", timeout: 15000 }
+- tapOn: "House Cleaning"
+- extendedWaitUntil: { visible: "Booking Detail", timeout: 15000 }
+- runFlow: { when: { visible: "No thanks" }, commands: [ { tapOn: "No thanks" } ] }
+- assertVisible: "Completed"
+# Review section
+- scrollUntilVisible: { element: { text: "Your review" }, direction: DOWN, timeout: 15000 }
+- tapOn: { id: "star-5" }
+- tapOn: "Share your experience…"
+- inputText: "${COMMENT}"
+- hideKeyboard
+- scrollUntilVisible: { element: { text: "Submit review" }, direction: DOWN, timeout: 15000 }
+- tapOn: "Submit review"
+- extendedWaitUntil: { visible: "Edit review", timeout: 20000 }
+- takeScreenshot: c5-review-submitted

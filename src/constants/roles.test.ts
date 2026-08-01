@@ -15,7 +15,7 @@ describe('roles', () => {
     }
   });
   it('maps each role to its app path', () => {
-    expect(roleHref('customer')).toBe('/');
+    expect(roleHref('customer')).toBe('/home');
     expect(roleHref('provider')).toBe('/provider');
     expect(roleHref('admin')).toBe('/admin');
   });

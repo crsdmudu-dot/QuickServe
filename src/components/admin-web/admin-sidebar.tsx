@@ -30,7 +30,7 @@ type NavItem = {
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard', route: '/(admin-web)', segment: '(admin-web)' },
+  { label: 'Dashboard', route: '/(admin-web)/dashboard', segment: 'dashboard' },
   { label: 'Bookings', route: '/(admin-web)/bookings', segment: 'bookings' },
   { label: 'Providers', route: '/(admin-web)/providers', segment: 'providers' },
   { label: 'Customers', route: '/(admin-web)/customers', segment: 'customers' },
@@ -134,10 +134,6 @@ export function AdminSidebar({ orientation = 'side' }: AdminSidebarProps) {
    */
   function isActive(item: NavItem): boolean {
     const segs = segments as string[];
-    if (item.segment === '(admin-web)') {
-      // Active only at the root index of the group.
-      return segs.length === 1 && segs[0] === '(admin-web)';
-    }
     return segs.includes(item.segment);
   }
 

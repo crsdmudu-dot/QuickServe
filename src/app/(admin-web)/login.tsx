@@ -33,7 +33,7 @@ export default function AdminLoginScreen() {
     const ok = await signIn(email, password);
     if (ok) {
       // Guard in _layout will re-evaluate on session change and show the dashboard.
-      router.replace('/(admin-web)' as Href);
+      router.replace('/(admin-web)/dashboard' as Href);
     }
   }
 
