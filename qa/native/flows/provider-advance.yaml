@@ -8,7 +8,9 @@ appId: com.quickserve.app
 ---
 - launchApp: { clearState: true }
 - extendedWaitUntil: { visible: "Get Started", timeout: 40000 }
-- tapOn: { id: "login-link" }
+# Settle after cold start + re-tap if the first tap precedes router interactivity.
+- waitForAnimationToEnd: { timeout: 6000 }
+- tapOn: { id: "login-link", retryTapIfNoChange: true }
 - extendedWaitUntil: { visible: "Welcome back", timeout: 20000 }
 - tapOn: "you@example.com"
 - inputText: "${PROV_EMAIL}"

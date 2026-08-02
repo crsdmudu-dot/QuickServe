@@ -5,9 +5,13 @@ appId: com.quickserve.app
 ---
 - launchApp: { clearState: true }
 - extendedWaitUntil: { visible: "Get Started", timeout: 30000 }
-# Customer sign-in
+# Customer sign-in. Settle after cold start (Supabase session resolve) + re-tap if the
+# first tap lands before expo-router is interactive.
+- waitForAnimationToEnd:
+    timeout: 6000
 - tapOn:
     id: "login-link"
+    retryTapIfNoChange: true
 - extendedWaitUntil: { visible: "Welcome back", timeout: 15000 }
 - tapOn: "you@example.com"
 - inputText: "${CUST_EMAIL}"
