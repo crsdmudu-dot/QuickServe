@@ -8,10 +8,23 @@ appId: com.quickserve.app
 ---
 - launchApp: { clearState: true }
 - extendedWaitUntil: { visible: "Get Started", timeout: 40000 }
-# Settle after cold start + re-tap if the first tap precedes router interactivity.
-- waitForAnimationToEnd: { timeout: 6000 }
-- tapOn: { id: "login-link", retryTapIfNoChange: true }
-- extendedWaitUntil: { visible: "Welcome back", timeout: 20000 }
+# After cold start the welcome can render before expo-router is interactive; tap the login
+# button repeatedly (only while still on welcome) until the sign-in screen appears.
+- repeat:
+    times: 8
+    commands:
+      - runFlow:
+          when:
+            visible:
+              id: "login-link"
+          commands:
+            - tapOn:
+                id: "login-link"
+            - extendedWaitUntil:
+                visible: "Welcome back"
+                timeout: 3000
+                optional: true
+- extendedWaitUntil: { visible: "Welcome back", timeout: 10000 }
 - tapOn: "you@example.com"
 - inputText: "${PROV_EMAIL}"
 - tapOn: "Your password"

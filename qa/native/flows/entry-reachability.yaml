@@ -36,17 +36,26 @@ appId: com.quickserve.app
 - extendedWaitUntil:
     visible: "Log in"
     timeout: 15000
-# The app cold-starts + resolves the Supabase session after a clearState (re)launch;
-# the native welcome renders before the JS/router is interactive. Settle, then let
-# Maestro re-tap if the first tap lands before the router is ready (no screen change).
-- waitForAnimationToEnd:
-    timeout: 6000
-- tapOn:
-    id: "login-link"
-    retryTapIfNoChange: true
+# After a clearState (re)launch the native welcome can render before expo-router is
+# interactive; tap the login button repeatedly (only while still on welcome) until the
+# sign-in screen appears — robust to the interactivity race and occasional missed taps.
+- repeat:
+    times: 8
+    commands:
+      - runFlow:
+          when:
+            visible:
+              id: "login-link"
+          commands:
+            - tapOn:
+                id: "login-link"
+            - extendedWaitUntil:
+                visible: "Welcome back"
+                timeout: 3000
+                optional: true
 - extendedWaitUntil:
     visible: "Welcome back"
-    timeout: 20000
+    timeout: 10000
 - assertVisible: "Sign in to continue."
 - assertNotVisible: "Sign in with your admin account."
 - takeScreenshot: 03-customer-provider-signin-reachable
