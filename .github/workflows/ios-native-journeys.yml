@@ -1,0 +1,96 @@
+name: iOS Native Journeys (Phase 3F flows on iOS Simulator)
+
+# Runs the Phase 3F customer/provider native journeys on an iOS Simulator using a hosted
+# macOS runner (no local Mac/iPhone needed — trigger from anywhere via the Actions tab or
+# `gh workflow run`). It downloads the EAS iOS *simulator* build (no Apple signing), boots a
+# simulator, installs the app, and runs the Maestro journeys + backend verification + cleanup.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   EXPO_TOKEN               - Expo access token (eas-cli auth to fetch the build)
+#   QA_SUPABASE_URL          - dedicated QA Supabase project URL
+#   QA_SUPABASE_ANON_KEY     - QA anon (public) key
+#   QA_SERVICE_ROLE_KEY      - QA service-role key (setup-verify / assignment / cleanup only)
+#   QA_CUSTOMER_EMAIL / QA_CUSTOMER_PASSWORD
+#   QA_PROVIDER1_EMAIL / QA_PROVIDER1_PASSWORD
+# (No product secrets are embedded; simulator builds need no Apple credentials.)
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_id:
+        description: "EAS iOS build ID to use (blank = latest finished ios-simulator build)"
+        required: false
+        default: ""
+
+jobs:
+  ios-journeys:
+    runs-on: macos-14
+    timeout-minutes: 60
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      QA_SUPABASE_URL: ${{ secrets.QA_SUPABASE_URL }}
+      QA_SUPABASE_ANON_KEY: ${{ secrets.QA_SUPABASE_ANON_KEY }}
+      QA_SERVICE_ROLE_KEY: ${{ secrets.QA_SERVICE_ROLE_KEY }}
+      QA_CUSTOMER_EMAIL: ${{ secrets.QA_CUSTOMER_EMAIL }}
+      QA_CUSTOMER_PASSWORD: ${{ secrets.QA_CUSTOMER_PASSWORD }}
+      QA_PROVIDER1_EMAIL: ${{ secrets.QA_PROVIDER1_EMAIL }}
+      QA_PROVIDER1_PASSWORD: ${{ secrets.QA_PROVIDER1_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install tools (eas-cli, Maestro)
+        run: |
+          set -euxo pipefail
+          npm install -g eas-cli
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Resolve and download the EAS iOS simulator build
+        run: |
+          set -euo pipefail
+          if [ -n "${{ github.event.inputs.build_id }}" ]; then
+            URL=$(eas build:view "${{ github.event.inputs.build_id }}" --json --non-interactive | jq -r '.artifacts.applicationArchiveUrl')
+          else
+            URL=$(eas build:list --platform ios --profile ios-simulator --status finished --limit 1 --json --non-interactive | jq -r '.[0].artifacts.applicationArchiveUrl')
+          fi
+          test -n "$URL" && test "$URL" != "null" || { echo "No iOS simulator build artifact found — build one first: eas build -p ios --profile ios-simulator"; exit 1; }
+          echo "Downloading iOS simulator build (URL redacted)…"
+          curl -fSL "$URL" -o app.tar.gz
+          mkdir -p app && tar -xzf app.tar.gz -C app
+          APP=$(find app -maxdepth 3 -name "*.app" | head -1)
+          test -n "$APP" || { echo "No .app in artifact"; ls -R app; exit 1; }
+          echo "APP_PATH=$APP" >> "$GITHUB_ENV"
+          echo "App: $APP"
+
+      - name: Boot iOS simulator and install the app
+        run: |
+          set -euo pipefail
+          DEVICE_ID=$(xcrun simctl list devices available -j | jq -r '[.devices[][] | select(.name|test("iPhone"))][-1].udid')
+          test -n "$DEVICE_ID" || { echo "No available iPhone simulator"; xcrun simctl list devices available; exit 1; }
+          echo "Simulator UDID: $DEVICE_ID"
+          xcrun simctl boot "$DEVICE_ID" || true
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          open -a Simulator || true
+          xcrun simctl install "$DEVICE_ID" "$APP_PATH"
+          echo "Installed $APP_PATH"
+          xcrun simctl listapps "$DEVICE_ID" | grep -i quickserve || true
+
+      - name: Entry reachability smoke (iOS deterministic entry)
+        run: maestro test qa/native/flows/entry-reachability.yaml
+
+      - name: Run Phase 3F customer/provider journeys on iOS
+        run: bash qa/native/ios-journeys.sh
+
+      - name: Upload Maestro artifacts (screenshots / logs)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-ios-artifacts
+          path: |
+            ~/.maestro/tests
+          if-no-files-found: ignore
+          retention-days: 14
