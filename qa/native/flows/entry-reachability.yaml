@@ -36,7 +36,8 @@ appId: com.quickserve.app
 - extendedWaitUntil:
     visible: "Log in"
     timeout: 15000
-- tapOn: "Log in"
+- tapOn:
+    id: "login-link"
 - extendedWaitUntil:
     visible: "Welcome back"
     timeout: 15000

@@ -6,7 +6,8 @@ appId: com.quickserve.app
 - launchApp: { clearState: true }
 - extendedWaitUntil: { visible: "Get Started", timeout: 30000 }
 # Customer sign-in
-- tapOn: "Log in"
+- tapOn:
+    id: "login-link"
 - extendedWaitUntil: { visible: "Welcome back", timeout: 15000 }
 - tapOn: "you@example.com"
 - inputText: "${CUST_EMAIL}"
