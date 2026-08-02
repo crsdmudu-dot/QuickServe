@@ -52,16 +52,32 @@ appId: com.quickserve.app
 # Booking step 2 — schedule (ASAP)
 - extendedWaitUntil: { visible: "When do you need it?", timeout: 15000 }
 - tapOn: ".*ASAP.*"
+# The schedule screen scrolls (many time options); reveal Continue before tapping.
+- scrollUntilVisible:
+    element:
+      text: "Continue"
+    direction: DOWN
+    timeout: 15000
 - tapOn: "Continue"
 # Booking step 3 — notes (embed the unique marker so the booking is findable)
 - extendedWaitUntil: { visible: "Any special notes?", timeout: 15000 }
 - tapOn: "E.g. use the back entrance, bring your own supplies…"
 - inputText: "${MARKER}"
 - tapOn: "Any special notes?"
+- scrollUntilVisible:
+    element:
+      text: "Continue"
+    direction: DOWN
+    timeout: 15000
 - tapOn: "Continue"
 # Booking step 4 — review → place
 - extendedWaitUntil: { visible: "Review your booking", timeout: 15000 }
 - takeScreenshot: c2-review
+- scrollUntilVisible:
+    element:
+      text: "Place Booking"
+    direction: DOWN
+    timeout: 15000
 - tapOn: "Place Booking"
 # Confirmation
 - extendedWaitUntil: { visible: "Booking created successfully", timeout: 25000 }
