@@ -49,6 +49,36 @@ jobs:
           curl -fsSL "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
 
+      # TEMP DIAGNOSTIC (Phase 3H) — prove EXPO_TOKEN auth/access to @dalmarmudu/QuickServe.
+      # No jq; no secret values printed. Halts the run after capturing the proof so the
+      # doomed EAS/simulator steps are skipped. REMOVE before any merge.
+      - name: TEMP diagnostic — EXPO_TOKEN auth/access (no jq)
+        run: |
+          set +e
+          echo "::group::eas-cli version"
+          eas --version
+          echo "::endgroup::"
+          echo "::group::eas whoami"
+          eas whoami
+          WHOAMI_RC=$?
+          echo "whoami_exit=$WHOAMI_RC"
+          echo "::endgroup::"
+          echo "::group::eas project:info"
+          eas project:info
+          PROJ_RC=$?
+          echo "project_info_exit=$PROJ_RC"
+          echo "::endgroup::"
+          echo "::group::eas build:list (platform ios, no jq)"
+          eas build:list --platform ios --limit 1 --non-interactive
+          LIST_RC=$?
+          echo "build_list_exit=$LIST_RC"
+          echo "::endgroup::"
+          echo "===== DIAGNOSTIC SUMMARY ====="
+          echo "whoami_exit=$WHOAMI_RC project_info_exit=$PROJ_RC build_list_exit=$LIST_RC"
+          echo "(EXPO_TOKEN and all secret values are intentionally never printed above)"
+          # Stop here — downstream EAS/simulator steps would fail identically.
+          exit 1
+
       - name: Resolve and download the EAS iOS simulator build
         run: |
           set -euo pipefail
