@@ -18,8 +18,9 @@ appId: com.quickserve.app
 - tapOn: "Continue"
 - runFlow: { when: { visible: "Don.t Allow" }, commands: [ { tapOn: "Don.t Allow" } ] }
 - extendedWaitUntil: { visible: "My Jobs", timeout: 30000 }
-- extendedWaitUntil: { visible: "House Cleaning", timeout: 20000 }
-- tapOn: "House Cleaning"
+# iOS groups the job-card texts into one combined accessibility label; .*…* matches it.
+- extendedWaitUntil: { visible: ".*House Cleaning.*", timeout: 20000 }
+- tapOn: ".*House Cleaning.*"
 - extendedWaitUntil: { visible: "Job Detail", timeout: 20000 }
 - runFlow: { when: { visible: "No thanks" }, commands: [ { tapOn: "No thanks" } ] }
 - runFlow: { when: { visible: "Don.t Allow" }, commands: [ { tapOn: "Don.t Allow" } ] }

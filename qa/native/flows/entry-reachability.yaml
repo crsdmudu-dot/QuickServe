@@ -22,8 +22,11 @@ appId: com.quickserve.app
 - extendedWaitUntil:
     visible: "Choose your role"
     timeout: 15000
-- assertVisible: "Customer"
-- assertVisible: "Service Provider"
+# iOS groups a touchable card's child <Text> into ONE combined accessibility label
+# (e.g. "🧍, Customer, Book trusted services near you, ›"); Maestro whole-string regex
+# needs .*…* to match a substring. Android exposes each text separately (still matches).
+- assertVisible: ".*Customer.*"
+- assertVisible: ".*Service Provider.*"
 - takeScreenshot: 02-role-select-reachable
 # Back to welcome → customer/provider sign-in reachable.
 - back

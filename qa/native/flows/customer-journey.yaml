@@ -22,8 +22,8 @@ appId: com.quickserve.app
 - takeScreenshot: c1-customer-home
 # Browse services on the home screen, then select "House Cleaning" (a Popular card).
 - assertVisible: "Popular"
-- assertVisible: "House Cleaning"
-- tapOn: "House Cleaning"
+- assertVisible: ".*House Cleaning.*"
+- tapOn: ".*House Cleaning.*"
 # Booking step 1 — address (manual entry; avoids the Google Places autocomplete path)
 - extendedWaitUntil: { visible: "Your Address", timeout: 15000 }
 - tapOn: "Enter address manually"
@@ -34,7 +34,7 @@ appId: com.quickserve.app
 - tapOn: "Continue"
 # Booking step 2 — schedule (ASAP)
 - extendedWaitUntil: { visible: "When do you need it?", timeout: 15000 }
-- tapOn: "ASAP"
+- tapOn: ".*ASAP.*"
 - tapOn: "Continue"
 # Booking step 3 — notes (embed the unique marker so the booking is findable)
 - extendedWaitUntil: { visible: "Any special notes?", timeout: 15000 }
@@ -54,5 +54,5 @@ appId: com.quickserve.app
 - extendedWaitUntil: { visible: "What service do you need today?", timeout: 15000 }
 - tapOn: "My Bookings"
 - extendedWaitUntil: { visible: "My Bookings", timeout: 15000 }
-- assertVisible: "House Cleaning"
+- assertVisible: ".*House Cleaning.*"
 - takeScreenshot: c4-booking-in-history

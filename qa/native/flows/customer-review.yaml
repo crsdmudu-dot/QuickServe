@@ -16,11 +16,13 @@ appId: com.quickserve.app
 - runFlow: { when: { visible: "Don.t Allow" }, commands: [ { tapOn: "Don.t Allow" } ] }
 - extendedWaitUntil: { visible: "What service do you need today?", timeout: 25000 }
 - tapOn: "My Bookings"
-- extendedWaitUntil: { visible: "House Cleaning", timeout: 15000 }
-- tapOn: "House Cleaning"
+# iOS groups the booking-card texts into one combined accessibility label; .*…* matches it
+# (and still matches the standalone Android text node).
+- extendedWaitUntil: { visible: ".*House Cleaning.*", timeout: 15000 }
+- tapOn: ".*House Cleaning.*"
 - extendedWaitUntil: { visible: "Booking Detail", timeout: 15000 }
 - runFlow: { when: { visible: "No thanks" }, commands: [ { tapOn: "No thanks" } ] }
-- assertVisible: "Completed"
+- assertVisible: ".*Completed.*"
 # Review section
 - scrollUntilVisible: { element: { text: "Your review" }, direction: DOWN, timeout: 15000 }
 - tapOn: { id: "star-5" }
