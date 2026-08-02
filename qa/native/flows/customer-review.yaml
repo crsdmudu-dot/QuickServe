@@ -25,7 +25,8 @@ appId: com.quickserve.app
 - inputText: "${CUST_EMAIL}"
 - tapOn: "Your password"
 - inputText: "${CUST_PW}"
-- hideKeyboard
+# hideKeyboard is unreliable on iOS; tap a static heading to dismiss the keyboard instead.
+- tapOn: "Welcome back"
 - tapOn: "Continue"
 # iOS may prompt for notifications after sign-in; decline (do not grant unrelated permissions).
 - runFlow: { when: { visible: "Don.t Allow" }, commands: [ { tapOn: "Don.t Allow" } ] }
@@ -43,7 +44,7 @@ appId: com.quickserve.app
 - tapOn: { id: "star-5" }
 - tapOn: "Share your experience…"
 - inputText: "${COMMENT}"
-- hideKeyboard
+- tapOn: "Your review"
 - scrollUntilVisible: { element: { text: "Submit review" }, direction: DOWN, timeout: 15000 }
 - tapOn: "Submit review"
 - extendedWaitUntil: { visible: "Edit review", timeout: 20000 }

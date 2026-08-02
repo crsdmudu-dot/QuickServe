@@ -27,7 +27,9 @@ appId: com.quickserve.app
 - inputText: "${CUST_EMAIL}"
 - tapOn: "Your password"
 - inputText: "${CUST_PW}"
-- hideKeyboard
+# hideKeyboard is unreliable on iOS (custom input, no standard dismiss); tap a static
+# heading to dismiss the keyboard instead (Maestro's recommended workaround).
+- tapOn: "Welcome back"
 - tapOn: "Continue"
 # iOS may prompt for notifications after sign-in; decline (do not grant unrelated permissions).
 - runFlow: { when: { visible: "Don.t Allow" }, commands: [ { tapOn: "Don.t Allow" } ] }
@@ -45,7 +47,7 @@ appId: com.quickserve.app
 - extendedWaitUntil: { visible: "123 Main St, City", timeout: 8000 }
 - tapOn: "123 Main St, City"
 - inputText: "QA P3F Test Address, Nairobi"
-- hideKeyboard
+- tapOn: "Your Address"
 - tapOn: "Continue"
 # Booking step 2 — schedule (ASAP)
 - extendedWaitUntil: { visible: "When do you need it?", timeout: 15000 }
@@ -55,7 +57,7 @@ appId: com.quickserve.app
 - extendedWaitUntil: { visible: "Any special notes?", timeout: 15000 }
 - tapOn: "E.g. use the back entrance, bring your own supplies…"
 - inputText: "${MARKER}"
-- hideKeyboard
+- tapOn: "Any special notes?"
 - tapOn: "Continue"
 # Booking step 4 — review → place
 - extendedWaitUntil: { visible: "Review your booking", timeout: 15000 }

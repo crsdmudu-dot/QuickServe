@@ -29,7 +29,8 @@ appId: com.quickserve.app
 - inputText: "${PROV_EMAIL}"
 - tapOn: "Your password"
 - inputText: "${PROV_PW}"
-- hideKeyboard
+# hideKeyboard is unreliable on iOS; tap a static heading to dismiss the keyboard instead.
+- tapOn: "Welcome back"
 - tapOn: "Continue"
 - runFlow: { when: { visible: "Don.t Allow" }, commands: [ { tapOn: "Don.t Allow" } ] }
 - extendedWaitUntil: { visible: "My Jobs", timeout: 30000 }
