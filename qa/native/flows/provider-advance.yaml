@@ -40,7 +40,13 @@ appId: com.quickserve.app
 - extendedWaitUntil: { visible: "Job Detail", timeout: 20000 }
 - runFlow: { when: { visible: "No thanks" }, commands: [ { tapOn: "No thanks" } ] }
 - runFlow: { when: { visible: "Don.t Allow" }, commands: [ { tapOn: "Don.t Allow" } ] }
-- extendedWaitUntil: { visible: "${NEXT}", timeout: 15000 }
+# The Job Detail screen scrolls; once the job is on-the-way the live-location section
+# pushes the next-status action button below the fold, so scroll to reveal it.
+- scrollUntilVisible:
+    element:
+      text: "${NEXT}"
+    direction: DOWN
+    timeout: 15000
 - tapOn: "${NEXT}"
 - waitForAnimationToEnd: { timeout: 5000 }
 - takeScreenshot: provider-advanced
