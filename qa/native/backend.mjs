@@ -5,7 +5,8 @@
  * creation, provider progression, review submission) are driven through the native UI
  * (Maestro), never here.
  *
- * Never prints keys. Reads credentials from qa/.env. Usage:
+ * Never prints keys. Reads credentials from qa/.env locally, or from process.env in CI
+ * (process.env overlays the file, so GitHub Actions secrets work with no secrets file). Usage:
  *   node qa/native/backend.mjs provider-id provider1
  *   node qa/native/backend.mjs find <marker>
  *   node qa/native/backend.mjs read <bookingId>
@@ -19,11 +20,20 @@ import { dirname, resolve } from 'node:path';
 import { createRequire } from 'node:module';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
-// Use dotenv (from qa/node_modules) so the .env values parse exactly as the certified
-// Playwright helpers do (handles inline comments / quoting on the long JWT lines).
-const require = createRequire(import.meta.url);
-const dotenv = require(resolve(__dir, '../node_modules/dotenv'));
-const env = dotenv.parse(await import('node:fs').then((m) => m.readFileSync(resolve(__dir, '../.env'), 'utf8')));
+// Locally: parse qa/.env with dotenv (matches the certified Playwright helpers — handles
+// inline comments / quoting on the long JWT lines). In CI (GitHub Actions macOS runner):
+// qa/.env is absent, so use process.env (secrets) instead. process.env overlays the file
+// so either source works with no code change.
+let fileEnv = {};
+try {
+  const require = createRequire(import.meta.url);
+  const dotenv = require(resolve(__dir, '../node_modules/dotenv'));
+  const raw = (await import('node:fs')).readFileSync(resolve(__dir, '../.env'), 'utf8');
+  fileEnv = dotenv.parse(raw);
+} catch {
+  /* no qa/.env (e.g. CI) — fall through to process.env */
+}
+const env = { ...fileEnv, ...process.env };
 const URL = env.QA_SUPABASE_URL;
 const ANON = env.QA_SUPABASE_ANON_KEY;
 const SR = env.QA_SERVICE_ROLE_KEY;

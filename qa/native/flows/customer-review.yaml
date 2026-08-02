@@ -12,6 +12,8 @@ appId: com.quickserve.app
 - inputText: "${CUST_PW}"
 - hideKeyboard
 - tapOn: "Continue"
+# iOS may prompt for notifications after sign-in; decline (do not grant unrelated permissions).
+- runFlow: { when: { visible: "Don.t Allow" }, commands: [ { tapOn: "Don.t Allow" } ] }
 - extendedWaitUntil: { visible: "What service do you need today?", timeout: 25000 }
 - tapOn: "My Bookings"
 - extendedWaitUntil: { visible: "House Cleaning", timeout: 15000 }

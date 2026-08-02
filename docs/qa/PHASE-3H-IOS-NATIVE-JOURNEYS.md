@@ -158,9 +158,23 @@ accounts untouched. Provider aggregate unchanged. **Zero Phase 3H residual data.
 ## 22. Files Changed
 
 - `eas.json` — added the isolated `ios-simulator` build profile (config only).
+- `.github/workflows/ios-native-journeys.yml` — **new**: hosted-macOS CI workflow that
+  fetches the EAS iOS simulator build, boots a simulator, installs the app, and runs the
+  Phase 3F journeys on iOS (enables iOS journey certification without a local Mac/iPhone —
+  see §27).
+- `qa/native/ios-journeys.sh` — **new**: orchestration (customer → verify → assign →
+  provider progression → review → verify → cleanup) for the iOS simulator run.
+- `qa/native/flows/provider-advance.yaml` — **new**: parameterized provider status-advance
+  flow (cross-platform iOS/Android permission-prompt handling).
+- `qa/native/flows/customer-journey.yaml`, `customer-review.yaml` — added optional
+  iOS notification-prompt dismissal after sign-in (behaviour-preserving; declines the
+  prompt).
+- `qa/native/backend.mjs` — reads `process.env` (CI secrets) when `qa/.env` is absent
+  (test helper; no behaviour change locally).
+- `qa/native/README.md` — **new**: driver + iOS CI usage + required secrets.
+- `.gitignore` — ignore runner-only iOS build download artifacts.
 - `docs/qa/PHASE-3H-IOS-NATIVE-JOURNEYS.md` — this report.
-- **No product/source/schema/dependency changes.** (Maestro wrapper + Phase 3F flows already
-  exist from prior phases and are reusable.)
+- **No product/source/schema/dependency changes.**
 
 ## 23. Validation Matrix
 
@@ -211,10 +225,24 @@ out of scope / not certified.
 
 ## 27. Recommended Next Phase
 
-**Phase 3H-run (with an iOS runtime):** on a macOS machine with Xcode + an iOS Simulator (or
-a physical iPhone + Apple Developer signing), install the `ios-simulator` build (or a signed
-device build) and run the Phase 3F journey flows on iOS. Alternatively, provision a
-macOS/EAS-simulator-capable runner. Until then, iOS journey certification cannot proceed.
+**Phase 3H-run (iOS journeys on a hosted macOS runner) — pipeline now wired.** A GitHub
+Actions macOS workflow (`.github/workflows/ios-native-journeys.yml`) was added that, from any
+OS (including this Windows host), fetches the EAS iOS simulator build (`8deeff19` or the
+latest), boots an iOS Simulator, installs the app, and runs the Phase 3F customer/provider
+journeys (`qa/native/ios-journeys.sh`) with backend verification + cleanup. To execute:
+
+1. Add the repository secrets listed in the workflow header (`EXPO_TOKEN`, `QA_SUPABASE_URL`,
+   `QA_SUPABASE_ANON_KEY`, `QA_SERVICE_ROLE_KEY`, `QA_CUSTOMER_*`, `QA_PROVIDER1_*`).
+2. Ensure an `ios-simulator` build exists (`eas build -p ios --profile ios-simulator`).
+3. Trigger the workflow (Actions tab → Run workflow, or `gh workflow run
+   ios-native-journeys.yml --ref <branch>`; note workflow_dispatch needs the workflow present
+   on the dispatched branch — merging to `main` makes it available in the Actions UI).
+
+The **first** iOS run is expected to surface any iOS-specific selector/permission-prompt
+adjustments (e.g., system dialog wording); those are behaviour-preserving test-driver fixes.
+Once green, this yields **iOS Simulator** journey certification. **Physical-iPhone**
+certification additionally requires an Apple Developer account (signing) + a real device (or
+a real-device cloud farm).
 
 ## 28. Final Status
 
