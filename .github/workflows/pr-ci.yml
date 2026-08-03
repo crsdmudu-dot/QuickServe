@@ -19,6 +19,12 @@ jobs:
     env:
       # We only type-check the QA package; no Playwright browsers are needed.
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+      # Non-secret PLACEHOLDER public values. Expo web static rendering executes app modules
+      # at build time, and the Supabase client throws if these are unset. These are dummy
+      # values only to let the client construct during export — no real backend is contacted,
+      # and no GitHub secrets are used.
+      EXPO_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co"
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: "placeholder-anon-key-not-a-secret"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
