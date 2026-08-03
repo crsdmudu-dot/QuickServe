@@ -39,12 +39,14 @@ appId: com.quickserve.app
 - extendedWaitUntil: { visible: "Booking Detail", timeout: 15000 }
 - runFlow: { when: { visible: "No thanks" }, commands: [ { tapOn: "No thanks" } ] }
 - assertVisible: ".*Completed.*"
-# Review section
-- scrollUntilVisible: { element: { text: "Your review" }, direction: DOWN, timeout: 15000 }
+# Review section. Scroll the star row itself into view (scrolling only to the "Your review"
+# header leaves the stars, which sit below it, off-screen).
+- scrollUntilVisible: { element: { id: "star-5" }, direction: DOWN, timeout: 15000 }
 - tapOn: { id: "star-5" }
 - tapOn: "Share your experience…"
 - inputText: "${COMMENT}"
-- tapOn: "Your review"
+# Dismiss the keyboard by tapping the comment's static label, then reveal + submit.
+- tapOn: "Comment (optional)"
 - scrollUntilVisible: { element: { text: "Submit review" }, direction: DOWN, timeout: 15000 }
 - tapOn: "Submit review"
 - extendedWaitUntil: { visible: "Edit review", timeout: 20000 }
