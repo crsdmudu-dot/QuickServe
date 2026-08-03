@@ -32,7 +32,10 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # Node 22 LTS: the Expo web export static-renders app code, which constructs the
+          # Supabase client; its realtime dependency requires a native global WebSocket,
+          # absent on Node 20 (added/stabilised in Node 22). Local dev runs Node 22+.
+          node-version: 22
           cache: npm
           cache-dependency-path: |
             package-lock.json
