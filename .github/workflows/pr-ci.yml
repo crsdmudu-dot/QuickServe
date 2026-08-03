@@ -1,0 +1,80 @@
+name: PR CI
+
+# Fast, self-contained validation for pull requests targeting main. Runs only local
+# checks (types, unit tests, lint, Expo JS exports) — no secrets, no QA Supabase /
+# connected certification, no service-role ops, no iOS simulator journeys, no EAS cloud
+# builds, no deployments. Keep the job name "PR CI" stable: it is the required status
+# check context configured in branch protection.
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  pr-ci:
+    name: PR CI
+    runs-on: ubuntu-latest
+    env:
+      # We only type-check the QA package; no Playwright browsers are needed.
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+      # Non-secret PLACEHOLDER public values. Expo web static rendering executes app modules
+      # at build time, and the Supabase client throws if these are unset. These are dummy
+      # values only to let the client construct during export — no real backend is contacted,
+      # and no GitHub secrets are used.
+      EXPO_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co"
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: "placeholder-anon-key-not-a-secret"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          # Node 22 LTS: the Expo web export static-renders app code, which constructs the
+          # Supabase client; its realtime dependency requires a native global WebSocket,
+          # absent on Node 20 (added/stabilised in Node 22). Local dev runs Node 22+.
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/website/package-lock.json
+            qa/package-lock.json
+
+      - name: Install dependencies (root)
+        run: npm ci
+
+      # Expo's generated type file (declares the *.css side-effect import used by the app)
+      # is git-ignored, so a fresh checkout lacks it and tsc would fail (TS2882). Generate
+      # it non-interactively before the type checks. Does not modify tsconfig.json.
+      - name: Generate Expo TypeScript env
+        run: npx expo customize tsconfig.json < /dev/null
+
+      - name: Root TypeScript check
+        run: npx tsc --noEmit
+
+      - name: QA TypeScript check
+        run: |
+          npm --prefix qa ci
+          npm --prefix qa run qa:typecheck
+
+      - name: Root Jest
+        run: npm test
+
+      - name: Website Vitest
+        run: |
+          npm --prefix apps/website ci
+          npm --prefix apps/website test
+
+      # Non-blocking: the repository has pre-existing lint errors; lint output is surfaced
+      # but does not gate the PR (product code is out of scope for this workflow).
+      - name: Lint
+        continue-on-error: true
+        run: npm run lint
+
+      - name: Expo web export
+        run: npx expo export --platform web
+
+      - name: Expo Android export
+        run: npx expo export --platform android
