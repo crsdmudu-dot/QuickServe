@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Radii, Spacing } from '@/constants/theme';
@@ -35,7 +35,17 @@ export default function WelcomeScreen() {
         <Button label="Get Started" fullWidth size="lg" onPress={() => router.push('/role-select')} />
         <View style={styles.loginRow}>
           <Text variant="body" color="textSecondary">Already have an account? </Text>
-          <Text variant="label" color="primary" onPress={() => router.push('/signin')}>Log in</Text>
+          {/* Pressable (not a bare <Text onPress>) so it's a proper button: reliable touch
+              target + VoiceOver announces it as a button. */}
+          <Pressable
+            testID="login-link"
+            accessibilityRole="button"
+            accessibilityLabel="Log in"
+            hitSlop={8}
+            onPress={() => router.push('/signin')}
+          >
+            <Text variant="label" color="primary">Log in</Text>
+          </Pressable>
         </View>
       </View>
     </SafeAreaView>

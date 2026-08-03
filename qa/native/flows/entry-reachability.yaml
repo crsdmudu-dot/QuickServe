@@ -22,18 +22,40 @@ appId: com.quickserve.app
 - extendedWaitUntil:
     visible: "Choose your role"
     timeout: 15000
-- assertVisible: "Customer"
-- assertVisible: "Service Provider"
+# iOS groups a touchable card's child <Text> into ONE combined accessibility label
+# (e.g. "🧍, Customer, Book trusted services near you, ›"); Maestro whole-string regex
+# needs .*…* to match a substring. Android exposes each text separately (still matches).
+- assertVisible: ".*Customer.*"
+- assertVisible: ".*Service Provider.*"
 - takeScreenshot: 02-role-select-reachable
-# Back to welcome → customer/provider sign-in reachable.
-- back
+# Return to welcome → customer/provider sign-in reachable.
+# NOTE: Maestro `back` is a no-op on this iOS screen (no hardware back; the edge-swipe
+# gesture isn't honored here), so cold-relaunch to the welcome deterministically instead.
+- launchApp:
+    clearState: true
 - extendedWaitUntil:
     visible: "Log in"
-    timeout: 10000
-- tapOn: "Log in"
+    timeout: 15000
+# After a clearState (re)launch the native welcome can render before expo-router is
+# interactive; tap the login button repeatedly (only while still on welcome) until the
+# sign-in screen appears — robust to the interactivity race and occasional missed taps.
+- repeat:
+    times: 8
+    commands:
+      - runFlow:
+          when:
+            visible:
+              id: "login-link"
+          commands:
+            - tapOn:
+                id: "login-link"
+            - extendedWaitUntil:
+                visible: "Welcome back"
+                timeout: 3000
+                optional: true
 - extendedWaitUntil:
     visible: "Welcome back"
-    timeout: 15000
+    timeout: 10000
 - assertVisible: "Sign in to continue."
 - assertNotVisible: "Sign in with your admin account."
 - takeScreenshot: 03-customer-provider-signin-reachable

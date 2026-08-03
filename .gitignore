@@ -52,3 +52,7 @@ apps/website/out/
 
 # Supabase CLI local state
 supabase/.temp/
+
+# Phase 3H iOS CI: downloaded simulator build (runner-only, never commit)
+/app.tar.gz
+/app/

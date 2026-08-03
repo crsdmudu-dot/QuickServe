@@ -1,0 +1,52 @@
+# Phase 3F/3H — Provider status advance (one transition). Fresh login → My Jobs → job → tap NEXT.
+# Params via -e: PROV_EMAIL, PROV_PW, NEXT (the next-status button label, e.g. "On the way").
+# Cross-platform: dismisses iOS/Android permission prompts if they appear (the on_the_way job
+# detail triggers provider live-location; iOS may prompt for notifications after sign-in).
+# Permission-button selectors are regex (Maestro default), so "Don.t Allow" matches both the
+# straight (') and typographic (’) apostrophe iOS uses.
+appId: com.quickserve.app
+---
+- launchApp: { clearState: true }
+- extendedWaitUntil: { visible: "Get Started", timeout: 40000 }
+# After cold start the welcome can render before expo-router is interactive; tap the login
+# button repeatedly (only while still on welcome) until the sign-in screen appears.
+- repeat:
+    times: 8
+    commands:
+      - runFlow:
+          when:
+            visible:
+              id: "login-link"
+          commands:
+            - tapOn:
+                id: "login-link"
+            - extendedWaitUntil:
+                visible: "Welcome back"
+                timeout: 3000
+                optional: true
+- extendedWaitUntil: { visible: "Welcome back", timeout: 10000 }
+- tapOn: "you@example.com"
+- inputText: "${PROV_EMAIL}"
+- tapOn: "Your password"
+- inputText: "${PROV_PW}"
+# hideKeyboard is unreliable on iOS; tap a static heading to dismiss the keyboard instead.
+- tapOn: "Welcome back"
+- tapOn: "Continue"
+- runFlow: { when: { visible: "Don.t Allow" }, commands: [ { tapOn: "Don.t Allow" } ] }
+- extendedWaitUntil: { visible: "My Jobs", timeout: 30000 }
+# iOS groups the job-card texts into one combined accessibility label; .*…* matches it.
+- extendedWaitUntil: { visible: ".*House Cleaning.*", timeout: 20000 }
+- tapOn: ".*House Cleaning.*"
+- extendedWaitUntil: { visible: "Job Detail", timeout: 20000 }
+- runFlow: { when: { visible: "No thanks" }, commands: [ { tapOn: "No thanks" } ] }
+- runFlow: { when: { visible: "Don.t Allow" }, commands: [ { tapOn: "Don.t Allow" } ] }
+# The Job Detail screen scrolls; once the job is on-the-way the live-location section
+# pushes the next-status action button below the fold, so scroll to reveal it.
+- scrollUntilVisible:
+    element:
+      text: "${NEXT}"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "${NEXT}"
+- waitForAnimationToEnd: { timeout: 5000 }
+- takeScreenshot: provider-advanced
