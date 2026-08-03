@@ -36,6 +36,12 @@ jobs:
       - name: Install dependencies (root)
         run: npm ci
 
+      # Expo's generated type file (declares the *.css side-effect import used by the app)
+      # is git-ignored, so a fresh checkout lacks it and tsc would fail (TS2882). Generate
+      # it non-interactively before the type checks. Does not modify tsconfig.json.
+      - name: Generate Expo TypeScript env
+        run: npx expo customize tsconfig.json < /dev/null
+
       - name: Root TypeScript check
         run: npx tsc --noEmit
 
