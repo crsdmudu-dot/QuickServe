@@ -1,196 +1,187 @@
 # Phase 4B.1 — Development and Production Environment Isolation
 
-> **Isolation defect: CONFIRMED. Fix: BLOCKED (not applied, not verified).** The fix requires
-> creating a dedicated development Supabase project, and creating a 3rd active project in the
-> organization requires a **paid-plan / billing decision** that only the account owner can make.
-> Per the phase rule ("*if project creation requires a paid-plan decision, billing
-> confirmation, or user interaction: stop before creating it, report the exact decision
-> required, do not substitute another project*"), **no project was created, no existing project
-> was modified or repurposed, no dev config was repointed, and no secret was exposed.** Full
-> Platform Certification is NOT claimed.
+> **Isolation defect: RESOLVED — fix APPLIED and VERIFIED.** A dedicated `quickserve-development`
+> Supabase project was provisioned (after the owner upgraded the "Quick Serve" org to **Pro**),
+> migrations `0001–0034` applied to it, local development + the EAS `development` environment
+> repointed to it, and three-environment isolation proven with a live cross-environment test.
+> **Production was not modified. QA was read-only. No secret values were printed, logged, or
+> committed. No builds, deploys, store submissions, or OTA updates were performed. No customer
+> data was copied and no production traffic/payments/push were generated. Full Platform
+> Certification is NOT claimed.**
 
 ## 1. Executive Summary
 
-The Phase 4A finding is confirmed with direct evidence: **local development points at the
-production Supabase project.** The remedy — a dedicated `quickserve-development` project — could
-not be provisioned in this session because the Supabase organization **"Quick Serve"** already
-runs **2 active projects** (Production + QA) and a third project would exceed the Free-plan
-2-active-projects-per-org limit. Creating it requires the owner to **upgrade the org to a paid
-plan (or explicitly confirm billing)**. This report documents the confirmed defect, the full
-inventory, the exact blocking decision, and the isolation plan to execute once unblocked.
-**The isolation defect remains OPEN.**
+The Phase 4A finding — **local development pointed at the production Supabase project** — is now
+**remediated**. The blocker recorded in the previous revision of this document (Free-plan
+2-active-projects-per-org limit) was cleared by the account owner upgrading the org to **Pro**,
+which was confirmed operationally by a successful project creation. A dedicated
+**`quickserve-development`** project now backs local development and the EAS `development`
+environment; QA remains isolated on `quickserve-qa`; Production remains on its own project and was
+untouched. **The dev↔prod isolation defect is CLOSED.**
 
 ## 2. Starting State
 
-- `main` HEAD `8e355d88061321167089dff4cbc777cc29203dc2` (== baseline); working tree clean;
-  `local main == origin/main`.
-- Protection: `enforce_admins=true`, required check `["PR CI"]`, 1 review. **PRs #2 and #3
-  remain open and unmerged.**
-- Supabase CLI authenticated; org **"Quick Serve"** (`kcjgusnprhngykflmizz`) — the only org.
+- Branch `infra/phase-4b1-dev-prod-isolation` (doc-only PR #4), based on `main`.
+- Protection unchanged: `enforce_admins=true`, required check `["PR CI"]`, 1 review. **PR #4 is
+  NOT merged by this phase.**
+- Supabase CLI authenticated; org **"Quick Serve"** (`kcjgusnprhngykflmizz`) — now on **Pro**.
 - EAS authenticated (`@dalmarmudu/QuickServe`).
 
-## 3. Confirmed Isolation Defect
+## 3. Resolved Isolation Defect
 
-**Development ↔ Production are NOT isolated.** The repository's root `.env` (used by local
-development and every non-QA build) resolves to the project named **"Quick Serve Production"**
-(`lkigkl…ffds`). QA is correctly isolated on `quickserve-qa` (`wjvjup…ozws`). There is **no
-dedicated development project**; development uses production.
+Previously, the repository root `.env` (local development + every non-QA build) resolved to
+**"Quick Serve Production"** (`lkigkl…ffds`). It now resolves to the dedicated
+**`quickserve-development`** project (`gzkvna…xwmc`). QA stays on `quickserve-qa` (`wjvjup…ozws`).
 
-Status: **CONFIRMED — not fixed, not verified, still blocked.**
+Status: **RESOLVED — fix applied and verified.**
 
-## 4. Existing Environment Inventory (read-only)
+## 4. Development Project Provisioning — DONE
 
-| Project | Ref (partially redacted) | Region | Status | Actual use |
-|---|---|---|---|---|
-| **Quick Serve Production** | `lkigkl…ffds` | `eu-central-1` | ACTIVE_HEALTHY (PG17) | root `.env` → **development + all non-QA builds** (defect) |
-| quickserve-qa | `wjvjup…ozws` | `eu-central-1` | ACTIVE_HEALTHY (PG17) | `qa/.env` + GH `QA_*` secrets (isolated) |
-| quickserve | `nkdmsu…zwhe` | `eu-west-1` | **INACTIVE** | old/paused (consistent with Free-plan 2-active limit) |
+Exactly one new project was created; no add-ons, no larger compute, no PITR, no custom domain, no
+dedicated IPv4, no log drains.
 
-**Dedicated development project: does NOT exist** (confirmed).
+| Attribute | Value |
+|---|---|
+| Name | `quickserve-development` |
+| Ref (partially redacted) | `gzkvna…xwmc` |
+| Region | `eu-central-1` (matches Production + QA) |
+| Compute | **Micro** |
+| Health | **ACTIVE_HEALTHY** (Postgres 17) |
+| DB password | strong, generated locally; **never printed, logged, committed, or documented** |
 
-## 5. Development Project Provisioning — BLOCKED (billing decision)
+**Pro confirmation (operational):** creating a 3rd active project succeeded (the org previously
+capped at 2 active projects on Free), confirming the plan change without reading any
+billing/payment/card/invoice detail.
 
-Intended: create `quickserve-development` in org `kcjgusnprhngykflmizz`, unique DB/auth/storage/
-Edge/keys, strong generated DB password, region `eu-central-1` (match existing), size `micro`.
+## 5. Safety Gate (pre-migration) — PASS
 
-**Blocker (evidence-based):** the org has **2 ACTIVE projects** (Production + QA) and one
-**INACTIVE** project. The Supabase **Free plan allows a maximum of 2 active projects per
-organization**; the inactive third project is the tell-tale of that limit. A new active
-`quickserve-development` project would be the **3rd active project → requires a paid (Pro) plan
-or an explicit billing confirmation.**
+- Target ref `gzkvna…xwmc` **≠ Production** `lkigkltvstlxfdztffds` ✅ and **≠ QA**
+  `wjvjuplooidctlxxozws` ✅.
+- Development contained **no customer data** (0 rows in `bookings`/`profiles`/`payments`/`reviews`;
+  0 auth users) before and after (aside from a transient synthetic probe, deleted — see §9).
+- The CLI was linked **only** to Development for migration work; no `db reset`/`repair` was run
+  against any project; Production/QA were never a `db push`/write target.
 
-**Exact decision required from the account owner (choose one):**
-1. **Upgrade the "Quick Serve" org to Supabase Pro** (paid, ~US$25/mo base + compute), then
-   authorize creating `quickserve-development`; **or**
-2. **Explicitly confirm billing** for a new project on the current plan; **or**
-3. Provide an alternative isolated development target you have authorized.
+## 6. Migration Alignment — DONE
 
-**Not done (deliberately):** no project created; **no speculative `projects create` attempted**
-(it would create a billable resource without your confirmation); the old `quickserve`
-(`nkdmsu…zwhe`) was **not** reactivated/substituted (forbidden by the phase rules and it too
-counts toward the active limit); **no existing project modified.**
+- `supabase link --project-ref gzkvna…xwmc` → `supabase db push` applied **all 34 migrations
+  `0001–0034`** cleanly (each `Applying migration …` succeeded; `Finished supabase db push`).
+- `supabase migration list`: **local == remote, 34/34, none missing** ✅.
+- Post-push verification against Development (service-role, read-only introspection):
+  - **30 public objects** exposed (all expected), including `profiles`, `bookings`,
+    `provider_locations`/`provider_earnings`, `reviews`/`review_private_feedback`,
+    `payments`/`payment_attempts`, `wallets`/`wallet_transactions`, `promo_codes`/
+    `promo_redemptions`, `services`/`service_categories`, `booking_messages`, `device_tokens`,
+    `customer_addresses`, `favorite_providers`/`favorite_services`, support/notification tables.
+  - **RLS active**: anonymous read of `bookings` returns `200` with **0 rows** (policies enforced).
+  - **Storage**: `booking-photos` bucket present and **private**.
+  - Extensions, SECURITY DEFINER functions, triggers, and the private schema are created by the
+    migrations; the clean, error-free application of every migration is the proof they applied.
+- **Edge Functions were NOT deployed** this phase (`supabase functions list` on Development → `[]`).
 
-## 6. Migration Alignment — BLOCKED (depends on §5)
+## 7. Local Environment Repoint — DONE (names only)
 
-Target `supabase/migrations/0001–0034` (verified: sequential, no gaps). **Not applied** — there
-is no development project to `link`/`db push` to. `db push`/`reset`/`repair` were **not** run
-against any project. Production and QA were **not** touched beyond read-only `projects list`.
+- Root `.env` (gitignored) repointed to Development. Variable **names** changed (values never
+  shown): `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+- The `.env` key was verified to carry the **`anon`** role claim for ref `gzkvna…` — **not** a
+  service-role key (no service-role key is present in any Expo/client variable).
+- `qa/.env` continues to point at QA; **`.env.backup` was left unchanged and inactive** (still
+  Production `lkigkl…`) and was **not** restored over `.env`.
+- **Gitignore hardening (applied):** `.gitignore` now ignores `.env.backup`, `.env.development`,
+  and `.env.development.local` (in addition to `.env` / `.env*.local`). Verified: all these plus
+  `qa/.env` are ignored and absent from `git status`.
 
-## 7. Local Environment Changes — BLOCKED (depends on §5)
+## 8. EAS Environment Mapping — AUDITED + CONFIGURED (no builds)
 
-Repointing local development requires the new project's URL + keys, which do not exist. Current
-state (unchanged): root `.env` (gitignored) → production project; `qa/.env` (gitignored) → QA.
-**No `.env` was modified or committed.** Intended change once unblocked (variable **names**
-only, never values): set `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` in the
-local `.env` to the new development project.
+| Profile (`eas.json`) | EAS environment / channel | Backend after this phase |
+|---|---|---|
+| development | `development` / `development` | **Development** `gzkvna…` ✅ (configured this phase) |
+| preview | `preview` / `preview` | **QA** `wjvjup…` (unchanged) |
+| ios-simulator | extends `preview` | **QA** (certification stays on QA) ✅ |
+| production | `production` / `production` | no EAS Supabase vars — **left untouched** (Production cutover is a later phase) |
 
-**Hardening note:** `.env`, `.env.local`, and `qa/.env` are gitignored, but **`.env.development`
-is NOT currently gitignored** — add `.env.development` (or `.env.*`) to `.gitignore` **before**
-any development env file is created, to prevent committing dev secrets. (Not changed here.)
+- Added two **plaintext** public variables to the EAS `development` environment only —
+  `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY` (Development values; not printed).
+- The `preview`/certification environment was **not repointed off QA**. The `production`
+  environment was **not modified**. No EAS build, submit, or update was triggered. EAS values were
+  not exposed.
 
-## 8. EAS Environment Mapping (audit; no change)
+## 9. GitHub Secrets — AUDITED (no `DEV_*` created)
 
-| Profile | `eas.json` environment/channel | Resolves to (today) | Target once isolated |
-|---|---|---|---|
-| development | `development` | root `.env` → **production** (defect) | development project |
-| preview | `preview` | root `.env` → production | preview/staging |
-| production | `production`, autoIncrement | root `.env` → production | production project |
-| ios-simulator | extends preview | (build), journeys via QA | **stay QA** |
-| iOS Native Journeys / Android certification | — | **QA** (`QA_*` GH secrets) | **stay QA (unchanged)** |
+- Workflow secret consumption (authoritative): only `ios-native-journeys.yml` reads secrets —
+  `EXPO_TOKEN` + `QA_*` (QA-scoped). **PR CI reads no secrets** (uses non-secret placeholders).
+- **No `DEV_*` secrets were created.** Rationale: no CI/CD workflow targets a Development backend
+  (local development uses the gitignored local `.env`), so `DEV_SUPABASE_URL` /
+  `DEV_SUPABASE_ANON_KEY` / `DEV_SERVICE_ROLE_KEY` are **not genuinely needed** yet; creating
+  unused secrets would only enlarge the secret surface. They can be added if/when a workflow
+  consumes Development.
+- **QA secrets unchanged** (no secret was created/updated/deleted). **No production secrets** exist
+  or were created. No secret value appears in any log or commit.
 
-Certification workflows already read **QA** secrets and were **not** repointed. No EAS
-dashboard variables were created/changed (would require the dev project to exist).
-
-## 9. GitHub Secrets and Workflow Mapping (audit; no change)
-
-- Actions secrets present (names only): `EXPO_TOKEN`, `QA_SUPABASE_URL`, `QA_SUPABASE_ANON_KEY`,
-  `QA_SERVICE_ROLE_KEY`, `QA_CUSTOMER_*`, `QA_PROVIDER1_*` (8 total). **No production secrets.**
-- **No `DEV_*` secrets created** (no dev project yet). Intended names once unblocked:
-  `DEV_SUPABASE_URL`, `DEV_SUPABASE_ANON_KEY`, `DEV_SERVICE_ROLE_KEY`.
-- Verified unchanged: QA workflow reads `QA_*`; **PR CI requires no secrets**; iOS Native
-  Journeys reads `QA_*`; no workflow reads production values (none exist). No secret in logs/commits.
-
-## 10. Development Connectivity Validation — BLOCKED (depends on §5)
-
-Cannot connect to a development project that does not exist. **No connectivity test was run
-against production or QA for this purpose** (no dev data created; nothing to clean up).
-
-## 11. Three-Environment Isolation Matrix
+## 10. Three-Environment Isolation Proof — PASS
 
 | Attribute | Development | QA | Production |
 |---|---|---|---|
-| Project name | **NOT PROVISIONED** | quickserve-qa | Quick Serve Production |
-| Ref (redacted) | — | `wjvjup…ozws` | `lkigkl…ffds` |
-| Region | — | eu-central-1 | eu-central-1 |
-| DB / auth / storage / Edge identity | — | isolated | isolated vs QA |
-| Local env mapping | **currently → production (defect)** | `qa/.env` | root `.env` |
-| EAS mapping | dev profile → production (defect) | certification workflows | production profile |
-| GH secrets | none (`DEV_*` planned) | `QA_*` (7) + `EXPO_TOKEN` | none |
+| Project | quickserve-development | quickserve-qa | Quick Serve Production |
+| Ref (redacted) | `gzkvna…xwmc` | `wjvjup…ozws` | `lkigkl…ffds` |
+| Region | eu-central-1 | eu-central-1 | eu-central-1 |
+| Local env mapping | root `.env` ✅ | `qa/.env` | `.env.backup` (inactive) |
+| EAS mapping | `development` env | `preview`/certification | `production` (untouched) |
 
-**Proof status:** QA ref ≠ Production ref ✅ (isolated). **Development ≠ Production: NOT provable
-— they are currently the same project ❌.** The dev/prod isolation the phase requires **cannot
-be proven until a development project exists.**
+- **Distinct identities:** 3 unique project refs/URLs; 5 unique anon/service keys across the two
+  projects whose keys are held locally (SHA-256 prefixes all differ; Production anon is a distinct
+  newer-format publishable key). DEV/QA anon keys carry `role=anon`; DEV/QA service keys carry
+  `role=service_role`, each bound to its own ref.
+- **Live cross-environment write isolation (synthetic, cleaned up):** a synthetic auth user was
+  created in **Development** → present in DEV, **absent in QA** (read-only check) → then **deleted**
+  from Development. DEV auth users returned to **0**. **No write to QA or Production.**
+- **Separate DB / Auth / Storage / Edge:** DEV data 0 rows; DEV Storage `booking-photos`
+  independent; DEV Edge Functions `[]`.
 
-## 12. Security Verification
-
-- No secret values printed; `supabase projects api-keys` **not** run; project refs (not secrets)
-  partially redacted.
-- Committed-secret scan: **clean** (only `.env.example` templates tracked; `.env`/`.env.local`/
-  `qa/.env` gitignored — verified).
-- Production project: **not modified.** QA project: **read-only verification only.**
-- Top security concern unchanged: **dev↔prod not isolated** (this phase is the intended fix,
-  now blocked on billing).
-
-## 13. Validation Results (safe, repo-only)
+## 11. Validation Results (safe, repo-only + Development connectivity)
 
 | Gate | Result |
 |---|---|
-| Root TypeScript | ✅ PASS |
+| Development health | ✅ ACTIVE_HEALTHY (PG17) |
+| Migration alignment (Development) | ✅ 34/34, local == remote |
+| Development connectivity smoke (PostgREST + Auth) | ✅ |
+| Local app init against Development (Expo web + Android export) | ✅ exit 0 (client constructs vs DEV `.env`) |
+| Root TypeScript (`tsc --noEmit`) | ✅ PASS |
 | QA TypeScript | ✅ PASS |
-| Root Jest / Website Vitest / lint / Expo web+Android export | ✅ green via PR CI #2 & #3 (full suite on trees from `main@8e355d8`) + Phase 4A run this session |
-| Expo config resolution | ✅ (Phase 4A) |
-| Secret scan (tracked files) | ✅ clean |
-| Gitignored-file verification | ✅ `.env`/`.env.local`/`qa/.env` ignored (⚠ `.env.development` not yet ignored) |
-| Migration list integrity | ✅ 0001–0034 sequential |
-| Connected QA certification (116/116) | **Not re-run** — remains targeted at QA; **not run against development** (no dev project exists) |
-| Dev connectivity / migration alignment against development | **BLOCKED** (no dev project) |
+| Root Jest | ✅ 222 suites / 2951 tests |
+| Website Vitest | ✅ 7 files / 102 tests |
+| Lint | ⚠ 502 pre-existing problems (non-gating; no product code changed this phase) |
+| Expo config resolution | ✅ |
+| Expo web export | ✅ |
+| Expo Android export | ✅ |
+| Secret scan (tracked files) | ✅ clean (only benign prose mentions; no key values) |
+| Gitignored-file verification | ✅ `.env`/`.env.backup`/`.env.development`/`.env.development.local`/`qa/.env` ignored |
+| Connected QA certification (116/116) | **Not re-run**; remains QA-scoped; **not run against Development** |
 
-No test was run against production. Connected certification was **not** repointed away from QA.
+No test was run against Production. Connected certification was **not** repointed away from QA.
 
-## 14. Cleanup
+## 12. Cleanup
 
-No resources were created; **nothing to clean up.** No disposable data was written to any
-project. Working tree clean.
+- Synthetic Development probe user deleted; Development returned to 0 users / 0 rows.
+- Local scratch credential files (Development DB password / ref / keys) are outside the repo and
+  are removed at the end of the phase; none were committed.
+- Working tree contains only intended changes (this document + `.gitignore`); env files remain
+  gitignored and uncommitted.
 
-## 15. Remaining Blockers
+## 13. Production Readiness Impact
 
-1. **Billing/plan decision (primary):** authorize a paid plan (or billing) to create a 3rd
-   active Supabase project (`quickserve-development`).
-2. Dependent-and-blocked until (1): dev project provisioning, migration `db push` to dev, dev
-   `.env` repoint, `DEV_*` secrets, dev EAS variables, connectivity/isolation proof.
-3. Add `.env.development` to `.gitignore` before creating dev env files.
+The **dev↔prod isolation defect is CLOSED**: local development and the EAS `development`
+environment now run against a dedicated Development project, eliminating the Phase 4A/4B P1 risk of
+development operating on the production database. Production itself was not modified; its migration
+alignment (Phase 4C) and any production cutover remain future, separately-gated work.
 
-## 16. Production Readiness Impact
+## 14. Final Status
 
-The **dev↔prod isolation defect remains OPEN** — production readiness is **unchanged** by this
-phase. Until fixed, local development and any non-QA build operate against the production
-database (a P1 risk from Phase 4A/4B). No provisioning progressed.
-
-## 17. Recommended Next Step
-
-**Owner decision then re-run 4B.1:** the owner confirms the Supabase billing/plan; I then create
-`quickserve-development` (unique DB/auth/storage/keys, generated password), `link` + `db push`
-migrations 0001–0034 to it, repoint the local `.env` (names only), add `DEV_*` secrets and
-`.gitignore` entry, and produce the full isolation proof — **without touching Production or QA.**
-Only after isolation is verified should Phase 4C (migration alignment on the isolated prod
-project) proceed.
-
-## 18. Final Status
-
-- **Isolation defect: CONFIRMED.**
-- **Isolation fix: NOT applied, NOT verified — BLOCKED** on a Supabase paid-plan/billing decision.
-- **Resources provisioned: NONE.** Production **not modified**; QA **read-only** only; no dev
-  config repointed; **no secrets created or exposed**; no customer data copied; no production
-  traffic/payments/push. **Full Platform Certification is NOT claimed.**
-
-This phase changed only this document (provisioning is externally blocked).
+- **Isolation defect: RESOLVED — applied and verified.**
+- **Provisioned:** one `quickserve-development` project (Micro, eu-central-1), migrations
+  `0001–0034` applied.
+- **Production not modified; QA read-only only; historical inactive project not reused; no secrets
+  created or exposed; DB password never revealed; no customer data copied; no production
+  traffic/payments/push; no builds/deploys/store/OTA. Full Platform Certification is NOT claimed.**
+- **Next:** await approval before Phase 4C (production migration alignment). PR #4 is left **open,
+  not merged**, branch protection unchanged.
