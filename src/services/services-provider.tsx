@@ -19,8 +19,8 @@ import {
 } from 'react';
 
 import {
-  listActiveServices,
-  listActiveServiceCategories,
+  fetchActiveServices,
+  fetchActiveServiceCategories,
   toService,
   type DbService,
   type DbCategory,
@@ -62,9 +62,9 @@ type Category = {
 };
 
 type ServicesContextValue = {
-  /** Active services from DB (or fallback to constants when DB is empty/failed). */
+  /** Active services from DB (authoritative, empty allowed); cached constants only when the fetch fails. */
   services: Service[];
-  /** Active categories from DB (or fallback to CATEGORY_ORDER/CATEGORY_LABELS). */
+  /** Active categories from DB (authoritative); cached CATEGORY_ORDER only when the fetch fails. */
   categories: Category[];
   /** True while the initial DB fetch is in progress. */
   loading: boolean;
@@ -100,6 +100,10 @@ export function ServicesProvider({ children }: { children: ReactNode }) {
   const [dbCategories, setDbCategories] = useState<DbCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // True only when the catalogue fetch genuinely ERRORED (network / RLS / Postgres).
+  // A successful-but-empty fetch leaves this false so the DB stays authoritative and
+  // the hardcoded catalogue is NOT resurrected (admin may intentionally hide all services).
+  const [failed, setFailed] = useState(false);
   // Bump this counter to trigger a re-fetch.
   const [tick, setTick] = useState(0);
 
@@ -107,16 +111,31 @@ export function ServicesProvider({ children }: { children: ReactNode }) {
     let active = true;
     setLoading(true);
     setError(null);
-    Promise.all([listActiveServices(), listActiveServiceCategories()])
-      .then(([svcs, cats]) => {
+    Promise.all([fetchActiveServices(), fetchActiveServiceCategories()])
+      .then(([svcRes, catRes]) => {
         if (!active) return;
-        setDbServices(svcs);
-        setDbCategories(cats);
+        if (!svcRes.ok || !catRes.ok) {
+          // Genuine query failure → fall back to the cached hardcoded catalogue.
+          if (__DEV__) console.error('[ServicesProvider] catalogue fetch failed');
+          setFailed(true);
+          setDbServices([]);
+          setDbCategories([]);
+          setError('Could not load services. Showing cached data.');
+        } else {
+          // Success is authoritative even when it returns zero rows.
+          setFailed(false);
+          setDbServices(svcRes.data);
+          setDbCategories(catRes.data);
+        }
         setLoading(false);
       })
       .catch((err) => {
+        // Unexpected throw (not a Supabase error object) — treat as a fetch failure.
         if (!active) return;
         if (__DEV__) console.error('[ServicesProvider] fetch error:', err);
+        setFailed(true);
+        setDbServices([]);
+        setDbCategories([]);
         setError('Could not load services. Showing cached data.');
         setLoading(false);
       });
@@ -145,47 +164,49 @@ export function ServicesProvider({ children }: { children: ReactNode }) {
 
   // ── Derived values ──────────────────────────────────────────────────────
 
-  /** Active services mapped to the legacy Service shape, sorted by category order then display_order. */
-  const services: Service[] =
-    dbServices.length > 0
-      ? (() => {
-          const CATEGORY_RANK: Record<string, number> = {};
-          CATEGORY_ORDER.forEach((cat, i) => {
-            CATEGORY_RANK[cat] = i;
+  /**
+   * Active services mapped to the legacy Service shape, sorted by category order
+   * then display_order. The DB result is authoritative on a successful fetch —
+   * even when it is empty ([]). Only a genuine fetch failure falls back to SERVICES.
+   */
+  const services: Service[] = failed
+    ? SERVICES
+    : (() => {
+        const CATEGORY_RANK: Record<string, number> = {};
+        CATEGORY_ORDER.forEach((cat, i) => {
+          CATEGORY_RANK[cat] = i;
+        });
+        return [...dbServices]
+          .sort((a, b) => {
+            const catA = a.category_id ? (categoryById[a.category_id]?.slug ?? '') : '';
+            const catB = b.category_id ? (categoryById[b.category_id]?.slug ?? '') : '';
+            const rankA = CATEGORY_RANK[catA] ?? 999;
+            const rankB = CATEGORY_RANK[catB] ?? 999;
+            if (rankA !== rankB) return rankA - rankB;
+            return a.display_order - b.display_order;
+          })
+          .map((db) => {
+            const catSlug = db.category_id ? (categoryById[db.category_id]?.slug ?? undefined) : undefined;
+            return toService(db, catSlug);
           });
-          return [...dbServices]
-            .sort((a, b) => {
-              const catA = a.category_id ? (categoryById[a.category_id]?.slug ?? '') : '';
-              const catB = b.category_id ? (categoryById[b.category_id]?.slug ?? '') : '';
-              const rankA = CATEGORY_RANK[catA] ?? 999;
-              const rankB = CATEGORY_RANK[catB] ?? 999;
-              if (rankA !== rankB) return rankA - rankB;
-              return a.display_order - b.display_order;
-            })
-            .map((db) => {
-              const catSlug = db.category_id ? (categoryById[db.category_id]?.slug ?? undefined) : undefined;
-              return toService(db, catSlug);
-            });
-        })()
-      : SERVICES;
+      })();
 
-  /** Active categories in display_order. Falls back to CATEGORY_ORDER when DB is empty. */
-  const categories: Category[] =
-    dbCategories.length > 0
-      ? dbCategories.map((cat) => ({
-          slug: cat.slug,
-          name: cat.name,
-          icon: cat.icon,
-          color: cat.color,
-          display_order: cat.display_order,
-        }))
-      : CATEGORY_ORDER.map((slug, i) => ({
-          slug,
-          name: CATEGORY_LABELS[slug as ServiceCategory] ?? slug,
-          icon: null,
-          color: null,
-          display_order: i,
-        }));
+  /** Active categories in display_order. Falls back to CATEGORY_ORDER only when the fetch failed. */
+  const categories: Category[] = failed
+    ? CATEGORY_ORDER.map((slug, i) => ({
+        slug,
+        name: CATEGORY_LABELS[slug as ServiceCategory] ?? slug,
+        icon: null,
+        color: null,
+        display_order: i,
+      }))
+    : dbCategories.map((cat) => ({
+        slug: cat.slug,
+        name: cat.name,
+        icon: cat.icon,
+        color: cat.color,
+        display_order: cat.display_order,
+      }));
 
   // ── Lookup helpers ──────────────────────────────────────────────────────
 
@@ -215,39 +236,40 @@ export function ServicesProvider({ children }: { children: ReactNode }) {
   }
 
   function getServicesByCategory(catSlug: string): Service[] {
-    if (dbServices.length > 0) {
-      return services.filter((s) => s.category === catSlug);
+    // On a genuine fetch failure, filter the cached constants; otherwise the DB
+    // result is authoritative (empty stays empty).
+    if (failed) {
+      return SERVICES.filter((s) => s.category === catSlug);
     }
-    // Fallback: filter constants (category field is ServiceCategory = slug for legacy services)
-    return SERVICES.filter((s) => s.category === catSlug);
+    return services.filter((s) => s.category === catSlug);
   }
 
   function getFeatured(): Service[] {
-    if (dbServices.length > 0) {
-      return dbServices
-        .filter((db) => db.featured)
-        .map((db) => {
-          const catSlug = db.category_id
-            ? (categoryById[db.category_id]?.slug ?? undefined)
-            : undefined;
-          return toService(db, catSlug);
-        });
+    if (failed) {
+      return getFeaturedServices();
     }
-    return getFeaturedServices();
+    return dbServices
+      .filter((db) => db.featured)
+      .map((db) => {
+        const catSlug = db.category_id
+          ? (categoryById[db.category_id]?.slug ?? undefined)
+          : undefined;
+        return toService(db, catSlug);
+      });
   }
 
   function getTrending(): Service[] {
-    if (dbServices.length > 0) {
-      return dbServices
-        .filter((db) => db.trending)
-        .map((db) => {
-          const catSlug = db.category_id
-            ? (categoryById[db.category_id]?.slug ?? undefined)
-            : undefined;
-          return toService(db, catSlug);
-        });
+    if (failed) {
+      return getTrendingServices();
     }
-    return getTrendingServices();
+    return dbServices
+      .filter((db) => db.trending)
+      .map((db) => {
+        const catSlug = db.category_id
+          ? (categoryById[db.category_id]?.slug ?? undefined)
+          : undefined;
+        return toService(db, catSlug);
+      });
   }
 
   function getPopular(): Service[] {
