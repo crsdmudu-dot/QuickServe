@@ -1,218 +1,172 @@
 # Phase 4C — Production Migration Alignment
 
-> **Status: PRODUCTION ALIGNMENT BLOCKED (execution not performed).** The read-only audit proves
-> Production is **behind** the repository migrations (missing 19 schema objects, classification B),
-> and the pending migrations are **non-destructive**. However, applying them is **blocked** on three
-> items that must be resolved first: (1) the **Production database password** is not available to
-> this session — the CLI cannot read the authoritative migration history or run `db push` without
-> it; (2) a **recoverable backup must be confirmed** immediately before any schema change; (3)
-> because Production contains data and the pending set replaces policies/triggers on existing
-> tables, **explicit approval** is required. **No Production schema was modified. No data was read
-> beyond aggregate counts. No secrets were printed. Full Platform Certification is NOT claimed.**
+> **Status: PRODUCTION ALIGNED.** Migrations **0017–0034** were applied to `Quick Serve Production`
+> after an explicit user backup confirmation and approval. Production migration history is now
+> **34/34 aligned (0 pending, 0 remote-only)** and its schema matches the repository canonical state
+> (30 public objects). Existing data was **preserved** (`profiles=2, bookings=1, booking_activity=1`,
+> unchanged); the canonical service catalogue seed from `0030` populated **4 categories / 19 services
+> (19 active)**. **No records were deleted, no QA/DEV data copied, no Edge Functions modified, no
+> payment/push/app/site/OTA/store actions, no secrets exposed. Full Platform Certification is NOT
+> claimed.**
 
 ## 1. Executive Summary
 
-Production (`Quick Serve Production`, `lkigkl…ffds`) exposes **11** public objects; the canonical
-repository migrations `0001–0034` produce **30** (verified against the freshly-built Development
-project). Production is therefore **behind by 19 objects** with **no untracked/extra objects** —
-a clean "behind" state, not schema drift. Production holds only **~4 rows** of leftover test data.
-The pending migrations (≈`0016–0034`) were analysed from the repository and are **non-destructive**
-(no `DROP TABLE`/`DROP COLUMN`/`TRUNCATE`, no migration-scope `DELETE`; the only policy drops are
-drop-and-recreate replacements). Alignment could not be executed this session because the CLI needs
-the **Production DB password** (which is deliberately not held) to read migration history and run
-`supabase db push`. The phase therefore stops at a **safe, evidence-complete blocker** and requests
-the password, a backup confirmation, and approval.
+Production was **behind** by 18 migrations (history stopped at `0016`). The pending set `0017–0034`
+was proven **non-destructive** (no `DROP TABLE/COLUMN`, `TRUNCATE`, or migration-scope `DELETE`; all
+`DROP POLICY` are drop+recreate), the migration history was **clean and contiguous** (no
+remote-only/mismatch/gap), and Production held only ~4 rows of residual test data. After user backup
+confirmation and approval, `supabase db push` applied `0017–0034` cleanly (exit 0, ~62s). Production
+is now schema-aligned with the repository; existing data preserved; service catalogue seeded.
 
 ## 2. Starting Baseline
 
-- Repo `main` = `origin/main` = **`8e355d88061321167089dff4cbc777cc29203dc2`** (baseline); working tree clean.
-- Migrations `0001–0034`: 34 files, contiguous, no gaps/dupes, unmodified, identical to `origin/main`.
-- Supabase CLI **2.110.0**; org **"Quick Serve"** (`kcjgusnprhngykflmizz`, only org).
-- CLI currently linked to **Development** only — all Production reads used explicit `--project-ref`.
+- Repo `main` = `origin/main` = `8e355d8` (unchanged); branch `infra/phase-4c-production-migration-alignment` (from `8e355d8`).
+- Migrations `0001–0034`: 34 files, contiguous, unmodified, identical to `origin/main`.
+- Supabase CLI **2.110.0**; org **"Quick Serve"** (`kcjgusnprhngykflmizz`).
 - Branch protection unchanged (`["PR CI"]`, `enforce_admins=true`, 1 review). This phase does not merge.
 
 ## 3. Production Identity Verification
 
-| Attribute | Value |
-|---|---|
-| Project | Quick Serve Production |
-| Ref (redacted) | `lkigkl…ffds` — matches expected Production exactly |
-| ≠ QA (`wjvjup…ozws`) / ≠ Development (`gzkvna…xwmc`) | ✅ both distinct |
-| Region | `eu-central-1` |
-| Status | ACTIVE_HEALTHY (Postgres 17) |
-| Command context | no DB password / access token / QA / DEV credential active; no leftover temp creds |
-
-Identity gate **PASS**. All reads used the Production service-role key fetched via the Management
-API (stored to a local temp file, never printed; deleted at end of phase).
+`Quick Serve Production`, ref `lkigkl…ffds` (matches exactly; ≠ QA `wjvjup…ozws`, ≠ DEV `gzkvna…xwmc`),
+`eu-central-1`, ACTIVE_HEALTHY, Postgres 17. The active linked target was verified = Production
+immediately before every Production database command. The Production DB password was supplied via a
+hidden local prompt into a temp file (never printed/echoed/committed) and read per-command through
+`SUPABASE_DB_PASSWORD`; the temp file was securely deleted at phase end. The CLI link was cleared
+after the push (local dev app uses `.env` → Development, not the CLI link).
 
 ## 4. Backup Verification
 
-- Supabase **Pro** includes automated **daily backups** by default; PITR is an add-on and was **not**
-  purchased/enabled in this phase.
-- The exact **latest-backup timestamp / retention** could **not be confirmed via the CLI** this
-  session (no stable `backups` CLI command; the Management API backups endpoint requires the access
-  token, which was not extracted). **This must be confirmed in the Supabase dashboard immediately
-  before any `db push`.**
-- **Rule applied:** because a fresh recoverable backup could not be positively verified here, and the
-  DB password is missing, execution is **not** performed. Confirm a recent backup before applying.
+- User **explicitly confirmed** a recent, successful, recoverable Production backup with an acceptable
+  timestamp (Supabase Pro daily backup) **before** any write. No PITR purchased; no add-on enabled.
 
-## 5. Migration History Audit
+## 5. Migration History Audit (pre-apply)
 
-- **Authoritative history NOT read.** CLI 2.110.0 `migration list` requires `--linked` (points at
-  Development — wrong target), `--db-url`, or `--password`; `--project-ref` is not accepted. The
-  **Production DB password is required** and is not held, so `supabase_migrations.schema_migrations`
-  could not be inspected.
-- Schema-object presence was used as a **proxy** for applied state (see §6). The proxy proves
-  Production is behind, but the **exact set of recorded migrations must be read from history before
-  `db push`**, because `db push` behaviour depends on what history records (risk of attempting to
-  recreate already-existing early objects if history is incomplete).
-
-## 6. Schema Drift Audit
-
-- **Production public objects: 11** vs **Development canonical baseline: 30** (Development was built
-  purely from `0001–0034`).
-- **Present (11):** `booking_activity, booking_messages, booking_photos, bookings, device_tokens,
-  notifications, payment_attempts, payments, profiles, provider_earnings, reviews`.
-- **Missing (19):** `account_flags, customer_addresses, favorite_providers, favorite_services,
-  internal_notes, notification_preferences, promo_codes, promo_redemptions,
-  provider_conduct_acceptances, provider_locations, provider_quality_actions,
-  review_private_feedback, service_categories, services, support_case_events, support_case_notes,
-  support_cases, wallet_transactions, wallets`.
-- **Extra/untracked objects: none.** No table-level drift.
-- **Classification: B — Behind repository migrations** (clean; not "ahead", not drift).
-
-## 7. Production Data Presence (aggregate counts only)
-
-| Table | Rows |
+| | Migrations |
 |---|---|
-| profiles | 2 |
-| bookings | 1 |
-| booking_activity | 1 |
-| payments / payment_attempts / reviews / notifications / booking_messages / booking_photos / device_tokens / provider_earnings | 0 |
+| Applied on Production (16) | 0001–0016 |
+| Pending (18) | 0017–0034 |
+| Remote-only | none |
+| Mismatch / gap / repaired | none |
 
-**~4 rows total** — minimal, consistent with leftover **test data from the isolation-defect era**
-(when local development pointed at Production, pre-Phase 4B.1). No PII was read. Because data is
-present at all, applying migrations to Production requires **approval** per the phase rules.
+Clean, contiguous "behind" state. No `migration repair` was needed or used.
 
-## 8. Pending Migration Analysis
+## 6. Schema Drift Audit (pre-apply)
 
-Pending set ≈ **`0016–0034`** (the migrations that create the 19 missing objects plus in-place
-alters). Full-repo destructive scan results:
+Production exposed **11 of 30** canonical public objects; **19 missing**; **no extra/untracked
+objects**. Classification **B (Behind)** — no drift.
 
-- **No `DROP TABLE`, no `DROP COLUMN`, no `TRUNCATE`, no migration-scope `DELETE`.**
-- **5 `drop policy if exists` statements — all drop-and-recreate replacements** (0005, 0009, 0020,
-  0034 + storage 0016); none is a bare drop that would weaken RLS. Verified each is re-created in the
-  same migration.
-- Trigger/function drops are idempotent `drop … if exists` + recreate idioms.
-- The single `delete from …` occurrence is inside a `SECURITY DEFINER` function body (application
-  logic), not a migration-time data deletion.
-- FK `on delete cascade` clauses appear only in **new-table definitions**.
+## 7. Production Data Presence (before → after)
 
-**Per-migration risk classification: all Non-destructive.** Items that alter *existing* Production
-tables (and so warrant explicit sign-off): `0016` (tighten `booking-photos` storage policies),
-`0020` (re-wire notification triggers on `bookings`/`payments`/`booking_messages`/`reviews`/
-`profiles`), `0034` (recreate `bookings_update_provider` policy). These are hardening/behaviour
-updates that bring Production to the canonical repo state; none drops data.
+| Table | Before | After |
+|---|---|---|
+| profiles | 2 | 2 |
+| bookings | 1 | 1 |
+| booking_activity | 1 | 1 |
+| service_categories | (table absent) | 4 (canonical seed) |
+| services | (table absent) | 19 (canonical seed; 19 active) |
+| payments / reviews / notifications / … | 0 | 0 |
 
-> Caveat: the **exact** pending list is confirmable only after reading migration history (§5). The
-> analysis above covers the full candidate range and found nothing destructive.
+**No existing records were deleted or transformed.** The only new rows are the canonical `0030`
+service-catalogue seed defined by the migration itself.
+
+## 8. Pending Migration Analysis (0017–0034)
+
+- Dry-run (`db push --dry-run`) confirmed exactly 18 migrations, no extra seeds/roles.
+- **No destructive operations**: no `DROP TABLE`/`DROP COLUMN`/`TRUNCATE`/migration-scope `DELETE`;
+  5 `DROP POLICY` are all drop+recreate replacements (RLS not weakened); no `NOT NULL`-without-default
+  column adds.
+- **Populated-table impact** (only `bookings` is altered): `0017` adds nullable address columns;
+  `0021` adds columns **with defaults** (`scheduling_type='datetime'`, `recurrence='one_time'`) so the
+  existing row auto-populates validly; `0033` adds a **partial unique index** (safe — 1 booking, no
+  duplicates); `0034` **tightens** the `bookings_update_provider` RLS policy (drop+recreate; does not
+  touch stored rows). `profiles`/`booking_activity` have no ALTERs.
+- All other `insert into` statements are inside `SECURITY DEFINER` function bodies (runtime logic),
+  except the top-level canonical `0030` catalogue seed.
+- **Confidence: HIGH.**
 
 ## 9. Migration Execution
 
-**NOT PERFORMED.** `supabase db push` against `lkigkl…ffds` was **not** run. Blocked on: Production
-DB password (missing), backup confirmation (pending), and explicit approval (Production holds data
-and pending migrations replace existing-table policies/triggers). No `db reset`, no `migration
-repair`, no manual SQL, no force options, no history squash were used or attempted.
+- Command: `supabase db push --linked` against `lkigkl…ffds` (target re-verified first).
+- **Start:** `2026-08-07T15:38:46Z` → **End:** `2026-08-07T15:39:48Z` (~62s).
+- **Applied (18):** `0017,0018,0019,0020,0021,0022,0023,0024,0025,0026,0027,0028,0029,0030,0031,0032,0033,0034`.
+- **Exit code: 0.** No `db reset`, `migration repair`, manual SQL, or force flags. No failures.
 
 ## 10. Post-Migration Verification
 
-N/A — no migration applied. To be completed after approved execution.
+- `migration list --linked`: **34/34 aligned, 0 pending, 0 remote-only** ✅.
+- Public objects: **30 / 30 canonical present, none missing** ✅.
+- Existing data preserved: `profiles=2, bookings=1, booking_activity=1` (unchanged) ✅.
+- No unexpected records; no QA/DEV data copied.
 
-## 11. RLS and Policy Verification (read-only, partial)
+## 11. RLS and Policy Verification
 
-- RLS is **active** on present tables: anonymous read of `bookings` returns `200` with **0 rows**
-  (policies enforced).
-- Full policy inventory (names, `SECURITY DEFINER` functions, admin/booking/provider/review/payment/
-  notification/storage authorization) requires DB access and is **deferred** until history/DB
-  password is available. The repository defines these policies canonically (verified non-weakening in §8).
+- RLS active: anonymous read of `bookings` returns `200` with **0 rows** (policies enforced) ✅.
+- `services` customer SELECT (anon) returns only **active** services (19) — customer-visibility policy
+  correct ✅. Admin write RPCs (`admin_create_service`/`admin_update_service`/`admin_set_service_status`
+  etc.) are created by `0030`. Full policy-name inventory can be expanded in a later read-only pass.
 
 ## 12. Storage Verification
 
-- Production Storage bucket **`booking-photos` exists and is private** ✅.
-- MIME/size-limit and storage-policy detail via the storage API is deferred to post-alignment; the
-  `0016` migration (pending) tightens `booking-photos` object policies.
+- `booking-photos` bucket present and **private** (unchanged) ✅.
 
-## 13. Seed / Reference Data Verification
+## 13. Seed / Reference Data Verification (service catalogue)
 
-- **Service catalogue is absent in Production:** `services` and `service_categories` tables do not
-  exist yet (migration `0030_services_marketplace` not applied). Until applied and seeded, the
-  customer app would fall back to its hardcoded 19-service list. **Do not insert seed data manually**
-  — it should follow the canonical `0030` migration (+ any seed step) after alignment. Documented as
-  a gap, not actioned.
+- `service_categories` = **4**, `services` = **19** (all active), populated by the canonical `0030`
+  seed. Production does **not** end with zero active services. **No manual inserts were performed.**
 
 ## 14. Environment Isolation Recheck
 
 | Surface | Points at | State |
 |---|---|---|
-| local `.env` | Development `gzkvna…` (role=`anon`) | ✅ correct |
+| local `.env` | Development `gzkvna…` (role=`anon`) | ✅ correct (app runtime; not Production) |
 | `.env.backup` | Production `lkigk…` | ✅ inactive, unchanged |
 | `qa/.env` | QA `wjvju…` | ✅ correct |
-| EAS `development` / `preview` / `production` | DEV / QA / (none) | ✅ from Phase 4B.1 |
+| CLI link | (cleared after push) | ✅ no ambient Production target |
 
-No DEV/QA workflow points at Production; no Production service-role key in any client-accessible
-config; `.env` is gitignored and anon-only.
+No Production service-role key in any client-accessible config; no cross-environment data copied.
 
 ## 15. Validation Results
 
 | Gate | Result |
 |---|---|
+| Production migration-list (34/34 aligned) | ✅ |
 | Root TypeScript | ✅ PASS |
-| QA TypeScript | ✅ PASS |
-| Secret scan (tracked files) | ✅ clean (no JWT-shaped keys) |
-| Gitignore verification | ✅ env files ignored |
+| QA TypeScript | ✅ PASS (run earlier this phase) |
+| Secret scan (tracked files) | ✅ clean |
 | Migration-order validation | ✅ 0001–0034 contiguous |
-| Root Jest / Website Vitest / lint / Expo web+Android export | Deferred to **PR CI** on this branch (tree = `main` + this doc only; unchanged code already green on the prior commit) |
+| Root Jest / Website Vitest / lint / Expo web+Android export | Run on **PR CI #7** (tree = `main` + this doc; code unchanged from `main`) |
 
-No connected/mutation/payment/push/native tests were run against Production.
+No connected certification / Playwright / native journeys / payment / push / storage-mutation tests
+were run against Production.
 
-## 16. Findings and Risks
+## 16. Edge Functions Preservation
 
-- **P1 — Production is ~19 migrations behind** and its **migration history is unread** (needs DB
-  password). `db push` behaviour is not fully predictable until history is confirmed.
-- **P2 — Execution blocked** on missing Production DB password + unverified fresh backup + required
-  approval.
-- **P2 — Leftover test data (~4 rows)** in Production from the isolation-defect era; decide whether to
-  retain or clean (separately, with approval) — not touched here.
-- **P2 — Service catalogue missing** in Production (0030 not applied); needs migration + seed after alignment.
-- **P3 — Backup timestamp not CLI-verifiable**; confirm in dashboard before applying.
-- Positive: pending migrations are **non-destructive**; no drift; Edge Functions already present and untouched; RLS active; storage bucket present.
+The four pre-existing Production Edge Functions remain unchanged — `mpesa-stk-push`, `mpesa-callback`,
+`register-device`, `send-push` (all **v2, ACTIVE**). Not redeployed, secrets not touched, not invoked.
 
 ## 17. Production Readiness Impact
 
-Production is **not yet schema-aligned** with the repository. This phase advanced readiness by
-proving the exact gap (19 objects), confirming the pending changes are non-destructive, and
-identifying the precise unblock path — **without modifying Production**. Alignment remains a
-prerequisite for any production cutover.
+Production schema is now **aligned** with the repository canonical migrations `0001–0034`, with the
+service catalogue seeded and existing data preserved. This removes the schema-lag blocker. Application
+code, Edge Function behaviour, M-Pesa enablement, and any public-launch readiness remain **out of
+scope** and separately gated.
 
-## 18. Remaining Blockers
+## 18. Remaining Blockers / Risks
 
-1. **Production DB password** — required to read migration history and run `supabase db push`
-   (provide securely, or run the push yourself).
-2. **Confirm a fresh recoverable backup** (dashboard) immediately before applying.
-3. **Explicit approval** to apply the non-destructive pending migrations to Production (data present;
-   existing-table policies/triggers replaced).
+- **P2 — Residual test data** (2 profiles, 1 booking, 1 activity) from the isolation-defect era remains
+  in Production; decide separately (with approval) whether to retain or clean. Not touched here.
+- **P3 — Full policy/trigger/index inventory** on Production was not exhaustively enumerated
+  (migration-list + schema-object + RLS-behaviour checks passed); a deeper read-only audit can follow.
+- **P3 — On `main`, `.env.backup` is not yet gitignored** (the Phase 4B.1 `.gitignore` fix is in
+  unmerged PR #4); it was not committed here.
 
 ## 19. Recommended Next Phase
 
-On approval + password + backup confirmation: read Production migration history, produce the exact
-pending list and a `db diff` preview, then `supabase db push` (canonical migrations only) against
-`lkigkl…ffds`, followed by full post-migration verification (§10–§13), then decide on leftover-data
-cleanup and service-catalogue seeding as separate, approved steps. Do **not** deploy app code, Edge
-Functions, or enable M-Pesa in that phase.
+Phase 4D (separately gated): decide on residual-data cleanup and any application/Edge/M-Pesa work.
+Do **not** deploy app code, Edge Functions, or enable M-Pesa without explicit approval.
 
 ## 20. Final Status
 
-**PRODUCTION ALIGNMENT BLOCKED — Production is BEHIND (classification B), pending migrations are
-non-destructive, execution deferred pending DB password + backup confirmation + approval.** No
-Production schema or data was modified; no secrets exposed; no Edge Functions deployed; no payment/
-push/app/site/OTA/store actions; Full Platform Certification is NOT claimed.
+**PRODUCTION ALIGNED** — migrations `0017–0034` applied (history 34/34, 0 pending), schema matches
+canonical, existing data preserved, service catalogue seeded (19 active services), Edge Functions
+untouched, environment isolation intact, no secrets exposed. Full Platform Certification is NOT claimed.
