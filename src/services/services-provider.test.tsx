@@ -20,8 +20,8 @@ const mockListActiveServices = jest.fn();
 const mockListActiveServiceCategories = jest.fn();
 
 jest.mock('@/lib/services-catalog', () => ({
-  listActiveServices: jest.fn(),
-  listActiveServiceCategories: jest.fn(),
+  fetchActiveServices: jest.fn(),
+  fetchActiveServiceCategories: jest.fn(),
   // Inline re-implementation of parsePrice (pure, no Supabase deps).
   parsePrice(text: string | null): number | undefined {
     if (!text) return undefined;
@@ -52,10 +52,18 @@ jest.mock('@/lib/services-catalog', () => ({
 }));
 
 // Wire up the jest.fn() instances to our named mocks so tests can control them.
+// The provider now calls the error-aware fetch* helpers. The named mocks still
+// resolve/reject ARRAYS (keeping existing test bodies unchanged); we wrap a
+// resolved array into { ok: true, data } and let a rejection propagate as a
+// genuine fetch failure (exercising the CASE C fallback path).
 beforeAll(() => {
   const catalog = require('@/lib/services-catalog');
-  (catalog.listActiveServices as jest.Mock).mockImplementation((...a: unknown[]) => mockListActiveServices(...a));
-  (catalog.listActiveServiceCategories as jest.Mock).mockImplementation((...a: unknown[]) => mockListActiveServiceCategories(...a));
+  (catalog.fetchActiveServices as jest.Mock).mockImplementation(
+    async (...a: unknown[]) => ({ ok: true, data: await mockListActiveServices(...a) }),
+  );
+  (catalog.fetchActiveServiceCategories as jest.Mock).mockImplementation(
+    async (...a: unknown[]) => ({ ok: true, data: await mockListActiveServiceCategories(...a) }),
+  );
 });
 
 // ── Fixtures ───────────────────────────────────────────────────────────────
@@ -233,18 +241,40 @@ describe('ServicesProvider — reload', () => {
   });
 });
 
-describe('ServicesProvider — error / empty fallback', () => {
-  it('falls back to constants SERVICES when DB returns empty array', async () => {
+describe('ServicesProvider — source of truth: success-empty vs fetch-error', () => {
+  // CASE B — the core Phase 4C.1 regression. This FAILS on the pre-fix baseline
+  // (which resurrected the 19-item hardcoded catalogue on an empty success) and
+  // PASSES after the fix (a successful empty result stays empty).
+  it('CASE B: successful empty result stays empty — does NOT resurrect the hardcoded catalogue', async () => {
     mockListActiveServices.mockResolvedValue([]);
     mockListActiveServiceCategories.mockResolvedValue([]);
     wrap(<Probe />);
     await waitFor(() => expect(screen.getByTestId('loading').props.children).toBe('done'));
-    // Should fall back to constants (19 services)
-    expect(screen.getByTestId('count').props.children).toBe(SERVICES.length);
+    // Authoritative empty: zero services, and NOT the 19 hardcoded ones.
+    expect(screen.getByTestId('count').props.children).toBe(0);
+    expect(screen.getByTestId('count').props.children).not.toBe(SERVICES.length);
+    // A successful (empty) fetch is not an error.
     expect(screen.getByTestId('error').props.children).toBe('none');
+    // Featured/trending/category slices are also empty — no discovery-constant fallback.
+    expect(screen.getByTestId('featured').props.children).toBe('');
+    expect(screen.getByTestId('trending').props.children).toBe('');
+    expect(screen.getByTestId('home-cat').props.children).toBe(0);
   });
 
-  it('falls back to constants SERVICES on read error and sets error message', async () => {
+  // CASE C (realistic): the query resolves with ok:false (Supabase error swallowed
+  // by the data layer but surfaced via the discriminated result) → fallback retained.
+  it('CASE C: fetch error (ok:false) falls back to constants and sets error message', async () => {
+    const catalog = require('@/lib/services-catalog');
+    (catalog.fetchActiveServices as jest.Mock).mockResolvedValueOnce({ ok: false, data: [] });
+    (catalog.fetchActiveServiceCategories as jest.Mock).mockResolvedValueOnce({ ok: false, data: [] });
+    wrap(<Probe />);
+    await waitFor(() => expect(screen.getByTestId('loading').props.children).toBe('done'));
+    expect(screen.getByTestId('count').props.children).toBe(SERVICES.length);
+    expect(screen.getByTestId('error').props.children).not.toBe('none');
+  });
+
+  // CASE C (thrown): an unexpected rejection is also treated as a failure → fallback.
+  it('CASE C: thrown/rejected fetch falls back to constants and sets error message', async () => {
     mockListActiveServices.mockRejectedValue(new Error('Network error'));
     mockListActiveServiceCategories.mockRejectedValue(new Error('Network error'));
     wrap(<Probe />);
@@ -336,18 +366,20 @@ describe('getFeatured / getTrending / getPopular', () => {
     expect(popular).toBe(featured);
   });
 
-  it('getFeatured falls back to discovery constants when DB cache is empty', async () => {
-    mockListActiveServices.mockResolvedValue([]);
-    mockListActiveServiceCategories.mockResolvedValue([]);
+  it('getFeatured falls back to discovery constants on fetch error (not on empty success)', async () => {
+    const catalog = require('@/lib/services-catalog');
+    (catalog.fetchActiveServices as jest.Mock).mockResolvedValueOnce({ ok: false, data: [] });
+    (catalog.fetchActiveServiceCategories as jest.Mock).mockResolvedValueOnce({ ok: false, data: [] });
     wrap(<Probe />);
     await waitFor(() => expect(screen.getByTestId('loading').props.children).toBe('done'));
     const fallbackIds = getFeaturedServices().map((s) => s.id).join(',');
     expect(screen.getByTestId('featured').props.children).toBe(fallbackIds);
   });
 
-  it('getTrending falls back to discovery constants when DB cache is empty', async () => {
-    mockListActiveServices.mockResolvedValue([]);
-    mockListActiveServiceCategories.mockResolvedValue([]);
+  it('getTrending falls back to discovery constants on fetch error (not on empty success)', async () => {
+    const catalog = require('@/lib/services-catalog');
+    (catalog.fetchActiveServices as jest.Mock).mockResolvedValueOnce({ ok: false, data: [] });
+    (catalog.fetchActiveServiceCategories as jest.Mock).mockResolvedValueOnce({ ok: false, data: [] });
     wrap(<Probe />);
     await waitFor(() => expect(screen.getByTestId('loading').props.children).toBe('done'));
     const fallbackIds = getTrendingServices().map((s) => s.id).join(',');
@@ -365,9 +397,10 @@ describe('getServicesByCategory', () => {
     expect(screen.getByTestId('home-cat').props.children).toBe(2);
   });
 
-  it('filters constants by category when DB cache is empty', async () => {
-    mockListActiveServices.mockResolvedValue([]);
-    mockListActiveServiceCategories.mockResolvedValue([]);
+  it('filters constants by category on fetch error (not on empty success)', async () => {
+    const catalog = require('@/lib/services-catalog');
+    (catalog.fetchActiveServices as jest.Mock).mockResolvedValueOnce({ ok: false, data: [] });
+    (catalog.fetchActiveServiceCategories as jest.Mock).mockResolvedValueOnce({ ok: false, data: [] });
     wrap(<Probe />);
     await waitFor(() => expect(screen.getByTestId('loading').props.children).toBe('done'));
     // constants has 9 home services
