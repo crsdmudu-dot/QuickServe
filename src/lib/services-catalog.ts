@@ -50,32 +50,62 @@ export type DbService = {
 // ── Reads (RLS-scoped; [] on error; never throw) ───────────────────────────
 
 /**
- * Returns all active service categories ordered by display_order.
- * RLS also enforces active-only for non-admin callers.
- * Returns [] on any Supabase error.
+ * Discriminated fetch result.
+ * - `{ ok: true, data }`  → the query SUCCEEDED. `data` may be empty ([]); an
+ *   empty success is a legitimate, admin-controlled "no active services" state
+ *   and must NOT trigger a hardcoded fallback.
+ * - `{ ok: false }`       → the query genuinely ERRORED (network / RLS / Postgres);
+ *   callers may fall back to a cached/offline catalogue.
+ * This lets callers separate SUCCESS_EMPTY from FETCH_ERROR — a distinction the
+ * plain list* helpers (which return [] for both) cannot express.
  */
-export async function listActiveServiceCategories(): Promise<DbCategory[]> {
+export type CatalogFetch<T> = { ok: true; data: T[] } | { ok: false; data: [] };
+
+/**
+ * Error-aware fetch of active service categories (ordered by display_order).
+ * Distinguishes a successful-but-empty result from a genuine query error.
+ */
+export async function fetchActiveServiceCategories(): Promise<CatalogFetch<DbCategory>> {
   const { data, error } = await supabase
     .from('service_categories')
     .select('*')
     .eq('active', true)
     .order('display_order', { ascending: true });
-  if (error) return [];
-  return (data as DbCategory[] | null) ?? [];
+  if (error) return { ok: false, data: [] };
+  return { ok: true, data: (data as DbCategory[] | null) ?? [] };
 }
 
 /**
- * Returns all active services ordered by display_order.
- * Returns [] on any Supabase error.
+ * Error-aware fetch of active services (ordered by display_order).
+ * Distinguishes a successful-but-empty result from a genuine query error.
  */
-export async function listActiveServices(): Promise<DbService[]> {
+export async function fetchActiveServices(): Promise<CatalogFetch<DbService>> {
   const { data, error } = await supabase
     .from('services')
     .select('*')
     .eq('status', 'active')
     .order('display_order', { ascending: true });
-  if (error) return [];
-  return (data as DbService[] | null) ?? [];
+  if (error) return { ok: false, data: [] };
+  return { ok: true, data: (data as DbService[] | null) ?? [] };
+}
+
+/**
+ * Returns all active service categories ordered by display_order.
+ * RLS also enforces active-only for non-admin callers.
+ * Thin wrapper over fetchActiveServiceCategories — returns [] on any Supabase
+ * error (contract preserved for existing callers; never throws).
+ */
+export async function listActiveServiceCategories(): Promise<DbCategory[]> {
+  return (await fetchActiveServiceCategories()).data;
+}
+
+/**
+ * Returns all active services ordered by display_order.
+ * Thin wrapper over fetchActiveServices — returns [] on any Supabase error
+ * (contract preserved for existing callers; never throws).
+ */
+export async function listActiveServices(): Promise<DbService[]> {
+  return (await fetchActiveServices()).data;
 }
 
 /**
