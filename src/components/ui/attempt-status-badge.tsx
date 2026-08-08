@@ -19,6 +19,7 @@ const ATTEMPT_STATUS_COLORS: Record<AttemptStatus, ThemeColor> = {
   successful: 'success',
   failed: 'error',
   cancelled: 'textSecondary',
+  timed_out: 'textSecondary',
 };
 
 // Maps the semantic color tokens to their surface variant for the background.
@@ -37,6 +38,7 @@ const ATTEMPT_STATUS_LABELS: Record<AttemptStatus, string> = {
   successful: 'Successful',
   failed: 'Failed',
   cancelled: 'Cancelled',
+  timed_out: 'Timed out',
 };
 
 export type AttemptStatusBadgeProps = { status: AttemptStatus };
