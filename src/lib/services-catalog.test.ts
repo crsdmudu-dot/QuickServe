@@ -1,4 +1,6 @@
 import {
+  fetchActiveServiceCategories,
+  fetchActiveServices,
   listActiveServiceCategories,
   listActiveServices,
   listAdminServiceCategories,
@@ -199,6 +201,54 @@ describe('listActiveServices', () => {
     const result = await listActiveServices();
 
     expect(result).toEqual([]);
+  });
+});
+
+// ── fetchActiveServices / fetchActiveServiceCategories (error-aware) ─────────
+// These surface the SUCCESS_EMPTY vs FETCH_ERROR distinction the list* helpers
+// cannot express (both return []). Used by ServicesProvider to decide fallback.
+
+describe('fetchActiveServices (error-aware)', () => {
+  it('returns { ok: true, data: [] } on a successful EMPTY result (not an error)', async () => {
+    mockEq.mockReturnValue({ data: [], error: null });
+
+    const result = await fetchActiveServices();
+
+    expect(result).toEqual({ ok: true, data: [] });
+  });
+
+  it('returns { ok: true, data } with rows on success', async () => {
+    const rows = [makeDbService()];
+    mockEq.mockReturnValue({ data: rows, error: null });
+
+    const result = await fetchActiveServices();
+
+    expect(result).toEqual({ ok: true, data: rows });
+  });
+
+  it('returns { ok: false } on a genuine query error (distinct from empty success)', async () => {
+    mockEq.mockReturnValue({ data: null, error: { message: 'boom' } });
+
+    const result = await fetchActiveServices();
+
+    expect(result.ok).toBe(false);
+    expect(result.data).toEqual([]);
+  });
+});
+
+describe('fetchActiveServiceCategories (error-aware)', () => {
+  it('returns { ok: true, data: [] } on a successful EMPTY result', async () => {
+    mockEq.mockReturnValue({ data: [], error: null });
+
+    expect(await fetchActiveServiceCategories()).toEqual({ ok: true, data: [] });
+  });
+
+  it('returns { ok: false } on a genuine query error', async () => {
+    mockEq.mockReturnValue({ data: null, error: { message: 'boom' } });
+
+    const result = await fetchActiveServiceCategories();
+
+    expect(result.ok).toBe(false);
   });
 });
 
