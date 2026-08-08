@@ -14,6 +14,7 @@ import { useServices } from '@/services/services-provider';
 import { SearchBar } from '@/components/ui/search-bar';
 import { SectionHeader } from '@/components/ui/section-header';
 import { ServiceCard } from '@/components/ui/service-card';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { NotificationBell } from '@/components/notifications/notification-bell';
@@ -57,6 +58,9 @@ export default function HomeScreen() {
 
   const featured = getFeatured();
   const trending = getTrending();
+  // The DB is the source of truth: once the fetch has resolved, zero services means
+  // the admin has none active. Show a neutral empty state — never the hardcoded catalogue.
+  const catalogueEmpty = !servicesLoading && services.length === 0;
 
   return (
     <ScrollView
@@ -114,6 +118,17 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
+        {catalogueEmpty ? (
+          /* Admin has zero active services — respect that, don't resurrect the hardcoded catalogue. */
+          <View style={styles.section}>
+            <EmptyState
+              icon="🧰"
+              title="No services available right now"
+              message="Please check back soon."
+            />
+          </View>
+        ) : (
+        <>
         {/* ── Popular (horizontal scroll) ──────────────────────────── */}
         <View style={styles.section}>
           <SectionHeader title="Popular" />
@@ -280,6 +295,8 @@ export default function HomeScreen() {
             Browse all categories →
           </Text>
         </TouchableOpacity>
+        </>
+        )}
       </SafeAreaView>
     </ScrollView>
   );

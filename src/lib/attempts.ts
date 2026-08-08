@@ -4,7 +4,15 @@ import { isValidKenyanPhone, normalizeKenyanPhone } from '@/lib/mpesa';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-export type AttemptStatus = 'initiated' | 'pending' | 'successful' | 'failed' | 'cancelled';
+export type AttemptStatus =
+  | 'initiated'
+  | 'pending'
+  | 'successful'
+  | 'failed'
+  | 'cancelled'
+  // Phase 4D.2: a stale pending M-Pesa attempt with no callback, aged past the
+  // reconciliation window (see migration 0036 reconcile_stale_payment_attempts).
+  | 'timed_out';
 export type PaymentMethod = 'mpesa' | 'card' | 'cash';
 
 export type PaymentAttempt = {

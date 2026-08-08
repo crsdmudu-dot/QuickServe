@@ -92,6 +92,8 @@ jest.mock('@/lib/providers', () => ({ getPendingProviders: jest.fn().mockResolve
 jest.mock('@/lib/reviews', () => ({ adminGetAllReviews: jest.fn().mockResolvedValue([]) }));
 jest.mock('@/lib/notifications', () => ({ getUnreadNotificationCount: jest.fn().mockResolvedValue(0) }));
 jest.mock('@/lib/services-catalog', () => ({
+  fetchActiveServices: jest.fn().mockResolvedValue({ ok: true, data: [] }),
+  fetchActiveServiceCategories: jest.fn().mockResolvedValue({ ok: true, data: [] }),
   listActiveServices: jest.fn().mockResolvedValue([]),
   listActiveServiceCategories: jest.fn().mockResolvedValue([]),
   toService: (r: unknown) => r,
