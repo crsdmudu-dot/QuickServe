@@ -56,6 +56,35 @@ export async function registerForPushNotifications(): Promise<string | null> {
   }
 }
 
+/**
+ * Remove THIS installation's push token for the CURRENTLY authenticated user.
+ *
+ * Call this while the user is STILL signed in (before supabase.auth.signOut()),
+ * so RLS (device_tokens_delete: user_id = auth.uid()) scopes the delete to the
+ * caller's own row for this exact device token. It therefore removes only the
+ * (current user, current device token) association — never another user's row and
+ * never this user's OTHER devices.
+ *
+ * Best-effort: NEVER throws and never logs the token — logout must proceed even if
+ * push cleanup fails.
+ */
+export async function unregisterForPushNotifications(): Promise<void> {
+  try {
+    if (!Device.isDevice) return;                 // simulators / Expo Go web
+    if (isExpoGo()) return;   // never import expo-notifications in Expo Go
+    const Notifications = await import('expo-notifications');
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId as string | undefined;
+    const tokenResp = await Notifications.getExpoPushTokenAsync(
+      projectId ? { projectId } : undefined,
+    );
+    const push_token = tokenResp.data;
+    // RLS restricts this DELETE to the current user's row for this token only.
+    await supabase.from('device_tokens').delete().eq('push_token', push_token);
+  } catch {
+    // Best-effort — never block logout on push cleanup failure. No token logged.
+  }
+}
+
 /** Extracts the notification identifier from a notification response, or undefined. */
 function responseId(response: unknown): string | undefined {
   return (response as { notification?: { request?: { identifier?: string } } } | null | undefined)

@@ -1,6 +1,11 @@
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
-import { routeForNotificationData, registerForPushNotifications, setupNotificationResponseListener } from './push';
+import {
+  routeForNotificationData,
+  registerForPushNotifications,
+  unregisterForPushNotifications,
+  setupNotificationResponseListener,
+} from './push';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -40,13 +45,16 @@ jest.mock('expo-constants', () => ({
     executionEnvironment: undefined as string | undefined,
   },
 }));
-jest.mock('@/lib/supabase', () => ({
-  supabase: {
-    functions: {
-      invoke: jest.fn(),
-    },
-  },
-}));
+jest.mock('@/lib/supabase', () => {
+  // device_tokens delete builder: supabase.from('device_tokens').delete().eq('push_token', t)
+  const eq = jest.fn(() => Promise.resolve({ error: null }));
+  const del = jest.fn(() => ({ eq }));
+  const from = jest.fn(() => ({ delete: del }));
+  return {
+    supabase: { functions: { invoke: jest.fn() }, from },
+    __deviceTokensMocks: { eq, del, from },
+  };
+});
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -68,8 +76,12 @@ const mockAsyncStorage = (jest.requireMock('@react-native-async-storage/async-st
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
 const { supabase } = jest.requireMock('@/lib/supabase') as {
-  supabase: { functions: { invoke: jest.Mock } };
+  supabase: { functions: { invoke: jest.Mock }; from: jest.Mock };
 };
+
+const deviceTokensMocks = (jest.requireMock('@/lib/supabase') as {
+  __deviceTokensMocks: { eq: jest.Mock; del: jest.Mock; from: jest.Mock };
+}).__deviceTokensMocks;
 
 // Mutable Constants mock — lets tests set appOwnership = 'expo' to simulate Expo Go.
 const mockConstants = jest.requireMock('expo-constants').default as {
@@ -180,6 +192,54 @@ describe('registerForPushNotifications', () => {
     expect(result).toBeNull();
     expect(mockNotifications.getExpoPushTokenAsync).not.toHaveBeenCalled();
     expect(supabase.functions.invoke).not.toHaveBeenCalled();
+  });
+});
+
+// ── unregisterForPushNotifications (Phase 4E.1 token-ownership) ──────────────
+
+describe('unregisterForPushNotifications', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockConstants.appOwnership = undefined;
+    mockConstants.executionEnvironment = undefined;
+    (Device as any).isDevice = true;
+    mockNotifications.getExpoPushTokenAsync.mockResolvedValue({ data: 'ExponentPushToken[x]', type: 'expo' });
+    deviceTokensMocks.from.mockReturnValue({ delete: deviceTokensMocks.del });
+    deviceTokensMocks.del.mockReturnValue({ eq: deviceTokensMocks.eq });
+    deviceTokensMocks.eq.mockResolvedValue({ error: null });
+  });
+
+  it('deletes ONLY this device token row (filters by push_token; RLS scopes to the user)', async () => {
+    await unregisterForPushNotifications();
+    expect(deviceTokensMocks.from).toHaveBeenCalledWith('device_tokens');
+    expect(deviceTokensMocks.del).toHaveBeenCalledTimes(1);
+    // Filters by the current device's push_token only — never a broad delete of all
+    // the user's tokens (their other devices are untouched; RLS scopes to auth.uid()).
+    expect(deviceTokensMocks.eq).toHaveBeenCalledTimes(1);
+    expect(deviceTokensMocks.eq).toHaveBeenCalledWith('push_token', 'ExponentPushToken[x]');
+  });
+
+  it('does nothing on a simulator / non-device', async () => {
+    (Device as any).isDevice = false;
+    await unregisterForPushNotifications();
+    expect(deviceTokensMocks.from).not.toHaveBeenCalled();
+  });
+
+  it('does nothing in Expo Go (never imports expo-notifications)', async () => {
+    mockConstants.appOwnership = 'expo';
+    await unregisterForPushNotifications();
+    expect(deviceTokensMocks.from).not.toHaveBeenCalled();
+  });
+
+  it('never throws when the delete fails (best-effort — logout must still proceed)', async () => {
+    deviceTokensMocks.eq.mockRejectedValueOnce(new Error('network down'));
+    await expect(unregisterForPushNotifications()).resolves.toBeUndefined();
+  });
+
+  it('never throws when the push token cannot be resolved', async () => {
+    mockNotifications.getExpoPushTokenAsync.mockRejectedValueOnce(new Error('no token'));
+    await expect(unregisterForPushNotifications()).resolves.toBeUndefined();
+    expect(deviceTokensMocks.from).not.toHaveBeenCalled();
   });
 });
 
