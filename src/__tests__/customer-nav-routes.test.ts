@@ -77,6 +77,17 @@ describe('customer navigation architecture (Phase 4E.1)', () => {
     for (const name of CUSTOMER_ROUTES) expect(triggers).not.toContain(name);
   });
 
+  it('every customer root-stack screen has a visible "← Back" (iOS has no hardware back)', () => {
+    // Phase 4E.2: iOS provides no hardware back; these full-screen stack routes must
+    // expose the app's standard "← Back" control (as wallet/notification-settings/search do)
+    // so the user is never trapped. Verified functionally on the iOS Simulator.
+    for (const name of ['browse-providers', 'favorites', 'preferences', 'trust', 'search']) {
+      const src = read(`app/${name}.tsx`);
+      expect(src).toContain('← Back');
+      expect(src).toContain('router.back()');
+    }
+  });
+
   it('Home search bar is non-interactive so the tap navigates to /search (not a dead field)', () => {
     // The Home search bar is display-only. Its inner TextInput must be wrapped in
     // pointerEvents="none" so a tap falls through to the TouchableOpacity → /search,

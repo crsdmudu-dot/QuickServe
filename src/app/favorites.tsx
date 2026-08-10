@@ -25,6 +25,7 @@ import {
 import { DiscoverySkeleton } from '@/components/ui/discovery-skeleton';
 import { MarketplaceEmptyState } from '@/components/ui/marketplace-empty-state';
 import { MarketplaceProviderCard } from '@/components/ui/marketplace-provider-card';
+import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 
 // ── Quick-rebook helper ──────────────────────────────────────────────────────
@@ -111,6 +112,7 @@ export default function FavoritesScreen() {
       style={[styles.safe, { backgroundColor: theme.background }]}
     >
       {/* ── Header ──────────────────────────────────────────────────── */}
+      <Button label="← Back" variant="ghost" onPress={() => router.back()} />
       <Text variant="title" style={styles.heading}>
         My Favorites
       </Text>

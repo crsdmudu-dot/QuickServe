@@ -125,10 +125,9 @@ describe('FavoritesScreen', () => {
     render(<FavoritesScreen />);
     await screen.findByText('Alpha Cleaner');
     // The heart/favorite button triggers removal in the favorites screen
-    const buttons = screen.getAllByRole('button');
-    // Find the favorite toggle button — it's the last one per card (after the rebook btn)
-    // Use the one that's the favorite heart
-    fireEvent.press(buttons.find(b => b)!); // press first button which is the back or favorite
+    // Press the favorite toggle via its accessibility label (semantic selector —
+    // robust to added header controls such as the "← Back" button).
+    fireEvent.press(screen.getByLabelText('Remove from favorites'));
     await waitFor(() =>
       expect(mockRemoveFavoriteProvider).toHaveBeenCalledWith('p-alpha'),
     );

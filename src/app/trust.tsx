@@ -12,10 +12,12 @@
 
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 
 import { deriveCustomerTrustSignals } from '@/constants/trust';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
@@ -44,6 +46,7 @@ export default function TrustScreen() {
       showsVerticalScrollIndicator={false}
     >
       <SafeAreaView style={[styles.safe, { maxWidth: MaxContentWidth }]}>
+        <Button label="← Back" variant="ghost" onPress={() => router.back()} />
         {/* ── Header ──────────────────────────────────────────────────── */}
         <Text variant="title">Trust &amp; Safety</Text>
         <Text variant="body" color="textSecondary">
