@@ -1,0 +1,39 @@
+# Phase 4E.2 — Notification-center refresh, part A (Android defect #1 replay on iOS).
+#
+# Logs the QA customer in, opens the real Notifications tab, and proves the INITIAL
+# list loads (a notification seeded before this flow is visible). The "refresh" item
+# has NOT been created yet, so it must be absent here — the baseline for part B.
+#
+# Params via -e: CUST_EMAIL, CUST_PW, TITLE_INIT, TITLE_REFRESH
+appId: com.quickserve.app
+---
+- launchApp: { clearState: true }
+- extendedWaitUntil: { visible: "Get Started", timeout: 30000 }
+# After cold start the welcome can render before expo-router is interactive; tap the
+# login link only while still on welcome, until the sign-in screen appears.
+- repeat:
+    times: 8
+    commands:
+      - runFlow:
+          when: { visible: { id: "login-link" } }
+          commands:
+            - tapOn: { id: "login-link" }
+            - extendedWaitUntil: { visible: "Welcome back", timeout: 3000, optional: true }
+- extendedWaitUntil: { visible: "Welcome back", timeout: 10000 }
+- tapOn: "you@example.com"
+- inputText: "${CUST_EMAIL}"
+- tapOn: "Your password"
+- inputText: "${CUST_PW}"
+- tapOn: "Welcome back"          # tap a static heading to dismiss the keyboard (hideKeyboard is flaky on iOS)
+- tapOn: "Continue"
+- runFlow: { when: { visible: "Don.t Allow" }, commands: [ { tapOn: "Don.t Allow" } ] }
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 25000 }
+
+# ── Open the real Notifications screen ────────────────────────────────────────
+- tapOn: "Notifications"
+- extendedWaitUntil: { visible: "Notifications", timeout: 15000 }
+# Initial fetch on mount loaded the list — the pre-seeded item is visible.
+- extendedWaitUntil: { visible: "${TITLE_INIT}", timeout: 15000 }
+# The mid-session "refresh" notification does NOT exist yet (baseline).
+- assertNotVisible: "${TITLE_REFRESH}"
+- takeScreenshot: r01-initial-load
