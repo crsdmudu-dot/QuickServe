@@ -85,6 +85,11 @@ jobs:
       - name: Entry reachability smoke (iOS deterministic entry)
         run: maestro test qa/native/flows/entry-reachability.yaml
 
+      - name: Phase 4E.2 — customer nav/search regression (Android-hurdle replay)
+        run: |
+          maestro test qa/native/flows/customer-nav-search.yaml \
+            -e CUST_EMAIL="$QA_CUSTOMER_EMAIL" -e CUST_PW="$QA_CUSTOMER_PASSWORD"
+
       - name: Run Phase 3F customer/provider journeys on iOS
         run: bash qa/native/ios-journeys.sh
 
@@ -95,5 +100,6 @@ jobs:
           name: maestro-ios-artifacts
           path: |
             ~/.maestro/tests
+            ${{ github.workspace }}/*.png
           if-no-files-found: ignore
           retention-days: 14

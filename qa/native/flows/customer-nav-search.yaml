@@ -1,0 +1,124 @@
+# Phase 4E.2 — iOS regression replay of Android Phase 4E.1 navigation/search defects.
+#
+# Replays, on the real iOS UI (Simulator), the customer-facing defects certified on Android:
+#   - Home search TextInput tap interception (must navigate to /search, not a dead field)
+#   - Search catalogue source-of-truth (live results + suggestions)
+#   - NativeTabs orphan routes reachable (Browse Providers, Favorites, Preferences, Trust & Safety)
+#   - /providers vs admin-web collision (customer must NOT see the admin "Not authorized" guard)
+#   - bottom tabs
+#   - back-navigation probe (iOS has no hardware back)
+#
+# Credentials via -e (never stored here):
+#   maestro test customer-nav-search.yaml -e CUST_EMAIL=... -e CUST_PW=...
+appId: com.quickserve.app
+---
+- launchApp: { clearState: true }
+- extendedWaitUntil: { visible: "Get Started", timeout: 30000 }
+# Customer sign-in (tap the login link until the sign-in screen is interactive).
+- repeat:
+    times: 8
+    commands:
+      - runFlow:
+          when: { visible: { id: "login-link" } }
+          commands:
+            - tapOn: { id: "login-link" }
+            - extendedWaitUntil: { visible: "Welcome back", timeout: 3000, optional: true }
+- extendedWaitUntil: { visible: "Welcome back", timeout: 10000 }
+- tapOn: "you@example.com"
+- inputText: "${CUST_EMAIL}"
+- tapOn: "Your password"
+- inputText: "${CUST_PW}"
+- tapOn: "Welcome back"
+- tapOn: "Continue"
+# iOS may prompt for notifications after sign-in; decline (irrelevant to nav/search).
+- runFlow: { when: { visible: "Don.t Allow" }, commands: [ { tapOn: "Don.t Allow" } ] }
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 25000 }
+- assertNotVisible: "Not authorized"
+- takeScreenshot: n01-home
+
+# ── Home Search interception replay ──────────────────────────────────────────
+# Tapping the Home search control MUST navigate to /search (proved by "Popular searches",
+# which exists only on /search) and MUST NOT leave us on Home with a focused dead field.
+- tapOn: "Search services"
+- extendedWaitUntil: { visible: "Popular searches", timeout: 10000 }
+- assertNotVisible: "What service do you need today?"
+- takeScreenshot: n02-search-opened
+
+# ── Search source-of-truth: exact-service results from the live catalogue ─────
+- tapOn: "Search services..."
+- inputText: "Mechanic"
+- extendedWaitUntil: { visible: ".*Mechanic On Demand.*", timeout: 12000 }
+- takeScreenshot: n03-mechanic
+- eraseText
+- inputText: "Plumbing"
+- extendedWaitUntil: { visible: ".*Plumbing.*", timeout: 12000 }
+- eraseText
+- inputText: "House Cleaning"
+- extendedWaitUntil: { visible: ".*House Cleaning.*", timeout: 12000 }
+- eraseText
+- inputText: "Electrical"
+- extendedWaitUntil: { visible: ".*Electrical Repairs.*", timeout: 12000 }
+- eraseText
+- inputText: "Movers"
+- extendedWaitUntil: { visible: ".*Movers.*Packers.*", timeout: 12000 }
+- takeScreenshot: n04-movers
+# Tap the result → booking flow starts (Step 1 "Your Address").
+- tapOn: ".*Movers.*Packers.*"
+- extendedWaitUntil: { visible: "Your Address", timeout: 15000 }
+- takeScreenshot: n05-result-opens-booking
+- launchApp: { clearState: false }
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 20000 }
+
+# ── Browse Providers — customer screen, NO admin authorization guard ──────────
+- tapOn: "Browse providers"
+- extendedWaitUntil: { visible: "Browse Providers", timeout: 15000 }
+- assertNotVisible: "Not authorized"
+- assertNotVisible: ".*admin access.*"
+- assertNotVisible: "Sign out"
+- takeScreenshot: n06-browse-providers
+# Back-navigation probe (iOS has no hardware back; these screens have no visible Back button).
+# Attempt the iOS edge swipe-back and record the outcome (optional so a trap does not abort).
+- swipe: { start: "2%, 50%", end: "92%, 50%" }
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 6000, optional: true }
+- takeScreenshot: n06b-after-swipe-back
+- launchApp: { clearState: false }
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 20000 }
+
+# ── Favorites — reachable; CTA present ────────────────────────────────────────
+- tapOn: "My favorites"
+- extendedWaitUntil: { visible: "My Favorites", timeout: 15000 }
+- takeScreenshot: n07-favorites
+- launchApp: { clearState: false }
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 20000 }
+
+# ── Profile → Preferences (orphan route reachable) ────────────────────────────
+- tapOn: "Profile"
+- extendedWaitUntil: { visible: "Preferences", timeout: 15000 }
+- scrollUntilVisible: { element: { text: "Preferences" }, direction: DOWN, timeout: 10000 }
+- tapOn: "Preferences"
+- extendedWaitUntil: { visible: "Favorite services", timeout: 15000 }   # unique to the Preferences screen
+- takeScreenshot: n08-preferences
+- launchApp: { clearState: false }
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 20000 }
+
+# ── Profile → Trust & Safety (orphan route reachable) ─────────────────────────
+- tapOn: "Profile"
+- scrollUntilVisible: { element: { text: "Trust & Safety" }, direction: DOWN, timeout: 10000 }
+- tapOn: "Trust & Safety"
+- extendedWaitUntil: { visible: "Trust & Safety", timeout: 15000 }
+- takeScreenshot: n09-trust
+- launchApp: { clearState: false }
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 20000 }
+
+# ── Bottom tabs ───────────────────────────────────────────────────────────────
+- tapOn: "My Bookings"
+- extendedWaitUntil: { visible: "My Bookings", timeout: 15000 }
+- takeScreenshot: n10-bookings
+- tapOn: "Notifications"
+- extendedWaitUntil: { visible: "Notifications", timeout: 15000 }
+- takeScreenshot: n11-notifications
+- tapOn: "Profile"
+- extendedWaitUntil: { visible: "Preferences", timeout: 15000 }
+- tapOn: "Home"
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 15000 }
+- takeScreenshot: n12-back-home
