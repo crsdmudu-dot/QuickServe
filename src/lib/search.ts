@@ -2,8 +2,7 @@
 // Pure/local — NO network, NO Supabase, NO PII.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SERVICES, CATEGORY_LABELS, CATEGORY_ORDER, getPopularServices, type Service } from '@/constants/services';
-import { getFeaturedServices } from '@/constants/discovery';
+import { CATEGORY_LABELS, type Service } from '@/constants/services';
 
 // ── Recent searches (AsyncStorage) ────────────────────────────────────────
 
@@ -76,10 +75,13 @@ export function searchServices(services: Service[], query: string): Service[] {
 }
 
 /**
- * Returns up to 6 suggestion strings from matching service titles and category labels.
- * De-duped; empty/whitespace query returns [].
+ * Returns up to 6 suggestion strings derived from the LIVE catalogue (`services`,
+ * pass useServices().services) — never from the hardcoded constants — so a
+ * suggestion can never reference a service that is not in the live DB catalogue.
+ * Matches service titles, then category labels for categories present in the
+ * catalogue. De-duped; empty/whitespace query returns [].
  */
-export function searchSuggestions(query: string): string[] {
+export function searchSuggestions(services: Service[], query: string): string[] {
   const q = query.trim().toLowerCase();
   if (!q) return [];
 
@@ -88,7 +90,8 @@ export function searchSuggestions(query: string): string[] {
 
   const MAX_SUGGESTIONS = 6;
 
-  for (const svc of SERVICES) {
+  // Service titles from the live catalogue.
+  for (const svc of services) {
     if (results.length >= MAX_SUGGESTIONS) break;
     if (svc.title.toLowerCase().includes(q)) {
       const key = svc.title.toLowerCase();
@@ -99,10 +102,10 @@ export function searchSuggestions(query: string): string[] {
     }
   }
 
-  // Also add matching category labels
-  for (const category of CATEGORY_ORDER) {
+  // Category labels, only for categories that actually have a live service.
+  for (const svc of services) {
     if (results.length >= MAX_SUGGESTIONS) break;
-    const label = CATEGORY_LABELS[category];
+    const label = CATEGORY_LABELS[svc.category] ?? svc.category;
     if (label.toLowerCase().includes(q)) {
       const key = label.toLowerCase();
       if (!seen.has(key)) {
@@ -116,17 +119,15 @@ export function searchSuggestions(query: string): string[] {
 }
 
 /**
- * Returns recommended services when a search yields no results.
- * Merges featured services and popular services, de-duped, capped at 6.
+ * Returns recommended services when a search yields no results — drawn from the
+ * LIVE catalogue (`services`, pass useServices().services), de-duped, capped at 6.
+ * Never returns services absent from the live DB catalogue.
  */
-export function noResultRecommendations(): Service[] {
-  const featured = getFeaturedServices();
-  const popular = getPopularServices();
-
+export function noResultRecommendations(services: Service[]): Service[] {
   const seen = new Set<string>();
   const results: Service[] = [];
 
-  for (const svc of [...featured, ...popular]) {
+  for (const svc of services) {
     if (results.length >= 6) break;
     if (!seen.has(svc.id)) {
       seen.add(svc.id);

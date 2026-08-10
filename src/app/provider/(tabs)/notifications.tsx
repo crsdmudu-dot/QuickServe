@@ -9,9 +9,10 @@
  * notification.  An unread badge shows the current unread count in the header.
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import { Href, router } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Href, router, useFocusEffect } from 'expo-router';
 import {
+  RefreshControl,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -50,13 +51,14 @@ export default function ProviderNotificationsScreen() {
 
   const reload = useCallback(() => {
     setListLoading(true);
-    getMyNotifications()
+    // Returns the promise so pull-to-refresh can await completion.
+    return getMyNotifications()
       .then(setNotifications)
       .finally(() => setListLoading(false));
   }, []);
 
   useEffect(() => {
-    reload();
+    void reload();
   }, [reload]);
 
   // ── Filter chip state (client-side view only — does NOT suppress history) ──
@@ -65,14 +67,41 @@ export default function ProviderNotificationsScreen() {
   // ── Unread badge count ──────────────────────────────────────────────────────
   const [unreadCount, setUnreadCount] = useState(0);
 
-  async function refreshUnread() {
+  const refreshUnread = useCallback(async () => {
     const count = await getUnreadNotificationCount();
     setUnreadCount(count);
-  }
+  }, []);
 
   useEffect(() => {
     void refreshUnread();
-  }, []);
+  }, [refreshUnread]);
+
+  // ── Pull-to-refresh: genuinely refetch the list + unread count ──────────────
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await reload();
+      await refreshUnread();
+    } finally {
+      // Always clears — even if the refetch throws — so the spinner never sticks.
+      setRefreshing(false);
+    }
+  }, [reload, refreshUnread]);
+
+  // ── Refetch when the screen regains focus ───────────────────────────────────
+  // Skip the FIRST focus: the mount effect above already loads the list.
+  const firstFocus = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (firstFocus.current) {
+        firstFocus.current = false;
+        return;
+      }
+      void reload();
+      void refreshUnread();
+    }, [reload, refreshUnread]),
+  );
 
   // ── Computed filtered list (pure, client-side) ─────────────────────────────
   const shown = filterNotifications(notifications, filter);
@@ -105,6 +134,9 @@ export default function ProviderNotificationsScreen() {
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
         {/* Header row: title + unread badge */}
         <View style={styles.headerRow}>

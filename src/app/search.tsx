@@ -2,7 +2,7 @@
  * Search screen — instant service search with recent searches, popular terms,
  * suggestions, and no-result recommendations.
  *
- * Entry: router.push('/(customer)/search') from Home search bar.
+ * Entry: router.push('/search') from Home search bar.
  * Booking: tapping a result calls start(serviceId) → /booking/address.
  * No provider id ever enters the booking flow.
  */
@@ -78,7 +78,7 @@ export default function SearchScreen() {
   const hasQuery = query.trim().length > 0;
   const hasResults = results.length > 0;
   const noResults = hasQuery && !hasResults;
-  const recommendations = noResults ? noResultRecommendations() : [];
+  const recommendations = noResults ? noResultRecommendations(services) : [];
 
   return (
     <SafeAreaView

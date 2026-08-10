@@ -6,15 +6,21 @@
 
 import { render, screen, fireEvent } from '@testing-library/react-native';
 
-// Mock lib/search so we control what searchSuggestions returns
+// Mock lib/search so we control what searchSuggestions returns.
+// Signature is (services, query) — suggestions are derived from the live catalogue.
 jest.mock('@/lib/search', () => ({
-  searchSuggestions: jest.fn((query: string) => {
+  searchSuggestions: jest.fn((_services: unknown, query: string) => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
     if (q === 'clean') return ['House Cleaning', 'Pest Control'];
     if (q === 'xyz_no_match') return [];
     return ['House Cleaning'];
   }),
+}));
+
+// The component reads the live catalogue via useServices().services.
+jest.mock('@/services/services-provider', () => ({
+  useServices: () => ({ services: [{ id: 'house-cleaning', title: 'House Cleaning', category: 'home' }] }),
 }));
 
 import { SearchSuggestions } from '@/components/ui/search-suggestions';

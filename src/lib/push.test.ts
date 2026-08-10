@@ -1,6 +1,11 @@
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
-import { routeForNotificationData, registerForPushNotifications, setupNotificationResponseListener } from './push';
+import {
+  routeForNotificationData,
+  registerForPushNotifications,
+  unregisterForPushNotifications,
+  setupNotificationResponseListener,
+} from './push';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -12,6 +17,16 @@ jest.mock('expo-notifications', () => ({
   requestPermissionsAsync: jest.fn(),
   getExpoPushTokenAsync: jest.fn(),
   addNotificationResponseReceivedListener: jest.fn(),
+  getLastNotificationResponseAsync: jest.fn(),
+}));
+
+// AsyncStorage — used by the cold-start stale-response guard in push.ts.
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  __esModule: true,
+  default: {
+    getItem: jest.fn(async () => null),
+    setItem: jest.fn(async () => undefined),
+  },
 }));
 
 jest.mock('expo-device');
@@ -30,13 +45,16 @@ jest.mock('expo-constants', () => ({
     executionEnvironment: undefined as string | undefined,
   },
 }));
-jest.mock('@/lib/supabase', () => ({
-  supabase: {
-    functions: {
-      invoke: jest.fn(),
-    },
-  },
-}));
+jest.mock('@/lib/supabase', () => {
+  // device_tokens delete builder: supabase.from('device_tokens').delete().eq('push_token', t)
+  const eq = jest.fn(() => Promise.resolve({ error: null }));
+  const del = jest.fn(() => ({ eq }));
+  const from = jest.fn(() => ({ delete: del }));
+  return {
+    supabase: { functions: { invoke: jest.fn() }, from },
+    __deviceTokensMocks: { eq, del, from },
+  };
+});
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -46,11 +64,24 @@ const mockNotifications = jest.requireMock('expo-notifications') as {
   requestPermissionsAsync: jest.Mock;
   getExpoPushTokenAsync: jest.Mock;
   addNotificationResponseReceivedListener: jest.Mock;
+  getLastNotificationResponseAsync: jest.Mock;
 };
 
+const mockAsyncStorage = (jest.requireMock('@react-native-async-storage/async-storage') as {
+  default: { getItem: jest.Mock; setItem: jest.Mock };
+}).default;
+
+// Flush the async IIFE (dynamic import + getLastNotificationResponseAsync +
+// AsyncStorage reads all resolve as microtasks) fully.
+const flush = () => new Promise((r) => setTimeout(r, 0));
+
 const { supabase } = jest.requireMock('@/lib/supabase') as {
-  supabase: { functions: { invoke: jest.Mock } };
+  supabase: { functions: { invoke: jest.Mock }; from: jest.Mock };
 };
+
+const deviceTokensMocks = (jest.requireMock('@/lib/supabase') as {
+  __deviceTokensMocks: { eq: jest.Mock; del: jest.Mock; from: jest.Mock };
+}).__deviceTokensMocks;
 
 // Mutable Constants mock — lets tests set appOwnership = 'expo' to simulate Expo Go.
 const mockConstants = jest.requireMock('expo-constants').default as {
@@ -164,6 +195,54 @@ describe('registerForPushNotifications', () => {
   });
 });
 
+// ── unregisterForPushNotifications (Phase 4E.1 token-ownership) ──────────────
+
+describe('unregisterForPushNotifications', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockConstants.appOwnership = undefined;
+    mockConstants.executionEnvironment = undefined;
+    (Device as any).isDevice = true;
+    mockNotifications.getExpoPushTokenAsync.mockResolvedValue({ data: 'ExponentPushToken[x]', type: 'expo' });
+    deviceTokensMocks.from.mockReturnValue({ delete: deviceTokensMocks.del });
+    deviceTokensMocks.del.mockReturnValue({ eq: deviceTokensMocks.eq });
+    deviceTokensMocks.eq.mockResolvedValue({ error: null });
+  });
+
+  it('deletes ONLY this device token row (filters by push_token; RLS scopes to the user)', async () => {
+    await unregisterForPushNotifications();
+    expect(deviceTokensMocks.from).toHaveBeenCalledWith('device_tokens');
+    expect(deviceTokensMocks.del).toHaveBeenCalledTimes(1);
+    // Filters by the current device's push_token only — never a broad delete of all
+    // the user's tokens (their other devices are untouched; RLS scopes to auth.uid()).
+    expect(deviceTokensMocks.eq).toHaveBeenCalledTimes(1);
+    expect(deviceTokensMocks.eq).toHaveBeenCalledWith('push_token', 'ExponentPushToken[x]');
+  });
+
+  it('does nothing on a simulator / non-device', async () => {
+    (Device as any).isDevice = false;
+    await unregisterForPushNotifications();
+    expect(deviceTokensMocks.from).not.toHaveBeenCalled();
+  });
+
+  it('does nothing in Expo Go (never imports expo-notifications)', async () => {
+    mockConstants.appOwnership = 'expo';
+    await unregisterForPushNotifications();
+    expect(deviceTokensMocks.from).not.toHaveBeenCalled();
+  });
+
+  it('never throws when the delete fails (best-effort — logout must still proceed)', async () => {
+    deviceTokensMocks.eq.mockRejectedValueOnce(new Error('network down'));
+    await expect(unregisterForPushNotifications()).resolves.toBeUndefined();
+  });
+
+  it('never throws when the push token cannot be resolved', async () => {
+    mockNotifications.getExpoPushTokenAsync.mockRejectedValueOnce(new Error('no token'));
+    await expect(unregisterForPushNotifications()).resolves.toBeUndefined();
+    expect(deviceTokensMocks.from).not.toHaveBeenCalled();
+  });
+});
+
 // ── setupNotificationResponseListener ───────────────────────────────────────
 
 describe('setupNotificationResponseListener', () => {
@@ -253,5 +332,95 @@ describe('setupNotificationResponseListener', () => {
 
     expect(mockNotifications.addNotificationResponseReceivedListener).not.toHaveBeenCalled();
     expect(() => unsubscribe()).not.toThrow();
+  });
+});
+
+// ── setupNotificationResponseListener — cold start (Phase 4E.1) ──────────────
+
+describe('setupNotificationResponseListener — cold start', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockConstants.appOwnership = undefined;
+    mockConstants.executionEnvironment = undefined;
+    mockNotifications.getLastNotificationResponseAsync.mockResolvedValue(undefined);
+    mockNotifications.addNotificationResponseReceivedListener.mockReturnValue({ remove: jest.fn() });
+    mockAsyncStorage.getItem.mockResolvedValue(null);
+    mockAsyncStorage.setItem.mockResolvedValue(undefined);
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const response = (id: string | undefined, route: string | undefined): any => ({
+    notification: { request: { identifier: id, content: { data: route === undefined ? {} : { route } } } },
+  });
+
+  it('navigates from the notification that cold-started the app (launch response)', async () => {
+    mockNotifications.getLastNotificationResponseAsync.mockResolvedValue(response('n1', '/booking/1'));
+    const navigate = jest.fn();
+    setupNotificationResponseListener(navigate);
+    await flush();
+    expect(navigate).toHaveBeenCalledWith('/booking/1');
+    expect(mockAsyncStorage.setItem).toHaveBeenCalledWith('push:lastColdStartResponseId', 'n1');
+  });
+
+  it('does not navigate twice when the cold-start response is also replayed to the live listener', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let liveHandler: ((r: any) => void) | undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockNotifications.addNotificationResponseReceivedListener.mockImplementation((h: any) => {
+      liveHandler = h;
+      return { remove: jest.fn() };
+    });
+    mockNotifications.getLastNotificationResponseAsync.mockResolvedValue(response('n1', '/booking/1'));
+    const navigate = jest.fn();
+    setupNotificationResponseListener(navigate);
+    await flush();
+    // OS replays the SAME launch response to the live listener.
+    liveHandler!(response('n1', '/booking/1'));
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith('/booking/1');
+  });
+
+  it('ignores a cold-start response with a missing route (no navigation)', async () => {
+    mockNotifications.getLastNotificationResponseAsync.mockResolvedValue(response('n1', undefined));
+    const navigate = jest.fn();
+    setupNotificationResponseListener(navigate);
+    await flush();
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('does not re-navigate a STALE launch response already consumed in a prior session', async () => {
+    mockAsyncStorage.getItem.mockResolvedValue('n1'); // persisted from a previous session
+    mockNotifications.getLastNotificationResponseAsync.mockResolvedValue(response('n1', '/booking/1'));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let liveHandler: ((r: any) => void) | undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockNotifications.addNotificationResponseReceivedListener.mockImplementation((h: any) => {
+      liveHandler = h;
+      return { remove: jest.fn() };
+    });
+    const navigate = jest.fn();
+    setupNotificationResponseListener(navigate);
+    await flush();
+    expect(navigate).not.toHaveBeenCalled();
+    expect(mockAsyncStorage.setItem).not.toHaveBeenCalled();
+    // The live listener must not re-navigate the same stale id either (no loop).
+    liveHandler!(response('n1', '/booking/1'));
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
+  it('still routes fresh warm/background taps through the live listener', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let liveHandler: ((r: any) => void) | undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockNotifications.addNotificationResponseReceivedListener.mockImplementation((h: any) => {
+      liveHandler = h;
+      return { remove: jest.fn() };
+    });
+    mockNotifications.getLastNotificationResponseAsync.mockResolvedValue(undefined); // no cold start
+    const navigate = jest.fn();
+    setupNotificationResponseListener(navigate);
+    await flush();
+    liveHandler!(response('n2', '/booking/2'));
+    expect(navigate).toHaveBeenCalledWith('/booking/2');
   });
 });

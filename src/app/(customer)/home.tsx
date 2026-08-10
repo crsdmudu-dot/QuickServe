@@ -84,22 +84,27 @@ export default function HomeScreen() {
         </View>
 
         {/* ── Search bar — tappable, navigates to full search screen ─ */}
+        {/* pointerEvents="none" on the wrapper stops the inner TextInput from
+            stealing the tap (which would just focus a dead display-only field on
+            Home); the tap falls through to the TouchableOpacity → /search. */}
         <TouchableOpacity
-          onPress={() => router.push('/(customer)/search')}
+          onPress={() => router.push('/search')}
           accessibilityRole="button"
           accessibilityLabel="Search services"
           activeOpacity={0.85}
         >
-          <SearchBar
-            placeholder="Search services"
-            // Uncontrolled display-only; interaction is handled by the push
-          />
+          <View pointerEvents="none">
+            <SearchBar
+              placeholder="Search services"
+              // Uncontrolled display-only; interaction is handled by the push
+            />
+          </View>
         </TouchableOpacity>
 
         {/* ── Quick entry links ─────────────────────────────────────── */}
         <View style={styles.entryLinks}>
           <TouchableOpacity
-            onPress={() => router.push('/(customer)/providers')}
+            onPress={() => router.push('/browse-providers')}
             accessibilityRole="button"
             style={[styles.entryLink, { backgroundColor: theme.primarySurface, borderColor: theme.primary }]}
           >
@@ -108,7 +113,7 @@ export default function HomeScreen() {
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => router.push('/(customer)/favorites')}
+            onPress={() => router.push('/favorites')}
             accessibilityRole="button"
             style={[styles.entryLink, { backgroundColor: theme.primarySurface, borderColor: theme.primary }]}
           >
@@ -287,7 +292,7 @@ export default function HomeScreen() {
 
         {/* ── Browse all categories footer link ────────────────────── */}
         <TouchableOpacity
-          onPress={() => router.push('/(customer)/search')}
+          onPress={() => router.push('/search')}
           accessibilityRole="button"
           style={[styles.browseAllBtn, { borderColor: theme.primary, backgroundColor: theme.primarySurface }]}
         >
