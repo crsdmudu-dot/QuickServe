@@ -77,6 +77,15 @@ describe('customer navigation architecture (Phase 4E.1)', () => {
     for (const name of CUSTOMER_ROUTES) expect(triggers).not.toContain(name);
   });
 
+  it('Home search bar is non-interactive so the tap navigates to /search (not a dead field)', () => {
+    // The Home search bar is display-only. Its inner TextInput must be wrapped in
+    // pointerEvents="none" so a tap falls through to the TouchableOpacity → /search,
+    // instead of focusing a dead field on Home (physical-device defect, Phase 4E.1).
+    const home = read('app/(customer)/home.tsx');
+    expect(home).toMatch(/pointerEvents="none"[\s\S]{0,120}<SearchBar/);
+    expect(home).toContain("router.push('/search')");
+  });
+
   it('Home and Profile push to the correct root paths', () => {
     const home = read('app/(customer)/home.tsx');
     expect(home).toContain("router.push('/browse-providers')");
