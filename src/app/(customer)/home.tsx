@@ -99,7 +99,7 @@ export default function HomeScreen() {
         {/* ── Quick entry links ─────────────────────────────────────── */}
         <View style={styles.entryLinks}>
           <TouchableOpacity
-            onPress={() => router.push('/providers')}
+            onPress={() => router.push('/browse-providers')}
             accessibilityRole="button"
             style={[styles.entryLink, { backgroundColor: theme.primarySurface, borderColor: theme.primary }]}
           >

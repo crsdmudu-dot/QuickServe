@@ -112,7 +112,7 @@ describe('HomeScreen (enhanced — additive sections)', () => {
   it('Browse providers link pushes to /providers', () => {
     render(<HomeScreen />);
     fireEvent.press(screen.getByText('🛠 Browse providers'));
-    expect(router.push).toHaveBeenCalledWith('/providers');
+    expect(router.push).toHaveBeenCalledWith('/browse-providers');
   });
 
   it('My favorites link pushes to /favorites', () => {

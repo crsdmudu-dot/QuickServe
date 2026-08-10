@@ -117,7 +117,7 @@ describe('FavoritesScreen', () => {
     render(<FavoritesScreen />);
     const browseBtn = await screen.findByText('Browse providers');
     fireEvent.press(browseBtn);
-    expect(router.push).toHaveBeenCalledWith('/providers');
+    expect(router.push).toHaveBeenCalledWith('/browse-providers');
   });
 
   it('remove calls removeFavoriteProvider and removes the card optimistically', async () => {

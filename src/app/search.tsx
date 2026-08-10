@@ -78,7 +78,7 @@ export default function SearchScreen() {
   const hasQuery = query.trim().length > 0;
   const hasResults = results.length > 0;
   const noResults = hasQuery && !hasResults;
-  const recommendations = noResults ? noResultRecommendations() : [];
+  const recommendations = noResults ? noResultRecommendations(services) : [];
 
   return (
     <SafeAreaView

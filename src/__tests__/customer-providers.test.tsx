@@ -41,7 +41,7 @@ jest.mock('@/lib/bookings', () => ({
 
 // ── Imports ─────────────────────────────────────────────────────────────────
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import ProvidersScreen from '@/app/providers';
+import ProvidersScreen from '@/app/browse-providers';
 
 const PROVIDER_A = {
   provider_id: 'p-alpha',

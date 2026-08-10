@@ -124,7 +124,7 @@ export default function FavoritesScreen() {
         <MarketplaceEmptyState
           variant="no-favorites"
           actionLabel="Browse providers"
-          onAction={() => router.push('/providers')}
+          onAction={() => router.push('/browse-providers')}
         />
       ) : (
         <FlatList
