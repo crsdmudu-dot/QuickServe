@@ -1,5 +1,5 @@
 /**
- * Tests for src/app/(customer)/providers.tsx
+ * Tests for src/app/providers.tsx
  *
  * Mocks: expo-router, lib/providers-browse, lib/favorites, lib/bookings.
  * Verifies: skeleton→list render, sort reorders, filter narrows,
@@ -41,7 +41,7 @@ jest.mock('@/lib/bookings', () => ({
 
 // ── Imports ─────────────────────────────────────────────────────────────────
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import ProvidersScreen from '@/app/(customer)/providers';
+import ProvidersScreen from '@/app/providers';
 
 const PROVIDER_A = {
   provider_id: 'p-alpha',

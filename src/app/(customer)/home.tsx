@@ -85,7 +85,7 @@ export default function HomeScreen() {
 
         {/* ── Search bar — tappable, navigates to full search screen ─ */}
         <TouchableOpacity
-          onPress={() => router.push('/(customer)/search')}
+          onPress={() => router.push('/search')}
           accessibilityRole="button"
           accessibilityLabel="Search services"
           activeOpacity={0.85}
@@ -99,7 +99,7 @@ export default function HomeScreen() {
         {/* ── Quick entry links ─────────────────────────────────────── */}
         <View style={styles.entryLinks}>
           <TouchableOpacity
-            onPress={() => router.push('/(customer)/providers')}
+            onPress={() => router.push('/providers')}
             accessibilityRole="button"
             style={[styles.entryLink, { backgroundColor: theme.primarySurface, borderColor: theme.primary }]}
           >
@@ -108,7 +108,7 @@ export default function HomeScreen() {
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => router.push('/(customer)/favorites')}
+            onPress={() => router.push('/favorites')}
             accessibilityRole="button"
             style={[styles.entryLink, { backgroundColor: theme.primarySurface, borderColor: theme.primary }]}
           >
@@ -287,7 +287,7 @@ export default function HomeScreen() {
 
         {/* ── Browse all categories footer link ────────────────────── */}
         <TouchableOpacity
-          onPress={() => router.push('/(customer)/search')}
+          onPress={() => router.push('/search')}
           accessibilityRole="button"
           style={[styles.browseAllBtn, { borderColor: theme.primary, backgroundColor: theme.primarySurface }]}
         >
