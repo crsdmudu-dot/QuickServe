@@ -62,15 +62,16 @@ appId: com.quickserve.app
 - inputText: "Movers"
 - extendedWaitUntil: { visible: ".*Movers.*Packers.*", timeout: 12000 }
 - takeScreenshot: n04-movers
-# Tap the result → booking flow starts (Step 1 "Your Address").
-- tapOn: ".*Movers.*Packers.*"
+# Tap the RESULT CARD (unique by price) — NOT the "🔍 Movers & Packers" suggestion above
+# it (which only sets the query). Then the booking flow starts (Step 1 "Your Address").
+- tapOn: ".*KES 5,000.*"
 - extendedWaitUntil: { visible: "Your Address", timeout: 15000 }
 - takeScreenshot: n05-result-opens-booking
 - launchApp: { clearState: false }
 - extendedWaitUntil: { visible: "What service do you need today?", timeout: 20000 }
 
 # ── Browse Providers — customer screen, NO admin authorization guard ──────────
-- tapOn: "Browse providers"
+- tapOn: ".*Browse providers.*"
 - extendedWaitUntil: { visible: "Browse Providers", timeout: 15000 }
 - assertNotVisible: "Not authorized"
 - assertNotVisible: ".*admin access.*"
@@ -85,7 +86,7 @@ appId: com.quickserve.app
 - extendedWaitUntil: { visible: "What service do you need today?", timeout: 20000 }
 
 # ── Favorites — reachable; CTA present ────────────────────────────────────────
-- tapOn: "My favorites"
+- tapOn: ".*My favorites.*"
 - extendedWaitUntil: { visible: "My Favorites", timeout: 15000 }
 - takeScreenshot: n07-favorites
 - launchApp: { clearState: false }
