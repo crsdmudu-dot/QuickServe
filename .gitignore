@@ -66,3 +66,4 @@ supabase/.temp/
 google-services.json
 *google-services*.json
 *-firebase-adminsdk-*.json
+.adbtmp/

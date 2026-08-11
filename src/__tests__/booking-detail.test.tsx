@@ -668,4 +668,32 @@ describe('BookingDetailScreen', () => {
       expect(mockGetPaymentForBooking.mock.calls.length).toBeGreaterThan(callsBefore);
     });
   });
+
+  it('shows the structured destination breakdown the customer entered (DestinationSummary)', async () => {
+    // Consistency fix: the customer's own booking detail now renders the same
+    // DestinationSummary used by the provider/admin/review screens, so the building/
+    // floor/door/landmark/access details they entered are echoed back.
+    mockGetBookingById.mockResolvedValue({
+      ...BASE_BOOKING,
+      address: 'Westlands, Nairobi, Kenya',
+      address_label: 'Westlands',
+      latitude: -1.2675,
+      longitude: 36.812,
+      building_name: 'Yaya Towers',
+      floor: '7',
+      door_number: '7B',
+      landmark: 'Opposite Yaya Centre',
+      access_notes: 'Tell security you are visiting apartment 7B.',
+    });
+
+    render(<BookingDetailScreen />);
+
+    expect(await screen.findByText('Building: Yaya Towers')).toBeOnTheScreen();
+    expect(screen.getByText('Floor: 7')).toBeOnTheScreen();
+    expect(screen.getByText('Door/Unit: 7B')).toBeOnTheScreen();
+    expect(screen.getByText('Landmark: Opposite Yaya Centre')).toBeOnTheScreen();
+    expect(
+      screen.getByText('Access: Tell security you are visiting apartment 7B.'),
+    ).toBeOnTheScreen();
+  });
 });

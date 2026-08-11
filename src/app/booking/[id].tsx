@@ -36,6 +36,7 @@ import { buildReceipt } from '@/lib/receipts';
 import { initiateMpesaPayment, getPaymentAttempts, type PaymentAttempt } from '@/lib/attempts';
 import { AttemptStatusBadge } from '@/components/ui/attempt-status-badge';
 import { BookingSummaryCard } from '@/components/ui/booking-summary-card';
+import { DestinationSummary } from '@/components/ui/destination-summary';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Card } from '@/components/ui/card';
 import { SectionHeader } from '@/components/ui/section-header';
@@ -266,6 +267,11 @@ export default function BookingDetailScreen() {
           windowEnd={booking.window_end}
           recurrence={booking.recurrence}
         />
+
+        {/* Structured destination breakdown — same component the provider/admin/review
+            screens use, so the customer sees the building/floor/door/landmark/access
+            details they entered. Fallback-aware for manual/old bookings. */}
+        <DestinationSummary input={booking} />
 
         {/* Current status */}
         <View style={styles.statusRow}>
