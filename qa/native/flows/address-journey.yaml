@@ -65,7 +65,11 @@ appId: com.quickserve.app
 - scrollUntilVisible: { element: { text: "e.g. Ring bell twice, door code is 1234" }, direction: DOWN, timeout: 8000 }
 - tapOn: "e.g. Ring bell twice, door code is 1234"
 - inputText: "Tell security you are visiting apartment 7B. Use the second entrance."
-- hideKeyboard
+# Dismiss the keyboard by tapping the non-interactive screen title (hideKeyboard is
+# unreliable on iOS — Maestro itself recommends tapping a non-interactive element).
+# Scroll up to bring the title into view first.
+- scrollUntilVisible: { element: { text: "Your Address" }, direction: UP, timeout: 12000 }
+- tapOn: "Your Address"
 - takeScreenshot: a04-fields-filled
 
 # ── Continue → schedule; then Back preserves the selected address (iOS state check) ─
