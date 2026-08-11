@@ -4,6 +4,10 @@
 # list loads (a notification seeded before this flow is visible). The "refresh" item
 # has NOT been created yet, so it must be absent here — the baseline for part B.
 #
+# NOTE: iOS groups a notification card's title + time + body + category into ONE
+# accessibility label, and Maestro anchors a text selector to the whole element, so
+# card content must be matched with `.*…*` (same as the other iOS card flows).
+#
 # Params via -e: CUST_EMAIL, CUST_PW, TITLE_INIT, TITLE_REFRESH
 appId: com.quickserve.app
 ---
@@ -33,7 +37,8 @@ appId: com.quickserve.app
 - tapOn: "Notifications"
 - extendedWaitUntil: { visible: "Notifications", timeout: 15000 }
 # Initial fetch on mount loaded the list — the pre-seeded item is visible.
-- extendedWaitUntil: { visible: "${TITLE_INIT}", timeout: 15000 }
+# (.* wildcards: iOS merges the card's title/time/body/category into one label.)
+- extendedWaitUntil: { visible: ".*${TITLE_INIT}.*", timeout: 15000 }
 # The mid-session "refresh" notification does NOT exist yet (baseline).
-- assertNotVisible: "${TITLE_REFRESH}"
+- assertNotVisible: ".*${TITLE_REFRESH}.*"
 - takeScreenshot: r01-initial-load
