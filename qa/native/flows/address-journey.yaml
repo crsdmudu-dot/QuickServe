@@ -47,27 +47,35 @@ appId: com.quickserve.app
 - takeScreenshot: a03-selected-address
 
 # ── Structured last-mile fields ───────────────────────────────────────────────
-# Each field is targeted by its own placeholder text, so tapOn focuses the CORRECT
-# field even with the keyboard open — no between-field dismiss (a point-tap there
-# lands on inputs and misdirects text). Keyboard is dismissed once, before Continue.
+# CRITICAL iOS sequencing: tap each field with the keyboard CLOSED, so the tap lands on
+# the field (not under a keyboard covering a lower field) and focus moves correctly; iOS
+# then auto-scrolls the focused field above the keyboard for typing. So before EACH field
+# we dismiss the keyboard by tapping the non-interactive "Your Address" title (hideKeyboard
+# is unreliable on iOS; Maestro recommends tapping a non-interactive element). Filling with
+# the keyboard already open misdirects lower fields' text into the previously-focused field.
 - scrollUntilVisible: { element: { text: "e.g. Green Tower" }, direction: DOWN, timeout: 8000 }
 - tapOn: "e.g. Green Tower"
 - inputText: "Yaya Towers"
+- scrollUntilVisible: { element: { text: "Your Address" }, direction: UP, timeout: 12000 }
+- tapOn: "Your Address"
 - scrollUntilVisible: { element: { text: "e.g. 3" }, direction: DOWN, timeout: 8000 }
 - tapOn: "e.g. 3"
 - inputText: "7"
+- scrollUntilVisible: { element: { text: "Your Address" }, direction: UP, timeout: 12000 }
+- tapOn: "Your Address"
 - scrollUntilVisible: { element: { text: "e.g. Apt 12B" }, direction: DOWN, timeout: 8000 }
 - tapOn: "e.g. Apt 12B"
 - inputText: "7B"
+- scrollUntilVisible: { element: { text: "Your Address" }, direction: UP, timeout: 12000 }
+- tapOn: "Your Address"
 - scrollUntilVisible: { element: { text: "e.g. Near the main gate" }, direction: DOWN, timeout: 8000 }
 - tapOn: "e.g. Near the main gate"
 - inputText: "Opposite Yaya Centre"
+- scrollUntilVisible: { element: { text: "Your Address" }, direction: UP, timeout: 12000 }
+- tapOn: "Your Address"
 - scrollUntilVisible: { element: { text: "e.g. Ring bell twice, door code is 1234" }, direction: DOWN, timeout: 8000 }
 - tapOn: "e.g. Ring bell twice, door code is 1234"
-- inputText: "Tell security you are visiting apartment 7B. Use the second entrance."
-# Dismiss the keyboard by tapping the non-interactive screen title (hideKeyboard is
-# unreliable on iOS — Maestro itself recommends tapping a non-interactive element).
-# Scroll up to bring the title into view first.
+- inputText: "Use the second entrance"
 - scrollUntilVisible: { element: { text: "Your Address" }, direction: UP, timeout: 12000 }
 - tapOn: "Your Address"
 - takeScreenshot: a04-fields-filled
@@ -90,10 +98,12 @@ appId: com.quickserve.app
 - scrollUntilVisible: { element: { text: "Continue" }, direction: DOWN, timeout: 15000 }
 - tapOn: "Continue"
 - extendedWaitUntil: { visible: "Review your booking", timeout: 15000 }
-- scrollUntilVisible: { element: { text: "Building: Yaya Towers" }, direction: DOWN, timeout: 10000 }
-- assertVisible: "Building: Yaya Towers"
-- assertVisible: "Floor: 7"
-- assertVisible: "Door/Unit: 7B"
-- assertVisible: "Landmark: Opposite Yaya Centre"
-- assertVisible: ".*Access: Tell security.*second entrance.*"
+# Regex matchers: iOS groups adjacent DestinationSummary lines into one accessibility
+# label, and autocorrect can tweak words — so match distinctive substrings, not exact lines.
+- scrollUntilVisible: { element: { text: ".*Building: Yaya Towers.*" }, direction: DOWN, timeout: 10000 }
+- assertVisible: ".*Building: Yaya Towers.*"
+- assertVisible: ".*Floor: 7.*"
+- assertVisible: ".*Door/Unit: 7B.*"
+- assertVisible: ".*Landmark: Opposite Yaya.*"
+- assertVisible: ".*Access: Use the second entrance.*"
 - takeScreenshot: a06-review-structured
