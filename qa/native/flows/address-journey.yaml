@@ -46,27 +46,26 @@ appId: com.quickserve.app
 - assertVisible: "Building name"                                   # ApartmentDetailsForm present
 - takeScreenshot: a03-selected-address
 
-# ── Structured last-mile fields (dismiss keyboard between each via a neutral top tap) ─
+# ── Structured last-mile fields ───────────────────────────────────────────────
+# Each field is targeted by its own placeholder text, so tapOn focuses the CORRECT
+# field even with the keyboard open — no between-field dismiss (a point-tap there
+# lands on inputs and misdirects text). Keyboard is dismissed once, before Continue.
 - scrollUntilVisible: { element: { text: "e.g. Green Tower" }, direction: DOWN, timeout: 8000 }
 - tapOn: "e.g. Green Tower"
 - inputText: "Yaya Towers"
-- tapOn: { point: "50%,12%" }
 - scrollUntilVisible: { element: { text: "e.g. 3" }, direction: DOWN, timeout: 8000 }
 - tapOn: "e.g. 3"
 - inputText: "7"
-- tapOn: { point: "50%,12%" }
 - scrollUntilVisible: { element: { text: "e.g. Apt 12B" }, direction: DOWN, timeout: 8000 }
 - tapOn: "e.g. Apt 12B"
 - inputText: "7B"
-- tapOn: { point: "50%,12%" }
 - scrollUntilVisible: { element: { text: "e.g. Near the main gate" }, direction: DOWN, timeout: 8000 }
 - tapOn: "e.g. Near the main gate"
 - inputText: "Opposite Yaya Centre"
-- tapOn: { point: "50%,12%" }
 - scrollUntilVisible: { element: { text: "e.g. Ring bell twice, door code is 1234" }, direction: DOWN, timeout: 8000 }
 - tapOn: "e.g. Ring bell twice, door code is 1234"
 - inputText: "Tell security you are visiting apartment 7B. Use the second entrance."
-- tapOn: { point: "50%,12%" }
+- hideKeyboard
 - takeScreenshot: a04-fields-filled
 
 # ── Continue → schedule; then Back preserves the selected address (iOS state check) ─
