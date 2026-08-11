@@ -93,6 +93,11 @@ jobs:
       - name: Phase 4E.2 — notification-center refresh (Android defect #1 replay)
         run: bash qa/native/ios-notif-refresh.sh
 
+      - name: Phase 4E.2 — delivery-address journey (Places New autocomplete + last-mile fields)
+        run: |
+          maestro test qa/native/flows/address-journey.yaml \
+            -e CUST_EMAIL="$QA_CUSTOMER_EMAIL" -e CUST_PW="$QA_CUSTOMER_PASSWORD"
+
       - name: Run Phase 3F customer/provider journeys on iOS
         run: bash qa/native/ios-journeys.sh
 
