@@ -98,6 +98,9 @@ jobs:
           maestro test qa/native/flows/address-journey.yaml \
             -e CUST_EMAIL="$QA_CUSTOMER_EMAIL" -e CUST_PW="$QA_CUSTOMER_PASSWORD"
 
+      - name: Phase 4E.2 — booking duplicate warning + idempotency journey
+        run: bash qa/native/ios-booking-duplicate.sh
+
       - name: Run Phase 3F customer/provider journeys on iOS
         run: bash qa/native/ios-journeys.sh
 
