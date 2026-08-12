@@ -39,9 +39,11 @@ appId: com.quickserve.app
 - extendedWaitUntil: { visible: "Booking Detail", timeout: 15000 }
 - runFlow: { when: { visible: "No thanks" }, commands: [ { tapOn: "No thanks" } ] }
 - assertVisible: ".*Completed.*"
-# Review section. Scroll the star row itself into view (scrolling only to the "Your review"
-# header leaves the stars, which sit below it, off-screen).
-- scrollUntilVisible: { element: { id: "star-5" }, direction: DOWN, timeout: 15000 }
+# Review section. Anchor on the "Your review" header first, then reveal the star row.
+# star-5 is the right-most star of a horizontal row and can sit at the screen edge, so
+# requiring 100% visibility flakes on iOS — accept a lower visibility threshold.
+- scrollUntilVisible: { element: { text: "Your review" }, direction: DOWN, timeout: 15000 }
+- scrollUntilVisible: { element: { id: "star-5" }, direction: DOWN, timeout: 15000, visibilityPercentage: 30 }
 - tapOn: { id: "star-5" }
 - tapOn: "Share your experience…"
 - inputText: "${COMMENT}"
