@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { createContext, useContext, useRef, useState, type ReactNode } from 'react';
 
 import type { SchedulingType, TimeWindow, Recurrence, ResolvedSchedule } from '@/lib/scheduling';
+import { newIdempotencyKey } from '@/lib/idempotency';
 
 type Draft = {
   serviceId: string | null;
@@ -33,6 +34,10 @@ type BookingDraft = Draft & {
   addIssuePhoto: (uri: string) => void;
   removeIssuePhoto: (uri: string) => void;
   reset: () => void;
+  /** The idempotency key for the CURRENT logical submission. Generated once and reused across
+   *  retries of the same submission; cleared by start()/reset() so the next booking gets a new
+   *  one. Ref-backed, so synchronous double-taps share the same key. */
+  ensureIdempotencyKey: () => string;
   // Slice 20 structured address setters
   /** Set the Google-resolved location fields (address + label + coords). Spreads into draft. */
   setLocation: (partial: Partial<Pick<Draft, 'address' | 'address_label' | 'latitude' | 'longitude'>>) => void;
@@ -66,9 +71,12 @@ const Ctx = createContext<BookingDraft | null>(null);
 
 export function BookingDraftProvider({ children }: { children: ReactNode }) {
   const [draft, setDraft] = useState<Draft>(EMPTY);
+  // Idempotency key for the current submission. A ref (not state) so two synchronous Place
+  // Booking taps read the SAME key; cleared whenever a new booking flow starts or the draft resets.
+  const idempotencyKeyRef = useRef<string | null>(null);
   const value: BookingDraft = {
     ...draft,
-    start: (serviceId) => setDraft({ ...EMPTY, serviceId }),
+    start: (serviceId) => { idempotencyKeyRef.current = null; setDraft({ ...EMPTY, serviceId }); },
     setAddress: (address) => setDraft((d) => ({ ...d, address })),
     setScheduledFor: (iso) => setDraft((d) => ({ ...d, scheduledFor: iso, scheduling_type: 'datetime', time_window: 'specific' })),
     setSchedule: (r) => setDraft((d) => ({
@@ -83,7 +91,11 @@ export function BookingDraftProvider({ children }: { children: ReactNode }) {
     setNotes: (notes) => setDraft((d) => ({ ...d, notes })),
     addIssuePhoto: (uri) => setDraft((d) => ({ ...d, issuePhotos: [...d.issuePhotos, uri] })),
     removeIssuePhoto: (uri) => setDraft((d) => ({ ...d, issuePhotos: d.issuePhotos.filter((u) => u !== uri) })),
-    reset: () => setDraft(EMPTY),
+    reset: () => { idempotencyKeyRef.current = null; setDraft(EMPTY); },
+    ensureIdempotencyKey: () => {
+      if (!idempotencyKeyRef.current) idempotencyKeyRef.current = newIdempotencyKey();
+      return idempotencyKeyRef.current;
+    },
     // Slice 20 structured address setters
     setLocation: (partial) => setDraft((d) => ({ ...d, ...partial })),
     setApartment: (partial) => setDraft((d) => ({ ...d, ...partial })),
