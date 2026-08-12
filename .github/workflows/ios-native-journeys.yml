@@ -85,6 +85,11 @@ jobs:
       - name: Entry reachability smoke (iOS deterministic entry)
         run: maestro test qa/native/flows/entry-reachability.yaml
 
+      - name: Phase 4E.2 — cold-relaunch resilience (logged-out + logged-in, no black screen)
+        run: |
+          maestro test qa/native/flows/cold-relaunch.yaml \
+            -e CUST_EMAIL="$QA_CUSTOMER_EMAIL" -e CUST_PW="$QA_CUSTOMER_PASSWORD"
+
       - name: Phase 4E.2 — customer nav/search regression (Android-hurdle replay)
         run: |
           maestro test qa/native/flows/customer-nav-search.yaml \
