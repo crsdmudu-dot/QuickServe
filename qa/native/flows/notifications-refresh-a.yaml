@@ -9,7 +9,7 @@
 # card content must be matched with `.*…*` (same as the other iOS card flows).
 #
 # Params via -e: CUST_EMAIL, CUST_PW, TITLE_INIT, TITLE_REFRESH
-appId: com.quickserve.app
+appId: ke.co.hiredcorp.quickserve
 ---
 - launchApp: { clearState: true }
 - extendedWaitUntil: { visible: "Get Started", timeout: 30000 }

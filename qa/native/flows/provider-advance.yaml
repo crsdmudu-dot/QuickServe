@@ -4,7 +4,7 @@
 # detail triggers provider live-location; iOS may prompt for notifications after sign-in).
 # Permission-button selectors are regex (Maestro default), so "Don.t Allow" matches both the
 # straight (') and typographic (’) apostrophe iOS uses.
-appId: com.quickserve.app
+appId: ke.co.hiredcorp.quickserve
 ---
 - launchApp: { clearState: true }
 - extendedWaitUntil: { visible: "Get Started", timeout: 40000 }

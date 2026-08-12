@@ -5,7 +5,7 @@
 # button. The search journey (which ends in the booking flow) runs LAST.
 #
 # Credentials via -e:  maestro test customer-nav-search.yaml -e CUST_EMAIL=... -e CUST_PW=...
-appId: com.quickserve.app
+appId: ke.co.hiredcorp.quickserve
 ---
 - launchApp: { clearState: true }
 - extendedWaitUntil: { visible: "Get Started", timeout: 30000 }

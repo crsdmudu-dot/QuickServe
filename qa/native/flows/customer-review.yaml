@@ -1,6 +1,6 @@
 # Phase 3F — Customer review submission (after job completion).
 # Creds via -e; the completed House Cleaning booking must exist + be assigned.
-appId: com.quickserve.app
+appId: ke.co.hiredcorp.quickserve
 ---
 - launchApp: { clearState: true }
 - extendedWaitUntil: { visible: "Get Started", timeout: 30000 }

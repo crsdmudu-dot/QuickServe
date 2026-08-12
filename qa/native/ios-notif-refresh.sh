@@ -18,7 +18,7 @@
 # This proves in-app refresh only. It does NOT — and must not — assert real APNs delivery,
 # device token registration, or a physical notification banner (all PHYSICAL-ONLY).
 #
-# Requires: maestro on PATH, a booted iOS simulator with com.quickserve.app installed,
+# Requires: maestro on PATH, a booted iOS simulator with ke.co.hiredcorp.quickserve installed,
 # node + jq, and QA_* + QA_CUSTOMER_* creds in the environment (CI secrets).
 set -euo pipefail
 cd "$(dirname "$0")/../.."   # repo root

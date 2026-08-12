@@ -12,7 +12,7 @@
     },
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.quickserve.app",
+      "bundleIdentifier": "ke.co.hiredcorp.quickserve",
       "buildNumber": "1",
       "associatedDomains": ["applinks:REPLACE_ME.quickserve.app"]
     },

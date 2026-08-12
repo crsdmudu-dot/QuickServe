@@ -77,7 +77,7 @@ Verified from `eas.json`, `app.json`, `vercel.json`:
 
 | Target | Tool | Output | Evidence |
 |---|---|---|---|
-| iOS app | EAS Build | native binary (bundle id `com.quickserve.app`) | `eas.json`, `app.json` |
+| iOS app | EAS Build | native binary (bundle id `ke.co.hiredcorp.quickserve`) | `eas.json`, `app.json` |
 | Android app | EAS Build | APK (dev/preview) / production build (package `com.quickserve.app`) | `eas.json`, `app.json` |
 | Web | Expo web export | static `dist/` (SPA) served by Vercel | `vercel.json`, `package.json` |
 

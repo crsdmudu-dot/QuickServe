@@ -8,7 +8,7 @@
 # title + time + body + category into one accessibility label.
 #
 # Params via -e: TITLE_INIT, TITLE_REFRESH
-appId: com.quickserve.app
+appId: ke.co.hiredcorp.quickserve
 ---
 # Still on the Notifications screen from part A, with the originally-loaded item present.
 - assertVisible: "Notifications"

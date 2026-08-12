@@ -6,7 +6,7 @@
 # using the QA backend for setup-verification, the admin-API assignment prerequisite, and
 # cleanup (never for the behaviour under test). Designed for the GitHub Actions macOS runner
 # (.github/workflows/ios-native-journeys.yml) but runnable on any macOS with:
-#   - `maestro` on PATH, a booted iOS simulator with com.quickserve.app installed
+#   - `maestro` on PATH, a booted iOS simulator with ke.co.hiredcorp.quickserve installed
 #   - node, jq
 #   - QA_* + provider/customer creds in the environment (from CI secrets)
 #

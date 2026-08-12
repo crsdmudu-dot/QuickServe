@@ -8,7 +8,7 @@
 # iOS notes: card sub-texts group into one accessibility label (match with .*…*); the soft
 # keyboard is dismissed by tapping a neutral point near the top; each field is scrolled into
 # view before tapping. Credentials via -e: CUST_EMAIL, CUST_PW.
-appId: com.quickserve.app
+appId: ke.co.hiredcorp.quickserve
 ---
 - launchApp: { clearState: true }
 - extendedWaitUntil: { visible: "Get Started", timeout: 30000 }
