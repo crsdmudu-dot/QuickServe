@@ -11,6 +11,11 @@ export default function AppTabs() {
     <NativeTabs
       backgroundColor={colors.background}
       indicatorColor={colors.primary}
+      // Android parity: the 5 labels below are defined for both platforms, but Android's
+      // Material tab bar defaults to labelVisibilityMode "auto", which with 5+ tabs shows
+      // only the SELECTED tab's label. "labeled" forces all labels visible on Android to
+      // match iOS (UITabBar always labels). iOS ignores this prop, so it is unaffected.
+      labelVisibilityMode="labeled"
       labelStyle={{ selected: { color: colors.primary } }}>
       <NativeTabs.Trigger name="home">
         <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>

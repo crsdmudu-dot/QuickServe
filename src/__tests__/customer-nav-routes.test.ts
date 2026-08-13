@@ -77,6 +77,17 @@ describe('customer navigation architecture (Phase 4E.1)', () => {
     for (const name of CUSTOMER_ROUTES) expect(triggers).not.toContain(name);
   });
 
+  it('AppTabs shows all 5 labels on Android too (label parity) via labelVisibilityMode="labeled"', () => {
+    // Phase 4E.2 parity: the 5 labels are defined for both platforms, but Android's Material
+    // tab bar defaults to labelVisibilityMode "auto" which hides inactive labels at 5+ tabs.
+    // "labeled" forces them visible on Android to match iOS; iOS ignores the prop.
+    const tabs = read('components/app-tabs.tsx');
+    const labels = [...tabs.matchAll(/<NativeTabs\.Trigger\.Label>([^<]+)<\/NativeTabs\.Trigger\.Label>/g)]
+      .map((m) => m[1].trim());
+    expect(labels).toEqual(['Home', 'My Bookings', 'Payments', 'Notifications', 'Profile']);
+    expect(tabs).toContain('labelVisibilityMode="labeled"');
+  });
+
   it('every customer root-stack screen has a visible "← Back" (iOS has no hardware back)', () => {
     // Phase 4E.2: iOS provides no hardware back; these full-screen stack routes must
     // expose the app's standard "← Back" control (as wallet/notification-settings/search do)
