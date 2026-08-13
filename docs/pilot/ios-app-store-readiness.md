@@ -23,7 +23,7 @@ iOS builds are produced with EAS (`eas.json`). Production profile: `production` 
 - [ ] **Production profile** selected: `eas build --platform ios --profile production`.
 - [ ] **Version** (`app.json` → `expo.version`) is correct for this release. Current: `1.0.0`.
 - [ ] **Build number** (`app.json` → `expo.ios.buildNumber`, current `"1"`) — with `production.autoIncrement: true`, EAS auto-increments the build number per production build. Confirm it is higher than the last uploaded build.
-- [ ] **Bundle identifier** = `com.quickserve.app` (matches App Store Connect record). Do not change once registered.
+- [ ] **Bundle identifier** = `ke.co.hiredcorp.quickserve` (Hired Corp Ltd; Android package is separately `com.quickserve.app`). Permanent — do not change once registered.
 - [ ] **Apple credentials** configured: `eas credentials` (or EAS-managed). Apple ID / Team available.
 - [ ] **Distribution certificate** present and valid (EAS-managed or uploaded).
 - [ ] **Provisioning profile** (App Store distribution) present and matches the bundle id + entitlements (incl. Associated Domains once enabled — see §9).

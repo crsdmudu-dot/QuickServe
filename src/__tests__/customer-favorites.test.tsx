@@ -1,5 +1,5 @@
 /**
- * Tests for src/app/(customer)/favorites.tsx
+ * Tests for src/app/favorites.tsx
  *
  * Verifies:
  * - Renders favorites from getMyFavoriteProviders
@@ -39,7 +39,7 @@ jest.mock('@/lib/bookings', () => ({
 // ── Imports ─────────────────────────────────────────────────────────────────
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
-import FavoritesScreen from '@/app/(customer)/favorites';
+import FavoritesScreen from '@/app/favorites';
 
 const PROVIDER_A = {
   provider_id: 'p-alpha',
@@ -117,7 +117,7 @@ describe('FavoritesScreen', () => {
     render(<FavoritesScreen />);
     const browseBtn = await screen.findByText('Browse providers');
     fireEvent.press(browseBtn);
-    expect(router.push).toHaveBeenCalledWith('/(customer)/providers');
+    expect(router.push).toHaveBeenCalledWith('/browse-providers');
   });
 
   it('remove calls removeFavoriteProvider and removes the card optimistically', async () => {
@@ -125,10 +125,9 @@ describe('FavoritesScreen', () => {
     render(<FavoritesScreen />);
     await screen.findByText('Alpha Cleaner');
     // The heart/favorite button triggers removal in the favorites screen
-    const buttons = screen.getAllByRole('button');
-    // Find the favorite toggle button — it's the last one per card (after the rebook btn)
-    // Use the one that's the favorite heart
-    fireEvent.press(buttons.find(b => b)!); // press first button which is the back or favorite
+    // Press the favorite toggle via its accessibility label (semantic selector —
+    // robust to added header controls such as the "← Back" button).
+    fireEvent.press(screen.getByLabelText('Remove from favorites'));
     await waitFor(() =>
       expect(mockRemoveFavoriteProvider).toHaveBeenCalledWith('p-alpha'),
     );
@@ -170,7 +169,7 @@ describe('FavoritesScreen', () => {
     expect(router.push).toHaveBeenCalledWith('/booking/address');
   });
 
-  it('quick rebook routes to /(customer)/search when no bookings exist', async () => {
+  it('quick rebook routes to /search when no bookings exist', async () => {
     mockGetCustomerBookings.mockResolvedValue([]);
     mockGetMyFavoriteProviders.mockResolvedValue([PROVIDER_A]);
     render(<FavoritesScreen />);
@@ -178,6 +177,6 @@ describe('FavoritesScreen', () => {
     const rebookBtn = screen.getByText('Book a service');
     fireEvent.press(rebookBtn);
     expect(mockStart).not.toHaveBeenCalled();
-    expect(router.push).toHaveBeenCalledWith('/(customer)/search');
+    expect(router.push).toHaveBeenCalledWith('/search');
   });
 });

@@ -42,7 +42,9 @@ describe('iOS icons', () => {
 
 describe('iOS identity', () => {
   test('bundle identifier exists', () => {
-    expect(expo.ios.bundleIdentifier).toBe('com.quickserve.app');
+    // Permanent iOS bundle id (Hired Corp Ltd, hiredcorp.co.ke). Distinct from the Android
+    // package (com.quickserve.app), which is intentionally unchanged/certified.
+    expect(expo.ios.bundleIdentifier).toBe('ke.co.hiredcorp.quickserve');
   });
   test('build number exists', () => {
     expect(typeof expo.ios.buildNumber).toBe('string');

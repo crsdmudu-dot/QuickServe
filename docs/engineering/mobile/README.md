@@ -83,7 +83,7 @@ Verified from `app.json`:
   (foreground/background/monochrome, `backgroundColor #E6F4FE`); `predictiveBackGestureEnabled:
   false`. Builds via EAS: `development`/`preview` → **APK**
   (`eas.json android.buildType: "apk"`), `production` → **AAB** (default).
-- **iOS** — `bundleIdentifier: "com.quickserve.app"`, `buildNumber: "1"`; icon
+- **iOS** — `bundleIdentifier: "ke.co.hiredcorp.quickserve"` (Hired Corp Ltd; distinct from Android `package: "com.quickserve.app"`), `buildNumber: "1"`; icon
   `./assets/expo.icon`; `associatedDomains: ["applinks:REPLACE_ME.quickserve.app"]` (a
   **placeholder** — see §6). Builds via EAS `production` → **.ipa**; `development` is real-device
   only (`eas.json ios.simulator: false`).

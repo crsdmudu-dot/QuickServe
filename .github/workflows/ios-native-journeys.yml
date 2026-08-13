@@ -85,6 +85,32 @@ jobs:
       - name: Entry reachability smoke (iOS deterministic entry)
         run: maestro test qa/native/flows/entry-reachability.yaml
 
+      - name: Phase 4E.2 — cold-relaunch resilience (logged-out + logged-in, no black screen)
+        run: |
+          maestro test qa/native/flows/cold-relaunch.yaml \
+            -e CUST_EMAIL="$QA_CUSTOMER_EMAIL" -e CUST_PW="$QA_CUSTOMER_PASSWORD"
+
+      - name: Phase 4E.2 — Booking Detail back-navigation (visible Back → My Bookings, no trap)
+        run: |
+          maestro test qa/native/flows/booking-detail-back.yaml \
+            -e CUST_EMAIL="$QA_CUSTOMER_EMAIL" -e CUST_PW="$QA_CUSTOMER_PASSWORD"
+
+      - name: Phase 4E.2 — customer nav/search regression (Android-hurdle replay)
+        run: |
+          maestro test qa/native/flows/customer-nav-search.yaml \
+            -e CUST_EMAIL="$QA_CUSTOMER_EMAIL" -e CUST_PW="$QA_CUSTOMER_PASSWORD"
+
+      - name: Phase 4E.2 — notification-center refresh (Android defect #1 replay)
+        run: bash qa/native/ios-notif-refresh.sh
+
+      - name: Phase 4E.2 — delivery-address journey (Places New autocomplete + last-mile fields)
+        run: |
+          maestro test qa/native/flows/address-journey.yaml \
+            -e CUST_EMAIL="$QA_CUSTOMER_EMAIL" -e CUST_PW="$QA_CUSTOMER_PASSWORD"
+
+      - name: Phase 4E.2 — booking duplicate warning + idempotency journey
+        run: bash qa/native/ios-booking-duplicate.sh
+
       - name: Run Phase 3F customer/provider journeys on iOS
         run: bash qa/native/ios-journeys.sh
 
@@ -95,5 +121,6 @@ jobs:
           name: maestro-ios-artifacts
           path: |
             ~/.maestro/tests
+            ${{ github.workspace }}/*.png
           if-no-files-found: ignore
           retention-days: 14

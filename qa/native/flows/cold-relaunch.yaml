@@ -1,0 +1,60 @@
+# Phase 4E.2 — Cold-relaunch resilience (logged-out + logged-in), iOS Simulator.
+#
+# Regression for the physical-iPhone BLACK-SCREEN defect on a logged-IN cold relaunch. The
+# root "/" dispatcher gates on `isLoading`, which stays true until AuthProvider finishes a
+# NETWORK profile fetch; the timed splash overlay lifts on a fixed ~1.4s animation regardless.
+# The old dispatcher rendered a bare `null` during that window, so a cold relaunch could
+# expose a BLACK frame. It must now always resolve to a real screen — never a blank frame.
+#
+# Every OTHER flow launches with clearState:true (always logged-OUT → no network profile
+# fetch → instant resolve), so this logged-IN relaunch path was previously untested.
+#
+#   1. Logged-OUT cold start reaches Welcome (never a blank frame).
+#   2. Log the QA customer in → Home.
+#   3. Cold relaunch WITHOUT clearing state (terminate + relaunch, session persisted) → the
+#      "/" dispatcher must restore the session and land on Home again — twice (repeated cycle).
+#
+# Params via -e: CUST_EMAIL, CUST_PW
+appId: ke.co.hiredcorp.quickserve
+---
+# ── 1. Logged-OUT cold start reaches Welcome (never a blank frame) ────────────
+- launchApp: { clearState: true }
+- extendedWaitUntil: { visible: "Get Started", timeout: 30000 }
+- takeScreenshot: cr-01-loggedout-cold-welcome
+
+# ── 2. Log in → Home ──────────────────────────────────────────────────────────
+# After cold start the welcome can render before expo-router is interactive; tap the login
+# link only while still on welcome, until the sign-in screen appears.
+- repeat:
+    times: 8
+    commands:
+      - runFlow:
+          when: { visible: { id: "login-link" } }
+          commands:
+            - tapOn: { id: "login-link" }
+            - extendedWaitUntil: { visible: "Welcome back", timeout: 3000, optional: true }
+- extendedWaitUntil: { visible: "Welcome back", timeout: 10000 }
+- tapOn: "you@example.com"
+- inputText: "${CUST_EMAIL}"
+- tapOn: "Your password"
+- inputText: "${CUST_PW}"
+- tapOn: "Welcome back"          # tap a static heading to dismiss the keyboard (hideKeyboard is flaky on iOS)
+- tapOn: "Continue"
+- runFlow: { when: { visible: "Don.t Allow" }, commands: [ { tapOn: "Don.t Allow" } ] }
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 25000 }
+- takeScreenshot: cr-02-loggedin-home
+
+# ── 3. Logged-IN cold relaunch cycles: terminate + relaunch (session persisted) ─
+# No clearState → the persisted Supabase session is restored on cold launch. The "/"
+# dispatcher gates on `isLoading` (a network profile fetch) and MUST end on Home, never on a
+# blank/black frame or a fallback to Welcome. This is the exact path that black-screened on
+# the physical iPhone.
+- launchApp                      # cycle 1: cold relaunch
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 30000 }
+- assertNotVisible: "Get Started"   # must NOT fall back to Welcome — the session was restored
+- takeScreenshot: cr-03-relaunch1-home
+
+- launchApp                      # cycle 2: repeat terminate → relaunch
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 30000 }
+- assertNotVisible: "Get Started"
+- takeScreenshot: cr-04-relaunch2-home

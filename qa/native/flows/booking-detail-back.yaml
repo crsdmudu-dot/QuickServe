@@ -1,0 +1,63 @@
+# Phase 4E.2 — Booking Detail back-navigation (iOS Simulator).
+#
+# Regression for the physical-iPhone defect: Booking Detail had NO visible Back button, so the
+# customer was trapped (had to force-close the app). Booking Detail is the FIRST route of the
+# `booking` nested stack, so native-stack renders no back arrow (its previous screen, My
+# Bookings, lives in the parent root Stack). The screen now renders its own visible Back control
+# (testID `booking-detail-back`) with a safe fallback.
+#
+#   CASE 1 — My Bookings → Booking Detail → visible Back → My Bookings.
+#   CASE 5 — no blank/black screen after Back (the bookings list is visible again).
+#
+# CASE 3 (no-stack → /bookings fallback) is proven deterministically by the unit test
+# (canGoBack()===false → router.replace('/bookings')); a cold launch always establishes /home
+# underneath first, so the simulator cannot force a true empty history. CASE 2 (Notifications →
+# Detail → Back) and cold-start entry are verified on the physical device (Part L) and by the
+# separate cold-relaunch.yaml journey.
+#
+# Params via -e: CUST_EMAIL, CUST_PW
+appId: ke.co.hiredcorp.quickserve
+---
+- launchApp: { clearState: true }
+- extendedWaitUntil: { visible: "Get Started", timeout: 30000 }
+- repeat:
+    times: 8
+    commands:
+      - runFlow:
+          when: { visible: { id: "login-link" } }
+          commands:
+            - tapOn: { id: "login-link" }
+            - extendedWaitUntil: { visible: "Welcome back", timeout: 3000, optional: true }
+- extendedWaitUntil: { visible: "Welcome back", timeout: 10000 }
+- tapOn: "you@example.com"
+- inputText: "${CUST_EMAIL}"
+- tapOn: "Your password"
+- inputText: "${CUST_PW}"
+- tapOn: "Welcome back"          # tap a static heading to dismiss the keyboard (hideKeyboard is flaky on iOS)
+- tapOn: "Continue"
+- runFlow: { when: { visible: "Don.t Allow" }, commands: [ { tapOn: "Don.t Allow" } ] }
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 25000 }
+
+# ── CASE 1: My Bookings → Booking Detail (visible Back affordance) ─────────────
+- tapOn: "My Bookings"
+# iOS groups the booking-card texts into one combined accessibility label; .*…* matches it.
+- extendedWaitUntil: { visible: ".*House Cleaning.*", timeout: 15000 }
+- tapOn: ".*House Cleaning.*"
+- extendedWaitUntil: { visible: "Booking Detail", timeout: 15000 }
+- assertVisible: { id: "booking-detail-back" }        # the fix: a visible Back control
+- takeScreenshot: bd-01-detail-with-back
+
+# ── CASE 1 + CASE 5: Back returns to My Bookings; no blank/black screen ────────
+- tapOn: { id: "booking-detail-back" }
+- extendedWaitUntil: { visible: ".*House Cleaning.*", timeout: 15000 }   # list is back
+- assertNotVisible: "Booking Detail"                  # we truly left the detail screen
+- takeScreenshot: bd-02-back-to-bookings
+
+# ── Re-enter to prove the round-trip is repeatable (no route loop / stale state) ─
+- tapOn: ".*House Cleaning.*"
+- extendedWaitUntil: { visible: "Booking Detail", timeout: 15000 }
+- assertVisible: { id: "booking-detail-back" }
+- tapOn: { id: "booking-detail-back" }
+- extendedWaitUntil: { visible: ".*House Cleaning.*", timeout: 15000 }
+- assertNotVisible: "Booking Detail"
+- takeScreenshot: bd-03-roundtrip-ok

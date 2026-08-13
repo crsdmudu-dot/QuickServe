@@ -13,15 +13,15 @@
  */
 
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { useRef, useState } from 'react';
+import { Alert, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Spacing } from '@/constants/theme';
 import { useServices } from '@/services/services-provider';
 import { useTheme } from '@/hooks/use-theme';
 import { useBookingDraft } from '@/booking/booking-draft';
-import { createBooking } from '@/lib/bookings';
+import { createBooking, findActiveDuplicateBooking } from '@/lib/bookings';
 import { uploadBookingPhoto } from '@/lib/photos';
 import { BookingSummaryCard } from '@/components/ui/booking-summary-card';
 import { Button } from '@/components/ui/button';
@@ -38,6 +38,7 @@ export default function ReviewScreen() {
     notes,
     issuePhotos,
     reset,
+    ensureIdempotencyKey,
     // Slice 20 structured address fields
     address_label,
     latitude,
@@ -56,14 +57,43 @@ export default function ReviewScreen() {
   } = useBookingDraft();
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // Re-entrancy guard: a ref (synchronous) so repeated Place Booking taps do not fire a second
+  // network request before `submitting` state re-renders the disabled button. The DB idempotency
+  // key remains the AUTHORITATIVE protection; this just avoids needless duplicate requests.
+  const submittingRef = useRef(false);
 
   const service = serviceId ? getServiceBySlug(serviceId) : null;
   const ready = Boolean(serviceId && address.trim() && scheduledFor);
 
-  async function handlePlaceBooking() {
+  async function handlePlaceBooking(bypassDuplicateCheck = false) {
     if (!ready || !serviceId || !scheduledFor) return;
+    if (submittingRef.current) return; // ignore repeat taps while a submission is in flight
+    submittingRef.current = true;
     setSubmitting(true);
     setError('');
+
+    // ── Business-level duplicate WARNING (advisory; not the idempotency guard) ──
+    // Skipped once the customer confirms "Book another anyway". Reads only the caller's own
+    // active bookings (RLS owner-scoped) → never exposes another user's booking.
+    if (!bypassDuplicateCheck) {
+      const dup = await findActiveDuplicateBooking({ serviceId, address, building_name, floor, door_number });
+      if (dup) {
+        submittingRef.current = false;
+        setSubmitting(false);
+        const svcTitle = service?.title ?? serviceId;
+        Alert.alert(
+          'Similar booking found',
+          `You already have an active ${svcTitle} booking at this address.`,
+          [
+            { text: 'View existing booking', onPress: () => router.push(`/booking/${dup.id}`) },
+            // Explicitly authorizes a NEW logical booking — proceeds with the SAME idempotency
+            // key of this submission (distinct from the existing booking's), so it creates.
+            { text: 'Book another anyway', style: 'default', onPress: () => { void handlePlaceBooking(true); } },
+          ],
+        );
+        return;
+      }
+    }
 
     const res = await createBooking({
       serviceId,
@@ -86,21 +116,25 @@ export default function ReviewScreen() {
       window_start,
       window_end,
       recurrence,
+      // Phase 4E.2 — one key per submission (retry-stable); makes creation idempotent.
+      idempotencyKey: ensureIdempotencyKey(),
     });
 
     if (!res.ok) {
+      submittingRef.current = false;
       setSubmitting(false);
       setError(res.error ?? 'Could not create booking. Please try again.');
       return;
     }
 
-    // Booking created — now upload issue photos best-effort
+    // Booking created (or recovered on an idempotent retry) — upload issue photos best-effort.
     let anyFailed = false;
     for (const uri of issuePhotos) {
       const r = await uploadBookingPhoto({ bookingId: res.id!, uri, photoType: 'issue' });
       if (!r.ok) anyFailed = true;
     }
 
+    submittingRef.current = false;
     setSubmitting(false);
     reset();
     router.replace({
@@ -150,7 +184,7 @@ export default function ReviewScreen() {
         <Button
           label={submitting ? 'Placing booking…' : 'Place Booking'}
           fullWidth
-          onPress={handlePlaceBooking}
+          onPress={() => handlePlaceBooking()}
           disabled={!ready || submitting}
         />
       </ScrollView>

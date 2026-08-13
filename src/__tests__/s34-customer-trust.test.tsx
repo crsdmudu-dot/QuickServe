@@ -1,5 +1,5 @@
 /**
- * Tests for src/app/(customer)/trust.tsx (Slice 34 Task 5)
+ * Tests for src/app/trust.tsx (Slice 34 Task 5)
  *
  * Verifies:
  *   - TrustSignalCard is rendered with signals
@@ -41,7 +41,7 @@ jest.mock('@/components/customer/safety-tips-card', () => ({
 
 // VerifiedBadge — keep real component (it's a simple View+Text, no side effects)
 
-import TrustScreen from '@/app/(customer)/trust';
+import TrustScreen from '@/app/trust';
 
 // ── Tests ──────────────────────────────────────────────────────────────────────
 

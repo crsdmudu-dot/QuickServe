@@ -34,12 +34,14 @@ let mockDraft = {
   access_notes: '',
 };
 jest.mock('@/booking/booking-draft', () => ({
-  useBookingDraft: () => ({ ...mockDraft, reset: mockReset }),
+  useBookingDraft: () => ({ ...mockDraft, reset: mockReset, ensureIdempotencyKey: () => 'idem-1' }),
 }));
 
 const mockCreateBooking = jest.fn();
+const mockFindDup = jest.fn();
 jest.mock('@/lib/bookings', () => ({
   createBooking: (...args: unknown[]) => mockCreateBooking(...args),
+  findActiveDuplicateBooking: (...args: unknown[]) => mockFindDup(...args),
 }));
 
 const mockUploadBookingPhoto = jest.fn();
@@ -48,6 +50,7 @@ jest.mock('@/lib/photos', () => ({
 }));
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 import { router } from 'expo-router';
 import ReviewScreen from '@/app/booking/review';
 
@@ -56,6 +59,8 @@ describe('ReviewScreen', () => {
     (router.replace as jest.Mock).mockClear();
     mockReset.mockClear();
     mockCreateBooking.mockReset();
+    mockFindDup.mockReset();
+    mockFindDup.mockResolvedValue(null); // default: no business duplicate
     mockUploadBookingPhoto.mockReset();
     mockDraft = {
       serviceId: 'house-cleaning',
@@ -113,6 +118,8 @@ describe('ReviewScreen', () => {
         window_start: undefined,
         window_end: undefined,
         recurrence: undefined,
+        // Phase 4E.2 — submission idempotency key
+        idempotencyKey: 'idem-1',
       }),
     );
     expect(mockUploadBookingPhoto).not.toHaveBeenCalled();
@@ -169,5 +176,74 @@ describe('ReviewScreen', () => {
     expect(mockUploadBookingPhoto).not.toHaveBeenCalled();
     expect(mockReset).not.toHaveBeenCalled();
     expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  // ── Business duplicate warning (advisory) ──────────────────────────────────
+
+  it('WARNS instead of creating when a likely duplicate active booking exists', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    mockFindDup.mockResolvedValue({ id: 'existing-1' });
+    render(<ReviewScreen />);
+
+    fireEvent.press(screen.getByText('Place Booking'));
+
+    await waitFor(() => expect(alertSpy).toHaveBeenCalled());
+    // No booking created while the warning is shown.
+    expect(mockCreateBooking).not.toHaveBeenCalled();
+    const [title, message, buttons] = alertSpy.mock.calls[0];
+    expect(String(message)).toMatch(/already have an active .* booking at this address/i);
+    expect((buttons as { text: string }[]).map((b) => b.text)).toEqual([
+      'View existing booking',
+      'Book another anyway',
+    ]);
+    alertSpy.mockRestore();
+  });
+
+  it('"View existing booking" navigates to the existing booking and does NOT create', async () => {
+    let captured: { text: string; onPress?: () => void }[] = [];
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, b) => { captured = b as never; });
+    mockFindDup.mockResolvedValue({ id: 'existing-1' });
+    render(<ReviewScreen />);
+    fireEvent.press(screen.getByText('Place Booking'));
+    await waitFor(() => expect(captured.length).toBe(2));
+
+    captured.find((b) => b.text === 'View existing booking')!.onPress!();
+
+    expect(router.push).toHaveBeenCalledWith('/booking/existing-1');
+    expect(mockCreateBooking).not.toHaveBeenCalled();
+    alertSpy.mockRestore();
+  });
+
+  it('"Book another anyway" creates a NEW booking (bypasses the duplicate check)', async () => {
+    let captured: { text: string; onPress?: () => void }[] = [];
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, b) => { captured = b as never; });
+    mockFindDup.mockResolvedValue({ id: 'existing-1' });
+    mockCreateBooking.mockResolvedValue({ ok: true, id: 'bk-new' });
+    render(<ReviewScreen />);
+    fireEvent.press(screen.getByText('Place Booking'));
+    await waitFor(() => expect(captured.length).toBe(2));
+
+    captured.find((b) => b.text === 'Book another anyway')!.onPress!();
+
+    await waitFor(() => expect(mockCreateBooking).toHaveBeenCalledTimes(1));
+    expect(mockCreateBooking).toHaveBeenCalledWith(expect.objectContaining({ idempotencyKey: 'idem-1' }));
+    await waitFor(() => expect(router.replace).toHaveBeenCalled());
+    alertSpy.mockRestore();
+  });
+
+  it('double-tap Place Booking fires only ONE createBooking (client re-entrancy guard)', async () => {
+    let resolveCreate: (v: unknown) => void = () => {};
+    mockCreateBooking.mockReturnValue(new Promise((r) => { resolveCreate = r; }));
+    render(<ReviewScreen />);
+
+    const btn = screen.getByText('Place Booking');
+    fireEvent.press(btn);
+    fireEvent.press(btn); // immediate second tap while the first is in flight
+
+    // Only one submission was started.
+    await waitFor(() => expect(mockCreateBooking).toHaveBeenCalledTimes(1));
+    resolveCreate({ ok: true, id: 'bk1' });
+    await waitFor(() => expect(router.replace).toHaveBeenCalled());
+    expect(mockCreateBooking).toHaveBeenCalledTimes(1);
   });
 });

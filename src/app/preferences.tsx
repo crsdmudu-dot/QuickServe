@@ -94,6 +94,7 @@ export default function PreferencesScreen() {
       showsVerticalScrollIndicator={false}
     >
       <SafeAreaView style={[styles.safe, { maxWidth: MaxContentWidth }]}>
+        <Button label="← Back" variant="ghost" onPress={() => router.back()} />
         {/* ── Header ──────────────────────────────────────────────────── */}
         <Text variant="title">Preferences</Text>
 

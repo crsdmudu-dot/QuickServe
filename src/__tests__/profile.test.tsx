@@ -4,8 +4,8 @@
  * Verifies:
  *   - Existing 4 entries still render (Wallet / Saved addresses / Notification settings / Sign out)
  *   - ProfileCompletionCard is rendered
- *   - "Preferences" link navigates to /(customer)/preferences
- *   - "Trust & Safety" link navigates to /(customer)/trust
+ *   - "Preferences" link navigates to /preferences
+ *   - "Trust & Safety" link navigates to /trust
  */
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
@@ -106,17 +106,17 @@ describe('ProfileScreen', () => {
     expect(router.push).toHaveBeenCalledWith('/notification-settings');
   });
 
-  it('navigates to /(customer)/preferences when "Preferences" is pressed', async () => {
+  it('navigates to /preferences when "Preferences" is pressed', async () => {
     render(<ProfileScreen />);
     await waitFor(() => expect(screen.getByText('Preferences')).toBeOnTheScreen());
     fireEvent.press(screen.getByText('Preferences'));
-    expect(router.push).toHaveBeenCalledWith('/(customer)/preferences');
+    expect(router.push).toHaveBeenCalledWith('/preferences');
   });
 
-  it('navigates to /(customer)/trust when "Trust & Safety" is pressed', async () => {
+  it('navigates to /trust when "Trust & Safety" is pressed', async () => {
     render(<ProfileScreen />);
     await waitFor(() => expect(screen.getByText('Trust & Safety')).toBeOnTheScreen());
     fireEvent.press(screen.getByText('Trust & Safety'));
-    expect(router.push).toHaveBeenCalledWith('/(customer)/trust');
+    expect(router.push).toHaveBeenCalledWith('/trust');
   });
 });

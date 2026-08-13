@@ -1,6 +1,6 @@
 # Phase 3F — Customer review submission (after job completion).
 # Creds via -e; the completed House Cleaning booking must exist + be assigned.
-appId: com.quickserve.app
+appId: ke.co.hiredcorp.quickserve
 ---
 - launchApp: { clearState: true }
 - extendedWaitUntil: { visible: "Get Started", timeout: 30000 }
@@ -39,9 +39,16 @@ appId: com.quickserve.app
 - extendedWaitUntil: { visible: "Booking Detail", timeout: 15000 }
 - runFlow: { when: { visible: "No thanks" }, commands: [ { tapOn: "No thanks" } ] }
 - assertVisible: ".*Completed.*"
-# Review section. Scroll the star row itself into view (scrolling only to the "Your review"
-# header leaves the stars, which sit below it, off-screen).
-- scrollUntilVisible: { element: { id: "star-5" }, direction: DOWN, timeout: 15000 }
+# Review section. The review form renders async after the booking detail loads, and star-5
+# (right-most star of a horizontal row) can sit at the screen edge — so give the scroll a
+# longer budget, let the UI settle between scroll steps, and accept a partially-visible star
+# (requiring 100% visibility with no settle flaked intermittently on iOS).
+- scrollUntilVisible:
+    element: { id: "star-5" }
+    direction: DOWN
+    timeout: 25000
+    visibilityPercentage: 10
+    waitToSettleTimeoutMs: 800
 - tapOn: { id: "star-5" }
 - tapOn: "Share your experience…"
 - inputText: "${COMMENT}"

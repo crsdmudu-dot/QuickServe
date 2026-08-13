@@ -3,7 +3,7 @@
  *
  * Quick rebook: resolves a serviceId READ-ONLY from booking history
  * (most recent booking with that provider → its service_id; else most
- * recent booking's service_id; else route to /(customer)/search).
+ * recent booking's service_id; else route to /search).
  * HARD RULE: only calls start(serviceId) + /booking/address.
  * Never passes provider_id into the booking draft or any dispatch fn.
  */
@@ -25,6 +25,7 @@ import {
 import { DiscoverySkeleton } from '@/components/ui/discovery-skeleton';
 import { MarketplaceEmptyState } from '@/components/ui/marketplace-empty-state';
 import { MarketplaceProviderCard } from '@/components/ui/marketplace-provider-card';
+import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 
 // ── Quick-rebook helper ──────────────────────────────────────────────────────
@@ -36,7 +37,7 @@ import { Text } from '@/components/ui/text';
  * Priority:
  * 1. Most recent booking assigned to this provider → its service_id.
  * 2. Most recent booking (any provider) → its service_id.
- * 3. null (caller routes to /(customer)/search).
+ * 3. null (caller routes to /search).
  */
 function resolveRebookServiceId(
   providerId: string,
@@ -96,7 +97,7 @@ export default function FavoritesScreen() {
     const serviceId = resolveRebookServiceId(provider.provider_id, bookings);
     if (!serviceId) {
       // No prior bookings → let customer pick a service
-      router.push('/(customer)/search');
+      router.push('/search');
       return;
     }
     // ONLY start(serviceId) → /booking/address.
@@ -111,6 +112,7 @@ export default function FavoritesScreen() {
       style={[styles.safe, { backgroundColor: theme.background }]}
     >
       {/* ── Header ──────────────────────────────────────────────────── */}
+      <Button label="← Back" variant="ghost" onPress={() => router.back()} />
       <Text variant="title" style={styles.heading}>
         My Favorites
       </Text>
@@ -124,7 +126,7 @@ export default function FavoritesScreen() {
         <MarketplaceEmptyState
           variant="no-favorites"
           actionLabel="Browse providers"
-          onAction={() => router.push('/(customer)/providers')}
+          onAction={() => router.push('/browse-providers')}
         />
       ) : (
         <FlatList

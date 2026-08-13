@@ -145,8 +145,12 @@ describe('usePaginatedList — reload', () => {
     act(() => result.current.loadMore());
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    // Now reload: should reset to page 0 only
-    act(() => result.current.reload());
+    // Now reload: should reset to page 0 only.
+    // reload() is awaitable (returns Promise<void>) so callers like pull-to-refresh
+    // can await completion; await it here so its state updates settle within act.
+    await act(async () => {
+      await result.current.reload();
+    });
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     expect(result.current.items).toEqual([{ id: 'fresh' }]);

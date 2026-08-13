@@ -1,0 +1,34 @@
+# Phase 4E.2 — Notification-center refresh, part B (Android defect #1 replay on iOS).
+#
+# Deliberately NO launchApp: this attaches to the SAME running session part A left on
+# the Notifications tab (no cold start, no re-login). A notification created after mount
+# must therefore appear only through a genuine pull-to-refresh — not an app restart.
+#
+# NOTE: card content is matched with `.*…*` because iOS merges a card's
+# title + time + body + category into one accessibility label.
+#
+# Params via -e: TITLE_INIT, TITLE_REFRESH
+appId: ke.co.hiredcorp.quickserve
+---
+# Still on the Notifications screen from part A, with the originally-loaded item present.
+- assertVisible: "Notifications"
+- assertVisible: ".*${TITLE_INIT}.*"
+# The row created mid-session is not displayed until we refetch.
+- assertNotVisible: ".*${TITLE_REFRESH}.*"
+- takeScreenshot: r02-before-refresh
+
+# ── Pull-to-refresh — retry the downward pull until the refetched row surfaces ─
+- repeat:
+    times: 4
+    commands:
+      - runFlow:
+          when: { notVisible: ".*${TITLE_REFRESH}.*" }
+          commands:
+            - swipe: { start: "50%, 40%", end: "50%, 95%", duration: 900 }
+            - extendedWaitUntil: { visible: ".*${TITLE_REFRESH}.*", timeout: 8000, optional: true }
+
+# Pull-to-refresh genuinely refetched: the new row is now visible…
+- assertVisible: ".*${TITLE_REFRESH}.*"
+# …and the originally-loaded row is still there (refresh added, did not replace/stale).
+- assertVisible: ".*${TITLE_INIT}.*"
+- takeScreenshot: r03-after-refresh

@@ -1,0 +1,109 @@
+# Phase 4E.2 (address) — iOS Simulator certification of the delivery-address experience.
+#
+# Proves the Google Places (New) autocomplete + structured last-mile capture on iOS, through
+# the REAL app + deployed QA Edge Functions (Device.isDevice=false does NOT affect the Places
+# calls — they are plain authenticated HTTP, unlike push). Stops at the Review step (asserts the
+# structured breakdown) — it does NOT place a booking, so no QA data is created from CI.
+#
+# iOS notes: card sub-texts group into one accessibility label (match with .*…*); the soft
+# keyboard is dismissed by tapping a neutral point near the top; each field is scrolled into
+# view before tapping. Credentials via -e: CUST_EMAIL, CUST_PW.
+appId: ke.co.hiredcorp.quickserve
+---
+- launchApp: { clearState: true }
+- extendedWaitUntil: { visible: "Get Started", timeout: 30000 }
+- repeat:
+    times: 8
+    commands:
+      - runFlow:
+          when: { visible: { id: "login-link" } }
+          commands:
+            - tapOn: { id: "login-link" }
+            - extendedWaitUntil: { visible: "Welcome back", timeout: 3000, optional: true }
+- extendedWaitUntil: { visible: "Welcome back", timeout: 10000 }
+- tapOn: "you@example.com"
+- inputText: "${CUST_EMAIL}"
+- tapOn: "Your password"
+- inputText: "${CUST_PW}"
+- tapOn: "Welcome back"
+- tapOn: "Continue"
+- runFlow: { when: { visible: "Don.t Allow" }, commands: [ { tapOn: "Don.t Allow" } ] }
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 25000 }
+
+# ── Start a House Cleaning booking → Address step ─────────────────────────────
+- tapOn: ".*House Cleaning.*"
+- extendedWaitUntil: { visible: "Your Address", timeout: 15000 }
+- takeScreenshot: a01-address-step
+
+# ── Google Places (New) autocomplete — live Kenya query ───────────────────────
+- tapOn: "Type your address…"
+- inputText: "Westlands"
+- extendedWaitUntil: { visible: ".*Westlands.*Nairobi.*Kenya.*", timeout: 15000 }
+- takeScreenshot: a02-live-suggestions
+- tapOn: ".*Westlands, Nairobi, Kenya.*"
+- extendedWaitUntil: { visible: "Change", timeout: 15000 }        # SelectedAddressCard rendered
+- assertVisible: ".*Westlands, Nairobi, Kenya.*"
+- assertVisible: "Building name"                                   # ApartmentDetailsForm present
+- takeScreenshot: a03-selected-address
+
+# ── Structured last-mile fields ───────────────────────────────────────────────
+# CRITICAL iOS sequencing: tap each field with the keyboard CLOSED, so the tap lands on
+# the field (not under a keyboard covering a lower field) and focus moves correctly; iOS
+# then auto-scrolls the focused field above the keyboard for typing. So before EACH field
+# we dismiss the keyboard by tapping the non-interactive "Your Address" title (hideKeyboard
+# is unreliable on iOS; Maestro recommends tapping a non-interactive element). Filling with
+# the keyboard already open misdirects lower fields' text into the previously-focused field.
+- scrollUntilVisible: { element: { text: "e.g. Green Tower" }, direction: DOWN, timeout: 8000 }
+- tapOn: "e.g. Green Tower"
+- inputText: "Yaya Towers"
+- scrollUntilVisible: { element: { text: "Your Address" }, direction: UP, timeout: 12000 }
+- tapOn: "Your Address"
+- scrollUntilVisible: { element: { text: "e.g. 3" }, direction: DOWN, timeout: 8000 }
+- tapOn: "e.g. 3"
+- inputText: "7"
+- scrollUntilVisible: { element: { text: "Your Address" }, direction: UP, timeout: 12000 }
+- tapOn: "Your Address"
+- scrollUntilVisible: { element: { text: "e.g. Apt 12B" }, direction: DOWN, timeout: 8000 }
+- tapOn: "e.g. Apt 12B"
+- inputText: "7B"
+- scrollUntilVisible: { element: { text: "Your Address" }, direction: UP, timeout: 12000 }
+- tapOn: "Your Address"
+- scrollUntilVisible: { element: { text: "e.g. Near the main gate" }, direction: DOWN, timeout: 8000 }
+- tapOn: "e.g. Near the main gate"
+- inputText: "Opposite Yaya Centre"
+- scrollUntilVisible: { element: { text: "Your Address" }, direction: UP, timeout: 12000 }
+- tapOn: "Your Address"
+- scrollUntilVisible: { element: { text: "e.g. Ring bell twice, door code is 1234" }, direction: DOWN, timeout: 8000 }
+- tapOn: "e.g. Ring bell twice, door code is 1234"
+- inputText: "Use the second entrance"
+- scrollUntilVisible: { element: { text: "Your Address" }, direction: UP, timeout: 12000 }
+- tapOn: "Your Address"
+- takeScreenshot: a04-fields-filled
+
+# ── Continue → schedule ───────────────────────────────────────────────────────
+- scrollUntilVisible: { element: { text: "Continue" }, direction: DOWN, timeout: 15000 }
+- tapOn: "Continue"
+- extendedWaitUntil: { visible: "When do you need it?", timeout: 15000 }
+- takeScreenshot: a05-schedule
+
+# ── Forward through schedule + notes → Review shows the structured breakdown ───
+# Navigation-survival is proven here: the address + all 5 last-mile fields flow through
+# address → schedule → notes → review. (Back-navigation preservation is covered on the
+# Android emulator; Maestro's iOS edge-swipe back does not reliably navigate this Stack,
+# so it is intentionally not asserted rather than reported as passing.)
+- tapOn: ".*ASAP.*"
+- scrollUntilVisible: { element: { text: "Continue" }, direction: DOWN, timeout: 15000 }
+- tapOn: "Continue"
+- extendedWaitUntil: { visible: "Any special notes?", timeout: 15000 }
+- scrollUntilVisible: { element: { text: "Continue" }, direction: DOWN, timeout: 15000 }
+- tapOn: "Continue"
+- extendedWaitUntil: { visible: "Review your booking", timeout: 15000 }
+# Regex matchers: iOS groups adjacent DestinationSummary lines into one accessibility
+# label, and autocorrect can tweak words — so match distinctive substrings, not exact lines.
+- scrollUntilVisible: { element: { text: ".*Building: Yaya Towers.*" }, direction: DOWN, timeout: 10000 }
+- assertVisible: ".*Building: Yaya Towers.*"
+- assertVisible: ".*Floor: 7.*"
+- assertVisible: ".*Door/Unit: 7B.*"
+- assertVisible: ".*Landmark: Opposite Yaya.*"
+- assertVisible: ".*Access: Use the second entrance.*"
+- takeScreenshot: a06-review-structured

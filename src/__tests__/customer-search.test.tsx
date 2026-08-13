@@ -1,5 +1,5 @@
 /**
- * Tests for src/app/(customer)/search.tsx
+ * Tests for src/app/search.tsx
  *
  * Mocks: expo-router, lib/search, booking-draft.
  * Verifies: instant results, recent+popular shown before typing,
@@ -42,7 +42,7 @@ jest.mock('@/lib/search', () => ({
 // ── Imports (after mocks) ───────────────────────────────────────────────────
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
-import SearchScreen from '@/app/(customer)/search';
+import SearchScreen from '@/app/search';
 
 const SERVICE_CLEANING = {
   id: 'house-cleaning',

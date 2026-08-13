@@ -1,0 +1,102 @@
+# Phase 4E.2 — iOS regression replay of Android Phase 4E.1 navigation/search defects.
+#
+# Navigates via in-app controls only (no launchApp mid-flow, which would race
+# expo-router interactivity on iOS). Each stack screen is left via its "← Back"
+# button. The search journey (which ends in the booking flow) runs LAST.
+#
+# Credentials via -e:  maestro test customer-nav-search.yaml -e CUST_EMAIL=... -e CUST_PW=...
+appId: ke.co.hiredcorp.quickserve
+---
+- launchApp: { clearState: true }
+- extendedWaitUntil: { visible: "Get Started", timeout: 30000 }
+- repeat:
+    times: 8
+    commands:
+      - runFlow:
+          when: { visible: { id: "login-link" } }
+          commands:
+            - tapOn: { id: "login-link" }
+            - extendedWaitUntil: { visible: "Welcome back", timeout: 3000, optional: true }
+- extendedWaitUntil: { visible: "Welcome back", timeout: 10000 }
+- tapOn: "you@example.com"
+- inputText: "${CUST_EMAIL}"
+- tapOn: "Your password"
+- inputText: "${CUST_PW}"
+- tapOn: "Welcome back"
+- tapOn: "Continue"
+- runFlow: { when: { visible: "Don.t Allow" }, commands: [ { tapOn: "Don.t Allow" } ] }
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 25000 }
+- assertNotVisible: "Not authorized"
+- takeScreenshot: n01-home
+
+# ── Browse Providers — customer screen, NO admin authorization guard; back works ─
+- tapOn: ".*Browse providers.*"
+- extendedWaitUntil: { visible: "Browse Providers", timeout: 15000 }
+- assertNotVisible: "Not authorized"
+- assertNotVisible: ".*admin access.*"
+- takeScreenshot: n02-browse-providers
+- tapOn: ".*Back.*"
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 10000 }
+
+# ── Favorites — reachable; back works ─────────────────────────────────────────
+- tapOn: ".*My favorites.*"
+- extendedWaitUntil: { visible: "My Favorites", timeout: 15000 }
+- takeScreenshot: n03-favorites
+- tapOn: ".*Back.*"
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 10000 }
+
+# ── Profile → Preferences (orphan route reachable; back works) ────────────────
+- tapOn: "Profile"
+- scrollUntilVisible: { element: { text: "Preferences" }, direction: DOWN, timeout: 10000 }
+- tapOn: "Preferences"
+- extendedWaitUntil: { visible: "Favorite services", timeout: 15000 }   # unique to the Preferences screen
+- takeScreenshot: n04-preferences
+- tapOn: ".*Back.*"
+- extendedWaitUntil: { visible: "Preferences", timeout: 10000 }         # back on the Profile tab
+
+# ── Profile → Trust & Safety (orphan route reachable; back works) ─────────────
+- scrollUntilVisible: { element: { text: "Trust & Safety" }, direction: DOWN, timeout: 10000 }
+- tapOn: "Trust & Safety"
+- extendedWaitUntil: { visible: ".*keeps you safe.*", timeout: 15000 }  # unique to the Trust screen
+- takeScreenshot: n05-trust
+- tapOn: ".*Back.*"
+- extendedWaitUntil: { visible: "Preferences", timeout: 10000 }         # back on the Profile tab
+
+# ── Bottom tabs ───────────────────────────────────────────────────────────────
+- tapOn: "Home"
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 15000 }
+- tapOn: "My Bookings"
+- extendedWaitUntil: { visible: "My Bookings", timeout: 15000 }
+- takeScreenshot: n06-bookings
+- tapOn: "Notifications"
+- extendedWaitUntil: { visible: "Notifications", timeout: 15000 }
+- takeScreenshot: n07-notifications
+- tapOn: "Home"
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 15000 }
+
+# ── Home Search interception replay + live-catalogue search (LAST; ends in booking) ─
+- tapOn: "Search services"
+- extendedWaitUntil: { visible: "Popular searches", timeout: 10000 }
+- assertNotVisible: "What service do you need today?"
+- takeScreenshot: n08-search-opened
+- tapOn: "Search services..."
+- inputText: "Mechanic"
+- extendedWaitUntil: { visible: ".*Mechanic On Demand.*", timeout: 12000 }
+- takeScreenshot: n09-mechanic
+- eraseText
+- inputText: "Plumbing"
+- extendedWaitUntil: { visible: ".*Plumbing.*", timeout: 12000 }
+- eraseText
+- inputText: "House Cleaning"
+- extendedWaitUntil: { visible: ".*House Cleaning.*", timeout: 12000 }
+- eraseText
+- inputText: "Electrical"
+- extendedWaitUntil: { visible: ".*Electrical Repairs.*", timeout: 12000 }
+- eraseText
+- inputText: "Movers"
+- extendedWaitUntil: { visible: ".*Movers.*Packers.*", timeout: 12000 }
+- takeScreenshot: n10-movers
+# Tap the RESULT CARD (unique by price), NOT the suggestion → booking flow (Step 1).
+- tapOn: ".*KES 5,000.*"
+- extendedWaitUntil: { visible: "Your Address", timeout: 15000 }
+- takeScreenshot: n11-result-opens-booking

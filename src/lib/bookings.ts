@@ -37,6 +37,9 @@ export type NewBooking = {
   window_start?: string | null;
   window_end?: string | null;
   recurrence?: Recurrence;
+  // Phase 4E.2 — one client-generated key per logical submission (retry-stable). Optional so
+  // existing callers/tests keep working; when present it makes creation idempotent.
+  idempotencyKey?: string;
 };
 
 export type Booking = {
@@ -78,9 +81,18 @@ export type Booking = {
 
 // ── Customer mutations ─────────────────────────────────────────────────────
 
-export async function createBooking(input: NewBooking): Promise<{ ok: boolean; id?: string; error?: string }> {
+/**
+ * Creates a booking. When `idempotencyKey` is supplied, creation is idempotent: a duplicate
+ * submission (same key — double-tap, retry, timeout-then-retry) raises a unique-violation on
+ * the server, and we RECOVER the already-created booking instead of failing or creating a
+ * second row. One logical submission → at most one booking.
+ */
+export async function createBooking(
+  input: NewBooking,
+): Promise<{ ok: boolean; id?: string; recovered?: boolean; error?: string }> {
   const { data } = await supabase.auth.getUser();
   if (!data.user) return { ok: false, error: 'You must be signed in to book.' };
+  const idempotency_key = input.idempotencyKey ?? null;
   const { data: row, error } = await supabase.from('bookings').insert({
     customer_id: data.user.id,
     service_id: input.serviceId,
@@ -102,9 +114,73 @@ export async function createBooking(input: NewBooking): Promise<{ ok: boolean; i
     window_start: input.window_start ?? null,
     window_end: input.window_end ?? null,
     recurrence: input.recurrence ?? 'one_time',
+    // Phase 4E.2 — submission idempotency key (null when a caller omits it)
+    idempotency_key,
   }).select('id').single();
-  if (error) return { ok: false, error: 'Could not create booking. Please try again.' };
+
+  if (error) {
+    // Idempotent-retry recovery: the same key already created a booking (unique_violation
+    // 23505). Recover it via the owner-scoped select policy — never a spurious failure or a
+    // second row. The recovered row is the customer's own (the key was generated on-device).
+    if (idempotency_key && (error.code === '23505' || /duplicate key/i.test(error.message ?? ''))) {
+      const { data: existing } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('idempotency_key', idempotency_key)
+        .maybeSingle();
+      if (existing?.id) return { ok: true, id: existing.id, recovered: true };
+    }
+    return { ok: false, error: 'Could not create booking. Please try again.' };
+  }
   return { ok: true, id: row.id };
+}
+
+// ── Business-level duplicate detection (advisory warning; NOT the idempotency guard) ──
+
+/** Fields used to compare a new booking's destination against existing ones. */
+export type DuplicateMatchInput = {
+  serviceId: string;
+  address: string;
+  building_name?: string | null;
+  floor?: string | null;
+  door_number?: string | null;
+};
+
+/** Trim + lowercase; null/undefined/'' all normalize to '' so they compare equal. */
+function normField(v: string | null | undefined): string {
+  return (v ?? '').trim().toLowerCase();
+}
+
+/**
+ * PURE — is `existing` a LIKELY duplicate of the new booking `input`? True only when it is the
+ * same service, still ACTIVE (not cancelled/completed), at the same destination: the address
+ * text must match, AND building/floor/door must match (so a different unit is NOT a duplicate).
+ * A blank new address never matches (manual/empty addresses aren't force-collapsed). Never throws.
+ */
+export function isLikelyDuplicateBooking(existing: Booking, input: DuplicateMatchInput): boolean {
+  if (existing.service_id !== input.serviceId) return false;
+  if (existing.status === 'cancelled' || existing.status === 'completed') return false;
+  const addr = normField(input.address);
+  if (!addr || normField(existing.address) !== addr) return false;
+  return (
+    normField(existing.building_name) === normField(input.building_name) &&
+    normField(existing.floor) === normField(input.floor) &&
+    normField(existing.door_number) === normField(input.door_number)
+  );
+}
+
+/**
+ * Returns the customer's own newest ACTIVE booking that looks like a duplicate of `input`, or
+ * null. Reads only the caller's rows (getCustomerBookings is RLS owner-scoped) — a customer can
+ * never learn about another user's booking. Best-effort: returns null on any read error.
+ */
+export async function findActiveDuplicateBooking(input: DuplicateMatchInput): Promise<Booking | null> {
+  try {
+    const mine = await getCustomerBookings(0, 50);
+    return mine.find((b) => isLikelyDuplicateBooking(b, input)) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 // ── Customer queries ───────────────────────────────────────────────────────

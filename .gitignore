@@ -59,3 +59,11 @@ supabase/.temp/
 # Phase 3H iOS CI: downloaded simulator build (runner-only, never commit)
 /app.tar.gz
 /app/
+
+# Phase 4E.1 Android FCM: client config is provided to EAS via a file-type env
+# variable (GOOGLE_SERVICES_JSON), never committed. The service-account private
+# key must NEVER be committed either.
+google-services.json
+*google-services*.json
+*-firebase-adminsdk-*.json
+.adbtmp/

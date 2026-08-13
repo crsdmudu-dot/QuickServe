@@ -22,6 +22,11 @@ jest.mock('@/lib/supabase', () => ({
   },
 }));
 
+const mockUnregister = jest.fn().mockResolvedValue(undefined);
+jest.mock('@/lib/push', () => ({
+  unregisterForPushNotifications: (...a: unknown[]) => mockUnregister(...a),
+}));
+
 function Probe() {
   const { isLoading, role, signedIn, authError, selectRole, signUp: su, signIn, signOut: so } = useAuth();
   return (
@@ -38,6 +43,8 @@ function Probe() {
 beforeEach(() => {
   jest.clearAllMocks();
   mockOnAuthStateChange.mockReturnValue({ data: { subscription: { unsubscribe: jest.fn() } } });
+  mockUnregister.mockReset();
+  mockUnregister.mockResolvedValue(undefined);
 });
 
 it('loads with no session', async () => {
@@ -74,6 +81,28 @@ it('signUp passes role metadata and signOut calls supabase', async () => {
   await waitFor(() => expect(mockSignUp).toHaveBeenCalledWith(
     expect.objectContaining({ options: { data: { full_name: 'A', phone: '07', role: 'provider' } } }),
   ));
+  fireEvent.press(screen.getByText('signout'));
+  await waitFor(() => expect(mockSignOut).toHaveBeenCalled());
+});
+
+it('signOut unregisters this device push token BEFORE supabase signOut (Phase 4E.1)', async () => {
+  mockGetSession.mockResolvedValue({ data: { session: null } });
+  const order: string[] = [];
+  mockUnregister.mockImplementation(async () => { order.push('unregister'); });
+  mockSignOut.mockImplementation(async () => { order.push('signout'); return { error: null }; });
+  render(<AuthProvider><Probe /></AuthProvider>);
+  await waitFor(() => expect(screen.getByText('ready:none:false:-')).toBeOnTheScreen());
+  fireEvent.press(screen.getByText('signout'));
+  await waitFor(() => expect(mockSignOut).toHaveBeenCalled());
+  expect(mockUnregister).toHaveBeenCalled();
+  expect(order).toEqual(['unregister', 'signout']);
+});
+
+it('signOut still signs out even if push cleanup fails (best-effort — Phase 4E.1)', async () => {
+  mockGetSession.mockResolvedValue({ data: { session: null } });
+  mockUnregister.mockRejectedValue(new Error('cleanup failed'));
+  render(<AuthProvider><Probe /></AuthProvider>);
+  await waitFor(() => expect(screen.getByText('ready:none:false:-')).toBeOnTheScreen());
   fireEvent.press(screen.getByText('signout'));
   await waitFor(() => expect(mockSignOut).toHaveBeenCalled());
 });

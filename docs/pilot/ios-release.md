@@ -13,7 +13,7 @@ Work top-to-bottom. Items marked **[EAS]** require the EAS CLI (`npm install -g 
 
 | Field | Value |
 |---|---|
-| Bundle identifier | `com.quickserve.app` |
+| Bundle identifier | `ke.co.hiredcorp.quickserve` (Android package stays `com.quickserve.app`) |
 | Version | `1.0.0` |
 | Build number | `1` (`ios.buildNumber` in `app.json`) |
 | runtimeVersion policy | `appVersion` |
