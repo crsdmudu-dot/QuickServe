@@ -90,6 +90,11 @@ jobs:
           maestro test qa/native/flows/cold-relaunch.yaml \
             -e CUST_EMAIL="$QA_CUSTOMER_EMAIL" -e CUST_PW="$QA_CUSTOMER_PASSWORD"
 
+      - name: Phase 4E.2 — Booking Detail back-navigation (visible Back → My Bookings, no trap)
+        run: |
+          maestro test qa/native/flows/booking-detail-back.yaml \
+            -e CUST_EMAIL="$QA_CUSTOMER_EMAIL" -e CUST_PW="$QA_CUSTOMER_PASSWORD"
+
       - name: Phase 4E.2 — customer nav/search regression (Android-hurdle replay)
         run: |
           maestro test qa/native/flows/customer-nav-search.yaml \

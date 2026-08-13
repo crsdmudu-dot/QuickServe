@@ -15,7 +15,7 @@
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'b1' }),
-  router: { push: jest.fn(), replace: jest.fn() },
+  router: { push: jest.fn(), replace: jest.fn(), back: jest.fn(), canGoBack: jest.fn(() => true) },
 }));
 
 // Mock ServicesProvider — booking-detail.tsx uses useServices() for getServiceBySlug
@@ -134,7 +134,14 @@ jest.mock('@/lib/receipts', () => ({
 }));
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { router } from 'expo-router';
 import BookingDetailScreen from '@/app/booking/[id]';
+
+const mockRouter = router as unknown as {
+  back: jest.Mock;
+  replace: jest.Mock;
+  canGoBack: jest.Mock;
+};
 
 const BASE_BOOKING = {
   id: 'b1',
@@ -190,6 +197,55 @@ describe('BookingDetailScreen', () => {
     mockApplyWalletToPayment.mockResolvedValue({ ok: true });
     // Default: promo redeem succeeds with 200 discount.
     mockRedeemPromo.mockResolvedValue({ ok: true, discount: 200 });
+    // Back-navigation mocks: default to a valid previous route.
+    mockRouter.back.mockClear();
+    mockRouter.replace.mockClear();
+    mockRouter.canGoBack.mockReset();
+    mockRouter.canGoBack.mockReturnValue(true);
+  });
+
+  // ── Back navigation (Phase 4E.2 — Booking Detail had no visible Back on iOS) ──
+  it('renders a visible Back affordance while the booking is still loading (never trapped)', () => {
+    // getBookingById never resolves within this tick → loading state.
+    mockGetBookingById.mockReturnValue(new Promise(() => {}));
+    render(<BookingDetailScreen />);
+    expect(screen.getByTestId('booking-detail-back')).toBeOnTheScreen();
+  });
+
+  it('renders a visible Back affordance once the booking has loaded', async () => {
+    mockGetBookingById.mockResolvedValue(BASE_BOOKING);
+    render(<BookingDetailScreen />);
+    await screen.findByText('No provider assigned yet');
+    expect(screen.getByTestId('booking-detail-back')).toBeOnTheScreen();
+  });
+
+  it('Back pops the previous route when a valid navigation stack exists', async () => {
+    mockRouter.canGoBack.mockReturnValue(true);
+    mockGetBookingById.mockResolvedValue(BASE_BOOKING);
+    render(<BookingDetailScreen />);
+    await screen.findByText('No provider assigned yet');
+    fireEvent.press(screen.getByTestId('booking-detail-back'));
+    expect(mockRouter.back).toHaveBeenCalledTimes(1);
+    expect(mockRouter.replace).not.toHaveBeenCalled();
+  });
+
+  it('Back uses the safe /bookings fallback when there is NO previous route (cold-start/deep-link)', async () => {
+    mockRouter.canGoBack.mockReturnValue(false);
+    mockGetBookingById.mockResolvedValue(BASE_BOOKING);
+    render(<BookingDetailScreen />);
+    await screen.findByText('No provider assigned yet');
+    fireEvent.press(screen.getByTestId('booking-detail-back'));
+    expect(mockRouter.replace).toHaveBeenCalledWith('/bookings');
+    expect(mockRouter.back).not.toHaveBeenCalled();
+  });
+
+  it('loads the booking by the id from the route params (content still renders)', async () => {
+    mockGetBookingById.mockResolvedValue(BASE_BOOKING);
+    render(<BookingDetailScreen />);
+    await screen.findByText('No provider assigned yet');
+    // The screen fetches by the id supplied via useLocalSearchParams (mocked to 'b1').
+    expect(mockGetBookingById).toHaveBeenCalledWith('b1');
+    expect(screen.getByText('Booking Detail')).toBeOnTheScreen();
   });
 
   it('Case A: in-app provider shows ProfessionalCard; phone is NOT rendered', async () => {

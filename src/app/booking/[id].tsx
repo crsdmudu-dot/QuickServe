@@ -231,9 +231,27 @@ export default function BookingDetailScreen() {
     }
   }
 
+  // Visible, safe Back control. Booking Detail can be the FIRST route in the stack (opened
+  // from My Bookings / Payments / a notification tap / duplicate-warning "View existing"),
+  // so there may be no in-navigator screen to pop and the native header shows no back arrow —
+  // hence we render our own. When a previous route exists we pop it (preserving the normal
+  // stack + iOS swipe-back); otherwise (cold-start/terminated push, deep link) we fall back
+  // to a deterministic customer-safe destination instead of a dead-end/black screen.
+  function handleBack() {
+    if (router.canGoBack()) router.back();
+    else router.replace('/bookings');
+  }
+
+  const backHeader = (
+    <View style={styles.headerRow}>
+      <Button label="← Back" variant="ghost" onPress={handleBack} testID="booking-detail-back" />
+    </View>
+  );
+
   if (!booking) {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
+        {backHeader}
         <View style={styles.loadingContainer}>
           <Text variant="body" color="textSecondary">
             Loading…
@@ -247,6 +265,7 @@ export default function BookingDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
+      {backHeader}
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -598,6 +617,13 @@ export default function BookingDetailScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  // Fixed header row: keeps the Back control visible even after the detail content scrolls,
+  // so the customer is never trapped. Sits below the safe-area top inset (Dynamic Island-safe).
+  headerRow: {
+    paddingHorizontal: Spacing.two,
+    paddingTop: Spacing.two,
+    alignItems: 'flex-start',
+  },
   loadingContainer: {
     flex: 1,
     alignItems: 'center',
