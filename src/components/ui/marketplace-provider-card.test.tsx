@@ -71,12 +71,12 @@ describe('MarketplaceProviderCard', () => {
 
   it('renders VerifiedBadge when is_verified is true', () => {
     renderCard({ is_verified: true });
-    expect(screen.getByText('Verified by QuickServe')).toBeOnTheScreen();
+    expect(screen.getByText('Verified by KwikServe')).toBeOnTheScreen();
   });
 
   it('does NOT render VerifiedBadge when is_verified is false', () => {
     renderCard({ is_verified: false });
-    expect(screen.queryByText('Verified by QuickServe')).toBeNull();
+    expect(screen.queryByText('Verified by KwikServe')).toBeNull();
   });
 
   it('renders years experience when present', () => {

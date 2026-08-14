@@ -481,7 +481,7 @@ describe('AdminProviderQualityScreen', () => {
   it('renders provider name and verification badge', async () => {
     render(<AdminProviderQualityScreen />);
     expect(await screen.findByText('Jane Doe')).toBeOnTheScreen();
-    expect(screen.getByText('Verified by QuickServe')).toBeOnTheScreen();
+    expect(screen.getByText('Verified by KwikServe')).toBeOnTheScreen();
   });
 
   it('renders approval status', async () => {

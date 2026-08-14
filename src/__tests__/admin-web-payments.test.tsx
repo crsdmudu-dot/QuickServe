@@ -117,7 +117,7 @@ describe('AdminWebPaymentsScreen', () => {
   it('renders the split breakdown', async () => {
     render(<AdminWebPaymentsScreen />);
     expect(
-      await screen.findByText('Provider KES 2,100 · QuickServe KES 900'),
+      await screen.findByText('Provider KES 2,100 · KwikServe KES 900'),
     ).toBeOnTheScreen();
   });
 

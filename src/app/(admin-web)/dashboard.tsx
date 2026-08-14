@@ -159,7 +159,7 @@ export default function AdminDashboard() {
 
   return (
     <View style={styles.root}>
-      <PageMeta title="Dashboard" description="QuickServe admin dashboard overview." />
+      <PageMeta title="Dashboard" description="KwikServe admin dashboard overview." />
       {/* Summary stat cards */}
       <View style={styles.statsGrid}>
         <StatCard

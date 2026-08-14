@@ -4,7 +4,7 @@
  * Sections:
  *   1. Verified provider explanation — what the verified badge means (static copy + VerifiedBadge).
  *   2. TrustSignalCard — representative trust signals for illustration (derived/static).
- *   3. ServiceGuaranteesCard — QuickServe's platform guarantees.
+ *   3. ServiceGuaranteesCard — KwikServe's platform guarantees.
  *   4. SafetyTipsCard — SAFETY_REMINDERS + CUSTOMER_TIPS.
  *
  * Fully static/derived content — no data mutation.
@@ -50,7 +50,7 @@ export default function TrustScreen() {
         {/* ── Header ──────────────────────────────────────────────────── */}
         <Text variant="title">Trust &amp; Safety</Text>
         <Text variant="body" color="textSecondary">
-          How QuickServe keeps you safe and your bookings reliable.
+          How KwikServe keeps you safe and your bookings reliable.
         </Text>
 
         {/* ── 1. Verified provider explanation ────────────────────────── */}
@@ -62,7 +62,7 @@ export default function TrustScreen() {
               <Text variant="body" color="textSecondary" style={styles.verifiedBody}>
                 Providers earn the{' '}
                 <Text variant="body" weight="semibold">
-                  Verified by QuickServe
+                  Verified by KwikServe
                 </Text>{' '}
                 badge after passing our background check, identity verification, and skills
                 assessment. Look for this badge when choosing a provider for extra confidence.

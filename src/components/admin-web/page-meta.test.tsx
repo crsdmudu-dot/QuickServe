@@ -56,6 +56,6 @@ describe('PageMeta', () => {
 
   it('title includes the ADMIN_TITLE_SUFFIX constant', () => {
     // The suffix value itself should match the constant
-    expect(ADMIN_TITLE_SUFFIX).toBe(' · QuickServe Admin');
+    expect(ADMIN_TITLE_SUFFIX).toBe(' · KwikServe Admin');
   });
 });

@@ -70,11 +70,11 @@ describe('/services page', () => {
 // 2. /how-it-works
 // =============================================================================
 describe('/how-it-works page', () => {
-  it('renders a single <h1> containing "How QuickServe Works"', () => {
+  it('renders a single <h1> containing "How KwikServe Works"', () => {
     render(<HowItWorksPage />);
     const h1 = screen.getByRole('heading', { level: 1 });
     expect(h1).toBeInTheDocument();
-    expect(h1.textContent).toMatch(/How QuickServe Works/i);
+    expect(h1.textContent).toMatch(/How KwikServe Works/i);
   });
 
   it('renders all how-it-works step cards', () => {
@@ -93,11 +93,11 @@ describe('/how-it-works page', () => {
 // 3. /why-quickserve
 // =============================================================================
 describe('/why-quickserve page', () => {
-  it('renders a single <h1> containing "Why Choose QuickServe"', () => {
+  it('renders a single <h1> containing "Why Choose KwikServe"', () => {
     render(<WhyQuickServePage />);
     const h1 = screen.getByRole('heading', { level: 1 });
     expect(h1).toBeInTheDocument();
-    expect(h1.textContent).toMatch(/Why Choose QuickServe/i);
+    expect(h1.textContent).toMatch(/Why Choose KwikServe/i);
   });
 
   it('renders trust badges', () => {
@@ -119,7 +119,7 @@ describe('/become-a-provider page', () => {
     render(<BecomeAProviderPage />);
     const h1 = screen.getByRole('heading', { level: 1 });
     expect(h1).toBeInTheDocument();
-    expect(h1.textContent).toMatch(/Grow Your Business with QuickServe/i);
+    expect(h1.textContent).toMatch(/Grow Your Business with KwikServe/i);
   });
 
   it('renders ≥3 provider benefit texts', () => {
@@ -207,11 +207,11 @@ describe('/faq page', () => {
 // 7. /contact
 // =============================================================================
 describe('/contact page', () => {
-  it('renders a single <h1> containing "Contact QuickServe"', () => {
+  it('renders a single <h1> containing "Contact KwikServe"', () => {
     render(<ContactPage />);
     const h1 = screen.getByRole('heading', { level: 1 });
     expect(h1).toBeInTheDocument();
-    expect(h1.textContent).toMatch(/Contact QuickServe/i);
+    expect(h1.textContent).toMatch(/Contact KwikServe/i);
   });
 
   it('renders a mailto: link', () => {
@@ -283,11 +283,11 @@ describe('/support page', () => {
 // 9. /download
 // =============================================================================
 describe('/download page', () => {
-  it('renders a single <h1> containing "Get the QuickServe App"', () => {
+  it('renders a single <h1> containing "Get the KwikServe App"', () => {
     render(<DownloadPage />);
     const h1 = screen.getByRole('heading', { level: 1 });
     expect(h1).toBeInTheDocument();
-    expect(h1.textContent).toMatch(/Get the QuickServe App/i);
+    expect(h1.textContent).toMatch(/Get the KwikServe App/i);
   });
 
   it('renders Google Play and App Store coming-soon placeholders', () => {

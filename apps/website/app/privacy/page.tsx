@@ -8,9 +8,9 @@ import { BRAND } from '@/lib/site';
 import SectionHeading from '@/components/SectionHeading';
 
 export const metadata = buildMetadata({
-  title: 'Privacy Policy — QuickServe',
+  title: 'Privacy Policy — KwikServe',
   description:
-    'Read the QuickServe Privacy Policy to understand how we collect, use, and protect your personal data when you use our platform.',
+    'Read the KwikServe Privacy Policy to understand how we collect, use, and protect your personal data when you use our platform.',
   path: '/privacy',
 });
 

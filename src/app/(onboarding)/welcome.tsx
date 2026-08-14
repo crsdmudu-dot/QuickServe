@@ -24,7 +24,7 @@ export default function WelcomeScreen() {
         <View style={styles.markWrap}>
           <Text style={styles.mark}>⚡</Text>
         </View>
-        <Text variant="display" style={styles.brand}>QuickServe</Text>
+        <Text variant="display" style={styles.brand}>KwikServe</Text>
         <Text variant="body" color="textSecondary" style={styles.tagline}>
           Premium services, on demand.
         </Text>

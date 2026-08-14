@@ -117,7 +117,7 @@ describe('ProviderProfileScreen — approved', () => {
     render(<ProviderProfileScreen />);
     // Wait for profile to load
     expect(await screen.findByText('Jane Smith')).toBeOnTheScreen();
-    expect(screen.getByText('Verified by QuickServe')).toBeOnTheScreen();
+    expect(screen.getByText('Verified by KwikServe')).toBeOnTheScreen();
     // "5 jobs completed" — tightened from /5/ to avoid matching breakdown averages (e.g. 4.5)
     expect(screen.getByText(/5 jobs completed/)).toBeOnTheScreen();
   });

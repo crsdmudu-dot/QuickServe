@@ -4,7 +4,7 @@
  * Shows the quoted amount (or a 'No quote yet' placeholder), the quote
  * status label, an optional PaymentStatusBadge, optional customer-facing
  * Accept/Decline action buttons, and an optional admin-only provider/
- * QuickServe split breakdown.
+ * KwikServe split breakdown.
  *
  * IMPORTANT: the split breakdown is NEVER rendered unless the `split` prop
  * is explicitly passed.  Customer callers must never pass `split`.
@@ -41,7 +41,7 @@ export type QuoteCardProps = {
   /** Customer: pass to render the Decline button and wire its press handler. */
   onDecline?: () => void;
   /**
-   * ADMIN-ONLY — renders a provider/QuickServe split breakdown row.
+   * ADMIN-ONLY — renders a provider/KwikServe split breakdown row.
    * Customer callers MUST NOT pass this prop.
    */
   split?: { providerShare: number; quickserveShare: number };
@@ -84,7 +84,7 @@ export function QuoteCard({
               {`Provider: ${formatKes(split.providerShare)}`}
             </Text>
             <Text variant="caption" color="textSecondary">
-              {`QuickServe: ${formatKes(split.quickserveShare)}`}
+              {`KwikServe: ${formatKes(split.quickserveShare)}`}
             </Text>
           </View>
         )}

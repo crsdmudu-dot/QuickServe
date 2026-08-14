@@ -1,4 +1,4 @@
-// app/page.tsx — complete QuickServe Home page.
+// app/page.tsx — complete KwikServe Home page.
 // Server component — no data fetching, no hooks, no Supabase.
 // All marketing copy comes from content/site.ts; only structural headings are literal strings.
 
@@ -32,7 +32,7 @@ import CtaSection from '@/components/CtaSection';
 
 // Page-level metadata overrides layout defaults for /
 export const metadata = buildMetadata({
-  title: 'QuickServe — Book Trusted Home Services in Nairobi',
+  title: 'KwikServe — Book Trusted Home Services in Nairobi',
   description: `Book ${SEO_PHRASES[0]}, ${SEO_PHRASES[1]}, ${SEO_PHRASES[3]}, and more — all on demand. ${SEO_PHRASES[5]}: vetted professionals, transparent pricing, real-time tracking.`,
   path: '/',
 });
@@ -89,7 +89,7 @@ export default function Home() {
           <SectionHeading
             eyebrow="Why Trust Us"
             title="Built on Quality & Safety"
-            subtitle="Every interaction on QuickServe is designed around your safety, satisfaction, and peace of mind."
+            subtitle="Every interaction on KwikServe is designed around your safety, satisfaction, and peace of mind."
             align="center"
           />
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
@@ -106,13 +106,13 @@ export default function Home() {
       </section>
 
       {/* ------------------------------------------------------------------ */}
-      {/* 4. Why Choose QuickServe                                            */}
+      {/* 4. Why Choose KwikServe                                            */}
       {/* ------------------------------------------------------------------ */}
       <section className="py-16 px-6 bg-background">
         <div className="max-w-7xl mx-auto flex flex-col gap-10">
           <SectionHeading
             eyebrow="Our Promise"
-            title="Why Choose QuickServe"
+            title="Why Choose KwikServe"
             subtitle="We raise the bar on every booking — so you can relax and let the pros handle it."
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
@@ -133,7 +133,7 @@ export default function Home() {
       {/* ------------------------------------------------------------------ */}
       <CtaSection
         heading="Ready to Book Your First Service?"
-        body="Join thousands of customers across Nairobi who trust QuickServe for fast, reliable, professional services."
+        body="Join thousands of customers across Nairobi who trust KwikServe for fast, reliable, professional services."
         primaryCta={PRIMARY_CTA}
         secondaryCta={PROVIDER_CTA}
       />
@@ -170,7 +170,7 @@ export default function Home() {
           <SectionHeading
             eyebrow="For Customers"
             title="Everything You Need, Delivered"
-            subtitle="QuickServe puts quality, safety, and convenience at the heart of every booking."
+            subtitle="KwikServe puts quality, safety, and convenience at the heart of every booking."
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {CUSTOMER_BENEFITS.map((benefit) => (
@@ -192,7 +192,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto flex flex-col gap-10">
           <SectionHeading
             eyebrow="For Providers"
-            title="Grow Your Business With QuickServe"
+            title="Grow Your Business With KwikServe"
             subtitle="Join a growing network of professionals and access a steady stream of customers."
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -224,7 +224,7 @@ export default function Home() {
           <SectionHeading
             eyebrow="Testimonials"
             title="What People Are Saying"
-            subtitle="Hear from customers and providers who use QuickServe every day."
+            subtitle="Hear from customers and providers who use KwikServe every day."
             align="center"
           />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -250,7 +250,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto flex flex-col gap-10">
           <SectionHeading
             eyebrow="By the Numbers"
-            title="QuickServe at a Glance"
+            title="KwikServe at a Glance"
             align="center"
           />
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
@@ -294,7 +294,7 @@ export default function Home() {
       {/* 11. Download App CTA                                                */}
       {/* ------------------------------------------------------------------ */}
       <CtaSection
-        heading="Get the QuickServe App"
+        heading="Get the KwikServe App"
         body="Download for Android or iOS and book your first service in under a minute."
         primaryCta={DOWNLOAD_CTA}
       />
@@ -303,8 +303,8 @@ export default function Home() {
       {/* 12. Final CTA — dual audience                                       */}
       {/* ------------------------------------------------------------------ */}
       <CtaSection
-        heading="Join QuickServe Today"
-        body="Whether you need a service or want to offer one — QuickServe connects you to the right people, fast."
+        heading="Join KwikServe Today"
+        body="Whether you need a service or want to offer one — KwikServe connects you to the right people, fast."
         primaryCta={PRIMARY_CTA}
         secondaryCta={PROVIDER_CTA}
       />

@@ -9,9 +9,9 @@ import SectionHeading from '@/components/SectionHeading';
 import CtaSection from '@/components/CtaSection';
 
 export const metadata = buildMetadata({
-  title: 'Download the QuickServe App — Android & iOS',
+  title: 'Download the KwikServe App — Android & iOS',
   description:
-    'Get the QuickServe app on Android or iOS and book trusted home services in Nairobi in under a minute. Coming soon to Google Play and the App Store.',
+    'Get the KwikServe app on Android or iOS and book trusted home services in Nairobi in under a minute. Coming soon to Google Play and the App Store.',
   path: '/download',
 });
 
@@ -27,7 +27,7 @@ export default function DownloadPage() {
             Mobile App
           </span>
           <h1 className="text-display font-bold text-ink leading-tight">
-            Get the QuickServe App
+            Get the KwikServe App
           </h1>
           <p className="text-body text-textSecondary max-w-2xl">
             Book trusted home services in Nairobi from the palm of your hand. Available for both
@@ -105,7 +105,7 @@ export default function DownloadPage() {
               {
                 icon: '📱',
                 title: 'Android & iOS',
-                body: 'QuickServe runs natively on both Android and iOS — optimised for performance on every device.',
+                body: 'KwikServe runs natively on both Android and iOS — optimised for performance on every device.',
               },
             ].map(({ icon, title, body }) => (
               <div key={title} className="bg-surface border border-border rounded-lg p-6 flex items-start gap-4">
@@ -128,7 +128,7 @@ export default function DownloadPage() {
           <SectionHeading
             eyebrow="Stay Updated"
             title="Be First to Know When We Launch"
-            subtitle="The QuickServe app is coming soon to Google Play and the App Store. Contact us to register your interest and we'll notify you at launch."
+            subtitle="The KwikServe app is coming soon to Google Play and the App Store. Contact us to register your interest and we'll notify you at launch."
             align="center"
           />
         </div>
@@ -138,7 +138,7 @@ export default function DownloadPage() {
       {/* Closing CTA                                                         */}
       {/* ------------------------------------------------------------------ */}
       <CtaSection
-        heading="Ready to Experience QuickServe?"
+        heading="Ready to Experience KwikServe?"
         body="Book services via the web today, or contact us to be notified when the app launches on Android and iOS."
         primaryCta={DOWNLOAD_CTA}
         secondaryCta={PROVIDER_CTA}

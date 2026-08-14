@@ -1,6 +1,8 @@
-# Quick Serve
+# KwikServe
 
-You are helping me build Quick Serve, a premium on-demand services mobile application for Android and iOS using Expo React Native and TypeScript.
+> Product renamed from QuickServe to KwikServe during the pre-launch identity migration. Technical identifiers (Android package, iOS bundle, deep-link scheme, Firebase/EAS/Supabase project IDs) are migrated separately in later phases — see the migration branch `chore/kwikserve-identity`.
+
+You are helping me build KwikServe, a premium on-demand services mobile application for Android and iOS using Expo React Native and TypeScript.
 
 Build slowly and cleanly. Do not build everything at once.
 

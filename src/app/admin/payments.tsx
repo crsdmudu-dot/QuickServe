@@ -90,7 +90,7 @@ export default function AdminPaymentsScreen() {
 
               {/* Split breakdown */}
               <Text variant="caption" color="textSecondary">
-                {`Provider ${formatKes(p.provider_share)} · QuickServe ${formatKes(p.quickserve_share)}`}
+                {`Provider ${formatKes(p.provider_share)} · KwikServe ${formatKes(p.quickserve_share)}`}
               </Text>
 
               {/* Payment method */}

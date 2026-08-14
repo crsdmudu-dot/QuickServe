@@ -329,7 +329,7 @@ export default function AdminWebBookingDetailScreen() {
             amountInput !== '' &&
             shareInput !== '' && (
               <Text variant="caption" color="textSecondary">
-                {`QuickServe: ${formatKes(computeQuickServeShare(Number(amountInput), Number(shareInput)))}`}
+                {`KwikServe: ${formatKes(computeQuickServeShare(Number(amountInput), Number(shareInput)))}`}
               </Text>
             )}
           <Button label="Send quote" onPress={handleSendQuote} />

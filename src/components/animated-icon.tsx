@@ -186,7 +186,7 @@ export function AnimatedSplashOverlay() {
 
       {/* Wordmark */}
       <Animated.Text style={[styles.wordmark, { opacity: wordOpacity }]}>
-        QuickServe
+        KwikServe
       </Animated.Text>
 
       {/* Tagline */}

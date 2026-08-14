@@ -8,9 +8,9 @@ import { BRAND } from '@/lib/site';
 import SectionHeading from '@/components/SectionHeading';
 
 export const metadata = buildMetadata({
-  title: 'Terms of Service — QuickServe',
+  title: 'Terms of Service — KwikServe',
   description:
-    'Read the QuickServe Terms of Service to understand the rules governing use of our platform, bookings, payments, and responsibilities of customers and providers.',
+    'Read the KwikServe Terms of Service to understand the rules governing use of our platform, bookings, payments, and responsibilities of customers and providers.',
   path: '/terms',
 });
 
@@ -54,7 +54,7 @@ export default function TermsPage() {
           <div className="flex flex-col gap-3">
             <h2 className="text-heading font-bold text-ink">1. Acceptance of Terms</h2>
             <p className="text-body text-textSecondary">
-              By accessing or using the QuickServe platform (including the website and mobile app),
+              By accessing or using the KwikServe platform (including the website and mobile app),
               you agree to be bound by these Terms of Service. If you do not agree, please do not
               use our services.
             </p>
@@ -63,7 +63,7 @@ export default function TermsPage() {
           <div className="flex flex-col gap-3">
             <h2 className="text-heading font-bold text-ink">2. Using the Platform</h2>
             <p className="text-body text-textSecondary">
-              QuickServe provides an on-demand marketplace connecting customers with independent
+              KwikServe provides an on-demand marketplace connecting customers with independent
               service providers in Nairobi and surrounding areas. We are a technology intermediary —
               we do not directly employ service providers. You must be at least 18 years old to
               create an account.
@@ -73,8 +73,8 @@ export default function TermsPage() {
           <div className="flex flex-col gap-3">
             <h2 className="text-heading font-bold text-ink">3. Bookings & Payments</h2>
             <p className="text-body text-textSecondary">
-              When you book a service through QuickServe, you enter into a service agreement
-              directly with the independent provider. QuickServe facilitates the transaction but is
+              When you book a service through KwikServe, you enter into a service agreement
+              directly with the independent provider. KwikServe facilitates the transaction but is
               not a party to the service contract. Payment is processed securely through our
               platform using M-Pesa or card. Refund and cancellation policies are described in the
               app.
@@ -94,7 +94,7 @@ export default function TermsPage() {
           <div className="flex flex-col gap-3">
             <h2 className="text-heading font-bold text-ink">5. Liability</h2>
             <p className="text-body text-textSecondary">
-              QuickServe acts as an intermediary and does not guarantee the quality, safety, or
+              KwikServe acts as an intermediary and does not guarantee the quality, safety, or
               legality of any service performed by an independent provider. While we verify all
               providers, we are not liable for any damages arising from the services you receive.
               Our liability is limited to the amount you paid for the relevant booking.

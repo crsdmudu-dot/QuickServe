@@ -39,7 +39,7 @@ export default function RegisterScreen() {
         <View style={styles.header}>
           <Text variant="display" style={styles.heading}>Create your account</Text>
           <Text variant="body" color="textSecondary">
-            Join QuickServe today.
+            Join KwikServe today.
           </Text>
         </View>
 

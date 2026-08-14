@@ -60,7 +60,7 @@ function buildColumns(
       header: 'Split',
       render: (row) => (
         <Text variant="caption" color="textSecondary">
-          {`Provider ${formatKes(row.provider_share)} · QuickServe ${formatKes(row.quickserve_share)}`}
+          {`Provider ${formatKes(row.provider_share)} · KwikServe ${formatKes(row.quickserve_share)}`}
         </Text>
       ),
       width: 220,

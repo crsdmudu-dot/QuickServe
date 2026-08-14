@@ -62,13 +62,13 @@ describe('QuoteCard', () => {
     expect(screen.queryByText('Decline')).toBeNull();
   });
 
-  it('does not show the provider/QuickServe split when split prop is omitted', () => {
+  it('does not show the provider/KwikServe split when split prop is omitted', () => {
     render(<QuoteCard amount={1500} quoteStatus="sent" />);
     expect(screen.queryByText(/Provider:/)).toBeNull();
-    expect(screen.queryByText(/QuickServe:/)).toBeNull();
+    expect(screen.queryByText(/KwikServe:/)).toBeNull();
   });
 
-  it('shows the provider and QuickServe split when split prop is provided', () => {
+  it('shows the provider and KwikServe split when split prop is provided', () => {
     render(
       <QuoteCard
         amount={1500}
@@ -77,6 +77,6 @@ describe('QuoteCard', () => {
       />,
     );
     expect(screen.getByText('Provider: KES 1,200')).toBeOnTheScreen();
-    expect(screen.getByText('QuickServe: KES 300')).toBeOnTheScreen();
+    expect(screen.getByText('KwikServe: KES 300')).toBeOnTheScreen();
   });
 });

@@ -1,4 +1,4 @@
-// icons.ts — Predefined service icons for QuickServe.
+// icons.ts — Predefined service icons for KwikServe.
 // Icons are emoji glyphs that render identically on iOS, Android, and web.
 // There is NO upload path — all icons come from this curated list.
 

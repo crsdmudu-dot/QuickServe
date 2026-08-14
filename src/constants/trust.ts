@@ -3,11 +3,11 @@
 
 // ── Service Guarantees ─────────────────────────────────────────────────────
 
-/** What QuickServe guarantees to customers on every booking. */
+/** What KwikServe guarantees to customers on every booking. */
 export const SERVICE_GUARANTEES: { title: string; body: string }[] = [
   {
     title: 'Vetted professionals',
-    body: 'Every provider on QuickServe is background-checked and onboarded through a structured approval process before serving customers.',
+    body: 'Every provider on KwikServe is background-checked and onboarded through a structured approval process before serving customers.',
   },
   {
     title: 'Secure payment',

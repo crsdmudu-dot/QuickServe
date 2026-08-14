@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "QuickServe",
+    "name": "KwikServe",
     "slug": "QuickServe",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -48,14 +48,14 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "QuickServe needs photo access to attach job photos."
+          "photosPermission": "KwikServe needs photo access to attach job photos."
         }
       ],
       "expo-notifications",
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "QuickServe shares your live location with the customer only while you are travelling to and performing an active job."
+          "locationWhenInUsePermission": "KwikServe shares your live location with the customer only while you are travelling to and performing an active job."
         }
       ],
       ["@sentry/react-native/expo", { "organization": "", "project": "" }]

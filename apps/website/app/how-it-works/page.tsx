@@ -1,4 +1,4 @@
-// app/how-it-works/page.tsx — Step-by-step explainer of the QuickServe booking flow.
+// app/how-it-works/page.tsx — Step-by-step explainer of the KwikServe booking flow.
 // Server component — no data fetching, no hooks, no Supabase.
 // All content mapped from content/site.ts; structural headings are literals.
 
@@ -10,9 +10,9 @@ import StepCard from '@/components/StepCard';
 import CtaSection from '@/components/CtaSection';
 
 export const metadata = buildMetadata({
-  title: 'How QuickServe Works — Book a Service in Minutes',
+  title: 'How KwikServe Works — Book a Service in Minutes',
   description:
-    'Discover how QuickServe makes booking home services in Nairobi simple: choose a service, set your location, get matched with a verified professional, and track them in real time.',
+    'Discover how KwikServe makes booking home services in Nairobi simple: choose a service, set your location, get matched with a verified professional, and track them in real time.',
   path: '/how-it-works',
 });
 
@@ -27,7 +27,7 @@ export default function HowItWorksPage() {
           <SectionHeading
             as="h1"
             eyebrow="Simple Steps"
-            title="How QuickServe Works"
+            title="How KwikServe Works"
             subtitle="Getting a professional to your door has never been easier. Follow these six simple steps to go from request to completed job."
             align="center"
           />
@@ -84,7 +84,7 @@ export default function HowItWorksPage() {
       {/* ------------------------------------------------------------------ */}
       <CtaSection
         heading="Ready to Try It?"
-        body="Book your first service in under a minute and experience the QuickServe difference."
+        body="Book your first service in under a minute and experience the KwikServe difference."
         primaryCta={PRIMARY_CTA}
         secondaryCta={PROVIDER_CTA}
       />

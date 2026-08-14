@@ -460,7 +460,7 @@ export default function AnalyticsDetailedScreen() {
           testID="kpi-fin-payouts"
         />
         <TrendCard
-          title="QuickServe Revenue"
+          title="KwikServe Revenue"
           value={formatKes(financialSummary.quickserve_revenue)}
           testID="kpi-fin-qs-revenue"
         />

@@ -151,7 +151,7 @@ export function AdminSidebar({ orientation = 'side' }: AdminSidebarProps) {
         {/* Brand — compact */}
         <View style={styles.topBrand}>
           <Text variant="label" color="primary" weight="bold">
-            QuickServe
+            KwikServe
           </Text>
         </View>
 
@@ -206,7 +206,7 @@ export function AdminSidebar({ orientation = 'side' }: AdminSidebarProps) {
       {/* Brand header */}
       <View style={styles.brand}>
         <Text variant="heading" color="primary" weight="bold">
-          QuickServe
+          KwikServe
         </Text>
         <Text variant="caption" color="textSecondary">
           Admin Panel

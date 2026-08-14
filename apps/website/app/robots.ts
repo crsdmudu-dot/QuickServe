@@ -1,4 +1,4 @@
-// app/robots.ts — robots.txt generation for the QuickServe marketing website.
+// app/robots.ts — robots.txt generation for the KwikServe marketing website.
 // Allows all crawlers to index all public marketing routes.
 // `dynamic = 'force-static'` is required for `output: 'export'` in Next 15.
 

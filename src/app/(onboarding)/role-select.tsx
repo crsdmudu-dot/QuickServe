@@ -24,7 +24,7 @@ export default function RoleSelectScreen() {
       <View style={styles.header}>
         <Text variant="display" style={styles.heading}>Choose your role</Text>
         <Text variant="body" color="textSecondary" style={styles.sub}>
-          How will you use QuickServe?
+          How will you use KwikServe?
         </Text>
       </View>
 

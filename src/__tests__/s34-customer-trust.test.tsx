@@ -56,10 +56,10 @@ describe('TrustScreen', () => {
     expect(screen.getByText('Verified providers')).toBeOnTheScreen();
   });
 
-  it('renders "Verified by QuickServe" badge text', () => {
+  it('renders "Verified by KwikServe" badge text', () => {
     render(<TrustScreen />);
-    // VerifiedBadge + body text both contain "Verified by QuickServe" — at least one present
-    expect(screen.getAllByText('Verified by QuickServe').length).toBeGreaterThanOrEqual(1);
+    // VerifiedBadge + body text both contain "Verified by KwikServe" — at least one present
+    expect(screen.getAllByText('Verified by KwikServe').length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders TrustSignalCard with illustrative signals', () => {

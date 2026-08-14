@@ -593,7 +593,7 @@ export default function BookingDetailScreen() {
                 label="Private feedback to admin (optional)"
                 value={privateFeedback}
                 onChangeText={setPrivateFeedback}
-                placeholder="Only visible to QuickServe admin…"
+                placeholder="Only visible to KwikServe admin…"
                 multiline
               />
 

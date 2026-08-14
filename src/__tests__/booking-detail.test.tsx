@@ -269,7 +269,7 @@ describe('BookingDetailScreen', () => {
 
     expect(await screen.findByText('Jane')).toBeOnTheScreen();
     expect(screen.getByText('Plumbing')).toBeOnTheScreen();
-    expect(screen.getByText('Verified by QuickServe')).toBeOnTheScreen();
+    expect(screen.getByText('Verified by KwikServe')).toBeOnTheScreen();
     expect(screen.getByText('5 jobs completed')).toBeOnTheScreen();
     expect(screen.queryByText('0700')).toBeNull();
   });
@@ -286,7 +286,7 @@ describe('BookingDetailScreen', () => {
     render(<BookingDetailScreen />);
 
     expect(await screen.findByText('Bob')).toBeOnTheScreen();
-    expect(screen.queryByText('Verified by QuickServe')).toBeNull();
+    expect(screen.queryByText('Verified by KwikServe')).toBeNull();
     expect(screen.queryByText('0700')).toBeNull();
   });
 
@@ -437,7 +437,7 @@ describe('BookingDetailScreen', () => {
     // Type private feedback.
     const privateFeedbackText = 'Great job overall, very tidy.';
     fireEvent.changeText(
-      screen.getByPlaceholderText('Only visible to QuickServe admin…'),
+      screen.getByPlaceholderText('Only visible to KwikServe admin…'),
       privateFeedbackText,
     );
 

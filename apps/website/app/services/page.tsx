@@ -1,4 +1,4 @@
-// app/services/page.tsx — Browse all QuickServe service categories.
+// app/services/page.tsx — Browse all KwikServe service categories.
 // Server component — no data fetching, no hooks, no Supabase.
 // All content mapped from content/site.ts; structural headings are literals.
 
@@ -16,7 +16,7 @@ import ServiceCategoryCard from '@/components/ServiceCategoryCard';
 import CtaSection from '@/components/CtaSection';
 
 export const metadata = buildMetadata({
-  title: 'Home Services in Nairobi, On Demand — QuickServe',
+  title: 'Home Services in Nairobi, On Demand — KwikServe',
   description: `Browse 19+ on-demand services including ${SEO_PHRASES[3]}, ${SEO_PHRASES[1]}, ${SEO_PHRASES[2]}, ${SEO_PHRASES[4]}, and more. Book a vetted professional in Nairobi in under a minute.`,
   path: '/services',
 });
@@ -64,7 +64,7 @@ export default function ServicesPage() {
       {/* ------------------------------------------------------------------ */}
       <CtaSection
         heading="Ready to Book a Service?"
-        body="Join thousands of customers across Nairobi who trust QuickServe for fast, reliable home services."
+        body="Join thousands of customers across Nairobi who trust KwikServe for fast, reliable home services."
         primaryCta={PRIMARY_CTA}
         secondaryCta={PROVIDER_CTA}
       />
