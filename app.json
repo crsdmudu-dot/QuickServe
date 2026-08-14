@@ -24,7 +24,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.quickserve.app",
+      "package": "ke.co.hiredcorp.kwikserve",
       "versionCode": 1
     },
     "web": {
