@@ -66,4 +66,8 @@ supabase/.temp/
 google-services.json
 *google-services*.json
 *-firebase-adminsdk-*.json
+
+# EAS local credentials vehicle — TEMPORARY, holds keystore path + passwords.
+# NEVER commit. Used only to upload the existing keystore to EAS remote, then deleted.
+credentials.json
 .adbtmp/
