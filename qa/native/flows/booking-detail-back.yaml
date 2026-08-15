@@ -16,7 +16,7 @@
 # separate cold-relaunch.yaml journey.
 #
 # Params via -e: CUST_EMAIL, CUST_PW
-appId: ke.co.hiredcorp.quickserve
+appId: ke.co.hiredcorp.kwikserve
 ---
 - launchApp: { clearState: true }
 - extendedWaitUntil: { visible: "Get Started", timeout: 30000 }

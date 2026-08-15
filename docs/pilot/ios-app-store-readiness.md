@@ -23,7 +23,7 @@ iOS builds are produced with EAS (`eas.json`). Production profile: `production` 
 - [ ] **Production profile** selected: `eas build --platform ios --profile production`.
 - [ ] **Version** (`app.json` → `expo.version`) is correct for this release. Current: `1.0.0`.
 - [ ] **Build number** (`app.json` → `expo.ios.buildNumber`, current `"1"`) — with `production.autoIncrement: true`, EAS auto-increments the build number per production build. Confirm it is higher than the last uploaded build.
-- [ ] **Bundle identifier** = `ke.co.hiredcorp.quickserve` (Hired Corp Ltd; Android package is separately `com.quickserve.app`). Permanent — do not change once registered.
+- [ ] **Bundle identifier** = `ke.co.hiredcorp.kwikserve` (Hired Corp Ltd; same string as the Android package — separate namespaces). Migrated in Phase 6E; the Apple App ID was registered in Phase 6B.2. Permanent — do not change.
 - [ ] **Apple credentials** configured: `eas credentials` (or EAS-managed). Apple ID / Team available.
 - [ ] **Distribution certificate** present and valid (EAS-managed or uploaded).
 - [ ] **Provisioning profile** (App Store distribution) present and matches the bundle id + entitlements (incl. Associated Domains once enabled — see §9).
@@ -66,7 +66,7 @@ iOS builds are produced with EAS (`eas.json`). Production profile: `production` 
 
 ## 5. App Store Submission Checklist
 
-- [ ] App Store Connect app record exists for `com.quickserve.app`.
+- [ ] App Store Connect app record exists for `ke.co.hiredcorp.kwikserve`.
 - [ ] App name, subtitle, primary/secondary category chosen.
 - [ ] Description, keywords, promotional text finalized (no placeholder — see §11).
 - [ ] Screenshots for all required device sizes uploaded (see §11).
@@ -124,7 +124,7 @@ Complete App Store Connect → App Privacy. Map each collected data type to its 
 - **Placeholder scaffold exists (inert).** `app.json` → `expo.ios.associatedDomains: ["applinks:REPLACE_ME.quickserve.app"]`. It is a non-functional placeholder and does not affect `quickserve://` behavior.
 - **Before enabling Universal Links (production AASA setup required):**
   - [ ] Replace `REPLACE_ME.quickserve.app` with the real domain.
-  - [ ] Host a valid `apple-app-site-association` (AASA) file at `https://<domain>/.well-known/apple-app-site-association` (JSON, no extension, correct `appID` = `<TeamID>.com.quickserve.app`, correct `paths`).
+  - [ ] Host a valid `apple-app-site-association` (AASA) file at `https://<domain>/.well-known/apple-app-site-association` (JSON, no extension, correct `appID` = `<TeamID>.ke.co.hiredcorp.kwikserve`, correct `paths`).
   - [ ] Enable the **Associated Domains** capability on the App ID / provisioning profile.
   - [ ] Rebuild via EAS and verify that tapping an `https://<domain>/...` link opens the app to the correct route.
 

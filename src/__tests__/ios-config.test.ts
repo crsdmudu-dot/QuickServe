@@ -42,10 +42,14 @@ describe('iOS icons', () => {
 
 describe('iOS identity', () => {
   test('bundle identifier exists', () => {
-    // Permanent iOS bundle id (Hired Corp Ltd, hiredcorp.co.ke). Distinct from the Android
-    // package (ke.co.hiredcorp.kwikserve, migrated in Phase 3B); the iOS bundle stays on
-    // ke.co.hiredcorp.quickserve until its own migration phase.
-    expect(expo.ios.bundleIdentifier).toBe('ke.co.hiredcorp.quickserve');
+    // Permanent iOS bundle id (Hired Corp Ltd, hiredcorp.co.ke), migrated in Phase 6E from
+    // ke.co.hiredcorp.quickserve. The Apple App ID was registered in Phase 6B.2 with Push
+    // Notifications + Associated Domains. Matches the Android package string by design —
+    // Apple App IDs and Android application IDs are separate namespaces.
+    expect(expo.ios.bundleIdentifier).toBe('ke.co.hiredcorp.kwikserve');
+  });
+  test('old iOS bundle ke.co.hiredcorp.quickserve is no longer used', () => {
+    expect(expo.ios.bundleIdentifier).not.toBe('ke.co.hiredcorp.quickserve');
   });
   test('build number exists', () => {
     expect(typeof expo.ios.buildNumber).toBe('string');

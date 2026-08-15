@@ -79,11 +79,11 @@ flowchart TD
 
 Verified from `app.json`:
 
-- **Android** — `package: "com.quickserve.app"`, `versionCode: 1`; adaptive icon
+- **Android** — `package: "ke.co.hiredcorp.kwikserve"`, `versionCode: 1`; adaptive icon
   (foreground/background/monochrome, `backgroundColor #E6F4FE`); `predictiveBackGestureEnabled:
   false`. Builds via EAS: `development`/`preview` → **APK**
   (`eas.json android.buildType: "apk"`), `production` → **AAB** (default).
-- **iOS** — `bundleIdentifier: "ke.co.hiredcorp.quickserve"` (Hired Corp Ltd; distinct from Android `package: "com.quickserve.app"`), `buildNumber: "1"`; icon
+- **iOS** — `bundleIdentifier: "ke.co.hiredcorp.kwikserve"` (Hired Corp Ltd; same string as the Android `package` by design — Apple App IDs and Android application IDs are separate namespaces), `buildNumber: "1"`; icon
   `./assets/expo.icon`; `associatedDomains: ["applinks:REPLACE_ME.quickserve.app"]` (a
   **placeholder** — see §6). Builds via EAS `production` → **.ipa**; `development` is real-device
   only (`eas.json ios.simulator: false`).

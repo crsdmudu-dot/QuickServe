@@ -8,7 +8,7 @@
 # the Google Places/address flow is certified separately and is NOT exercised here.
 #
 # Params via -e: CUST_EMAIL, CUST_PW, MARKER
-appId: ke.co.hiredcorp.quickserve
+appId: ke.co.hiredcorp.kwikserve
 ---
 - launchApp: { clearState: true }
 - extendedWaitUntil: { visible: "Get Started", timeout: 30000 }

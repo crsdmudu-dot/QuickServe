@@ -80,7 +80,7 @@ jobs:
           open -a Simulator || true
           xcrun simctl install "$DEVICE_ID" "$APP_PATH"
           echo "Installed $APP_PATH"
-          xcrun simctl listapps "$DEVICE_ID" | grep -i quickserve || true
+          xcrun simctl listapps "$DEVICE_ID" | grep -i kwikserve || true
 
       - name: Entry reachability smoke (iOS deterministic entry)
         run: maestro test qa/native/flows/entry-reachability.yaml

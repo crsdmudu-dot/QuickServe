@@ -6,7 +6,7 @@
 # reachable: role selection and the customer/provider sign-in.
 #
 # Run: qa\native\maestro.bat test qa\native\flows\entry-reachability.yaml
-appId: ke.co.hiredcorp.quickserve
+appId: ke.co.hiredcorp.kwikserve
 ---
 # Cold launch → customer/provider welcome (never the admin "Admin Panel" login).
 - launchApp:
@@ -14,7 +14,7 @@ appId: ke.co.hiredcorp.quickserve
 - extendedWaitUntil:
     visible: "Get Started"
     timeout: 30000
-- assertVisible: "QuickServe"
+- assertVisible: "KwikServe"
 - assertNotVisible: "Sign in with your admin account."
 - takeScreenshot: 01-native-entry-is-welcome
 # Role selection reachable.

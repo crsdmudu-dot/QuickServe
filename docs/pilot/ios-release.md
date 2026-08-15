@@ -13,7 +13,7 @@ Work top-to-bottom. Items marked **[EAS]** require the EAS CLI (`npm install -g 
 
 | Field | Value |
 |---|---|
-| Bundle identifier | `ke.co.hiredcorp.quickserve` (Android package stays `com.quickserve.app`) |
+| Bundle identifier | `ke.co.hiredcorp.kwikserve` (same string as the Android package — separate namespaces) |
 | Version | `1.0.0` |
 | Build number | `1` (`ios.buildNumber` in `app.json`) |
 | runtimeVersion policy | `appVersion` |
@@ -51,7 +51,7 @@ Work top-to-bottom. Items marked **[EAS]** require the EAS CLI (`npm install -g 
   - **Platform:** iOS
   - **Name:** QuickServe
   - **Primary language:** English (or pilot locale)
-  - **Bundle ID:** **`com.quickserve.app`** — must match `app.json ios.bundleIdentifier` exactly. Register the App ID first (see section 4) if it does not appear in the dropdown.
+  - **Bundle ID:** **`ke.co.hiredcorp.kwikserve`** — must match `app.json ios.bundleIdentifier` exactly. The App ID was registered in Phase 6B.2 (see section 4).
   - **SKU:** A unique internal identifier (e.g. `quickserve-001`).
 - [ ] Confirm the app record is created and appears under My Apps.
 
@@ -62,7 +62,7 @@ Work top-to-bottom. Items marked **[EAS]** require the EAS CLI (`npm install -g 
 - [ ] Sign in to the [Apple Developer portal](https://developer.apple.com/account/resources/identifiers/list).
 - [ ] Under **Certificates, Identifiers & Profiles → Identifiers**, register a new App ID:
   - Type: **App**
-  - Bundle ID: **Explicit** — enter `com.quickserve.app` exactly.
+  - Bundle ID: **Explicit** — enter `ke.co.hiredcorp.kwikserve` exactly.
 - [ ] Enable the **Push Notifications** capability on the App ID (required for Expo push relay via APNs).
 - [ ] Save. The registered App ID will now appear in App Store Connect when creating a new app record.
 
@@ -77,7 +77,7 @@ eas credentials
 # Select: iOS → <your Apple account> → Manage credentials
 ```
 
-- [ ] EAS generates or imports the **Distribution Certificate** and **Provisioning Profile** for `com.quickserve.app`.
+- [ ] EAS generates or imports the **Distribution Certificate** and **Provisioning Profile** for `ke.co.hiredcorp.kwikserve`.
 - [ ] An **APNs Auth Key** (`.p8`) is generated and registered with EAS for push notification delivery (see section 8 for push details).
 - [ ] Verify credentials are saved: `eas credentials` shows a distribution cert and provisioning profile for iOS.
 - [ ] If building for development/TestFlight, EAS will also create an **Ad Hoc** or **Development** provisioning profile automatically.

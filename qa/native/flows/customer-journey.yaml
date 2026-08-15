@@ -1,7 +1,7 @@
 # Phase 3F — Customer native journey: login → home → search → create booking → confirm → history.
 # Credentials + booking marker are passed via `-e` (never stored here):
 #   maestro.bat test customer-journey.yaml -e CUST_EMAIL=... -e CUST_PW=... -e MARKER=...
-appId: ke.co.hiredcorp.quickserve
+appId: ke.co.hiredcorp.kwikserve
 ---
 - launchApp: { clearState: true }
 - extendedWaitUntil: { visible: "Get Started", timeout: 30000 }

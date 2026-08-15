@@ -31,12 +31,12 @@ describe('Android identity (Phase 3B migration)', () => {
   });
 });
 
-describe('identifiers intentionally unchanged in Phase 3B', () => {
+describe('identifiers cross-checked against the Android package', () => {
   test('public app name remains KwikServe', () => {
     expect(expo.name).toBe('KwikServe');
   });
-  test('iOS bundle identifier is unchanged (migrated in a later phase)', () => {
-    expect(expo.ios.bundleIdentifier).toBe('ke.co.hiredcorp.quickserve');
+  test('iOS bundle identifier is the migrated KwikServe identity (Phase 6E)', () => {
+    expect(expo.ios.bundleIdentifier).toBe('ke.co.hiredcorp.kwikserve');
   });
   test('deep-link scheme is unchanged (migrated in a later phase)', () => {
     expect(expo.scheme).toBe('quickserve');
