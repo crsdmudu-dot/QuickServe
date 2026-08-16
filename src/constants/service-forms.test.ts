@@ -335,6 +335,47 @@ describe('locked product decisions', () => {
     expect(gender.disclaimer?.toLowerCase()).toContain("isn't guaranteed");
   });
 
+  it('Massage is ONE person per booking in V1 — no party-size question', () => {
+    const m = SERVICE_FORMS['massage'];
+    // Multi-therapist capacity and assignment semantics do not exist yet, so the form must not
+    // imply an operational capability we cannot guarantee. Group/couples massage is deferred.
+    expect(m.questions.some((q) => q.key === 'number_of_people')).toBe(false);
+    expect(customerFacingJson(m)).not.toContain('how many people');
+  });
+
+  it('Massage keeps area, duration and therapist preference', () => {
+    const m = SERVICE_FORMS['massage'];
+    expect(m.primary.key).toBe('variant');
+    expect(m.questions.some((q) => q.key === 'duration_minutes')).toBe(true);
+    expect(m.questions.some((q) => q.key === 'therapist_gender_preference')).toBe(true);
+  });
+
+  it('Pest Control asks about children/pets observationally, claiming nothing about treatment safety', () => {
+    const q = SERVICE_FORMS['pest-control'].questions.find((x) => x.key === 'pets_or_children')!;
+    expect(q.required).toBe(true);
+    const text = `${q.label} ${q.helpText ?? ''}`.toLowerCase();
+    // Must not imply the FORM determines which treatment/chemical is safe or appropriate.
+    for (const claim of ['safe', 'pesticide', 'chemical', 'which treatment', 'medically']) {
+      expect(text).not.toContain(claim);
+    }
+  });
+
+  it('AC type offers a no-knowledge path so customers need not identify equipment', () => {
+    const q = SERVICE_FORMS['ac-repair'].questions.find((x) => x.key === 'ac_type')!;
+    const keys = customerOptions(q).map((o) => o.key);
+    expect(keys.some((k) => k === 'dont_know' || k === 'not_sure')).toBe(true);
+  });
+
+  it('Grocery goods budget has no default — the customer must state it deliberately', () => {
+    for (const f of FORMS) {
+      for (const q of allQuestions(f)) {
+        if (!q.goodsBudget) continue;
+        expect(q.required).toBe(true);
+        expect((q as Record<string, unknown>).default).toBeUndefined();
+      }
+    }
+  });
+
   it('Mechanic allows images only — never video', () => {
     const m = SERVICE_FORMS['mechanic'];
     expect(m.media.enabled).toBe(true);

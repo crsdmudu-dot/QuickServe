@@ -598,7 +598,7 @@ const painting: ServiceForm = {
 
 const pestControl: ServiceForm = {
   slug: 'pest-control',
-  version: 1,
+  version: 2,
   primaryKind: 'issue',
   primary: {
     key: 'issue',
@@ -672,10 +672,12 @@ const pestControl: ServiceForm = {
     },
     {
       key: 'pets_or_children',
-      label: 'Are there pets or young children at home?',
+      label: 'Are there children or pets at the property?',
       kind: 'single',
       required: true,
-      helpText: 'This affects which treatment the technician can use',
+      // Purely observational context for the technician. This form makes no claim about which
+      // treatment is safe or appropriate — that judgement belongs to the technician on site.
+      helpText: 'So the technician knows what to expect when they arrive',
       options: YES_NO,
     },
     otherDescription('issue', 'What are you dealing with?'),
@@ -1401,7 +1403,7 @@ const makeup: ServiceForm = {
 
 const massage: ServiceForm = {
   slug: 'massage',
-  version: 1,
+  version: 2,
   primaryKind: 'variant',
   primary: {
     key: 'variant',
@@ -1430,14 +1432,6 @@ const massage: ServiceForm = {
       ],
     },
     {
-      key: 'number_of_people',
-      label: 'How many people?',
-      kind: 'number',
-      required: true,
-      min: 1,
-      max: 4,
-    },
-    {
       key: 'therapist_gender_preference',
       label: 'Do you have a preference for the therapist?',
       kind: 'single',
@@ -1453,8 +1447,12 @@ const massage: ServiceForm = {
   ],
   media: { enabled: false },
   reviewNote:
-    'Media is disabled by locked decision. Gender is stored as a PREFERENCE with mandatory wording that ' +
-    'it is not a guarantee. Deliberately no clinical or medical massage categories.',
+    'ONE booking = ONE person in V1. number_of_people was removed by principal decision because ' +
+    'multi-therapist capacity and assignment semantics do not exist yet, and the form must not imply ' +
+    'an operational capability we cannot guarantee. Group/couples massage is DEFERRED until ' +
+    'multi-provider fulfilment is explicitly designed. Media is disabled by locked decision. Gender is ' +
+    'stored as a PREFERENCE with mandatory wording that it is not a guarantee. Deliberately no ' +
+    'clinical or medical massage categories.',
 };
 
 // ── Registry ──────────────────────────────────────────────────────────────────
