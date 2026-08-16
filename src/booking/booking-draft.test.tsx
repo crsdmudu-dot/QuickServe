@@ -9,6 +9,7 @@ import { Text, TouchableOpacity } from 'react-native';
 
 import { BookingDraftProvider, useBookingDraft } from './booking-draft';
 import type { ResolvedSchedule } from '@/lib/scheduling';
+import { buildServiceDetailsSnapshot } from '@/lib/service-details';
 
 /** Probe renders current draft state and exposes action buttons. */
 function Probe() {
@@ -26,6 +27,8 @@ function Probe() {
       <Text testID="window_end">{draft.window_end ?? 'null'}</Text>
       <Text testID="recurrence">{draft.recurrence}</Text>
       <Text testID="idem">{draft.ensureIdempotencyKey()}</Text>
+      <Text testID="serviceDetails">{draft.serviceDetails ? draft.serviceDetails.primary.value as string : 'null'}</Text>
+      <Text testID="serviceDetailsSlug">{draft.serviceDetails?.service_slug ?? 'null'}</Text>
 
       <TouchableOpacity testID="btn-ensureIdem" onPress={() => draft.ensureIdempotencyKey()} />
       <TouchableOpacity testID="btn-start" onPress={() => draft.start('s1')} />
@@ -35,6 +38,21 @@ function Probe() {
       <TouchableOpacity testID="btn-addIssuePhoto" onPress={() => draft.addIssuePhoto('file://a')} />
       <TouchableOpacity testID="btn-removeIssuePhoto" onPress={() => draft.removeIssuePhoto('file://a')} />
       <TouchableOpacity testID="btn-reset" onPress={() => draft.reset()} />
+      <TouchableOpacity
+        testID="btn-setServiceDetails"
+        onPress={() =>
+          draft.setServiceDetails(
+            buildServiceDetailsSnapshot({
+              formVersion: 1,
+              serviceSlug: 'house-cleaning',
+              serviceTitle: 'House Cleaning',
+              primaryKind: 'variant',
+              primary: { key: 'variant', question: 'What kind of cleaning?', kind: 'single', value: 'deep', display: 'Deep clean' },
+            }),
+          )
+        }
+      />
+      <TouchableOpacity testID="btn-clearServiceDetails" onPress={() => draft.setServiceDetails(null)} />
       <TouchableOpacity
         testID="btn-setSchedule"
         onPress={() => {
@@ -125,6 +143,51 @@ describe('BookingDraftProvider', () => {
     expect(screen.getByTestId('serviceId').props.children).toBe('null');
     expect(screen.getByTestId('address').props.children).toBe('');
     expect(screen.getByTestId('notes').props.children).toBe('');
+  });
+
+  // ── Service Details V1 ────────────────────────────────────────────────────
+  it('serviceDetails starts null', () => {
+    renderProbe();
+    expect(screen.getByTestId('serviceDetails').props.children).toBe('null');
+  });
+
+  it('setServiceDetails() stores the snapshot', () => {
+    renderProbe();
+    fireEvent.press(screen.getByTestId('btn-setServiceDetails'));
+    expect(screen.getByTestId('serviceDetails').props.children).toBe('deep');
+    expect(screen.getByTestId('serviceDetailsSlug').props.children).toBe('house-cleaning');
+  });
+
+  it('setServiceDetails(null) clears the snapshot', () => {
+    renderProbe();
+    fireEvent.press(screen.getByTestId('btn-setServiceDetails'));
+    fireEvent.press(screen.getByTestId('btn-clearServiceDetails'));
+    expect(screen.getByTestId('serviceDetails').props.children).toBe('null');
+  });
+
+  it('reset() clears serviceDetails', () => {
+    renderProbe();
+    fireEvent.press(screen.getByTestId('btn-setServiceDetails'));
+    fireEvent.press(screen.getByTestId('btn-reset'));
+    expect(screen.getByTestId('serviceDetails').props.children).toBe('null');
+  });
+
+  it('start() clears serviceDetails — answers never carry into a new booking', () => {
+    renderProbe();
+    fireEvent.press(screen.getByTestId('btn-setServiceDetails'));
+    fireEvent.press(screen.getByTestId('btn-start'));
+    expect(screen.getByTestId('serviceDetails').props.children).toBe('null');
+    expect(screen.getByTestId('serviceId').props.children).toBe('s1');
+  });
+
+  it('switching services never carries the previous service answers across', () => {
+    renderProbe();
+    fireEvent.press(screen.getByTestId('btn-start'));            // service s1
+    fireEvent.press(screen.getByTestId('btn-setServiceDetails')); // answers for house-cleaning
+    expect(screen.getByTestId('serviceDetailsSlug').props.children).toBe('house-cleaning');
+    fireEvent.press(screen.getByTestId('btn-start'));            // start a NEW booking
+    expect(screen.getByTestId('serviceDetails').props.children).toBe('null');
+    expect(screen.getByTestId('serviceDetailsSlug').props.children).toBe('null');
   });
 
   it('addIssuePhoto() appends a URI to issuePhotos', () => {

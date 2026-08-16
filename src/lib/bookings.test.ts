@@ -12,6 +12,7 @@ import {
   findActiveDuplicateBooking,
 } from '@/lib/bookings';
 import { newIdempotencyKey } from '@/lib/idempotency';
+import { buildServiceDetailsSnapshot } from '@/lib/service-details';
 
 const mockGetUser = jest.fn();
 const mockInsert = jest.fn();
@@ -80,6 +81,8 @@ describe('createBooking', () => {
       window_end: null, recurrence: 'one_time',
       // Phase 4E.2 — idempotency key is null when the caller omits it
       idempotency_key: null,
+      // Service Details V1 — null when the caller omits it (pre-V1 behaviour preserved)
+      service_details: null,
     });
   });
   it('inserts provided scheduling fields verbatim', async () => {
@@ -117,6 +120,41 @@ describe('createBooking', () => {
     mockInsert.mockReturnValue({ select: () => ({ single: () => Promise.resolve({ data: { id: 'bk9' }, error: null }) }) });
     await createBooking({ serviceId: 's', address: 'a', scheduledFor: 't', idempotencyKey: 'idem-123' });
     expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({ idempotency_key: 'idem-123' }));
+  });
+
+  // ── Service Details V1 ──────────────────────────────────────────────────
+  it('persists the service_details snapshot when provided', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    mockInsert.mockReturnValue({ select: () => ({ single: () => Promise.resolve({ data: { id: 'bk10' }, error: null }) }) });
+    const service_details = buildServiceDetailsSnapshot({
+      formVersion: 1,
+      serviceSlug: 'house-cleaning',
+      serviceTitle: 'House Cleaning',
+      primaryKind: 'variant',
+      primary: { key: 'variant', question: 'What kind of cleaning?', kind: 'single', value: 'deep', display: 'Deep clean' },
+    });
+    const res = await createBooking({ serviceId: 'house-cleaning', address: 'a', scheduledFor: 't', service_details });
+    expect(res).toEqual({ ok: true, id: 'bk10' });
+    expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({ service_details }));
+  });
+
+  it('stores service_details as null when the caller omits it (pre-V1 callers unaffected)', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    mockInsert.mockReturnValue({ select: () => ({ single: () => Promise.resolve({ data: { id: 'bk11' }, error: null }) }) });
+    await createBooking({ serviceId: 's', address: 'a', scheduledFor: 't' });
+    expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({ service_details: null }));
+  });
+
+  it('service_details does not disturb idempotent recovery', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    mockInsert.mockReturnValue({ select: () => ({ single: () => Promise.resolve({ data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint "bookings_idempotency_key_uidx"' } }) }) });
+    mockMaybeSingle.mockResolvedValue({ data: { id: 'bk-existing' }, error: null });
+    const service_details = buildServiceDetailsSnapshot({
+      formVersion: 1, serviceSlug: 's', serviceTitle: 'S', primaryKind: 'issue',
+      primary: { key: 'issue', question: 'Q', kind: 'single', value: 'leak', display: 'Leak' },
+    });
+    const res = await createBooking({ serviceId: 's', address: 'a', scheduledFor: 't', idempotencyKey: 'idem-123', service_details });
+    expect(res).toEqual({ ok: true, id: 'bk-existing', recovered: true });
   });
 
   it('RECOVERS the existing booking on a unique-violation retry (same idempotency key) — no second row, no error', async () => {

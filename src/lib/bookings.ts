@@ -2,6 +2,7 @@
 import { supabase } from '@/lib/supabase';
 import type { QuoteStatus } from '@/lib/quotes';
 import type { SchedulingType, TimeWindow, Recurrence } from '@/lib/scheduling';
+import type { ServiceDetailsSnapshot } from '@/lib/service-details';
 
 /** Curated provider details returned for a booking's assigned professional. */
 export type Professional = {
@@ -40,6 +41,9 @@ export type NewBooking = {
   // Phase 4E.2 — one client-generated key per logical submission (retry-stable). Optional so
   // existing callers/tests keep working; when present it makes creation idempotent.
   idempotencyKey?: string;
+  // Service Details V1 — immutable snapshot of the structured answers. Optional so existing
+  // callers/tests are unaffected; omitted or null is stored as null (pre-V1 behaviour).
+  service_details?: ServiceDetailsSnapshot | null;
 };
 
 export type Booking = {
@@ -77,6 +81,10 @@ export type Booking = {
   window_start: string | null;
   window_end: string | null;
   recurrence: string;
+  // Service Details V1 — null for every booking created before the feature. Typed as unknown
+  // rather than the snapshot type because the database may hold a snapshot written by a NEWER
+  // app version; narrow it with isServiceDetailsSnapshot() before reading.
+  service_details?: unknown;
 };
 
 // ── Customer mutations ─────────────────────────────────────────────────────
@@ -116,6 +124,8 @@ export async function createBooking(
     recurrence: input.recurrence ?? 'one_time',
     // Phase 4E.2 — submission idempotency key (null when a caller omits it)
     idempotency_key,
+    // Service Details V1 — structured snapshot (null when a caller omits it)
+    service_details: input.service_details ?? null,
   }).select('id').single();
 
   if (error) {

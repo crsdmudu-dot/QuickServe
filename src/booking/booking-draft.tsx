@@ -2,6 +2,7 @@ import { createContext, useContext, useRef, useState, type ReactNode } from 'rea
 
 import type { SchedulingType, TimeWindow, Recurrence, ResolvedSchedule } from '@/lib/scheduling';
 import { newIdempotencyKey } from '@/lib/idempotency';
+import type { ServiceDetailsSnapshot } from '@/lib/service-details';
 
 type Draft = {
   serviceId: string | null;
@@ -24,6 +25,9 @@ type Draft = {
   window_start: string | null;
   window_end: string | null;
   recurrence: Recurrence;
+  /** Service Details V1 — the structured snapshot for this booking, or null until answered.
+   *  Cleared by start()/reset() so answers can never carry across services or bookings. */
+  serviceDetails: ServiceDetailsSnapshot | null;
 };
 type BookingDraft = Draft & {
   start: (serviceId: string) => void;
@@ -31,6 +35,8 @@ type BookingDraft = Draft & {
   setScheduledFor: (iso: string) => void;
   setSchedule: (r: ResolvedSchedule) => void;
   setNotes: (v: string) => void;
+  /** Replace the Service Details snapshot for this booking (null clears it). */
+  setServiceDetails: (v: ServiceDetailsSnapshot | null) => void;
   addIssuePhoto: (uri: string) => void;
   removeIssuePhoto: (uri: string) => void;
   reset: () => void;
@@ -66,6 +72,8 @@ const EMPTY: Draft = {
   window_start: null,
   window_end: null,
   recurrence: 'one_time',
+  // Service Details V1 default — no structured answers until the customer provides them.
+  serviceDetails: null,
 };
 const Ctx = createContext<BookingDraft | null>(null);
 
@@ -89,6 +97,9 @@ export function BookingDraftProvider({ children }: { children: ReactNode }) {
       recurrence: r.recurrence,
     })),
     setNotes: (notes) => setDraft((d) => ({ ...d, notes })),
+    // Service Details V1 — the snapshot is built by the caller (buildServiceDetailsSnapshot)
+    // and stored whole; the draft never edits its interior.
+    setServiceDetails: (serviceDetails) => setDraft((d) => ({ ...d, serviceDetails })),
     addIssuePhoto: (uri) => setDraft((d) => ({ ...d, issuePhotos: [...d.issuePhotos, uri] })),
     removeIssuePhoto: (uri) => setDraft((d) => ({ ...d, issuePhotos: d.issuePhotos.filter((u) => u !== uri) })),
     reset: () => { idempotencyKeyRef.current = null; setDraft(EMPTY); },
