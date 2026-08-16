@@ -28,8 +28,13 @@ import * as path from 'path';
 
 const MIGRATIONS_DIR = path.resolve(__dirname, '../../supabase/migrations');
 const REPAIR = path.join(MIGRATIONS_DIR, '0038_provider_service_details_immutable.sql');
-const ORIGINAL = path.join(MIGRATIONS_DIR, '0004_provider_jobs.sql');
-const TERMINAL = path.join(MIGRATIONS_DIR, '0034_provider_terminal_states.sql');
+/**
+ * The superseded policy migration. It lives in `archive/` — QUARANTINED out of the executable
+ * migration set because it shared version 0034 with 0034_booking_idempotency_key.sql, which made
+ * `supabase db push` fail closed. Its contents are preserved byte-for-byte and it is still the
+ * meaningful baseline to diff 0038 against. See supabase/migrations/archive/README.md.
+ */
+const TERMINAL = path.join(MIGRATIONS_DIR, 'archive', '0034_provider_terminal_states.sql');
 
 /** Strip `--` comments so "must NOT contain" assertions test executable SQL, not prose. */
 const executable = (file: string): string =>
@@ -211,24 +216,30 @@ describe('migration sequence', () => {
   });
 
   /**
-   * The ONLY duplicate version in the executable path is the known, documented 0034 pair
-   * (booking_idempotency_key + provider_terminal_states). This assertion is deliberately
-   * narrow: it fails if any NEW duplicate is ever introduced.
+   * NO duplicate versions may exist in the executable migration set. The Supabase CLI keys
+   * migration history on the 4-digit version prefix, so two files sharing one version make
+   * `supabase db push` fail closed (LegacyDbPushMissingRemoteError) and block every later
+   * migration. This assertion is what stops that regressing.
    *
-   * TODO — tighten to "no duplicate versions at all" in the same change that quarantines
-   * 0034_provider_terminal_states.sql out of the executable path (see the R1 repair plan).
+   * Tightened from "no NEW duplicate" once 0034_provider_terminal_states.sql was quarantined
+   * into archive/ (excluded from the glob). See supabase/migrations/archive/README.md.
    */
-  it('introduces no NEW duplicate migration version', () => {
+  it('the executable migration set contains NO duplicate versions', () => {
     const byVersion = new Map<string, string[]>();
     for (const f of files()) {
       const v = f.slice(0, 4);
       byVersion.set(v, [...(byVersion.get(v) ?? []), f]);
     }
-    const duplicates = [...byVersion.entries()].filter(([, fs_]) => fs_.length > 1);
-    expect(duplicates.map(([v]) => v)).toEqual(['0034']);
-    expect(duplicates[0][1].sort()).toEqual([
-      '0034_booking_idempotency_key.sql',
-      '0034_provider_terminal_states.sql',
-    ]);
+    const duplicates = [...byVersion.entries()].filter(([, names]) => names.length > 1);
+    expect(duplicates).toEqual([]);
+  });
+
+  it('exactly one executable migration claims version 0034', () => {
+    expect(files().filter((f) => f.startsWith('0034'))).toEqual(['0034_booking_idempotency_key.sql']);
+  });
+
+  it('the quarantined migration is preserved outside the executable set', () => {
+    expect(fs.existsSync(TERMINAL)).toBe(true);
+    expect(files()).not.toContain('0034_provider_terminal_states.sql');
   });
 });
