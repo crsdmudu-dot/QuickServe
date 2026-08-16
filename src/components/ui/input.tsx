@@ -16,6 +16,12 @@ export type InputProps = {
   keyboardType?: 'default' | 'email-address' | 'phone-pad' | 'numeric';
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   multiline?: boolean;
+  /**
+   * Applied to the text field. When set, the inline error message is tagged `<testID>-error`, so
+   * a screen with many inputs can assert WHICH field failed rather than just that some text
+   * appeared. Purely additive — inputs without it behave exactly as before.
+   */
+  testID?: string;
 };
 
 export function Input({
@@ -29,6 +35,7 @@ export function Input({
   keyboardType = 'default',
   autoCapitalize = 'sentences',
   multiline = false,
+  testID,
 }: InputProps) {
   const theme = useTheme();
   const [focused, setFocused] = useState(false);
@@ -57,6 +64,7 @@ export function Input({
           },
           multiline && styles.multiline,
         ]}
+        testID={testID}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
@@ -69,7 +77,7 @@ export function Input({
         onBlur={() => setFocused(false)}
       />
       {error ? (
-        <Text variant="caption" color="error">
+        <Text variant="caption" color="error" testID={testID ? `${testID}-error` : undefined}>
           {error}
         </Text>
       ) : helperText ? (

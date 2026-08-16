@@ -53,7 +53,7 @@ export default function HomeScreen() {
 
   function handleServicePress(service: Service) {
     start(service.id);
-    router.push('/booking/address');
+    router.push('/booking/service-details');
   }
 
   const featured = getFeatured();

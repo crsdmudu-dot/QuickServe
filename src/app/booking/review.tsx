@@ -14,7 +14,7 @@
 
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
-import { Alert, ScrollView, StyleSheet } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Spacing } from '@/constants/theme';
@@ -22,6 +22,7 @@ import { useServices } from '@/services/services-provider';
 import { useTheme } from '@/hooks/use-theme';
 import { useBookingDraft } from '@/booking/booking-draft';
 import { createBooking, findActiveDuplicateBooking } from '@/lib/bookings';
+import { isServiceBookable } from '@/constants/service-forms';
 import { uploadBookingPhoto } from '@/lib/photos';
 import { BookingSummaryCard } from '@/components/ui/booking-summary-card';
 import { Button } from '@/components/ui/button';
@@ -54,6 +55,8 @@ export default function ReviewScreen() {
     window_start,
     window_end,
     recurrence,
+    // Service Details V1.3 — captured in step 1, submitted verbatim as an immutable snapshot.
+    serviceDetails,
   } = useBookingDraft();
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -63,7 +66,15 @@ export default function ReviewScreen() {
   const submittingRef = useRef(false);
 
   const service = serviceId ? getServiceBySlug(serviceId) : null;
-  const ready = Boolean(serviceId && address.trim() && scheduledFor);
+  /**
+   * Service Details are REQUIRED for every configured service — fail closed. A booking without
+   * them is structurally incomplete (the provider would not know what the job actually is), so
+   * we block submission rather than sending a null snapshot. Unconfigured services never reach
+   * this screen: step 1 blocks them.
+   */
+  const detailsRequired = Boolean(serviceId && isServiceBookable(serviceId));
+  const detailsMissing = detailsRequired && !serviceDetails;
+  const ready = Boolean(serviceId && address.trim() && scheduledFor) && !detailsMissing;
 
   async function handlePlaceBooking(bypassDuplicateCheck = false) {
     if (!ready || !serviceId || !scheduledFor) return;
@@ -116,6 +127,8 @@ export default function ReviewScreen() {
       window_start,
       window_end,
       recurrence,
+      // Service Details V1.3 — the frozen step-1 snapshot, stored as-is in bookings.service_details.
+      service_details: serviceDetails ?? undefined,
       // Phase 4E.2 — one key per submission (retry-stable); makes creation idempotent.
       idempotencyKey: ensureIdempotencyKey(),
     });
@@ -151,7 +164,7 @@ export default function ReviewScreen() {
       >
         {/* Step indicator */}
         <Text variant="caption" color="textSecondary" style={styles.step}>
-          Step 4 of 4
+          Step 5 of 5
         </Text>
 
         <Text variant="title" style={styles.title}>
@@ -174,6 +187,23 @@ export default function ReviewScreen() {
           windowEnd={window_end}
           recurrence={recurrence}
         />
+
+        {/* Fail-closed explanation. Without this the Place Booking button would simply be
+            disabled with no reason given — a dead end. The full details summary is V1.4. */}
+        {detailsMissing ? (
+          <View style={styles.missingDetails} testID="review-details-missing">
+            <Text variant="caption" color="error">
+              Service details are missing. Please complete step 1 before placing this booking.
+            </Text>
+            <Button
+              label="Add service details"
+              variant="secondary"
+              fullWidth
+              testID="review-add-service-details"
+              onPress={() => router.push('/booking/service-details')}
+            />
+          </View>
+        ) : null}
 
         {error ? (
           <Text variant="caption" color="error">
@@ -201,4 +231,5 @@ const styles = StyleSheet.create({
   },
   step: { marginBottom: Spacing.one },
   title: { marginBottom: Spacing.two },
+  missingDetails: { gap: Spacing.two },
 });

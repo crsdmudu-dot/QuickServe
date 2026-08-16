@@ -6,6 +6,10 @@
  *
  * Slice 20: mockDraft now includes the structured address fields, and the
  * createBooking assertion is updated additively to include them.
+ *
+ * Service Details V1.3: House Cleaning is a CONFIGURED service, so Review now fails closed
+ * unless the draft carries a Service Details snapshot. mockDraft therefore includes a minimal
+ * valid snapshot, and createBooking is asserted to receive it as service_details.
  */
 
 jest.mock('expo-router', () => ({ router: { push: jest.fn(), replace: jest.fn() } }));
@@ -16,9 +20,33 @@ jest.mock('@/services/services-provider', () => {
   return mockServicesProviderModule();
 });
 
+/**
+ * A minimal but structurally valid ServiceDetailsSnapshot (V1.1 shape). Built by hand rather than
+ * via buildServiceDetailsSnapshot so this test stays independent of the builder.
+ */
+const snapshot = {
+  schema: 1,
+  form_version: 1,
+  service_slug: 'house-cleaning',
+  service_title: 'House Cleaning',
+  primary_kind: 'variant' as const,
+  primary: {
+    key: 'variant',
+    question: 'What kind of cleaning do you need?',
+    kind: 'single' as const,
+    value: 'standard_clean',
+    display: 'Standard cleaning',
+  },
+  answers: [],
+  addons: [],
+  items: null,
+  flags: {},
+};
+
 const mockReset = jest.fn();
 let mockDraft = {
   serviceId: 'house-cleaning',
+  serviceDetails: snapshot as unknown as null,
   address: 'Nairobi',
   scheduledFor: '2026-07-01T10:00:00Z',
   notes: 'Gate code 12',
@@ -64,6 +92,7 @@ describe('ReviewScreen', () => {
     mockUploadBookingPhoto.mockReset();
     mockDraft = {
       serviceId: 'house-cleaning',
+      serviceDetails: snapshot as unknown as null,
       address: 'Nairobi',
       scheduledFor: '2026-07-01T10:00:00Z',
       notes: 'Gate code 12',
@@ -118,6 +147,8 @@ describe('ReviewScreen', () => {
         window_start: undefined,
         window_end: undefined,
         recurrence: undefined,
+        // Service Details V1.3 — the frozen step-1 snapshot travels with the booking.
+        service_details: snapshot,
         // Phase 4E.2 — submission idempotency key
         idempotencyKey: 'idem-1',
       }),
@@ -245,5 +276,31 @@ describe('ReviewScreen', () => {
     resolveCreate({ ok: true, id: 'bk1' });
     await waitFor(() => expect(router.replace).toHaveBeenCalled());
     expect(mockCreateBooking).toHaveBeenCalledTimes(1);
+  });
+
+  // ── Service Details V1.3 — fail-closed at submission (requirement 41) ────────
+
+  it('does NOT submit when a configured service has no Service Details, and says why', async () => {
+    mockDraft = { ...mockDraft, serviceDetails: null };
+    render(<ReviewScreen />);
+
+    expect(screen.getByTestId('review-details-missing')).toBeOnTheScreen();
+
+    fireEvent.press(screen.getByText('Place Booking'));
+    await waitFor(() => expect(mockCreateBooking).not.toHaveBeenCalled());
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it('offers a route back to Service Details when the snapshot is missing', () => {
+    mockDraft = { ...mockDraft, serviceDetails: null };
+    render(<ReviewScreen />);
+
+    fireEvent.press(screen.getByTestId('review-add-service-details'));
+    expect(router.push).toHaveBeenCalledWith('/booking/service-details');
+  });
+
+  it('shows no missing-details banner once the snapshot is present', () => {
+    render(<ReviewScreen />);
+    expect(screen.queryByTestId('review-details-missing')).toBeNull();
   });
 });

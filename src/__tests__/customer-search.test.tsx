@@ -84,7 +84,7 @@ describe('SearchScreen', () => {
     expect(screen.getByText('House Cleaning')).toBeOnTheScreen();
   });
 
-  it('tapping a service result calls start(serviceId) and navigates to /booking/address', async () => {
+  it('tapping a service result calls start(serviceId) and navigates to /booking/service-details', async () => {
     mockSearchServices.mockReturnValue([SERVICE_CLEANING]);
     render(<SearchScreen />);
     const input = screen.getByPlaceholderText('Search services...');
@@ -97,7 +97,7 @@ describe('SearchScreen', () => {
     fireEvent.press(screen.getByText('House Cleaning'));
     await waitFor(() => {
       expect(mockStart).toHaveBeenCalledWith('house-cleaning');
-      expect(router.push).toHaveBeenCalledWith('/booking/address');
+      expect(router.push).toHaveBeenCalledWith('/booking/service-details');
     });
   });
 

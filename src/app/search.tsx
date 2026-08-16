@@ -3,7 +3,7 @@
  * suggestions, and no-result recommendations.
  *
  * Entry: router.push('/search') from Home search bar.
- * Booking: tapping a result calls start(serviceId) → /booking/address.
+ * Booking: tapping a result calls start(serviceId) → /booking/service-details.
  * No provider id ever enters the booking flow.
  */
 
@@ -71,7 +71,7 @@ export default function SearchScreen() {
     // Record search term before booking
     await addRecentSearch(query.trim() || service.title);
     start(service.id);
-    router.push('/booking/address');
+    router.push('/booking/service-details');
   }
 
   const results = query.trim() ? searchServices(services, query) : [];

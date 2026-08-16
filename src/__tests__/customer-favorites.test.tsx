@@ -4,7 +4,7 @@
  * Verifies:
  * - Renders favorites from getMyFavoriteProviders
  * - Remove calls removeFavoriteProvider (optimistic)
- * - Quick rebook: calls start(<serviceId>) and routes to /booking/address,
+ * - Quick rebook: calls start(<serviceId>) and routes to /booking/service-details,
  *   NEVER passes provider_id into the booking, no dispatch/provider-request fn.
  * - Empty state shows no-favorites with browse action.
  */
@@ -133,7 +133,7 @@ describe('FavoritesScreen', () => {
     );
   });
 
-  it('quick rebook calls start(serviceId) and routes to /booking/address', async () => {
+  it('quick rebook calls start(serviceId) and routes to /booking/service-details', async () => {
     mockGetMyFavoriteProviders.mockResolvedValue([PROVIDER_A]);
     render(<FavoritesScreen />);
     await screen.findByText('Alpha Cleaner');
@@ -141,7 +141,7 @@ describe('FavoritesScreen', () => {
     fireEvent.press(rebookBtn);
     // CRITICAL: start is called with the service_id from the booking (never provider_id)
     expect(mockStart).toHaveBeenCalledWith('house-cleaning');
-    expect(router.push).toHaveBeenCalledWith('/booking/address');
+    expect(router.push).toHaveBeenCalledWith('/booking/service-details');
     // CRITICAL: provider_id must NEVER be passed to start
     const startArgs = mockStart.mock.calls[0];
     expect(startArgs[0]).toBe('house-cleaning'); // service id
@@ -166,7 +166,7 @@ describe('FavoritesScreen', () => {
     fireEvent.press(rebookBtn);
     // Falls back to most recent booking's service_id
     expect(mockStart).toHaveBeenCalledWith('plumbing');
-    expect(router.push).toHaveBeenCalledWith('/booking/address');
+    expect(router.push).toHaveBeenCalledWith('/booking/service-details');
   });
 
   it('quick rebook routes to /search when no bookings exist', async () => {

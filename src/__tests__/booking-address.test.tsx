@@ -12,7 +12,9 @@
  * 3 original tests continue to pass byte-for-byte.
  */
 
-jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
+jest.mock('expo-router', () => ({
+  router: { push: jest.fn(), replace: jest.fn(), back: jest.fn(), canGoBack: jest.fn(() => true) },
+}));
 
 // Slice 20: AddressSearch imports from @/lib/places — mock it so tests are offline.
 jest.mock('@/lib/places', () => ({
@@ -203,6 +205,9 @@ const fixtureSavedAddress: SavedAddress = {
 describe('AddressScreen', () => {
   beforeEach(() => {
     (router.push as jest.Mock).mockClear();
+    (router.back as jest.Mock).mockClear();
+    (router.replace as jest.Mock).mockClear();
+    (router.canGoBack as jest.Mock).mockClear().mockReturnValue(true);
     mockSetAddress.mockClear();
     mockSetLocation.mockClear();
     mockSetApartment.mockClear();
@@ -313,5 +318,48 @@ describe('AddressScreen', () => {
 
     // createSavedAddress must NOT have been called.
     expect(createSavedAddress).not.toHaveBeenCalled();
+  });
+
+  // ── Service Details V1.3 — step counter + Back control ──────────────────────
+
+  it('is labelled Step 2 of 5 now that Service Details is step 1', () => {
+    render(<AddressScreen />);
+    expect(screen.getByText('Step 2 of 5')).toBeOnTheScreen();
+  });
+
+  it('shows a visible Back control (closes the Phase 6G finding)', () => {
+    render(<AddressScreen />);
+    expect(screen.getByTestId('booking-address-back')).toBeOnTheScreen();
+  });
+
+  it('Back pops to the previous screen — Service Details — when history exists', () => {
+    (router.canGoBack as jest.Mock).mockReturnValue(true);
+    render(<AddressScreen />);
+
+    fireEvent.press(screen.getByTestId('booking-address-back'));
+
+    expect(router.back).toHaveBeenCalled();
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it('Back falls back to a safe destination when there is no history (no dead end)', () => {
+    (router.canGoBack as jest.Mock).mockReturnValue(false);
+    render(<AddressScreen />);
+
+    fireEvent.press(screen.getByTestId('booking-address-back'));
+
+    expect(router.replace).toHaveBeenCalledWith('/home');
+    expect(router.back).not.toHaveBeenCalled();
+  });
+
+  it('Back never resets the booking draft', () => {
+    (router.canGoBack as jest.Mock).mockReturnValue(true);
+    render(<AddressScreen />);
+
+    fireEvent.press(screen.getByTestId('booking-address-back'));
+
+    // The draft mock exposes only setters; none of them may fire on a Back press.
+    expect(mockSetLocation).not.toHaveBeenCalled();
+    expect(mockSetApartment).not.toHaveBeenCalled();
   });
 });

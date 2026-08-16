@@ -222,7 +222,7 @@ describe('ScheduleScreen', () => {
 
   it('renders step indicator and title', () => {
     render(<ScheduleScreen />);
-    expect(screen.getByText('Step 2 of 4')).toBeOnTheScreen();
+    expect(screen.getByText('Step 3 of 5')).toBeOnTheScreen();
     expect(screen.getByText('When do you need it?')).toBeOnTheScreen();
   });
 });

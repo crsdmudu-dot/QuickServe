@@ -4,7 +4,7 @@
  * Quick rebook: resolves a serviceId READ-ONLY from booking history
  * (most recent booking with that provider → its service_id; else most
  * recent booking's service_id; else route to /search).
- * HARD RULE: only calls start(serviceId) + /booking/address.
+ * HARD RULE: only calls start(serviceId) + /booking/service-details.
  * Never passes provider_id into the booking draft or any dispatch fn.
  */
 
@@ -100,10 +100,10 @@ export default function FavoritesScreen() {
       router.push('/search');
       return;
     }
-    // ONLY start(serviceId) → /booking/address.
+    // ONLY start(serviceId) → /booking/service-details.
     // provider_id is NEVER passed to start() or any dispatch fn.
     start(serviceId);
-    router.push('/booking/address');
+    router.push('/booking/service-details');
   }
 
   return (
