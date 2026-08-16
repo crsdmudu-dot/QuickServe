@@ -110,12 +110,18 @@ describe('0037 — no premature pricing or fulfilment schema', () => {
 describe('migration sequence hygiene', () => {
   const files = (): string[] => fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql'));
 
-  it('0037 is the highest-numbered migration', () => {
-    const highest = files()
+  /**
+   * 0037 must sort AFTER every migration that existed when it was written, so the CLI applies it
+   * last of those. Deliberately NOT "0037 is the highest migration" — that would break the moment
+   * any later migration is added (it did, when 0038 arrived), which asserts a global property
+   * that is not this migration's business.
+   */
+  it('0037 sorts after every pre-existing migration (0001–0036)', () => {
+    const versions = files()
       .map((f) => parseInt(f.slice(0, 4), 10))
-      .filter((n) => !Number.isNaN(n))
-      .reduce((a, b) => Math.max(a, b), 0);
-    expect(highest).toBe(37);
+      .filter((n) => !Number.isNaN(n) && n < 37);
+    expect(versions.length).toBeGreaterThan(0);
+    expect(Math.max(...versions)).toBe(36);
   });
 
   it('no other migration shares the 0037 prefix', () => {
