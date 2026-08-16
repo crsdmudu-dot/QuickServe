@@ -33,9 +33,9 @@ iOS builds are produced with EAS (`eas.json`). Production profile: `production` 
 
 | Item | Current state | Where to get it | Where it goes |
 |---|---|---|---|
-| `eas.projectId` | **empty** (`app.json` → `extra.eas.projectId: ""`) | run `eas init` | `app.json` → `extra.eas.projectId` (also required for iOS push tokens — see §3) |
-| Apple Team ID | not stored in repo | developer.apple.com → Membership | EAS credentials / `eas.json` submit config |
-| APNs key (`.p8`) | not uploaded | developer.apple.com → Keys | `eas credentials` (see §3) |
+| `eas.projectId` | ✅ **set** — `587f8663-a722-4882-ab56-9007413003ee` *(was empty when this checklist was written)* | — | `app.json` → `extra.eas.projectId` |
+| Apple Team ID | ✅ **known** — Hired Corp Ltd, `8586HL9NBM` | developer.apple.com → Membership | EAS credentials / `eas.json` submit config |
+| APNs key (`.p8`) | ✅ **uploaded and assigned** — Push Key `BWZ64T2KH4`, reused for `ke.co.hiredcorp.kwikserve` (Phase 6D) *(was "not uploaded" when written)* | developer.apple.com → Keys | `eas credentials` (see §3) |
 | Sentry `organization` / `project` | **empty** (`app.json` `@sentry/react-native/expo` plugin) | sentry.io | `app.json` Sentry plugin config |
 
 ---
@@ -44,8 +44,8 @@ iOS builds are produced with EAS (`eas.json`). Production profile: `production` 
 
 - [ ] **APNs authentication key** (`.p8`) created in the Apple Developer portal and uploaded via `eas credentials` (recommended over per-app certificates).
 - [ ] **Environment**: development APNs for TestFlight/dev builds, production APNs for App Store — EAS manages this per build profile. Confirm the production build targets production APNs.
-- [ ] **`eas.projectId` is set** — `src/lib/push.ts` calls `getExpoPushTokenAsync({ projectId })` reading `Constants.expoConfig.extra.eas.projectId` (`push.ts:39–42`). It is currently **empty**, so iOS push-token registration cannot succeed until it is filled (see §2 TODO table).
-- [ ] **Verification**: on a physical iOS device (not simulator, not Expo Go), sign in → `registerForPushNotifications()` runs from `src/app/_layout.tsx` after sign-in → confirm a token is stored via the `register-device` Edge Function → send a test push → confirm receipt in foreground and background, and that tapping routes via the deep-link listener (`setupNotificationResponseListener`).
+- [x] **`eas.projectId` is set** — `src/lib/push.ts` calls `getExpoPushTokenAsync({ projectId })` reading `Constants.expoConfig.extra.eas.projectId`. ✅ Now populated (`587f8663-…`); the "currently empty" note in the original checklist no longer applies.
+- [x] **Verification** — ✅ **COMPLETED on a physical iPhone in [Phase 6H](../qa/PHASE-6H-IOS-KWIKSERVE-APNS-PUSH-CERTIFICATION.md)** (bundle `ke.co.hiredcorp.kwikserve`, build `e062e892`): token registered via `register-device`; foreground, background, terminated and cold-start delivery all confirmed; tap routing verified through `setupNotificationResponseListener`. **QA backend only — production APNs remains uncertified.**
 - [ ] **Existing pipeline preserved (Slice 23).** Slice 37 made **no** change to the push pipeline: `src/lib/push.ts` (token registration + tap→deep-link), the `register-device` / send-push Edge Functions, `device_tokens`, and the `emit_notification`/`broadcast_announcement` in-app path are all unchanged. **No new push pipeline was introduced.** Push respects the user's `push_enabled` preference downstream, as before.
 - [ ] Note: `push.ts` intentionally no-ops in Expo Go and on simulators (`Device.isDevice` / `isExpoGo()` guards) — test push only on a real device build.
 

@@ -78,7 +78,7 @@ eas credentials
 ```
 
 - [ ] EAS generates or imports the **Distribution Certificate** and **Provisioning Profile** for `ke.co.hiredcorp.kwikserve`.
-- [ ] An **APNs Auth Key** (`.p8`) is generated and registered with EAS for push notification delivery (see section 8 for push details).
+- [x] An **APNs Auth Key** (`.p8`) is generated and registered with EAS for push notification delivery — ✅ Push Key `BWZ64T2KH4` (Hired Corp Ltd, `8586HL9NBM`), reused for `ke.co.hiredcorp.kwikserve` in Phase 6D and exercised throughout [Phase 6H](../qa/PHASE-6H-IOS-KWIKSERVE-APNS-PUSH-CERTIFICATION.md).
 - [ ] Verify credentials are saved: `eas credentials` shows a distribution cert and provisioning profile for iOS.
 - [ ] If building for development/TestFlight, EAS will also create an **Ad Hoc** or **Development** provisioning profile automatically.
 

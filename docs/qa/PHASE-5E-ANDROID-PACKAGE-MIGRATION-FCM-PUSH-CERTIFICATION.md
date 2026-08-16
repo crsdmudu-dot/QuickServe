@@ -669,6 +669,19 @@ certification evidence per operator instruction, cleanup not yet authorised):**
   then could not re-register because permission was OFF.
 - **Follow-up:** see §15 F1.
 
+> **AMENDMENT 2026-08-16 (Phase 6H).** The text above is the original, correct record as written on
+> 2026-08-15 and is **preserved unchanged**. **The Android Step 11 verdict remains
+> `PASS WITH ANOMALY` — it is NOT reclassified as a clean PASS.** Only the *causation* assessment has
+> changed. Phase 6H Step 11 re-ran the permission-denied test on iOS **in isolation** (single account,
+> no account switch): permission OFF left the token **untouched with zero database writes**, and
+> permission ON + cold launch **upserted the same row** (`created_at` unchanged, `last_seen_at`
+> advanced). Phase 6H Step 8 independently demonstrated that **logout alone deletes the row**
+> (queried after logout, before any login). **Permission denial is therefore experimentally excluded
+> as the cause, and the account-switch logout is now the supported explanation.** **Limitation: the
+> isolated experiment was NOT re-run on Android** — the inference carries because the delete/register
+> logic is shared TypeScript with no platform-specific path. See
+> [`PHASE-6H-IOS-KWIKSERVE-APNS-PUSH-CERTIFICATION.md`](./PHASE-6H-IOS-KWIKSERVE-APNS-PUSH-CERTIFICATION.md) §12.
+
 ### A10.2 — **Registration lifecycle: no self-registration on permission-enable or foreground** — PRE-EXISTING, non-blocking
 
 Push registration fires only on a `signedIn` transition (`_layout.tsx:35–37`). Enabling notification
@@ -760,8 +773,8 @@ All preserved and verified present:
 | **Production Android build / AAB** | **NOT BUILT, NOT CERTIFIED.** Blocked by the missing production `GOOGLE_SERVICES_JSON` (§15 F2). |
 | **Production environment configuration** | **NOT CERTIFIED.** The `production` EAS environment currently holds **zero** variables. |
 | **Production push delivery** | **NOT TESTED.** All sends were QA. |
-| **iOS bundle migration to the KwikServe identity** | **NOT PERFORMED.** Target architecture names `ke.co.hiredcorp.kwikserve` as the eventual iOS bundle; the app still ships `ke.co.hiredcorp.quickserve`. |
-| **iOS/APNs re-certification for a new identity** | **NOT PERFORMED / DEFERRED.** *(The existing iOS bundle's APNs push line was certified separately in Phase 4E.2 on 2026-08-13 — that certification belongs to `ke.co.hiredcorp.quickserve`, not to any migrated identity.)* |
+| **iOS bundle migration to the KwikServe identity** | ~~**NOT PERFORMED.**~~ **SUPERSEDED 2026-08-16** — performed in Phase 6E (`33b3685`); `ios.bundleIdentifier` is now `ke.co.hiredcorp.kwikserve`. *(Original entry preserved: at the time of writing the app still shipped `ke.co.hiredcorp.quickserve`.)* |
+| **iOS/APNs re-certification for a new identity** | ~~**NOT PERFORMED / DEFERRED.**~~ **SUPERSEDED 2026-08-16** — completed as **Phase 6H: PASS — 14 gates, 0 FAIL, 0 open anomalies**, on build `e062e892`. See [`PHASE-6H-IOS-KWIKSERVE-APNS-PUSH-CERTIFICATION.md`](./PHASE-6H-IOS-KWIKSERVE-APNS-PUSH-CERTIFICATION.md). *(Original note preserved: the Phase 4E.2 certification of 2026-08-13 belongs to `ke.co.hiredcorp.quickserve`, not to the migrated identity.)* |
 | **Deep-link scheme migration to `kwikserve://`** | **DEFERRED.** |
 | **Backend runtime copy rename** (mpesa Edge Function `transactionDesc`, migration 0007 notification text) | **DEFERRED** — requires a coordinated deploy/migration. |
 | **Living-docs brand sweep** (`docs/engineering/**`, `docs/pilot/**`) | **DEFERRED.** Historical `docs/qa/PHASE-*` and completed superpowers specs are intentionally preserved. |
@@ -776,7 +789,7 @@ All preserved and verified present:
 
 | # | Risk / item | Severity | Recommended action |
 |---|---|---|---|
-| **F1** | **Step 11 token-disappearance causation unproven.** The leading explanation (account-switch logout + permission-blocked re-registration) is inferred, not demonstrated. | Medium — evidence quality, not a user-facing failure | Re-run an **isolated** permission-denied test: single account, **no** account switch anywhere in the sequence, permission toggled OFF, app cold-launched, then `device_tokens` queried. That isolates the toggle as the only variable and settles causation definitively. |
+| **F1** | ~~**Step 11 token-disappearance causation unproven.**~~ **RESOLVED 2026-08-16 by Phase 6H Step 11.** *(Original entry, preserved: the leading explanation — account-switch logout + permission-blocked re-registration — was inferred, not demonstrated.)* | Medium → **closed** | **Done.** The isolated re-test was executed on **iOS** (Phase 6H Step 11, run before Step 10 so no account switch could confound it). Permission OFF → token untouched, zero DB writes. Permission ON + cold launch → same row upserted, `created_at` unchanged. Combined with Phase 6H Step 8 (logout alone deletes the row), **permission denial is excluded and account-switch logout is the supported explanation**. **Limitation: not re-run on Android** — inference carries via shared TypeScript. The Android Step 11 verdict stays `PASS WITH ANOMALY`. See [Phase 6H §12](./PHASE-6H-IOS-KWIKSERVE-APNS-PUSH-CERTIFICATION.md). |
 | **F2** | **Production `GOOGLE_SERVICES_JSON` is absent** — the `production` EAS environment has no variables at all. A production Android build will fail at the Gradle google-services step. | **High — blocks any production Android build** | Before any production build: `eas env:create` `GOOGLE_SERVICES_JSON` (file, sensitive) in `production` with the approved superset, then re-verify. Treat as its own gated phase. |
 | **F3** | **Registration lifecycle gap** (A10.2): enabling notification permission mid-session never re-registers a token until cold launch/re-login. A real user who enables notifications in Settings will silently receive nothing until they restart the app or sign in again. | Medium — product/UX, pre-existing | Add an AppState/permission-change listener that re-runs `registerForPushNotifications()` when the app foregrounds while signed in. Schedule as product work, not as migration remediation. |
 | **F4** | **Chat lock-screen message preview** (A10.3). | Low — privacy design, pre-existing | Product decision: keep, or gate behind a "hide message content" notification setting. |
@@ -799,7 +812,7 @@ All preserved and verified present:
 | **Android FCM / push (QA)** | **GO** | Real path `notifications → webhook → send-push → Expo → FCM` exercised end-to-end; every send returned `push_status = sent`; no token ever auto-pruned; FCM V1 reuse validated by successful native build and delivery. |
 | **QA physical-device certification (S24)** | **GO WITH ONE LOGGED ANOMALY** | 13 PASS + 1 PASS WITH ANOMALY across Steps 0–13. Step 11's token-disappearance causation is unproven (F1). No blocking defect. |
 | **Google Play production release** | **NO-GO** | Nothing on Play has been touched: no app, no AAB, no App Signing enrolment, no service account, no submit. Preview/push certification is **not** Play readiness. |
-| **iOS / APNs (KwikServe identity)** | **NO-GO / NOT PERFORMED** | iOS bundle deliberately unchanged at `ke.co.hiredcorp.quickserve`; no APNs work; no iOS build. Android certification is **not** iOS certification. |
+| **iOS / APNs (KwikServe identity)** | ~~**NO-GO / NOT PERFORMED**~~ → **SUPERSEDED 2026-08-16: GO (QA)** | *(Original verdict preserved: at the time of writing the iOS bundle was deliberately unchanged, with no APNs work and no iOS build.)* Subsequently migrated in Phase 6E and certified in **Phase 6H — PASS, 14 gates, 0 FAIL, 0 open anomalies** on build `e062e892`. **QA only** — App Store / TestFlight / production remain NO-GO. See [Phase 6H](./PHASE-6H-IOS-KWIKSERVE-APNS-PUSH-CERTIFICATION.md). |
 | **Production environment configuration** | **NO-GO** | `production` EAS environment holds **zero** variables, including no `GOOGLE_SERVICES_JSON` (F2). No production-specific configuration has been certified. |
 | **Production deployment / production push** | **NO-GO** | Never built, never sent, never certified. |
 
@@ -815,8 +828,14 @@ Run strictly in this order, each on explicit approval:
    line — with the Step 11 anomaly and the two pre-existing findings carried forward as non-blocking.
 2. **Controlled cleanup of the 7 `KWIK-QA-*` seed notification rows only.** Do **not** touch
    `device_tokens`; do **not** delete `…bGn]`.
-3. **F1 isolation re-test** (single account, no account switch) to settle Step 11 causation and convert
-   PASS WITH ANOMALY into either a clean PASS or a properly scoped defect.
+3. ~~**F1 isolation re-test**~~ — **DONE 2026-08-16**, executed on iOS as Phase 6H Step 11 (§15 F1).
+   Causation resolved; the Android Step 11 verdict deliberately remains `PASS WITH ANOMALY`.
+
+> **STATUS UPDATE 2026-08-16.** Items 1 and 3 are complete. **Item 2 — controlled cleanup of the 7
+> `KWIK-QA-*` rows — is still OUTSTANDING and unauthorised.** Those rows plus the 6 `KWIK-IOS-*` rows
+> from Phase 6H total **13 retained certification rows**, all deliberately preserved. Since this
+> report was written the migration has continued through Phases 6A–6I (iOS identity + APNs
+> certification); the Android-specific content below remains accurate as of `444a9d9`.
 
 **Explicitly not the next phase:** the production environment work (F2), the Google Play / Hired Corp
 developer-account migration, the iOS bundle + scheme migration, and Phase 4F. Each is its own gated
