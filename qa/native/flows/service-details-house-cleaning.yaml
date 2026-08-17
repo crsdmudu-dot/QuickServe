@@ -6,6 +6,16 @@
 # parent answer removes the child questions AND that the discarded answers never reach the
 # snapshot. Nothing is placed — the flow stops at Review, so no QA booking data is created.
 #
+# WHAT assertNotVisible PROVES HERE — and what it does not. Maestro's visibility assertions are
+# VIEWPORT-scoped on iOS: an element that exists in a ScrollView but sits below the fold reports as
+# not visible, exactly like one that was never rendered. So a bare assertNotVisible cannot prove
+# semantic ABSENCE on a scrollable screen — it would pass either way. Each negative below is
+# therefore placed while the row it concerns is on screen, which makes it a real check of that row,
+# and it is corroboration rather than the authoritative guarantee. The authoritative proof that a
+# pruned answer can never reach the snapshot is the unit test
+# src/__tests__/service-details-form.test.ts — "a pruned answer can never reach the snapshot
+# (requirement 18)". Do not weaken either one on the strength of the other.
+#
 # Params via -e: CUST_EMAIL, CUST_PW.
 appId: ke.co.hiredcorp.kwikserve
 ---
@@ -116,13 +126,31 @@ appId: ke.co.hiredcorp.kwikserve
 - assertVisible: "Step 5 of 5"
 
 # V1.4 — Review reads back the step-1 snapshot, in the customer's own words.
+#
+# The card is TALLER than an iPhone SE viewport, so each value is scrolled to in turn rather than
+# asserted in a batch after one scroll. Run 32026499557 failed exactly here: "Deep cleaning" (the
+# first row) was visible and "The whole home" (the next row down) was below the fold and therefore
+# reported as not visible — the value was rendered correctly, the assertion just could not see it.
+#
+# Maestro's visibility assertions are VIEWPORT-scoped on iOS, which is why each assertNotVisible
+# below is placed while the row it concerns is on screen. See the header note on what those
+# negatives do and do not prove.
 - scrollUntilVisible: { element: { text: "Service Details" }, direction: DOWN, timeout: 12000 }
+
+# Primary answer — the saved label, never the machine value that produced it.
+- scrollUntilVisible: { element: { text: "Deep cleaning" }, direction: DOWN, timeout: 12000 }
 - assertVisible: "Deep cleaning"
-- assertVisible: "The whole home"
-- assertVisible: "• Ironing"
-# The pruned branch must be absent: kitchen-only was never the final answer.
-- assertNotVisible: "Kitchen only"
-# Internals never surface.
 - assertNotVisible: "deep_clean"
+
+# Scope — proves the pruning outcome: the FINAL answer was whole_home, so the Scope row reads
+# "The whole home". There is exactly one Scope row, so with that row on screen the discarded
+# "Kitchen only" cannot also be the stored scope.
+- scrollUntilVisible: { element: { text: "The whole home" }, direction: DOWN, timeout: 12000 }
+- assertVisible: "The whole home"
+- assertNotVisible: "Kitchen only"
 - assertNotVisible: "whole_home"
+
+# Add-ons render from their saved labels too.
+- scrollUntilVisible: { element: { text: "• Ironing" }, direction: DOWN, timeout: 12000 }
+- assertVisible: "• Ironing"
 - takeScreenshot: sd-hc-06-review-summary

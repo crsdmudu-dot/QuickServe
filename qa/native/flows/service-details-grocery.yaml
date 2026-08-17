@@ -6,9 +6,15 @@
 # amount due or final charge. That distinction is asserted here at the UI level, in addition to
 # the unit tests. No sourcing, pricing or payment happens — the flow stops at the Address step.
 #
-# ITEM-LINE SELECTORS: each line's testID embeds a randomly generated `line_<uuid>`, so lines are
-# addressed by id-regex plus `index` (0 = first card, 1 = second). That is deliberate — it avoids
-# adding presentation-only testIDs to product code just to make automation easier.
+# ITEM-LINE SELECTORS: each line's testID embeds a randomly generated `line_<uuid>`, so a line
+# cannot be addressed by a literal id. Rather than add presentation-only testIDs to product code:
+#   - Item 1 is filled while exactly ONE card exists (itemList minLines: 1), so the id regex
+#     matches a single element and needs no disambiguation at all;
+#   - Item 2 is anchored to its own visible "Item 2" header via `below`, because once two cards
+#     exist every testID shape and every unit button is duplicated.
+# A positional `index` was the first approach and was replaced: it is only reliable while every
+# match stays in the hierarchy as the list scrolls, and run 32026499557 showed that off-screen
+# content is not something this suite can assume is still addressable.
 #
 # Params via -e: CUST_EMAIL, CUST_PW.
 appId: ke.co.hiredcorp.kwikserve
@@ -28,20 +34,20 @@ appId: ke.co.hiredcorp.kwikserve
 - assertNotVisible: { id: "question-store_name" }
 
 # ── Item 1 — Milk, 2 bottles, brand preference ────────────────────────────────
-- scrollUntilVisible: { element: { id: "item-name-line_.*", index: 0 }, direction: DOWN, timeout: 12000 }
-- tapOn: { id: "item-name-line_.*", index: 0 }
+- scrollUntilVisible: { element: { id: "item-name-line_.*" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "item-name-line_.*" }
 - inputText: "Milk"
 # Scroll the heading back into view BEFORE tapping it to dismiss the iOS keyboard — reaching the
 # field scrolled it off-screen. Same order as address-journey.yaml.
 - scrollUntilVisible: { element: { text: "Grocery Delivery" }, direction: UP, timeout: 12000 }
 - tapOn: "Grocery Delivery"
-- scrollUntilVisible: { element: { id: "item-qty-line_.*", index: 0 }, direction: DOWN, timeout: 12000 }
-- tapOn: { id: "item-qty-line_.*", index: 0 }
+- scrollUntilVisible: { element: { id: "item-qty-line_.*" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "item-qty-line_.*" }
 - inputText: "2"
 - scrollUntilVisible: { element: { text: "Grocery Delivery" }, direction: UP, timeout: 12000 }
 - tapOn: "Grocery Delivery"
-- scrollUntilVisible: { element: { id: "unit-line_.*-bottles", index: 0 }, direction: DOWN, timeout: 12000 }
-- tapOn: { id: "unit-line_.*-bottles", index: 0 }
+- scrollUntilVisible: { element: { id: "unit-line_.*-bottles" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "unit-line_.*-bottles" }
 # Brand is optional and is exercised on this line only.
 - scrollUntilVisible: { element: { text: "Brand or preference (optional)" }, direction: DOWN, timeout: 12000 }
 - tapOn: "Brand or preference (optional)"
@@ -54,29 +60,33 @@ appId: ke.co.hiredcorp.kwikserve
 - scrollUntilVisible: { element: { id: "add-item" }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "add-item" }
 - extendedWaitUntil: { visible: "Item 2", timeout: 8000 }
+# Item 1 is ABOVE the card just added, so the viewport is past it — scroll back before asserting.
+- scrollUntilVisible: { element: { text: "Item 1" }, direction: UP, timeout: 12000 }
 - assertVisible: "Item 1"
 
-- scrollUntilVisible: { element: { id: "item-name-line_.*", index: 1 }, direction: DOWN, timeout: 12000 }
-- tapOn: { id: "item-name-line_.*", index: 1 }
+- scrollUntilVisible: { element: { id: "item-name-line_.*", below: { text: "Item 2" } }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "item-name-line_.*", below: { text: "Item 2" } }
 - inputText: "Rice"
 - scrollUntilVisible: { element: { text: "Grocery Delivery" }, direction: UP, timeout: 12000 }
 - tapOn: "Grocery Delivery"
-- scrollUntilVisible: { element: { id: "item-qty-line_.*", index: 1 }, direction: DOWN, timeout: 12000 }
-- tapOn: { id: "item-qty-line_.*", index: 1 }
+- scrollUntilVisible: { element: { id: "item-qty-line_.*", below: { text: "Item 2" } }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "item-qty-line_.*", below: { text: "Item 2" } }
 - inputText: "5"
 - scrollUntilVisible: { element: { text: "Grocery Delivery" }, direction: UP, timeout: 12000 }
 - tapOn: "Grocery Delivery"
-- scrollUntilVisible: { element: { id: "unit-line_.*-kg", index: 1 }, direction: DOWN, timeout: 12000 }
-- tapOn: { id: "unit-line_.*-kg", index: 1 }
+- scrollUntilVisible: { element: { id: "unit-line_.*-kg", below: { text: "Item 2" } }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "unit-line_.*-kg", below: { text: "Item 2" } }
 # Item 1 is still there, with its typed values intact.
 - scrollUntilVisible: { element: { text: "Milk" }, direction: UP, timeout: 12000 }
 - assertVisible: "Milk"
 - takeScreenshot: sd-gr-03-two-items
 
 # ── Maximum goods budget — a ceiling on the GOODS, not a total ────────────────
-- scrollUntilVisible: { element: { id: "input-max_goods_budget" }, direction: DOWN, timeout: 12000 }
+- scrollUntilVisible: { element: { text: ".*Maximum to spend on the goods.*" }, direction: DOWN, timeout: 12000 }
 - assertVisible: ".*Maximum to spend on the goods.*"
+- scrollUntilVisible: { element: { text: ".*Delivery and service fees are separate.*" }, direction: DOWN, timeout: 12000 }
 - assertVisible: ".*Delivery and service fees are separate.*"
+- scrollUntilVisible: { element: { id: "input-max_goods_budget" }, direction: UP, timeout: 12000 }
 # The wording must never present this as the money the customer owes.
 - assertNotVisible: ".*Order total.*"
 - assertNotVisible: ".*Amount due.*"
@@ -88,11 +98,14 @@ appId: ke.co.hiredcorp.kwikserve
 - takeScreenshot: sd-gr-04-goods-budget
 
 # ── Substitution preference (required) ────────────────────────────────────────
-- scrollUntilVisible: { element: { id: "option-substitution-call" }, direction: DOWN, timeout: 12000 }
+- scrollUntilVisible: { element: { text: "If something is unavailable" }, direction: DOWN, timeout: 12000 }
 - assertVisible: "If something is unavailable"
+- scrollUntilVisible: { element: { id: "option-substitution-call" }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "option-substitution-call" }
 
-# Grocery enables media (photograph a handwritten list instead of typing it).
+# Grocery enables media (photograph a handwritten list instead of typing it). The block renders
+# below the substitution question, so it has to be scrolled to.
+- scrollUntilVisible: { element: { id: "service-details-media" }, direction: DOWN, timeout: 12000 }
 - assertVisible: { id: "service-details-media" }
 
 # ── Continue reaches Address ──────────────────────────────────────────────────

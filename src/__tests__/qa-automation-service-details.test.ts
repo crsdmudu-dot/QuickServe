@@ -159,7 +159,10 @@ describe('Representative Service Details coverage exists', () => {
     const source = read(flow('service-details-grocery.yaml'));
     expect(source).toContain('option-variant-shop_for_me');
     expect(source).toContain('add-item');
-    expect(source).toContain('index: 1'); // a genuine second item line
+    // A genuine second item line, addressed by its own visible header rather than a positional
+    // index — the index only holds while every card stays in the hierarchy as the list scrolls.
+    expect(source).toContain('below: { text: "Item 2" }');
+    expect(source).not.toContain('index:');
     expect(source).toContain('input-max_goods_budget');
     expect(source).toContain('option-substitution-');
     expect(source).toContain('Maximum to spend on the goods');
@@ -213,6 +216,37 @@ describe('Representative Service Details coverage exists', () => {
         const tap = /^- tapOn: "([^"]+)"/.exec(next);
         if (!tap) return; // not a keyboard-dismiss tap
         offenders.push(`${file}:${i + 2} taps "${tap[1]}" straight after inputText, with no scroll UP`);
+      });
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('never assumes the whole Review card fits one viewport', () => {
+    // Run 32026499557 failed here: the flow scrolled once to the "Service Details" header, then
+    // asserted several values in a batch. On an iPhone SE only the first row was on screen, so
+    // "The whole home" — rendered correctly, one row further down — reported as not visible.
+    //
+    // The rule: from the moment a flow reaches Review, every assertVisible must be immediately
+    // preceded by a scrollUntilVisible for the SAME target. Step counters are exempt: they render
+    // at the top of each step screen and are on screen the moment it appears.
+    const target = (line: string): string | null => {
+      const text = /^- assertVisible: "([^"]+)"/.exec(line);
+      if (text) return text[1];
+      const id = /^- assertVisible: \{ id: "([^"]+)"/.exec(line);
+      return id ? id[1] : null;
+    };
+
+    const offenders: string[] = [];
+    for (const file of flowFiles().filter((f) => /service-details-.*\.yaml$|booking-duplicate-distinct\.yaml$/.test(f))) {
+      const lines = commandLines(read(file));
+      const reviewStart = lines.findIndex((l) => l.includes('Review your booking'));
+      if (reviewStart === -1) continue; // this flow never reaches Review
+      lines.slice(reviewStart + 1).forEach((line, offset) => {
+        const wanted = target(line);
+        if (!wanted || /^Step \d of \d$/.test(wanted)) return;
+        const prev = lines[reviewStart + offset] ?? '';
+        const guarded = prev.includes('scrollUntilVisible') && prev.includes(wanted);
+        if (!guarded) offenders.push(`${file}: asserts "${wanted}" on Review with no scroll to it`);
       });
     }
     expect(offenders).toEqual([]);

@@ -9,6 +9,14 @@
 #
 # Nothing is placed — the flow stops at the Address step.
 #
+# WHAT THE NEGATIVES BELOW PROVE. Maestro's visibility assertions are VIEWPORT-scoped on iOS, so a
+# control that existed but sat below the fold would report as not visible exactly like one that was
+# never rendered. These assertNotVisible lines are therefore CORROBORATION, not the authoritative
+# guarantee. The authoritative pins are unit tests over the configuration itself:
+# src/constants/service-forms.test.ts — "Massage is ONE person per booking in V1 — no party-size
+# question" (asserts no number_of_people question exists) and "Massage has no media and states
+# gender is a preference, not a guarantee". Do not weaken either layer on the strength of the other.
+#
 # Params via -e: CUST_EMAIL, CUST_PW.
 appId: ke.co.hiredcorp.kwikserve
 ---
@@ -38,8 +46,13 @@ appId: ke.co.hiredcorp.kwikserve
 # ── (2) Gender is a preference, and the screen says so ────────────────────────
 - scrollUntilVisible: { element: { id: "question-therapist_gender_preference" }, direction: DOWN, timeout: 12000 }
 - assertVisible: ".*Do you have a preference for the therapist.*"
+# The disclaimer renders BELOW the option buttons, so the question block being on screen does not
+# put the disclaimer on screen too.
+- scrollUntilVisible: { element: { id: "disclaimer-therapist_gender_preference" }, direction: DOWN, timeout: 12000 }
 - assertVisible: { id: "disclaimer-therapist_gender_preference" }
 - assertVisible: ".*isn.t guaranteed.*"
+# The disclaimer sits below the options, so scrolling to it moved them off-screen.
+- scrollUntilVisible: { element: { id: "option-therapist_gender_preference-female" }, direction: UP, timeout: 12000 }
 - tapOn: { id: "option-therapist_gender_preference-female" }
 - takeScreenshot: sd-ms-02-preference
 

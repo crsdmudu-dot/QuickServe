@@ -27,7 +27,10 @@ appId: ke.co.hiredcorp.kwikserve
 - scrollUntilVisible: { element: { id: "gate-option-yes" }, direction: UP, timeout: 12000 }
 - tapOn: { id: "gate-option-yes" }
 - extendedWaitUntil: { visible: { id: "safety-block" }, timeout: 8000 }
+- scrollUntilVisible: { element: { text: "Please contact emergency services first" }, direction: DOWN, timeout: 12000 }
 - assertVisible: "Please contact emergency services first"
+# The body is a separate, longer node below the title.
+- scrollUntilVisible: { element: { text: ".*QuickServe is not an emergency service.*" }, direction: DOWN, timeout: 12000 }
 - assertVisible: ".*QuickServe is not an emergency service.*"
 - takeScreenshot: sd-tw-02-blocked
 
@@ -42,6 +45,8 @@ appId: ke.co.hiredcorp.kwikserve
 - assertNotVisible: ".*911.*"
 
 # ── NON-BLOCKING PATH — "No" restores the form ────────────────────────────────
+# Reading the block body scrolled past the gate; bring it back before answering.
+- scrollUntilVisible: { element: { id: "gate-option-no" }, direction: UP, timeout: 12000 }
 - tapOn: { id: "gate-option-no" }
 - extendedWaitUntil: { notVisible: { id: "safety-block" }, timeout: 8000 }
 - extendedWaitUntil: { visible: { id: "question-vehicle_make_model" }, timeout: 8000 }

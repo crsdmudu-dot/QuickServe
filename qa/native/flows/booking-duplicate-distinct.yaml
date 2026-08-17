@@ -37,6 +37,8 @@ appId: ke.co.hiredcorp.kwikserve
 - scrollUntilVisible: { element: { text: "Continue" }, direction: DOWN, timeout: 15000 }
 - tapOn: "Continue"
 - extendedWaitUntil: { visible: "Review your booking", timeout: 15000 }
+# The Service Details card sits below the summary card — scroll to the value, do not assume it.
+- scrollUntilVisible: { element: { text: "Standard cleaning" }, direction: DOWN, timeout: 12000 }
 - assertVisible: "Standard cleaning"
 - scrollUntilVisible: { element: { text: "Place Booking" }, direction: DOWN, timeout: 15000 }
 - tapOn: "Place Booking"
@@ -80,6 +82,7 @@ appId: ke.co.hiredcorp.kwikserve
 - scrollUntilVisible: { element: { text: "Continue" }, direction: DOWN, timeout: 15000 }
 - tapOn: "Continue"
 - extendedWaitUntil: { visible: "Review your booking", timeout: 15000 }
+- scrollUntilVisible: { element: { text: "Laundry / clothes washing only" }, direction: DOWN, timeout: 12000 }
 - assertVisible: "Laundry / clothes washing only"
 - takeScreenshot: dx2-booking-B-laundry-review
 

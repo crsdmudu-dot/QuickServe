@@ -64,10 +64,15 @@ appId: ke.co.hiredcorp.kwikserve
 
 # Every answer survived: the disclosed children still exist, which can only be true if the
 # parent answers were restored from the snapshot.
+# Each restored value is asserted with ITS OWN input on screen — "4" and "3" are the field values,
+# and a bare assertVisible for them after one scroll would be both fragile and loosely targeted.
+- scrollUntilVisible: { element: { id: "question-scope" }, direction: DOWN, timeout: 12000 }
 - assertVisible: { id: "question-scope" }
-- scrollUntilVisible: { element: { id: "question-bedrooms" }, direction: DOWN, timeout: 12000 }
-- assertVisible: { id: "question-bathrooms" }
+- scrollUntilVisible: { element: { id: "input-bedrooms" }, direction: DOWN, timeout: 12000 }
+- assertVisible: { id: "question-bedrooms" }
 - assertVisible: "4"
+- scrollUntilVisible: { element: { id: "input-bathrooms" }, direction: DOWN, timeout: 12000 }
+- assertVisible: { id: "question-bathrooms" }
 - assertVisible: "3"
 - takeScreenshot: sd-back-04-state-preserved
 
