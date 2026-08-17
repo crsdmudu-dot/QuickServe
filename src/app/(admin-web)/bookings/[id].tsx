@@ -55,6 +55,7 @@ import { Input } from '@/components/ui/input';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
 import { DestinationSummary } from '@/components/ui/destination-summary';
+import { ServiceDetailsSummary } from '@/components/booking/service-details-summary';
 import { AdminLiveLocation } from '@/components/ui/admin-live-location';
 import { AdminWalletPanel } from '@/components/admin-web/admin-wallet-panel';
 import { InternalNotesPanel } from '@/components/admin-web/operations/internal-notes-panel';
@@ -272,6 +273,12 @@ export default function AdminWebBookingDetailScreen() {
           ) : null}
         </View>
       </Card>
+
+      {/* Service Details (V1.4) — the full structured request, rendered from the immutable
+          snapshot. Ops reads this to dispatch manually, to fulfil grocery requests and to spot a
+          mis-categorised job; the customer's original wording is never rewritten here. */}
+      <SectionHeader title="Service Details" />
+      <ServiceDetailsSummary details={booking.service_details} audience="admin" />
 
       {/* Destination */}
       <SectionHeader title="Destination" />

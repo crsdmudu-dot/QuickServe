@@ -752,4 +752,79 @@ describe('BookingDetailScreen', () => {
       screen.getByText('Access: Tell security you are visiting apartment 7B.'),
     ).toBeOnTheScreen();
   });
+
+  // ── Service Details V1.4 ───────────────────────────────────────────────────
+
+  describe('Service Details', () => {
+    const SNAPSHOT = {
+      schema: 1,
+      form_version: 2,
+      service_slug: 'house-cleaning',
+      service_title: 'House Cleaning',
+      primary_kind: 'variant',
+      primary: {
+        key: 'variant',
+        question: 'What kind of cleaning do you need?',
+        kind: 'single',
+        value: 'deep_clean',
+        display: 'Deep cleaning',
+      },
+      answers: [
+        { key: 'scope', question: 'Scope', kind: 'single', value: 'whole_home', display: 'Whole home' },
+        { key: 'bedrooms', question: 'Bedrooms', kind: 'number', value: 4, display: '4' },
+        { key: 'supplies', question: 'Provider brings supplies', kind: 'boolean', value: true, display: 'Yes' },
+      ],
+      addons: [{ key: 'ironing', label: 'Ironing' }],
+      items: null,
+      flags: { priority: true },
+    };
+
+    it('shows the customer what they originally requested', async () => {
+      mockGetBookingById.mockResolvedValue({ ...BASE_BOOKING, service_details: SNAPSHOT });
+
+      render(<BookingDetailScreen />);
+
+      expect(await screen.findByText('Service Details')).toBeOnTheScreen();
+      expect(screen.getByText('What kind of cleaning do you need?')).toBeOnTheScreen();
+      expect(screen.getByText('Deep cleaning')).toBeOnTheScreen();
+      expect(screen.getByText('Whole home')).toBeOnTheScreen();
+      expect(screen.getByText('Yes')).toBeOnTheScreen();
+      expect(screen.getByText('• Ironing')).toBeOnTheScreen();
+    });
+
+    it('does not repeat operational priority wording to the customer', async () => {
+      mockGetBookingById.mockResolvedValue({ ...BASE_BOOKING, service_details: SNAPSHOT });
+
+      render(<BookingDetailScreen />);
+
+      await screen.findByText('Service Details');
+      expect(screen.queryByText('Priority attention')).toBeNull();
+    });
+
+    it('renders a legacy booking (no snapshot) safely, with no Service Details section', async () => {
+      mockGetBookingById.mockResolvedValue({ ...BASE_BOOKING, service_details: null });
+
+      render(<BookingDetailScreen />);
+
+      // The rest of the screen still renders normally…
+      expect(await screen.findByText('Booking Detail')).toBeOnTheScreen();
+      expect(screen.getByText('Ring doorbell')).toBeOnTheScreen();
+      // …and the section is simply absent — no error, no placeholder, no raw data.
+      expect(screen.queryByText('Service Details')).toBeNull();
+      expect(screen.queryByTestId('service-details-summary')).toBeNull();
+      expect(screen.queryByTestId('service-details-summary-empty')).toBeNull();
+    });
+
+    it('renders a malformed snapshot safely rather than crashing', async () => {
+      mockGetBookingById.mockResolvedValue({
+        ...BASE_BOOKING,
+        service_details: { schema: 1, service_slug: 'house-cleaning', primary: { key: 'v' }, answers: 'nope' },
+      });
+
+      render(<BookingDetailScreen />);
+
+      expect(await screen.findByText('Booking Detail')).toBeOnTheScreen();
+      expect(screen.queryByText('Service Details')).toBeNull();
+    });
+  });
 });

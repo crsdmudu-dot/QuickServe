@@ -26,6 +26,7 @@ import { PhotoUploadButton } from '@/components/ui/photo-upload-button';
 import { ActivityTimeline } from '@/components/ui/activity-timeline';
 import { SectionHeader } from '@/components/ui/section-header';
 import { DestinationSummary } from '@/components/ui/destination-summary';
+import { ServiceDetailsSummary } from '@/components/booking/service-details-summary';
 import { useProviderLocationSharing } from '@/hooks/use-provider-location-sharing';
 
 export default function ProviderJobDetailScreen() {
@@ -121,6 +122,16 @@ export default function ProviderJobDetailScreen() {
           windowEnd={booking.window_end}
           recurrence={booking.recurrence}
         />
+
+        {/* ── Service Details (V1.4) ───────────────────────────────────────
+            The structured request, exactly as the customer submitted it. Placed directly under
+            the summary because it is what the provider needs FIRST to decide how to approach the
+            job — before the route and before the status controls. Read-only by design: the
+            snapshot is immutable and the provider has no edit affordance here. */}
+        <View style={styles.section}>
+          <SectionHeader title="Service Details" />
+          <ServiceDetailsSummary details={booking.service_details} audience="provider" />
+        </View>
 
         {/* ── Destination ──────────────────────────────────────────────── */}
         <View style={styles.section}>

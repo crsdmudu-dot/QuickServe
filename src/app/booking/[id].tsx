@@ -50,6 +50,8 @@ import { ReviewCard } from '@/components/ui/review-card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { QuoteCard } from '@/components/ui/quote-card';
+import { ServiceDetailsSummary } from '@/components/booking/service-details-summary';
+import { hasServiceDetails } from '@/lib/service-details-view';
 import { BookingProgressTracker } from '@/components/customer/booking-progress-tracker';
 import { PaymentBreakdownCard } from '@/components/customer/payment-breakdown-card';
 import { ReviewEditForm } from '@/components/customer/review-edit-form';
@@ -310,6 +312,21 @@ export default function BookingDetailScreen() {
             ) : null}
           </View>
         </View>
+
+        {/* Service Details V1.4 — what the customer originally requested, read back from the
+            immutable snapshot. Sits directly under the service summary and above Payment, so the
+            request reads before the money. Bookings taken before Service Details existed (and any
+            unreadable snapshot) simply have no section — nothing to apologise for. */}
+        {hasServiceDetails(booking.service_details) ? (
+          <>
+            <SectionHeader title="Service Details" />
+            <ServiceDetailsSummary
+              details={booking.service_details}
+              audience="customer"
+              emptyText={null}
+            />
+          </>
+        ) : null}
 
         {/* Payment section */}
         <SectionHeader title="Payment" />

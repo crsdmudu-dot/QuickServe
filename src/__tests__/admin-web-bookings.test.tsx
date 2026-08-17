@@ -465,4 +465,92 @@ describe('AdminWebBookingDetailScreen (detail)', () => {
     await screen.findByText('House Cleaning');
     expect(await screen.findByText('Internal notes')).toBeOnTheScreen();
   });
+
+  // ── Service Details V1.4 — admin surface 2 (admin web) ────────────────────
+
+  it('shows the complete structured request', async () => {
+    mockGetBookingById.mockResolvedValueOnce({
+      ...MOCK_BOOKING,
+      service_details: {
+        schema: 1,
+        form_version: 1,
+        service_slug: 'house-cleaning',
+        service_title: 'House Cleaning',
+        primary_kind: 'variant',
+        primary: {
+          key: 'variant',
+          question: 'What kind of cleaning do you need?',
+          kind: 'single',
+          value: 'deep_clean',
+          display: 'Deep cleaning',
+        },
+        answers: [
+          { key: 'scope', question: 'Scope', kind: 'single', value: 'whole_home', display: 'Whole home' },
+          { key: 'bedrooms', question: 'Bedrooms', kind: 'number', value: 4, display: '4' },
+        ],
+        addons: [{ key: 'ironing', label: 'Ironing' }],
+        items: null,
+        flags: { priority: true },
+      },
+    });
+
+    render(<AdminWebBookingDetailScreen />);
+
+    expect(await screen.findByText('Service Details')).toBeOnTheScreen();
+    expect(screen.getByText('Deep cleaning')).toBeOnTheScreen();
+    expect(screen.getByText('Whole home')).toBeOnTheScreen();
+    expect(screen.getByText('Bedrooms')).toBeOnTheScreen();
+    expect(screen.getByText('• Ironing')).toBeOnTheScreen();
+    expect(screen.getByText('Priority attention')).toBeOnTheScreen();
+  });
+
+  it('shows the full grocery request, including the maximum goods budget', async () => {
+    mockGetBookingById.mockResolvedValueOnce({
+      ...MOCK_BOOKING,
+      service_id: 'grocery-delivery',
+      service_details: {
+        schema: 1,
+        form_version: 1,
+        service_slug: 'grocery-delivery',
+        service_title: 'Grocery Delivery',
+        primary_kind: 'variant',
+        primary: {
+          key: 'variant',
+          question: 'How would you like to shop?',
+          kind: 'single',
+          value: 'shop_for_me',
+          display: 'Shop for me',
+        },
+        answers: [],
+        addons: [],
+        items: {
+          kind: 'grocery',
+          goods_budget: { currency: 'KES', max_goods_amount: 5000 },
+          substitution: { value: 'ask_first', display: 'Contact me before substituting' },
+          lines: [{ line_id: 'l1', name: 'Milk', qty: 2, unit: 'bottles', brand: 'Brookside', note: null }],
+        },
+        flags: {},
+      },
+    });
+
+    render(<AdminWebBookingDetailScreen />);
+
+    expect(await screen.findByText('Requested items')).toBeOnTheScreen();
+    expect(screen.getByText('Milk')).toBeOnTheScreen();
+    expect(screen.getByText('2 bottles')).toBeOnTheScreen();
+    expect(screen.getByText('Brand: Brookside')).toBeOnTheScreen();
+    expect(screen.getByText('Maximum goods budget')).toBeOnTheScreen();
+    expect(screen.getByText('KES 5,000')).toBeOnTheScreen();
+    expect(screen.getByText('Contact me before substituting')).toBeOnTheScreen();
+  });
+
+  it('renders a legacy booking (no snapshot) safely and leaves dispatch actions unchanged', async () => {
+    // MOCK_BOOKING predates Service Details.
+    render(<AdminWebBookingDetailScreen />);
+
+    expect(await screen.findByTestId('service-details-summary-empty')).toBeOnTheScreen();
+    expect(screen.getByText('Assign Provider')).toBeOnTheScreen();
+    expect(mockUpdateBookingStatus).not.toHaveBeenCalled();
+    expect(mockAssignProvider).not.toHaveBeenCalled();
+  });
 });

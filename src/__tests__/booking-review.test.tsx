@@ -303,4 +303,75 @@ describe('ReviewScreen', () => {
     render(<ReviewScreen />);
     expect(screen.queryByTestId('review-details-missing')).toBeNull();
   });
+
+  // ── Service Details V1.4 — the customer verifies the request before submitting ──
+
+  it('shows a Service Details summary built from the draft snapshot', () => {
+    mockDraft = {
+      ...mockDraft,
+      serviceDetails: {
+        ...snapshot,
+        answers: [
+          { key: 'scope', question: 'Scope', kind: 'single', value: 'whole_home', display: 'Whole home' },
+          { key: 'bedrooms', question: 'Bedrooms', kind: 'number', value: 4, display: '4' },
+        ],
+        addons: [{ key: 'ironing', label: 'Ironing' }],
+      } as unknown as null,
+    };
+    render(<ReviewScreen />);
+
+    expect(screen.getByText('Service Details')).toBeOnTheScreen();
+    expect(screen.getByTestId('service-details-summary')).toBeOnTheScreen();
+    expect(screen.getByText('Standard cleaning')).toBeOnTheScreen();
+    expect(screen.getByText('Whole home')).toBeOnTheScreen();
+    expect(screen.getByText('• Ironing')).toBeOnTheScreen();
+  });
+
+  it('shows the grocery request list and the maximum GOODS budget (never a total)', () => {
+    mockDraft = {
+      ...mockDraft,
+      serviceId: 'grocery-delivery',
+      serviceDetails: {
+        schema: 1,
+        form_version: 1,
+        service_slug: 'grocery-delivery',
+        service_title: 'Grocery Delivery',
+        primary_kind: 'variant',
+        primary: {
+          key: 'variant',
+          question: 'How would you like to shop?',
+          kind: 'single',
+          value: 'shop_for_me',
+          display: 'Shop for me',
+        },
+        answers: [],
+        addons: [],
+        items: {
+          kind: 'grocery',
+          goods_budget: { currency: 'KES', max_goods_amount: 5000 },
+          substitution: { value: 'ask_first', display: 'Contact me before substituting' },
+          lines: [{ line_id: 'l1', name: 'Milk', qty: 2, unit: 'bottles', brand: 'Brookside', note: null }],
+        },
+        flags: {},
+      } as unknown as null,
+    };
+    render(<ReviewScreen />);
+
+    expect(screen.getByText('Requested items')).toBeOnTheScreen();
+    expect(screen.getByText('Milk')).toBeOnTheScreen();
+    expect(screen.getByText('2 bottles')).toBeOnTheScreen();
+    expect(screen.getByText('Maximum goods budget')).toBeOnTheScreen();
+    expect(screen.getByText('KES 5,000')).toBeOnTheScreen();
+    expect(screen.getByText('Contact me before substituting')).toBeOnTheScreen();
+  });
+
+  it('renders no Service Details section when the draft carries no snapshot', () => {
+    mockDraft = { ...mockDraft, serviceDetails: null };
+    render(<ReviewScreen />);
+
+    expect(screen.queryByText('Service Details')).toBeNull();
+    expect(screen.queryByTestId('service-details-summary')).toBeNull();
+    // ...and submission is still blocked, exactly as in V1.3.
+    expect(screen.getByTestId('review-details-missing')).toBeOnTheScreen();
+  });
 });

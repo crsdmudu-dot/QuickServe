@@ -46,6 +46,7 @@ import { PhotoGallery } from '@/components/ui/photo-gallery';
 import { ActivityTimeline } from '@/components/ui/activity-timeline';
 import { ChatThread } from '@/components/ui/chat-thread';
 import { DestinationSummary } from '@/components/ui/destination-summary';
+import { ServiceDetailsSummary } from '@/components/booking/service-details-summary';
 import { AdminLiveLocation } from '@/components/ui/admin-live-location';
 
 export default function AdminBookingDetailScreen() {
@@ -238,6 +239,13 @@ export default function AdminBookingDetailScreen() {
           scheduledFor={booking.scheduled_for}
           notes={booking.notes ?? ''}
         />
+
+        {/* ── Service Details (V1.4) ─────────────────────────────────────
+            The complete structured request as submitted, for manual dispatch, grocery
+            fulfilment and provider assignment. Read-only: the snapshot is what the customer
+            asked for, and admin never rewrites the customer's meaning. */}
+        <SectionHeader title="Service Details" />
+        <ServiceDetailsSummary details={booking.service_details} audience="admin" />
 
         {/* ── Destination ───────────────────────────────────────────────── */}
         <SectionHeader title="Destination" />

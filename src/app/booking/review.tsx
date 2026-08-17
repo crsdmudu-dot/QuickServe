@@ -27,7 +27,9 @@ import { uploadBookingPhoto } from '@/lib/photos';
 import { BookingSummaryCard } from '@/components/ui/booking-summary-card';
 import { Button } from '@/components/ui/button';
 import { DestinationSummary } from '@/components/ui/destination-summary';
+import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
+import { ServiceDetailsSummary } from '@/components/booking/service-details-summary';
 
 export default function ReviewScreen() {
   const theme = useTheme();
@@ -188,8 +190,18 @@ export default function ReviewScreen() {
           recurrence={recurrence}
         />
 
+        {/* V1.4 — what the customer actually asked for, rendered from the step-1 snapshot so it
+            reads exactly as they answered it. Omitted entirely when there is nothing to show; the
+            fail-closed banner below covers the case where it is missing but required. */}
+        {serviceDetails ? (
+          <View>
+            <SectionHeader title="Service Details" />
+            <ServiceDetailsSummary details={serviceDetails} audience="customer" emptyText={null} />
+          </View>
+        ) : null}
+
         {/* Fail-closed explanation. Without this the Place Booking button would simply be
-            disabled with no reason given — a dead end. The full details summary is V1.4. */}
+            disabled with no reason given — a dead end. */}
         {detailsMissing ? (
           <View style={styles.missingDetails} testID="review-details-missing">
             <Text variant="caption" color="error">
