@@ -29,10 +29,14 @@ appId: ke.co.hiredcorp.kwikserve
 - scrollUntilVisible: { element: { id: "input-bedrooms" }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "input-bedrooms" }
 - inputText: "4"
+# Scroll the heading back into view BEFORE tapping it to dismiss the iOS keyboard — reaching the
+# field scrolled it off-screen. Same order as address-journey.yaml.
+- scrollUntilVisible: { element: { text: "House Cleaning" }, direction: UP, timeout: 12000 }
 - tapOn: "House Cleaning"
 - scrollUntilVisible: { element: { id: "input-bathrooms" }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "input-bathrooms" }
 - inputText: "3"
+- scrollUntilVisible: { element: { text: "House Cleaning" }, direction: UP, timeout: 12000 }
 - tapOn: "House Cleaning"
 - scrollUntilVisible: { element: { id: "option-provider_bring_supplies-yes" }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "option-provider_bring_supplies-yes" }

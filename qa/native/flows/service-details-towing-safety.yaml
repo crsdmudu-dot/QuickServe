@@ -50,10 +50,14 @@ appId: ke.co.hiredcorp.kwikserve
 - scrollUntilVisible: { element: { id: "input-vehicle_make_model" }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "input-vehicle_make_model" }
 - inputText: "Toyota Prado"
-- tapOn: "Car Towing"                            # static heading — dismiss the iOS keyboard
+# Scroll the heading back into view BEFORE tapping it to dismiss the iOS keyboard — reaching the
+# field scrolled it off-screen. Same order as address-journey.yaml.
+- scrollUntilVisible: { element: { text: "Car Towing" }, direction: UP, timeout: 12000 }
+- tapOn: "Car Towing"
 - scrollUntilVisible: { element: { id: "input-destination" }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "input-destination" }
 - inputText: "Westlands garage"
+- scrollUntilVisible: { element: { text: "Car Towing" }, direction: UP, timeout: 12000 }
 - tapOn: "Car Towing"
 - scrollUntilVisible: { element: { id: "option-can_roll_or_steer-not_sure" }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "option-can_roll_or_steer-not_sure" }

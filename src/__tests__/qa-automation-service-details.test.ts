@@ -198,6 +198,26 @@ describe('Representative Service Details coverage exists', () => {
     expect(source).toContain('question-bathrooms');
   });
 
+  it('never dismisses the iOS keyboard by tapping a heading that was scrolled off-screen', () => {
+    // Run 32021907035 failed here: the flow scrolled DOWN to reach a text input, typed, then
+    // tapped the screen heading to dismiss the keyboard — but that scroll had pushed the heading
+    // out of view, so "Element not found: House Cleaning". address-journey.yaml gets this right by
+    // scrolling UP to the heading first. This pins that order for the Service Details flows, which
+    // scroll far enough for it to matter; the older flows type near the top and are grandfathered.
+    const offenders: string[] = [];
+    for (const file of flowFiles().filter((f) => /service-details-.*\.yaml$/.test(f))) {
+      const lines = commandLines(read(file));
+      lines.forEach((line, i) => {
+        if (!line.startsWith('- inputText:')) return;
+        const next = lines[i + 1] ?? '';
+        const tap = /^- tapOn: "([^"]+)"/.exec(next);
+        if (!tap) return; // not a keyboard-dismiss tap
+        offenders.push(`${file}:${i + 2} taps "${tap[1]}" straight after inputText, with no scroll UP`);
+      });
+    }
+    expect(offenders).toEqual([]);
+  });
+
   it('the distinct-duplicate flow uses two genuinely different primary answers', () => {
     const source = read(flow('booking-duplicate-distinct.yaml'));
     expect(source).toContain('option-variant-laundry_only');
