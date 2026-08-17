@@ -12,6 +12,10 @@ name: iOS Native Journeys (Phase 3F flows on iOS Simulator)
 #   QA_SERVICE_ROLE_KEY      - QA service-role key (setup-verify / assignment / cleanup only)
 #   QA_CUSTOMER_EMAIL / QA_CUSTOMER_PASSWORD
 #   QA_PROVIDER1_EMAIL / QA_PROVIDER1_PASSWORD
+#   QA_ADMIN_EMAIL / QA_ADMIN_PASSWORD
+#       Service Details V1.6 — used for the MANUAL mobile-admin surface certification only.
+#       The automated Service Details suite below does not require them and will run without
+#       them; they are wired here so the admin portion needs no further workflow change.
 # (No product secrets are embedded; simulator builds need no Apple credentials.)
 
 on:
@@ -35,6 +39,8 @@ jobs:
       QA_CUSTOMER_PASSWORD: ${{ secrets.QA_CUSTOMER_PASSWORD }}
       QA_PROVIDER1_EMAIL: ${{ secrets.QA_PROVIDER1_EMAIL }}
       QA_PROVIDER1_PASSWORD: ${{ secrets.QA_PROVIDER1_PASSWORD }}
+      QA_ADMIN_EMAIL: ${{ secrets.QA_ADMIN_EMAIL }}
+      QA_ADMIN_PASSWORD: ${{ secrets.QA_ADMIN_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -107,6 +113,15 @@ jobs:
         run: |
           maestro test qa/native/flows/address-journey.yaml \
             -e CUST_EMAIL="$QA_CUSTOMER_EMAIL" -e CUST_PW="$QA_CUSTOMER_PASSWORD"
+
+      # Service Details V1.6 — the six V1.5 flows, via the existing runner (never re-listed here).
+      # Placed after address-journey so the plain Service Details → Address transition has already
+      # been proven in isolation, and immediately before the duplicate journey so the two halves of
+      # the duplicate-warning story read in order: different primary → no warning (this step), then
+      # same primary → warning (next step). The runner is self-cleaning: only booking-duplicate-
+      # distinct.yaml creates data, under its own SDV15-<epoch> marker, removed by an EXIT trap.
+      - name: Service Details V1.6 — Service Details flows (House Cleaning, Grocery, Massage, Towing gate, Address Back, distinct-duplicate)
+        run: bash qa/native/ios-service-details.sh
 
       - name: Phase 4E.2 — booking duplicate warning + idempotency journey
         run: bash qa/native/ios-booking-duplicate.sh
