@@ -96,7 +96,12 @@ appId: ke.co.hiredcorp.kwikserve
 - inputText: "Movers"
 - extendedWaitUntil: { visible: ".*Movers.*Packers.*", timeout: 12000 }
 - takeScreenshot: n10-movers
-# Tap the RESULT CARD (unique by price), NOT the suggestion → booking flow (Step 1).
+# Tap the RESULT CARD (unique by price), NOT the suggestion → booking flow.
+# V1.3: the flow's first step is now Service Details, not Address. This flow only proves that a
+# search result OPENS the booking flow — it deliberately does not complete a booking, so it
+# answers nothing here and stops at step 1.
 - tapOn: ".*KES 5,000.*"
-- extendedWaitUntil: { visible: "Your Address", timeout: 15000 }
+- extendedWaitUntil: { visible: "Step 1 of 5", timeout: 15000 }
+- assertVisible: ".*What are you moving.*"
+- assertNotVisible: "Your Address"
 - takeScreenshot: n11-result-opens-booking

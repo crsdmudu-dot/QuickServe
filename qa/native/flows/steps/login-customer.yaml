@@ -1,0 +1,32 @@
+# Reusable subflow — cold launch → customer sign-in → customer home.
+#
+# The existing Phase 3F/4E flows each carry their own copy of this block; it is extracted here so
+# the Service Details V1.5 flows do not add five more copies. Behaviour is identical to the
+# in-place version, including the two iOS workarounds that were established by earlier phases:
+#   - after a cold start the welcome screen can render before expo-router is interactive, so the
+#     login button is tapped repeatedly but ONLY while still on welcome;
+#   - hideKeyboard is unreliable on iOS, so the keyboard is dismissed by tapping a static heading.
+#
+# Params via -e: CUST_EMAIL, CUST_PW.
+appId: ke.co.hiredcorp.kwikserve
+---
+- launchApp: { clearState: true }
+- extendedWaitUntil: { visible: "Get Started", timeout: 30000 }
+- repeat:
+    times: 8
+    commands:
+      - runFlow:
+          when: { visible: { id: "login-link" } }
+          commands:
+            - tapOn: { id: "login-link" }
+            - extendedWaitUntil: { visible: "Welcome back", timeout: 3000, optional: true }
+- extendedWaitUntil: { visible: "Welcome back", timeout: 10000 }
+- tapOn: "you@example.com"
+- inputText: "${CUST_EMAIL}"
+- tapOn: "Your password"
+- inputText: "${CUST_PW}"
+- tapOn: "Welcome back"
+- tapOn: "Continue"
+# iOS may prompt for notifications after sign-in; decline (never grant unrelated permissions).
+- runFlow: { when: { visible: "Don.t Allow" }, commands: [ { tapOn: "Don.t Allow" } ] }
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 25000 }

@@ -30,9 +30,12 @@ appId: ke.co.hiredcorp.kwikserve
 - runFlow: { when: { visible: "Don.t Allow" }, commands: [ { tapOn: "Don.t Allow" } ] }
 - extendedWaitUntil: { visible: "What service do you need today?", timeout: 25000 }
 
-# ── Start a House Cleaning booking → Address step ─────────────────────────────
+# ── Start a House Cleaning booking → Service Details → Address step ───────────
+# V1.3 inserted Service Details as step 1 of 5; the address step is now step 2.
 - tapOn: ".*House Cleaning.*"
+- runFlow: { file: steps/service-details-house-cleaning-minimal.yaml }
 - extendedWaitUntil: { visible: "Your Address", timeout: 15000 }
+- assertVisible: "Step 2 of 5"
 - takeScreenshot: a01-address-step
 
 # ── Google Places (New) autocomplete — live Kenya query ───────────────────────

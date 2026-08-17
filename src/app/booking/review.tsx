@@ -89,7 +89,16 @@ export default function ReviewScreen() {
     // Skipped once the customer confirms "Book another anyway". Reads only the caller's own
     // active bookings (RLS owner-scoped) → never exposes another user's booking.
     if (!bypassDuplicateCheck) {
-      const dup = await findActiveDuplicateBooking({ serviceId, address, building_name, floor, door_number });
+      // V1.5: the step-1 snapshot travels with the check, so two genuinely different requests
+      // for the same service at the same address are not flagged as look-alikes.
+      const dup = await findActiveDuplicateBooking({
+        serviceId,
+        address,
+        building_name,
+        floor,
+        door_number,
+        serviceDetails,
+      });
       if (dup) {
         submittingRef.current = false;
         setSubmitting(false);

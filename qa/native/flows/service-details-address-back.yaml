@@ -1,0 +1,79 @@
+# Service Details V1.5 — the V1.3 /booking/address Back fix.
+#
+# Address is no longer the first route of the booking stack, so its Back must return to Service
+# Details rather than dead-ending. The regression this guards against is state loss: the customer
+# fills in a form, steps forward, steps back, and finds their answers gone — which in a 5-step
+# flow is the difference between a small correction and starting over.
+#
+# Asserts: Back lands on Service Details (not Home, not a blank screen), every answer is still
+# populated, no second draft was started, and Continue works again from there.
+#
+# AUTOMATED VALIDATION ONLY — this does not constitute physical/native certification of the Back
+# behaviour, which remains outstanding until a build carrying V1.3/V1.4 exists.
+#
+# Params via -e: CUST_EMAIL, CUST_PW.
+appId: ke.co.hiredcorp.kwikserve
+---
+- runFlow: { file: steps/login-customer.yaml }
+
+# ── Fill Service Details with distinctive, checkable answers ──────────────────
+- scrollUntilVisible: { element: { text: ".*House Cleaning.*" }, direction: DOWN, timeout: 15000 }
+- tapOn: ".*House Cleaning.*"
+- extendedWaitUntil: { visible: "Step 1 of 5", timeout: 15000 }
+
+- tapOn: { id: "option-variant-deep_clean" }
+- extendedWaitUntil: { visible: { id: "question-scope" }, timeout: 8000 }
+- scrollUntilVisible: { element: { id: "option-scope-whole_home" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "option-scope-whole_home" }
+- extendedWaitUntil: { visible: { id: "input-bedrooms" }, timeout: 8000 }
+- scrollUntilVisible: { element: { id: "input-bedrooms" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "input-bedrooms" }
+- inputText: "4"
+- tapOn: "House Cleaning"
+- scrollUntilVisible: { element: { id: "input-bathrooms" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "input-bathrooms" }
+- inputText: "3"
+- tapOn: "House Cleaning"
+- scrollUntilVisible: { element: { id: "option-provider_bring_supplies-yes" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "option-provider_bring_supplies-yes" }
+- scrollUntilVisible: { element: { id: "option-addons-ironing" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "option-addons-ironing" }
+- takeScreenshot: sd-back-01-filled
+
+# ── Forward to Address ────────────────────────────────────────────────────────
+- scrollUntilVisible: { element: { id: "service-details-continue" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "service-details-continue" }
+- extendedWaitUntil: { visible: "Your Address", timeout: 15000 }
+- assertVisible: "Step 2 of 5"
+- assertVisible: { id: "booking-address-back" }
+- takeScreenshot: sd-back-02-address
+
+# ── Back → Service Details, with everything still filled in ───────────────────
+- tapOn: { id: "booking-address-back" }
+- extendedWaitUntil: { visible: "Step 1 of 5", timeout: 15000 }
+- assertVisible: "House Cleaning"
+- assertVisible: ".*What kind of cleaning do you need.*"
+# Not a dead end and not a reset to Home.
+- assertNotVisible: "What service do you need today?"
+- assertNotVisible: "Your Address"
+- takeScreenshot: sd-back-03-returned
+
+# Every answer survived: the disclosed children still exist, which can only be true if the
+# parent answers were restored from the snapshot.
+- assertVisible: { id: "question-scope" }
+- scrollUntilVisible: { element: { id: "question-bedrooms" }, direction: DOWN, timeout: 12000 }
+- assertVisible: { id: "question-bathrooms" }
+- assertVisible: "4"
+- assertVisible: "3"
+- takeScreenshot: sd-back-04-state-preserved
+
+# ── Continue works again — one draft, not two ─────────────────────────────────
+- scrollUntilVisible: { element: { id: "service-details-continue" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "service-details-continue" }
+- extendedWaitUntil: { visible: "Your Address", timeout: 15000 }
+- assertVisible: "Step 2 of 5"
+# A second Back still returns to the same populated step rather than stacking up screens.
+- tapOn: { id: "booking-address-back" }
+- extendedWaitUntil: { visible: "Step 1 of 5", timeout: 15000 }
+- assertVisible: ".*What kind of cleaning do you need.*"
+- takeScreenshot: sd-back-05-repeatable

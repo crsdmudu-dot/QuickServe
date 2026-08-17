@@ -31,8 +31,14 @@ appId: ke.co.hiredcorp.kwikserve
 - extendedWaitUntil: { visible: "What service do you need today?", timeout: 25000 }
 
 # ── Booking A (House Cleaning · manual address · marker) ──────────────────────
+# V1.5: both bookings answer Service Details IDENTICALLY (the shared minimal subflow), so the
+# same-primary case is what is under test here and the advisory warning must still fire. The
+# different-primary case — where the warning must NOT fire — is covered by the unit tests in
+# src/lib/bookings.test.ts and by booking-duplicate-distinct.yaml.
 - tapOn: ".*House Cleaning.*"
+- runFlow: { file: steps/service-details-house-cleaning-minimal.yaml }
 - extendedWaitUntil: { visible: "Your Address", timeout: 15000 }
+- assertVisible: "Step 2 of 5"
 - tapOn: "Enter address manually"
 - extendedWaitUntil: { visible: "123 Main St, City", timeout: 8000 }
 - tapOn: "123 Main St, City"
@@ -51,6 +57,7 @@ appId: ke.co.hiredcorp.kwikserve
 - scrollUntilVisible: { element: { text: "Continue" }, direction: DOWN, timeout: 15000 }
 - tapOn: "Continue"
 - extendedWaitUntil: { visible: "Review your booking", timeout: 15000 }
+- assertVisible: "Step 5 of 5"
 - scrollUntilVisible: { element: { text: "Place Booking" }, direction: DOWN, timeout: 15000 }
 - tapOn: "Place Booking"
 - extendedWaitUntil: { visible: "Booking created successfully", timeout: 25000 }
@@ -58,8 +65,9 @@ appId: ke.co.hiredcorp.kwikserve
 - tapOn: "Back to Home"
 - extendedWaitUntil: { visible: "What service do you need today?", timeout: 15000 }
 
-# ── Booking B (same service · same address) → duplicate WARNING ────────────────
+# ── Booking B (same service · same address · same primary) → duplicate WARNING ─
 - tapOn: ".*House Cleaning.*"
+- runFlow: { file: steps/service-details-house-cleaning-minimal.yaml }
 - extendedWaitUntil: { visible: "Your Address", timeout: 15000 }
 - tapOn: "Enter address manually"
 - extendedWaitUntil: { visible: "123 Main St, City", timeout: 8000 }
@@ -79,6 +87,7 @@ appId: ke.co.hiredcorp.kwikserve
 - scrollUntilVisible: { element: { text: "Continue" }, direction: DOWN, timeout: 15000 }
 - tapOn: "Continue"
 - extendedWaitUntil: { visible: "Review your booking", timeout: 15000 }
+- assertVisible: "Step 5 of 5"
 - scrollUntilVisible: { element: { text: "Place Booking" }, direction: DOWN, timeout: 15000 }
 - tapOn: "Place Booking"
 

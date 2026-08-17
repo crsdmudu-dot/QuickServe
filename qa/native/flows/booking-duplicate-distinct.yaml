@@ -1,0 +1,92 @@
+# Service Details V1.5 — the duplicate warning must NOT fire for two genuinely different requests.
+#
+# The complement of booking-duplicate.yaml. Both bookings are House Cleaning at the SAME manual
+# address, which before V1.5 was enough to trigger the advisory warning. They differ only in the
+# PRIMARY Service Details answer — "Standard cleaning" versus "Laundry / clothes washing only" —
+# and those are two different jobs, so booking B must be created straight away with no warning.
+#
+# What this does NOT change: the database idempotency key still guarantees one submission creates
+# at most one booking. This flow only exercises the client-side advisory heuristic.
+#
+# Both bookings carry ${MARKER} in notes + address so the orchestrator can delete them afterwards.
+#
+# Params via -e: CUST_EMAIL, CUST_PW, MARKER
+appId: ke.co.hiredcorp.kwikserve
+---
+- runFlow: { file: steps/login-customer.yaml }
+
+# ── Booking A — House Cleaning · STANDARD CLEANING ────────────────────────────
+- scrollUntilVisible: { element: { text: ".*House Cleaning.*" }, direction: DOWN, timeout: 15000 }
+- tapOn: ".*House Cleaning.*"
+- runFlow: { file: steps/service-details-house-cleaning-minimal.yaml }
+- tapOn: "Enter address manually"
+- extendedWaitUntil: { visible: "123 Main St, City", timeout: 8000 }
+- tapOn: "123 Main St, City"
+- inputText: "QA-DUPX ${MARKER} Rd Nairobi"
+- tapOn: "Your Address"
+- scrollUntilVisible: { element: { text: "Continue" }, direction: DOWN, timeout: 15000 }
+- tapOn: "Continue"
+- extendedWaitUntil: { visible: "When do you need it?", timeout: 15000 }
+- tapOn: ".*ASAP.*"
+- scrollUntilVisible: { element: { text: "Continue" }, direction: DOWN, timeout: 15000 }
+- tapOn: "Continue"
+- extendedWaitUntil: { visible: "Any special notes?", timeout: 15000 }
+- tapOn: "E.g. use the back entrance, bring your own supplies…"
+- inputText: "${MARKER}"
+- tapOn: "Any special notes?"
+- scrollUntilVisible: { element: { text: "Continue" }, direction: DOWN, timeout: 15000 }
+- tapOn: "Continue"
+- extendedWaitUntil: { visible: "Review your booking", timeout: 15000 }
+- assertVisible: "Standard cleaning"
+- scrollUntilVisible: { element: { text: "Place Booking" }, direction: DOWN, timeout: 15000 }
+- tapOn: "Place Booking"
+- extendedWaitUntil: { visible: "Booking created successfully", timeout: 25000 }
+- takeScreenshot: dx1-booking-A-standard
+- tapOn: "Back to Home"
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 15000 }
+
+# ── Booking B — same service, same address, DIFFERENT primary (laundry only) ──
+- scrollUntilVisible: { element: { text: ".*House Cleaning.*" }, direction: DOWN, timeout: 15000 }
+- tapOn: ".*House Cleaning.*"
+- extendedWaitUntil: { visible: "Step 1 of 5", timeout: 15000 }
+- tapOn: { id: "option-variant-laundry_only" }
+# laundry_only takes a different branch entirely: no scope, bedrooms, bathrooms or supplies.
+- extendedWaitUntil: { visible: { id: "question-laundry_quantity" }, timeout: 8000 }
+- assertNotVisible: { id: "question-scope" }
+- assertNotVisible: { id: "question-provider_bring_supplies" }
+- scrollUntilVisible: { element: { id: "option-laundry_quantity-medium" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "option-laundry_quantity-medium" }
+- scrollUntilVisible: { element: { id: "option-laundry_service-wash_and_fold" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "option-laundry_service-wash_and_fold" }
+- scrollUntilVisible: { element: { id: "service-details-continue" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "service-details-continue" }
+- extendedWaitUntil: { visible: "Your Address", timeout: 15000 }
+
+- tapOn: "Enter address manually"
+- extendedWaitUntil: { visible: "123 Main St, City", timeout: 8000 }
+- tapOn: "123 Main St, City"
+- inputText: "QA-DUPX ${MARKER} Rd Nairobi"
+- tapOn: "Your Address"
+- scrollUntilVisible: { element: { text: "Continue" }, direction: DOWN, timeout: 15000 }
+- tapOn: "Continue"
+- extendedWaitUntil: { visible: "When do you need it?", timeout: 15000 }
+- tapOn: ".*ASAP.*"
+- scrollUntilVisible: { element: { text: "Continue" }, direction: DOWN, timeout: 15000 }
+- tapOn: "Continue"
+- extendedWaitUntil: { visible: "Any special notes?", timeout: 15000 }
+- tapOn: "E.g. use the back entrance, bring your own supplies…"
+- inputText: "${MARKER}"
+- tapOn: "Any special notes?"
+- scrollUntilVisible: { element: { text: "Continue" }, direction: DOWN, timeout: 15000 }
+- tapOn: "Continue"
+- extendedWaitUntil: { visible: "Review your booking", timeout: 15000 }
+- assertVisible: "Laundry / clothes washing only"
+- takeScreenshot: dx2-booking-B-laundry-review
+
+# ── The advisory warning must NOT appear — booking B is created directly ──────
+- scrollUntilVisible: { element: { text: "Place Booking" }, direction: DOWN, timeout: 15000 }
+- tapOn: "Place Booking"
+- extendedWaitUntil: { visible: "Booking created successfully", timeout: 25000 }
+- assertNotVisible: ".*already have an active.*"
+- assertNotVisible: "Book another anyway"
+- takeScreenshot: dx3-no-warning-created

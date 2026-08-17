@@ -214,6 +214,118 @@ describe('isLikelyDuplicateBooking (business matcher)', () => {
   it('case-insensitive + trims when comparing destination fields', () => {
     expect(isLikelyDuplicateBooking({ ...base, door_number: ' 7b ' } as never, input)).toBe(true);
   });
+
+  // ── Service Details V1.5 — primary meaning participates in the heuristic ────
+  //
+  // Only the stable PRIMARY machine value is compared, and only when BOTH sides produced one.
+  // Everything else falls back to the pre-V1.5 service/destination heuristic, so a legacy or
+  // malformed snapshot can never switch duplicate protection off.
+
+  /** A minimal snapshot carrying `primary.value` — the only field the matcher reads. */
+  const snap = (primaryValue: unknown) => ({
+    schema: 1,
+    form_version: 1,
+    service_slug: 'plumbing',
+    service_title: 'Plumbing',
+    primary_kind: 'issue',
+    primary: { key: 'issue', question: 'What is wrong?', kind: 'single', value: primaryValue, display: 'x' },
+    answers: [],
+    addons: [],
+    items: null,
+    flags: {},
+  });
+
+  it('same service/destination + SAME primary Service Details → still a duplicate', () => {
+    expect(
+      isLikelyDuplicateBooking(
+        { ...base, service_details: snap('blocked_drain') } as never,
+        { ...input, serviceDetails: snap('blocked_drain') },
+      ),
+    ).toBe(true);
+  });
+
+  it('same service/destination + DIFFERENT primary Service Details → NOT a duplicate', () => {
+    expect(
+      isLikelyDuplicateBooking(
+        { ...base, service_details: snap('blocked_drain') } as never,
+        { ...input, serviceDetails: snap('leaking_tap') },
+      ),
+    ).toBe(false);
+  });
+
+  it('BOTH snapshots null (legacy bookings) → existing warning is preserved', () => {
+    expect(
+      isLikelyDuplicateBooking({ ...base, service_details: null } as never, { ...input, serviceDetails: null }),
+    ).toBe(true);
+  });
+
+  it('ONE snapshot missing → existing warning is preserved (absence never disables protection)', () => {
+    expect(
+      isLikelyDuplicateBooking(
+        { ...base, service_details: null } as never,
+        { ...input, serviceDetails: snap('leaking_tap') },
+      ),
+    ).toBe(true);
+    expect(
+      isLikelyDuplicateBooking(
+        { ...base, service_details: snap('leaking_tap') } as never,
+        { ...input, serviceDetails: undefined },
+      ),
+    ).toBe(true);
+  });
+
+  it('malformed or non-string primary → safe fallback to the existing warning', () => {
+    for (const bad of [{ nope: true }, 'string', 42, [], snap(null), snap(7), snap(['a'])]) {
+      expect(
+        isLikelyDuplicateBooking(
+          { ...base, service_details: bad } as never,
+          { ...input, serviceDetails: snap('leaking_tap') },
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it('a different PRIMARY never rescues a different service or destination', () => {
+    // The new dimension only ever makes the matcher MORE selective, never less.
+    expect(
+      isLikelyDuplicateBooking(
+        { ...base, service_details: snap('same') } as never,
+        { ...input, serviceId: 'house-cleaning', serviceDetails: snap('same') },
+      ),
+    ).toBe(false);
+    expect(
+      isLikelyDuplicateBooking(
+        { ...base, address: 'Kilimani, Nairobi', service_details: snap('same') } as never,
+        { ...input, serviceDetails: snap('same') },
+      ),
+    ).toBe(false);
+  });
+
+  it('compares ONLY the primary value — add-ons and follow-ups are not duplicate identity', () => {
+    const existing = {
+      ...base,
+      service_details: {
+        ...snap('blocked_drain'),
+        answers: [{ key: 'urgency', question: 'How urgent?', kind: 'single', value: 'today', display: 'Today' }],
+        addons: [{ key: 'inspection', label: 'Inspection' }],
+      },
+    };
+    const incoming = {
+      ...input,
+      serviceDetails: {
+        ...snap('blocked_drain'),
+        answers: [{ key: 'urgency', question: 'How urgent?', kind: 'single', value: 'this_week', display: 'This week' }],
+        addons: [],
+      },
+    };
+    // Different follow-ups and add-ons, same primary → still the same request.
+    expect(isLikelyDuplicateBooking(existing as never, incoming)).toBe(true);
+  });
+
+  it('callers that omit serviceDetails entirely keep exactly the pre-V1.5 behaviour', () => {
+    expect(isLikelyDuplicateBooking(base as never, input)).toBe(true);
+    expect(isLikelyDuplicateBooking({ ...base, door_number: '8A' } as never, input)).toBe(false);
+  });
 });
 
 describe('findActiveDuplicateBooking', () => {
@@ -235,6 +347,51 @@ describe('findActiveDuplicateBooking', () => {
       { id: 'y', service_id: 'plumbing', status: 'pending', address: 'Kilimani', building_name: '', floor: '', door_number: '' },
     ], error: null });
     expect(await findActiveDuplicateBooking(input)).toBeNull();
+  });
+
+  // ── Service Details V1.5 ───────────────────────────────────────────────────
+
+  const primarySnap = (value: string) => ({
+    schema: 1,
+    form_version: 1,
+    service_slug: 'plumbing',
+    service_title: 'Plumbing',
+    primary_kind: 'issue',
+    primary: { key: 'issue', question: 'What is wrong?', kind: 'single', value, display: value },
+    answers: [],
+    addons: [],
+    items: null,
+    flags: {},
+  });
+
+  it('skips an active same-destination booking whose primary request is different', async () => {
+    mockOrder.mockResolvedValue({ data: [], error: null });
+    mockRange.mockResolvedValue({ data: [
+      { id: 'other-request', service_id: 'plumbing', status: 'pending', address: 'Yaya Towers, Nairobi', building_name: 'Yaya Towers', floor: '7', door_number: '7B', service_details: primarySnap('blocked_drain') },
+    ], error: null });
+
+    expect(await findActiveDuplicateBooking({ ...input, serviceDetails: primarySnap('leaking_tap') })).toBeNull();
+  });
+
+  it('still finds the booking whose primary request matches', async () => {
+    mockOrder.mockResolvedValue({ data: [], error: null });
+    mockRange.mockResolvedValue({ data: [
+      { id: 'other-request', service_id: 'plumbing', status: 'pending', address: 'Yaya Towers, Nairobi', building_name: 'Yaya Towers', floor: '7', door_number: '7B', service_details: primarySnap('blocked_drain') },
+      { id: 'same-request', service_id: 'plumbing', status: 'pending', address: 'Yaya Towers, Nairobi', building_name: 'Yaya Towers', floor: '7', door_number: '7B', service_details: primarySnap('leaking_tap') },
+    ], error: null });
+
+    const res = await findActiveDuplicateBooking({ ...input, serviceDetails: primarySnap('leaking_tap') });
+    expect(res?.id).toBe('same-request');
+  });
+
+  it('still warns against a legacy booking with no snapshot', async () => {
+    mockOrder.mockResolvedValue({ data: [], error: null });
+    mockRange.mockResolvedValue({ data: [
+      { id: 'legacy', service_id: 'plumbing', status: 'pending', address: 'Yaya Towers, Nairobi', building_name: 'Yaya Towers', floor: '7', door_number: '7B', service_details: null },
+    ], error: null });
+
+    const res = await findActiveDuplicateBooking({ ...input, serviceDetails: primarySnap('leaking_tap') });
+    expect(res?.id).toBe('legacy');
   });
 });
 

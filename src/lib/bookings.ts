@@ -2,7 +2,7 @@
 import { supabase } from '@/lib/supabase';
 import type { QuoteStatus } from '@/lib/quotes';
 import type { SchedulingType, TimeWindow, Recurrence } from '@/lib/scheduling';
-import type { ServiceDetailsSnapshot } from '@/lib/service-details';
+import { serviceDetailsPrimaryValue, type ServiceDetailsSnapshot } from '@/lib/service-details';
 
 /** Curated provider details returned for a booking's assigned professional. */
 export type Professional = {
@@ -154,6 +154,12 @@ export type DuplicateMatchInput = {
   building_name?: string | null;
   floor?: string | null;
   door_number?: string | null;
+  /**
+   * The new booking's Service Details snapshot, if it has one. Typed `unknown` for the same
+   * reason `Booking.service_details` is: it may be a shape a newer app version wrote.
+   * Optional — callers that omit it get exactly the pre-V1.5 behaviour.
+   */
+  serviceDetails?: unknown;
 };
 
 /** Trim + lowercase; null/undefined/'' all normalize to '' so they compare equal. */
@@ -172,11 +178,41 @@ export function isLikelyDuplicateBooking(existing: Booking, input: DuplicateMatc
   if (existing.status === 'cancelled' || existing.status === 'completed') return false;
   const addr = normField(input.address);
   if (!addr || normField(existing.address) !== addr) return false;
-  return (
-    normField(existing.building_name) === normField(input.building_name) &&
-    normField(existing.floor) === normField(input.floor) &&
-    normField(existing.door_number) === normField(input.door_number)
-  );
+  if (
+    normField(existing.building_name) !== normField(input.building_name) ||
+    normField(existing.floor) !== normField(input.floor) ||
+    normField(existing.door_number) !== normField(input.door_number)
+  ) {
+    return false;
+  }
+  return sameRequest(existing, input);
+}
+
+/**
+ * Service Details V1.5 — do the two bookings ask for the same THING?
+ *
+ * Same service at the same address is not enough on its own: "standard cleaning" and "laundry
+ * only", or a battery fault and a brake fault, are legitimately separate requests that the
+ * customer should not have to argue past a duplicate warning.
+ *
+ * The comparison is deliberately narrow and conservative:
+ *  - only the PRIMARY machine value is compared — the one stable, non-cosmetic identifier of what
+ *    was requested. Never the whole snapshot, never a mutable display label, and (in V1.5) never
+ *    add-ons or follow-up answers, which vary for what is genuinely the same job;
+ *  - two requests count as DIFFERENT only when BOTH sides produced a usable primary value and
+ *    those values disagree. Anything else — a legacy booking with `service_details = null`, a
+ *    malformed snapshot, a future shape whose primary is not a string — falls through to the
+ *    existing service/address heuristic. Missing history must never quietly switch duplicate
+ *    protection off.
+ *
+ * This is display-side advice only. It does not touch the database idempotency key (migration
+ * 0034), which remains the authoritative one-submission-one-booking guarantee.
+ */
+function sameRequest(existing: Booking, input: DuplicateMatchInput): boolean {
+  const existingPrimary = serviceDetailsPrimaryValue(existing.service_details);
+  const incomingPrimary = serviceDetailsPrimaryValue(input.serviceDetails);
+  if (existingPrimary === null || incomingPrimary === null) return true; // not comparable → warn as before
+  return existingPrimary === incomingPrimary;
 }
 
 /**

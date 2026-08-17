@@ -230,6 +230,16 @@ describe('ReviewScreen', () => {
     alertSpy.mockRestore();
   });
 
+  it('passes the step-1 snapshot to the duplicate check (V1.5 primary-meaning refinement)', async () => {
+    mockCreateBooking.mockResolvedValue({ ok: true, id: 'bk1' });
+    render(<ReviewScreen />);
+
+    fireEvent.press(screen.getByText('Place Booking'));
+
+    await waitFor(() => expect(mockFindDup).toHaveBeenCalled());
+    expect(mockFindDup).toHaveBeenCalledWith(expect.objectContaining({ serviceDetails: snapshot }));
+  });
+
   it('"View existing booking" navigates to the existing booking and does NOT create', async () => {
     let captured: { text: string; onPress?: () => void }[] = [];
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, b) => { captured = b as never; });

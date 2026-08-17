@@ -1,0 +1,120 @@
+# Service Details V1.5 — HOUSE CLEANING: progressive disclosure, required fields, stale-answer
+# pruning, and the answers surviving through to Review.
+#
+# Chosen as the representative "branching form" service: its `scope` question controls whether
+# bedrooms/bathrooms exist at all, which makes it the cleanest place to prove that changing a
+# parent answer removes the child questions AND that the discarded answers never reach the
+# snapshot. Nothing is placed — the flow stops at Review, so no QA booking data is created.
+#
+# Params via -e: CUST_EMAIL, CUST_PW.
+appId: ke.co.hiredcorp.kwikserve
+---
+- runFlow: { file: steps/login-customer.yaml }
+
+# ── Enter the booking flow at Service Details (step 1 of 5) ───────────────────
+- scrollUntilVisible: { element: { text: ".*House Cleaning.*" }, direction: DOWN, timeout: 15000 }
+- tapOn: ".*House Cleaning.*"
+- extendedWaitUntil: { visible: "Step 1 of 5", timeout: 15000 }
+- assertVisible: "House Cleaning"
+- assertVisible: ".*What kind of cleaning do you need.*"
+- takeScreenshot: sd-hc-01-step1
+
+# Progressive disclosure: nothing beyond the primary question exists before it is answered.
+- assertNotVisible: { id: "question-scope" }
+- assertNotVisible: { id: "question-bedrooms" }
+- assertNotVisible: { id: "question-bathrooms" }
+
+# ── Required-field enforcement: Continue must refuse an unanswered form ───────
+- scrollUntilVisible: { element: { id: "service-details-continue" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "service-details-continue" }
+- extendedWaitUntil: { visible: { id: "error-variant" }, timeout: 8000 }
+- assertNotVisible: "Your Address"
+- takeScreenshot: sd-hc-02-required-blocked
+
+# ── Deep cleaning → whole home → bedrooms + bathrooms appear ──────────────────
+- scrollUntilVisible: { element: { id: "option-variant-deep_clean" }, direction: UP, timeout: 12000 }
+- tapOn: { id: "option-variant-deep_clean" }
+- extendedWaitUntil: { visible: { id: "question-scope" }, timeout: 8000 }
+- scrollUntilVisible: { element: { id: "option-scope-whole_home" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "option-scope-whole_home" }
+- extendedWaitUntil: { visible: { id: "question-bedrooms" }, timeout: 8000 }
+- assertVisible: { id: "question-bathrooms" }
+- takeScreenshot: sd-hc-03-disclosed
+
+- scrollUntilVisible: { element: { id: "input-bedrooms" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "input-bedrooms" }
+- inputText: "4"
+- tapOn: "House Cleaning"                       # static heading — dismiss the iOS keyboard
+- scrollUntilVisible: { element: { id: "input-bathrooms" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "input-bathrooms" }
+- inputText: "3"
+- tapOn: "House Cleaning"
+- scrollUntilVisible: { element: { id: "option-provider_bring_supplies-yes" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "option-provider_bring_supplies-yes" }
+
+# House Cleaning disables media by locked V1.2 decision.
+- assertNotVisible: { id: "service-details-media" }
+
+# ── Stale-answer pruning: change the parent, the children disappear ───────────
+# scope drives bedrooms/bathrooms. Switching to a scope that does not use them must remove the
+# questions AND drop the answers — a pruned answer must never reach the snapshot.
+- scrollUntilVisible: { element: { id: "option-scope-kitchen_only" }, direction: UP, timeout: 12000 }
+- tapOn: { id: "option-scope-kitchen_only" }
+- extendedWaitUntil: { notVisible: { id: "question-bedrooms" }, timeout: 8000 }
+- assertNotVisible: { id: "question-bathrooms" }
+- takeScreenshot: sd-hc-04-pruned
+
+# Change back — the questions return, and the flow stays coherent (re-answer required).
+- tapOn: { id: "option-scope-whole_home" }
+- extendedWaitUntil: { visible: { id: "question-bedrooms" }, timeout: 8000 }
+- scrollUntilVisible: { element: { id: "input-bedrooms" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "input-bedrooms" }
+- inputText: "4"
+- tapOn: "House Cleaning"
+- scrollUntilVisible: { element: { id: "input-bathrooms" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "input-bathrooms" }
+- inputText: "3"
+- tapOn: "House Cleaning"
+
+# ── Add-ons (optional multi-select) ──────────────────────────────────────────
+- scrollUntilVisible: { element: { id: "option-addons-ironing" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "option-addons-ironing" }
+
+# ── Continue reaches Address (step 2 of 5) ───────────────────────────────────
+- scrollUntilVisible: { element: { id: "service-details-continue" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "service-details-continue" }
+- extendedWaitUntil: { visible: "Your Address", timeout: 15000 }
+- assertVisible: "Step 2 of 5"
+- takeScreenshot: sd-hc-05-address
+
+# ── Forward to Review and confirm what was captured ──────────────────────────
+- tapOn: "Enter address manually"
+- extendedWaitUntil: { visible: "123 Main St, City", timeout: 8000 }
+- tapOn: "123 Main St, City"
+- inputText: "QA SD Test Address, Nairobi"
+- tapOn: "Your Address"
+- scrollUntilVisible: { element: { text: "Continue" }, direction: DOWN, timeout: 15000 }
+- tapOn: "Continue"
+- extendedWaitUntil: { visible: "When do you need it?", timeout: 15000 }
+- assertVisible: "Step 3 of 5"
+- tapOn: ".*ASAP.*"
+- scrollUntilVisible: { element: { text: "Continue" }, direction: DOWN, timeout: 15000 }
+- tapOn: "Continue"
+- extendedWaitUntil: { visible: "Any special notes?", timeout: 15000 }
+- assertVisible: "Step 4 of 5"
+- scrollUntilVisible: { element: { text: "Continue" }, direction: DOWN, timeout: 15000 }
+- tapOn: "Continue"
+- extendedWaitUntil: { visible: "Review your booking", timeout: 15000 }
+- assertVisible: "Step 5 of 5"
+
+# V1.4 — Review reads back the step-1 snapshot, in the customer's own words.
+- scrollUntilVisible: { element: { text: "Service Details" }, direction: DOWN, timeout: 12000 }
+- assertVisible: "Deep cleaning"
+- assertVisible: "The whole home"
+- assertVisible: "• Ironing"
+# The pruned branch must be absent: kitchen-only was never the final answer.
+- assertNotVisible: "Kitchen only"
+# Internals never surface.
+- assertNotVisible: "deep_clean"
+- assertNotVisible: "whole_home"
+- takeScreenshot: sd-hc-06-review-summary

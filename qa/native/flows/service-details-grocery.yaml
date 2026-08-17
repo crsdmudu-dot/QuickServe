@@ -1,0 +1,95 @@
+# Service Details V1.5 — GROCERY DELIVERY, "Shop for me": the repeatable request list, the
+# MAXIMUM GOODS BUDGET and the substitution preference.
+#
+# Grocery is the representative item-list service and the one with the highest commercial risk of
+# a wording mistake: the spend ceiling authorises PURCHASING THE GOODS and is not an order total,
+# amount due or final charge. That distinction is asserted here at the UI level, in addition to
+# the unit tests. No sourcing, pricing or payment happens — the flow stops at the Address step.
+#
+# ITEM-LINE SELECTORS: each line's testID embeds a randomly generated `line_<uuid>`, so lines are
+# addressed by id-regex plus `index` (0 = first card, 1 = second). That is deliberate — it avoids
+# adding presentation-only testIDs to product code just to make automation easier.
+#
+# Params via -e: CUST_EMAIL, CUST_PW.
+appId: ke.co.hiredcorp.kwikserve
+---
+- runFlow: { file: steps/login-customer.yaml }
+
+- scrollUntilVisible: { element: { text: ".*Grocery Delivery.*" }, direction: DOWN, timeout: 15000 }
+- tapOn: ".*Grocery Delivery.*"
+- extendedWaitUntil: { visible: "Step 1 of 5", timeout: 15000 }
+- assertVisible: ".*How would you like to shop.*"
+- takeScreenshot: sd-gr-01-step1
+
+# ── Shop for me → the request list, budget and substitution appear ────────────
+- tapOn: { id: "option-variant-shop_for_me" }
+- extendedWaitUntil: { visible: { id: "question-items" }, timeout: 8000 }
+# "Which shop?" belongs to the other two variants only.
+- assertNotVisible: { id: "question-store_name" }
+
+# ── Item 1 — Milk, 2 bottles, brand preference ────────────────────────────────
+- scrollUntilVisible: { element: { id: "item-name-line_.*", index: 0 }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "item-name-line_.*", index: 0 }
+- inputText: "Milk"
+- tapOn: "Grocery Delivery"                     # static heading — dismiss the iOS keyboard
+- scrollUntilVisible: { element: { id: "item-qty-line_.*", index: 0 }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "item-qty-line_.*", index: 0 }
+- inputText: "2"
+- tapOn: "Grocery Delivery"
+- scrollUntilVisible: { element: { id: "unit-line_.*-bottles", index: 0 }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "unit-line_.*-bottles", index: 0 }
+# Brand is optional and is exercised on this line only.
+- scrollUntilVisible: { element: { text: "Brand or preference (optional)" }, direction: DOWN, timeout: 12000 }
+- tapOn: "Brand or preference (optional)"
+- inputText: "Brookside"
+- tapOn: "Grocery Delivery"
+- takeScreenshot: sd-gr-02-item1
+
+# ── Add another item — the first line must survive ────────────────────────────
+- scrollUntilVisible: { element: { id: "add-item" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "add-item" }
+- extendedWaitUntil: { visible: "Item 2", timeout: 8000 }
+- assertVisible: "Item 1"
+
+- scrollUntilVisible: { element: { id: "item-name-line_.*", index: 1 }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "item-name-line_.*", index: 1 }
+- inputText: "Rice"
+- tapOn: "Grocery Delivery"
+- scrollUntilVisible: { element: { id: "item-qty-line_.*", index: 1 }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "item-qty-line_.*", index: 1 }
+- inputText: "5"
+- tapOn: "Grocery Delivery"
+- scrollUntilVisible: { element: { id: "unit-line_.*-kg", index: 1 }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "unit-line_.*-kg", index: 1 }
+# Item 1 is still there, with its typed values intact.
+- scrollUntilVisible: { element: { text: "Milk" }, direction: UP, timeout: 12000 }
+- assertVisible: "Milk"
+- takeScreenshot: sd-gr-03-two-items
+
+# ── Maximum goods budget — a ceiling on the GOODS, not a total ────────────────
+- scrollUntilVisible: { element: { id: "input-max_goods_budget" }, direction: DOWN, timeout: 12000 }
+- assertVisible: ".*Maximum to spend on the goods.*"
+- assertVisible: ".*Delivery and service fees are separate.*"
+# The wording must never present this as the money the customer owes.
+- assertNotVisible: ".*Order total.*"
+- assertNotVisible: ".*Amount due.*"
+- assertNotVisible: ".*Total to pay.*"
+- tapOn: { id: "input-max_goods_budget" }
+- inputText: "5000"
+- tapOn: "Grocery Delivery"
+- takeScreenshot: sd-gr-04-goods-budget
+
+# ── Substitution preference (required) ────────────────────────────────────────
+- scrollUntilVisible: { element: { id: "option-substitution-call" }, direction: DOWN, timeout: 12000 }
+- assertVisible: "If something is unavailable"
+- tapOn: { id: "option-substitution-call" }
+
+# Grocery enables media (photograph a handwritten list instead of typing it).
+- assertVisible: { id: "service-details-media" }
+
+# ── Continue reaches Address ──────────────────────────────────────────────────
+- scrollUntilVisible: { element: { id: "service-details-continue" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "service-details-continue" }
+- extendedWaitUntil: { visible: "Your Address", timeout: 15000 }
+- assertVisible: "Step 2 of 5"
+- takeScreenshot: sd-gr-05-address

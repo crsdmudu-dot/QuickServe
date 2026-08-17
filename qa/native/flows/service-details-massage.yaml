@@ -1,0 +1,54 @@
+# Service Details V1.5 — MASSAGE: the locked V1.2 product decisions, asserted at the UI level.
+#
+# Three of those decisions are invisible in the happy path and are exactly the kind of thing a
+# later edit could undo by accident, so they are pinned here as NEGATIVE assertions:
+#   1. ONE booking = ONE person. `number_of_people` was removed by principal decision because
+#      multi-therapist assignment does not exist; no party-size control may reappear.
+#   2. Therapist gender is a PREFERENCE, and the screen must say it is not guaranteed.
+#   3. Media is disabled for this service by locked decision.
+#
+# Nothing is placed — the flow stops at the Address step.
+#
+# Params via -e: CUST_EMAIL, CUST_PW.
+appId: ke.co.hiredcorp.kwikserve
+---
+- runFlow: { file: steps/login-customer.yaml }
+
+- scrollUntilVisible: { element: { text: ".*Massage.*" }, direction: DOWN, timeout: 15000 }
+- tapOn: ".*Massage.*"
+- extendedWaitUntil: { visible: "Step 1 of 5", timeout: 15000 }
+- assertVisible: ".*What kind of massage.*"
+- takeScreenshot: sd-ms-01-step1
+
+# ── (1) One person per booking — no party-size question, in any wording ───────
+- assertNotVisible: { id: "question-number_of_people" }
+- assertNotVisible: { id: "input-number_of_people" }
+- assertNotVisible: ".*How many people.*"
+- assertNotVisible: ".*Number of people.*"
+
+# ── (3) Media disabled for Massage ────────────────────────────────────────────
+- assertNotVisible: { id: "service-details-media" }
+
+# ── Answer the form ───────────────────────────────────────────────────────────
+- tapOn: { id: "option-variant-full_body" }
+- extendedWaitUntil: { visible: { id: "question-duration_minutes" }, timeout: 8000 }
+- scrollUntilVisible: { element: { id: "option-duration_minutes-60" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "option-duration_minutes-60" }
+
+# ── (2) Gender is a preference, and the screen says so ────────────────────────
+- scrollUntilVisible: { element: { id: "question-therapist_gender_preference" }, direction: DOWN, timeout: 12000 }
+- assertVisible: ".*Do you have a preference for the therapist.*"
+- assertVisible: { id: "disclaimer-therapist_gender_preference" }
+- assertVisible: ".*isn.t guaranteed.*"
+- tapOn: { id: "option-therapist_gender_preference-female" }
+- takeScreenshot: sd-ms-02-preference
+
+# Still no party-size control after the form is fully disclosed.
+- assertNotVisible: ".*How many people.*"
+
+# ── Continue reaches Address ──────────────────────────────────────────────────
+- scrollUntilVisible: { element: { id: "service-details-continue" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "service-details-continue" }
+- extendedWaitUntil: { visible: "Your Address", timeout: 15000 }
+- assertVisible: "Step 2 of 5"
+- takeScreenshot: sd-ms-03-address

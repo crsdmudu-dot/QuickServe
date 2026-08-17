@@ -41,7 +41,10 @@ appId: ke.co.hiredcorp.kwikserve
 - assertVisible: "Popular"
 - assertVisible: ".*House Cleaning.*"
 - tapOn: ".*House Cleaning.*"
-# Booking step 1 — address (manual entry; avoids the Google Places autocomplete path)
+# Booking step 1 of 5 — Service Details (V1.3). Shared subflow; leaves us on Address.
+- runFlow: { file: steps/service-details-house-cleaning-minimal.yaml }
+- takeScreenshot: c1b-service-details-done
+# Booking step 2 of 5 — address (manual entry; avoids the Google Places autocomplete path)
 - extendedWaitUntil: { visible: "Your Address", timeout: 15000 }
 - tapOn: "Enter address manually"
 - extendedWaitUntil: { visible: "123 Main St, City", timeout: 8000 }
@@ -49,7 +52,7 @@ appId: ke.co.hiredcorp.kwikserve
 - inputText: "QA P3F Test Address, Nairobi"
 - tapOn: "Your Address"
 - tapOn: "Continue"
-# Booking step 2 — schedule (ASAP)
+# Booking step 3 of 5 — schedule (ASAP)
 - extendedWaitUntil: { visible: "When do you need it?", timeout: 15000 }
 - tapOn: ".*ASAP.*"
 # The schedule screen scrolls (many time options); reveal Continue before tapping.
@@ -59,7 +62,7 @@ appId: ke.co.hiredcorp.kwikserve
     direction: DOWN
     timeout: 15000
 - tapOn: "Continue"
-# Booking step 3 — notes (embed the unique marker so the booking is findable)
+# Booking step 4 of 5 — notes (embed the unique marker so the booking is findable)
 - extendedWaitUntil: { visible: "Any special notes?", timeout: 15000 }
 - tapOn: "E.g. use the back entrance, bring your own supplies…"
 - inputText: "${MARKER}"
@@ -70,8 +73,12 @@ appId: ke.co.hiredcorp.kwikserve
     direction: DOWN
     timeout: 15000
 - tapOn: "Continue"
-# Booking step 4 — review → place
+# Booking step 5 of 5 — review → place
 - extendedWaitUntil: { visible: "Review your booking", timeout: 15000 }
+- assertVisible: "Step 5 of 5"
+# V1.4 — Review now shows what was asked for, read back from the step-1 snapshot.
+- assertVisible: "Service Details"
+- assertVisible: "Standard cleaning"
 - takeScreenshot: c2-review
 - scrollUntilVisible:
     element:

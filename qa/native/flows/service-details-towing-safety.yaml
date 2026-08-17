@@ -1,0 +1,68 @@
+# Service Details V1.5 — CAR TOWING safety gate: the blocking path and the normal path.
+#
+# The injury question runs BEFORE the form. Answering YES must stop the booking and point the
+# customer at emergency services; it must NOT read as though QuickServe is an emergency
+# responder, and — by locked decision OD3 — no emergency telephone number is hardcoded anywhere,
+# because the correct number is jurisdictional. Both halves are asserted here.
+#
+# Nothing is placed — the flow stops at the Address step.
+#
+# Params via -e: CUST_EMAIL, CUST_PW.
+appId: ke.co.hiredcorp.kwikserve
+---
+- runFlow: { file: steps/login-customer.yaml }
+
+- scrollUntilVisible: { element: { text: ".*Car Towing.*" }, direction: DOWN, timeout: 15000 }
+- tapOn: ".*Car Towing.*"
+- extendedWaitUntil: { visible: "Step 1 of 5", timeout: 15000 }
+- assertVisible: { id: "gate-injury_check" }
+- assertVisible: "Is anyone injured or in immediate danger?"
+- takeScreenshot: sd-tw-01-gate
+
+# ── Choose a towing reason first, so the block is proven to override a part-filled form ──
+- scrollUntilVisible: { element: { id: "option-issue-accident" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "option-issue-accident" }
+
+# ── BLOCKING PATH — "Yes, someone is injured or in danger" ────────────────────
+- scrollUntilVisible: { element: { id: "gate-option-yes" }, direction: UP, timeout: 12000 }
+- tapOn: { id: "gate-option-yes" }
+- extendedWaitUntil: { visible: { id: "safety-block" }, timeout: 8000 }
+- assertVisible: "Please contact emergency services first"
+- assertVisible: ".*QuickServe is not an emergency service.*"
+- takeScreenshot: sd-tw-02-blocked
+
+# The form and its Continue button are gone — progression is genuinely blocked, not just warned.
+- assertNotVisible: { id: "service-details-continue" }
+- assertNotVisible: { id: "question-vehicle_make_model" }
+- assertNotVisible: "Your Address"
+
+# Locked decision OD3 — no emergency telephone number is presented anywhere on this screen.
+- assertNotVisible: ".*999.*"
+- assertNotVisible: ".*112.*"
+- assertNotVisible: ".*911.*"
+
+# ── NON-BLOCKING PATH — "No" restores the form ────────────────────────────────
+- tapOn: { id: "gate-option-no" }
+- extendedWaitUntil: { notVisible: { id: "safety-block" }, timeout: 8000 }
+- extendedWaitUntil: { visible: { id: "question-vehicle_make_model" }, timeout: 8000 }
+- takeScreenshot: sd-tw-03-unblocked
+
+- scrollUntilVisible: { element: { id: "input-vehicle_make_model" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "input-vehicle_make_model" }
+- inputText: "Toyota Prado"
+- tapOn: "Car Towing"                            # static heading — dismiss the iOS keyboard
+- scrollUntilVisible: { element: { id: "input-destination" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "input-destination" }
+- inputText: "Westlands garage"
+- tapOn: "Car Towing"
+- scrollUntilVisible: { element: { id: "option-can_roll_or_steer-not_sure" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "option-can_roll_or_steer-not_sure" }
+- scrollUntilVisible: { element: { id: "option-difficult_access-no" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "option-difficult_access-no" }
+
+# ── Continue reaches Address ──────────────────────────────────────────────────
+- scrollUntilVisible: { element: { id: "service-details-continue" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "service-details-continue" }
+- extendedWaitUntil: { visible: "Your Address", timeout: 15000 }
+- assertVisible: "Step 2 of 5"
+- takeScreenshot: sd-tw-04-address
