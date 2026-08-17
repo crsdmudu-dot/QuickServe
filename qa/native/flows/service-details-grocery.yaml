@@ -39,12 +39,17 @@ appId: ke.co.hiredcorp.kwikserve
 - inputText: "Milk"
 # Scroll the heading back into view BEFORE tapping it to dismiss the iOS keyboard — reaching the
 # field scrolled it off-screen. Same order as address-journey.yaml.
-- scrollUntilVisible: { element: { text: "Grocery Delivery" }, direction: UP, timeout: 12000 }
+# waitToSettleTimeoutMs: run 32031583358 timed out on this exact scroll while the failure
+# screenshot showed the heading fully rendered — the scroll had arrived, but the accessibility
+# hierarchy Maestro reads had not caught up. 500ms is the value Maestro's own error output
+# suggests, and it is applied ONLY to these keyboard-dismiss scrolls (the long full-form ones),
+# never to Review assertions or ordinary navigation.
+- scrollUntilVisible: { element: { text: "Grocery Delivery" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
 - tapOn: "Grocery Delivery"
 - scrollUntilVisible: { element: { id: "item-qty-line_.*" }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "item-qty-line_.*" }
 - inputText: "2"
-- scrollUntilVisible: { element: { text: "Grocery Delivery" }, direction: UP, timeout: 12000 }
+- scrollUntilVisible: { element: { text: "Grocery Delivery" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
 - tapOn: "Grocery Delivery"
 - scrollUntilVisible: { element: { id: "unit-line_.*-bottles" }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "unit-line_.*-bottles" }
@@ -52,7 +57,7 @@ appId: ke.co.hiredcorp.kwikserve
 - scrollUntilVisible: { element: { text: "Brand or preference (optional)" }, direction: DOWN, timeout: 12000 }
 - tapOn: "Brand or preference (optional)"
 - inputText: "Brookside"
-- scrollUntilVisible: { element: { text: "Grocery Delivery" }, direction: UP, timeout: 12000 }
+- scrollUntilVisible: { element: { text: "Grocery Delivery" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
 - tapOn: "Grocery Delivery"
 - takeScreenshot: sd-gr-02-item1
 
@@ -67,12 +72,12 @@ appId: ke.co.hiredcorp.kwikserve
 - scrollUntilVisible: { element: { id: "item-name-line_.*", below: { text: "Item 2" } }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "item-name-line_.*", below: { text: "Item 2" } }
 - inputText: "Rice"
-- scrollUntilVisible: { element: { text: "Grocery Delivery" }, direction: UP, timeout: 12000 }
+- scrollUntilVisible: { element: { text: "Grocery Delivery" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
 - tapOn: "Grocery Delivery"
 - scrollUntilVisible: { element: { id: "item-qty-line_.*", below: { text: "Item 2" } }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "item-qty-line_.*", below: { text: "Item 2" } }
 - inputText: "5"
-- scrollUntilVisible: { element: { text: "Grocery Delivery" }, direction: UP, timeout: 12000 }
+- scrollUntilVisible: { element: { text: "Grocery Delivery" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
 - tapOn: "Grocery Delivery"
 - scrollUntilVisible: { element: { id: "unit-line_.*-kg", below: { text: "Item 2" } }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "unit-line_.*-kg", below: { text: "Item 2" } }
@@ -93,7 +98,7 @@ appId: ke.co.hiredcorp.kwikserve
 - assertNotVisible: ".*Total to pay.*"
 - tapOn: { id: "input-max_goods_budget" }
 - inputText: "5000"
-- scrollUntilVisible: { element: { text: "Grocery Delivery" }, direction: UP, timeout: 12000 }
+- scrollUntilVisible: { element: { text: "Grocery Delivery" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
 - tapOn: "Grocery Delivery"
 - takeScreenshot: sd-gr-04-goods-budget
 

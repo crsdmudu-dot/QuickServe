@@ -252,6 +252,30 @@ describe('Representative Service Details coverage exists', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('lets the UI settle before every keyboard-dismiss scroll', () => {
+    // Run 32031583358 timed out scrolling back to the "Grocery Delivery" heading while the failure
+    // screenshot showed it fully rendered: the scroll had arrived, the accessibility hierarchy had
+    // not caught up. These full-form scrolls are the long, expensive ones and the only place the
+    // lag has been observed, so the settle option is required HERE and nowhere else — Review
+    // assertions and ordinary navigation scrolls are deliberately left alone.
+    const offenders: string[] = [];
+    for (const file of flowFiles().filter((f) => /service-details-.*\.yaml$/.test(f))) {
+      const lines = commandLines(read(file));
+      lines.forEach((line, i) => {
+        if (!line.startsWith('- inputText:')) return;
+        const scroll = lines[i + 1] ?? '';
+        const tap = lines[i + 2] ?? '';
+        // Only the scroll-back-to-heading-then-tap idiom qualifies.
+        const heading = /^- tapOn: "([^"]+)"/.exec(tap)?.[1];
+        if (!heading || !scroll.includes('scrollUntilVisible') || !scroll.includes(heading)) return;
+        if (!scroll.includes('waitToSettleTimeoutMs')) {
+          offenders.push(`${file}: keyboard-dismiss scroll to "${heading}" does not let the UI settle`);
+        }
+      });
+    }
+    expect(offenders).toEqual([]);
+  });
+
   it('the distinct-duplicate flow uses two genuinely different primary answers', () => {
     const source = read(flow('booking-duplicate-distinct.yaml'));
     expect(source).toContain('option-variant-laundry_only');

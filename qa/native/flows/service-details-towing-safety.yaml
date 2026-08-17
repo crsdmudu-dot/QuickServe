@@ -57,12 +57,17 @@ appId: ke.co.hiredcorp.kwikserve
 - inputText: "Toyota Prado"
 # Scroll the heading back into view BEFORE tapping it to dismiss the iOS keyboard — reaching the
 # field scrolled it off-screen. Same order as address-journey.yaml.
-- scrollUntilVisible: { element: { text: "Car Towing" }, direction: UP, timeout: 12000 }
+# waitToSettleTimeoutMs: run 32031583358 timed out on this exact scroll while the failure
+# screenshot showed the heading fully rendered — the scroll had arrived, but the accessibility
+# hierarchy Maestro reads had not caught up. 500ms is the value Maestro's own error output
+# suggests, and it is applied ONLY to these keyboard-dismiss scrolls (the long full-form ones),
+# never to Review assertions or ordinary navigation.
+- scrollUntilVisible: { element: { text: "Car Towing" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
 - tapOn: "Car Towing"
 - scrollUntilVisible: { element: { id: "input-destination" }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "input-destination" }
 - inputText: "Westlands garage"
-- scrollUntilVisible: { element: { text: "Car Towing" }, direction: UP, timeout: 12000 }
+- scrollUntilVisible: { element: { text: "Car Towing" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
 - tapOn: "Car Towing"
 - scrollUntilVisible: { element: { id: "option-can_roll_or_steer-not_sure" }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "option-can_roll_or_steer-not_sure" }
