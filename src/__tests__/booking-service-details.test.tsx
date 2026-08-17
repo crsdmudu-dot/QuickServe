@@ -354,6 +354,31 @@ describe('ServiceDetailsScreen', () => {
       expect(screen.queryByText('Remove')).toBeNull();
     });
 
+    it('exposes a deterministic testID on the optional brand field, and captures what is typed', () => {
+      // The brand field previously had no testID and no placeholder, so its only handle was its
+      // label — and an Input's label is a plain Text sibling of the TextInput, which in React
+      // Native cannot focus it. Native automation was therefore typing into nothing while
+      // reporting success. The testID is what makes the field addressable at all; this test pins
+      // it, and pins that a value typed through it actually reaches state (the Input is
+      // controlled, so a rendered value IS state).
+      render(<ServiceDetailsScreen />);
+      fireEvent.press(screen.getByTestId('option-variant-shop_for_me'));
+
+      const brand = screen.getAllByTestId(/^item-brand-line_/)[0];
+      expect(brand).toBeOnTheScreen();
+
+      fireEvent.changeText(brand, 'Brookside');
+      expect(screen.getAllByTestId(/^item-brand-line_/)[0].props.value).toBe('Brookside');
+
+      // One brand field per card, each with its own id — so automation can address them apart.
+      fireEvent.press(screen.getByTestId('add-item'));
+      const ids = screen.getAllByTestId(/^item-brand-line_/).map((n) => n.props.testID);
+      expect(ids).toHaveLength(2);
+      expect(new Set(ids).size).toBe(2);
+      // Adding a second card must not disturb the first card's captured brand.
+      expect(screen.getAllByTestId(/^item-brand-line_/)[0].props.value).toBe('Brookside');
+    });
+
     it('offers only the approved units (requirement 27)', () => {
       render(<ServiceDetailsScreen />);
       fireEvent.press(screen.getByTestId('option-variant-shop_for_me'));

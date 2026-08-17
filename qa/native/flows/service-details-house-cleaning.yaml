@@ -54,21 +54,15 @@ appId: ke.co.hiredcorp.kwikserve
 - scrollUntilVisible: { element: { id: "input-bedrooms" }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "input-bedrooms" }
 - inputText: "4"
-# hideKeyboard is unreliable on iOS, so we tap a static heading instead — but reaching the field
-# scrolled that heading off-screen, so it must be scrolled back into view FIRST. Same order as
-# address-journey.yaml. Tapping without the scroll is what failed run 32021907035.
-# waitToSettleTimeoutMs: run 32031583358 timed out on this exact scroll while the failure
-# screenshot showed the heading fully rendered — the scroll had arrived, but the accessibility
-# hierarchy Maestro reads had not caught up. 500ms is the value Maestro's own error output
-# suggests, and it is applied ONLY to these keyboard-dismiss scrolls (the long full-form ones),
-# never to Review assertions or ordinary navigation.
-- scrollUntilVisible: { element: { text: "House Cleaning" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
-- tapOn: "House Cleaning"
+# Dismiss the keyboard by tapping this field's own static label — it sits directly above
+# the focused input, which iOS keeps on screen, so no scrolling is involved at all.
+- tapOn: ".*How many bedrooms.*"
 - scrollUntilVisible: { element: { id: "input-bathrooms" }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "input-bathrooms" }
 - inputText: "3"
-- scrollUntilVisible: { element: { text: "House Cleaning" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
-- tapOn: "House Cleaning"
+# Dismiss the keyboard by tapping this field's own static label — it sits directly above
+# the focused input, which iOS keeps on screen, so no scrolling is involved at all.
+- tapOn: ".*How many bathrooms.*"
 - scrollUntilVisible: { element: { id: "option-provider_bring_supplies-yes" }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "option-provider_bring_supplies-yes" }
 
@@ -90,13 +84,15 @@ appId: ke.co.hiredcorp.kwikserve
 - scrollUntilVisible: { element: { id: "input-bedrooms" }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "input-bedrooms" }
 - inputText: "4"
-- scrollUntilVisible: { element: { text: "House Cleaning" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
-- tapOn: "House Cleaning"
+# Dismiss the keyboard by tapping this field's own static label — it sits directly above
+# the focused input, which iOS keeps on screen, so no scrolling is involved at all.
+- tapOn: ".*How many bedrooms.*"
 - scrollUntilVisible: { element: { id: "input-bathrooms" }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "input-bathrooms" }
 - inputText: "3"
-- scrollUntilVisible: { element: { text: "House Cleaning" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
-- tapOn: "House Cleaning"
+# Dismiss the keyboard by tapping this field's own static label — it sits directly above
+# the focused input, which iOS keeps on screen, so no scrolling is involved at all.
+- tapOn: ".*How many bathrooms.*"
 
 # ── Add-ons (optional multi-select) ──────────────────────────────────────────
 - scrollUntilVisible: { element: { id: "option-addons-ironing" }, direction: DOWN, timeout: 12000 }

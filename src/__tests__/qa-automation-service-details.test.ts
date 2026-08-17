@@ -166,6 +166,13 @@ describe('Representative Service Details coverage exists', () => {
     expect(source).toContain('input-max_goods_budget');
     expect(source).toContain('option-substitution-');
     expect(source).toContain('Maximum to spend on the goods');
+    // Brand must be targeted by the field's OWN testID. Tapping its label cannot focus it — an
+    // Input's label is a plain Text sibling of the TextInput — which is what made this a silent
+    // no-op through runs 32021907035..32035890869.
+    expect(source).toContain('id: "item-brand-line_.*"');
+    expect(source).not.toMatch(/- tapOn: "Brand or preference \(optional\)"/);
+    // ...and the captured value must be PROVEN, not assumed from inputText completing.
+    expect(source).toContain('- assertVisible: "Brookside"');
     expect(source).toMatch(/assertNotVisible:\s*".\*Order total/);
     expect(source).toMatch(/assertNotVisible:\s*".\*Amount due/);
   });
@@ -201,25 +208,12 @@ describe('Representative Service Details coverage exists', () => {
     expect(source).toContain('question-bathrooms');
   });
 
-  it('never dismisses the iOS keyboard by tapping a heading that was scrolled off-screen', () => {
-    // Run 32021907035 failed here: the flow scrolled DOWN to reach a text input, typed, then
-    // tapped the screen heading to dismiss the keyboard — but that scroll had pushed the heading
-    // out of view, so "Element not found: House Cleaning". address-journey.yaml gets this right by
-    // scrolling UP to the heading first. This pins that order for the Service Details flows, which
-    // scroll far enough for it to matter; the older flows type near the top and are grandfathered.
-    const offenders: string[] = [];
-    for (const file of flowFiles().filter((f) => /service-details-.*\.yaml$/.test(f))) {
-      const lines = commandLines(read(file));
-      lines.forEach((line, i) => {
-        if (!line.startsWith('- inputText:')) return;
-        const next = lines[i + 1] ?? '';
-        const tap = /^- tapOn: "([^"]+)"/.exec(next);
-        if (!tap) return; // not a keyboard-dismiss tap
-        offenders.push(`${file}:${i + 2} taps "${tap[1]}" straight after inputText, with no scroll UP`);
-      });
-    }
-    expect(offenders).toEqual([]);
-  });
+  // RETIRED GUARD — "every keyboard-dismiss tap must be preceded by a scroll UP to the heading".
+  // It encoded the scroll-to-heading MECHANISM, which runs 32031583358 and 32035890869 showed to be
+  // structurally unreliable at the deepest Grocery position. Dismissal now taps a nearby static
+  // label with no scroll at all, so that rule would forbid the correct behaviour. Its intent lives
+  // on, inverted, in "never dismisses the keyboard by scrolling the whole form back to the service
+  // heading" below. Do not reinstate it.
 
   it('never assumes the whole Review card fits one viewport', () => {
     // Run 32026499557 failed here: the flow scrolled once to the "Service Details" header, then
@@ -252,12 +246,18 @@ describe('Representative Service Details coverage exists', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('lets the UI settle before every keyboard-dismiss scroll', () => {
-    // Run 32031583358 timed out scrolling back to the "Grocery Delivery" heading while the failure
-    // screenshot showed it fully rendered: the scroll had arrived, the accessibility hierarchy had
-    // not caught up. These full-form scrolls are the long, expensive ones and the only place the
-    // lag has been observed, so the settle option is required HERE and nowhere else — Review
-    // assertions and ordinary navigation scrolls are deliberately left alone.
+  it('never dismisses the keyboard by scrolling the whole form back to the service heading', () => {
+    // Runs 32031583358 and 32035890869 both died at the same site: after typing the goods budget,
+    // a scroll all the way back to the "Grocery Delivery" heading timed out — while the failure
+    // screenshot showed that heading fully rendered. Maestro's accessibility snapshot had gone
+    // stale at a mid-form position, so the scroll loop was searching blind. waitToSettleTimeoutMs
+    // did not help, because the snapshot was not merely late.
+    //
+    // The rule is therefore about DISTANCE, not timing: the keyboard must be dismissed by tapping
+    // something NEAR the field — its own label, or the card header it belongs to — never by
+    // scrolling the length of the form to the service title. Local scrolls to a nearby element are
+    // fine; this only forbids the service-title round trip.
+    const serviceTitles = new Set(SERVICES.map((s) => s.title));
     const offenders: string[] = [];
     for (const file of flowFiles().filter((f) => /service-details-.*\.yaml$/.test(f))) {
       const lines = commandLines(read(file));
@@ -265,11 +265,10 @@ describe('Representative Service Details coverage exists', () => {
         if (!line.startsWith('- inputText:')) return;
         const scroll = lines[i + 1] ?? '';
         const tap = lines[i + 2] ?? '';
-        // Only the scroll-back-to-heading-then-tap idiom qualifies.
-        const heading = /^- tapOn: "([^"]+)"/.exec(tap)?.[1];
-        if (!heading || !scroll.includes('scrollUntilVisible') || !scroll.includes(heading)) return;
-        if (!scroll.includes('waitToSettleTimeoutMs')) {
-          offenders.push(`${file}: keyboard-dismiss scroll to "${heading}" does not let the UI settle`);
+        const target = /^- tapOn: "([^"]+)"/.exec(tap)?.[1];
+        if (!target || !serviceTitles.has(target)) return;
+        if (scroll.includes('scrollUntilVisible') && scroll.includes(target)) {
+          offenders.push(`${file}: dismisses the keyboard by scrolling back to the "${target}" heading`);
         }
       });
     }
@@ -292,12 +291,15 @@ describe('Flow selectors match testIDs the app actually renders', () => {
     ['safety-block', 'src/app/booking/service-details.tsx'],
     ['service-details-media', 'src/components/booking/service-details-form.tsx'],
     ['add-item', 'src/components/booking/service-details-form.tsx'],
+    ['item-brand-', 'src/components/booking/service-details-form.tsx'],
     ['booking-address-back', 'src/app/booking/address.tsx'],
   ];
 
   it.each(OWNED)('the app still renders testID "%s" (in %s)', (testId, file) => {
     const source = readFileSync(join(__dirname, '..', '..', file), 'utf8');
-    expect(source).toContain(`"${testId}"`);
+    // Some testIDs are literals (testID="add-item"), others are template literals built per row
+    // (testID={`item-brand-${line.line_id}`}) — accept either quoting.
+    expect(source).toMatch(new RegExp(`["\`]${testId.replace(/[-]/g, '\\-')}`));
   });
 
   it('the app renders the five step counters the flows assert', () => {

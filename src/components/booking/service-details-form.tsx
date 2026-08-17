@@ -148,6 +148,7 @@ export function ServiceDetailsForm({
 
             {spec.fields.brand && (
               <Input
+                testID={`item-brand-${line.line_id}`}
                 label="Brand or preference (optional)"
                 value={line.brand}
                 onChangeText={(brand) =>
