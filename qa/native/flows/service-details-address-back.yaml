@@ -59,7 +59,11 @@ appId: ke.co.hiredcorp.kwikserve
 
 # ── Back → Service Details, with everything still filled in ───────────────────
 - tapOn: { id: "booking-address-back" }
-- extendedWaitUntil: { visible: "Step 1 of 5", timeout: 15000 }
+# Service Details stays mounted while Address is pushed, so its ScrollView can still hold the
+# position it had when we left it — scrolled to Continue. Scroll back to the top marker rather
+# than assuming it is on screen; this succeeds immediately when it already is.
+- scrollUntilVisible: { element: { text: "Step 1 of 5" }, direction: UP, timeout: 15000 }
+- assertVisible: "Step 1 of 5"
 - assertVisible: "House Cleaning"
 - assertVisible: ".*What kind of cleaning do you need.*"
 # Not a dead end and not a reset to Home.
@@ -88,6 +92,7 @@ appId: ke.co.hiredcorp.kwikserve
 - assertVisible: "Step 2 of 5"
 # A second Back still returns to the same populated step rather than stacking up screens.
 - tapOn: { id: "booking-address-back" }
-- extendedWaitUntil: { visible: "Step 1 of 5", timeout: 15000 }
+- scrollUntilVisible: { element: { text: "Step 1 of 5" }, direction: UP, timeout: 15000 }
+- assertVisible: "Step 1 of 5"
 - assertVisible: ".*What kind of cleaning do you need.*"
 - takeScreenshot: sd-back-05-repeatable

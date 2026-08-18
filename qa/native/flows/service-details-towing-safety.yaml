@@ -61,7 +61,11 @@ appId: ke.co.hiredcorp.kwikserve
 - scrollUntilVisible: { element: { id: "gate-option-no" }, direction: UP, timeout: 12000 }
 - tapOn: { id: "gate-option-no" }
 - extendedWaitUntil: { notVisible: { id: "safety-block" }, timeout: 8000 }
-- extendedWaitUntil: { visible: { id: "question-vehicle_make_model" }, timeout: 8000 }
+# The form is restored BELOW the gate and the seven issue options, so it is off-screen at this
+# point. Run 32125271205 failed asserting it visible without scrolling: the screenshot showed
+# "No" selected, the block cleared and the form correctly rendered further down the page.
+- scrollUntilVisible: { element: { id: "question-vehicle_make_model" }, direction: DOWN, timeout: 12000 }
+- assertVisible: { id: "question-vehicle_make_model" }
 - takeScreenshot: sd-tw-03-unblocked
 
 - scrollUntilVisible: { element: { id: "input-vehicle_make_model" }, direction: DOWN, timeout: 12000 }

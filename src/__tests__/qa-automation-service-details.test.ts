@@ -186,6 +186,28 @@ describe('Representative Service Details coverage exists', () => {
     expect(source).toMatch(/assertNotVisible:\s*\{\s*id:\s*"service-details-media"/);
   });
 
+  it('scrolls to content revealed below the fold before asserting it', () => {
+    // Two sites in the same class, both found the expensive way. Run 32125271205 asserted
+    // question-vehicle_make_model visible the moment the towing safety block cleared — but the
+    // form is restored below the gate and seven issue options, so it was off-screen. The Address
+    // Back flow has the same shape after returning from Address: Service Details stays mounted,
+    // so its ScrollView can still hold the position it had when we left it.
+    //
+    // Deliberately site-specific: it pins the two targets known to be revealed below the fold,
+    // rather than forcing every assertVisible in every flow to scroll.
+    const towing = read(flow('service-details-towing-safety.yaml'));
+    expect(towing).toMatch(
+      /scrollUntilVisible: \{ element: \{ id: "question-vehicle_make_model" \}[^\n]*\n- assertVisible: \{ id: "question-vehicle_make_model" \}/,
+    );
+
+    const back = commandLines(read(flow('service-details-address-back.yaml')));
+    back.forEach((line, i) => {
+      if (!line.includes('booking-address-back') || !line.startsWith('- tapOn:')) return;
+      const next = back[i + 1] ?? '';
+      expect(next).toMatch(/scrollUntilVisible.*Step 1 of 5/);
+    });
+  });
+
   it('reaches a service buried in the Home grid via Search, not a deep Home scroll', () => {
     // Run 32120724458 died before Towing even started: scrolling Home to reach Car Towing left
     // the screen stopped mid-grid with an accessibility hierarchy holding no app content. Car
