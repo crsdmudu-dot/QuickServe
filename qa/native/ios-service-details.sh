@@ -39,7 +39,6 @@ run() { # $1 = flow file (read-only; no marker needed)
 
 # ── 1. Read-only Service Details coverage ─────────────────────────────────────
 run service-details-house-cleaning.yaml
-run service-details-grocery.yaml
 run service-details-massage.yaml
 run service-details-towing-safety.yaml
 run service-details-address-back.yaml
@@ -53,6 +52,15 @@ maestro test "$FLOWS/booking-duplicate-distinct.yaml" \
 CNT=$($BE find "$MARKER" | jq -r '.count')
 echo "bookings created with marker: $CNT"
 [ "$CNT" = "2" ] || { echo "FAIL: expected 2 bookings (standard + laundry), got $CNT"; exit 1; }
+
+# ── 3. Grocery LAST ───────────────────────────────────────────────────────────
+# Grocery is the longest form in the suite, and on the iOS simulator its accessibility hierarchy
+# can go stale at deep scroll positions while the target is visibly rendered on screen. Because
+# this runner is fail-fast, that environmental limitation was preventing the four independent
+# flows above from ever obtaining runtime evidence. Running Grocery last removes that coupling.
+# This is an environment characteristic, not a Grocery product failure — the flow has already
+# proven its item list, brand capture and goods-budget wording at runtime.
+run service-details-grocery.yaml
 
 echo "== ALL SERVICE DETAILS FLOWS PASSED (marker $MARKER) =="
 echo "::endgroup::"
