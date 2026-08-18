@@ -42,7 +42,11 @@ appId: ke.co.hiredcorp.kwikserve
 - takeScreenshot: sd-hc-02-required-blocked
 
 # ── Deep cleaning → whole home → bedrooms + bathrooms appear ──────────────────
-- scrollUntilVisible: { element: { id: "option-variant-deep_clean" }, direction: UP, timeout: 12000 }
+# Hardened for the same class. This site cannot occlude today — at this stage only the variant
+# question is disclosed, the form fits the viewport and cannot scroll (the DOWN scroll above is
+# also a no-op in every recorded run) — but that safety is a property of the form being short,
+# not of the flow. deep_clean sits ~300 pt down, already clear, so this is a no-op in practice.
+- scrollUntilVisible: { element: { id: "option-variant-deep_clean" }, direction: UP, timeout: 12000, centerElement: true }
 - tapOn: { id: "option-variant-deep_clean" }
 - extendedWaitUntil: { visible: { id: "question-scope" }, timeout: 8000 }
 - scrollUntilVisible: { element: { id: "option-scope-whole_home" }, direction: DOWN, timeout: 12000 }
@@ -78,7 +82,12 @@ appId: ke.co.hiredcorp.kwikserve
 # ── Stale-answer pruning: change the parent, the children disappear ───────────
 # scope drives bedrooms/bathrooms. Switching to a scope that does not use them must remove the
 # questions AND drop the answers — a pruned answer must never reach the snapshot.
-- scrollUntilVisible: { element: { id: "option-scope-kitchen_only" }, direction: UP, timeout: 12000 }
+# Run 32150749532 failed here. The preceding DOWN scroll left this option ABOVE the ScrollView
+# viewport but still inside screen bounds, so Maestro judged it 100% visible, scrolled 0 px, and
+# tapped a point sitting under the fixed Back header — a no-op, so scope stayed whole_home and
+# bedrooms never pruned. centerElement makes UP scrolling continue until the centre clears the
+# top 30% of the screen, which is well below the header. It is a no-op when already clear.
+- scrollUntilVisible: { element: { id: "option-scope-kitchen_only" }, direction: UP, timeout: 12000, centerElement: true }
 - tapOn: { id: "option-scope-kitchen_only" }
 - extendedWaitUntil: { notVisible: { id: "question-bedrooms" }, timeout: 8000 }
 - assertNotVisible: { id: "question-bathrooms" }

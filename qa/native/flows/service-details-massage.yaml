@@ -52,7 +52,9 @@ appId: ke.co.hiredcorp.kwikserve
 - assertVisible: { id: "disclaimer-therapist_gender_preference" }
 - assertVisible: ".*isn.t guaranteed.*"
 # The disclaimer sits below the options, so scrolling to it moved them off-screen.
-- scrollUntilVisible: { element: { id: "option-therapist_gender_preference-female" }, direction: UP, timeout: 12000 }
+# Same header-occlusion class as House Cleaning kitchen_only (run 32150749532): the DOWN scroll
+# above pushes these options just off the top, where "visible" does not mean tappable.
+- scrollUntilVisible: { element: { id: "option-therapist_gender_preference-female" }, direction: UP, timeout: 12000, centerElement: true }
 - tapOn: { id: "option-therapist_gender_preference-female" }
 - takeScreenshot: sd-ms-02-preference
 

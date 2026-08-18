@@ -36,7 +36,9 @@ appId: ke.co.hiredcorp.kwikserve
 - tapOn: { id: "option-issue-accident" }
 
 # ── BLOCKING PATH — "Yes, someone is injured or in danger" ────────────────────
-- scrollUntilVisible: { element: { id: "gate-option-yes" }, direction: UP, timeout: 12000 }
+# Header-occlusion guard (run 32150749532 class): scrolling DOWN to the issue options pushes the
+# gate toward the top edge, where a "visible" element can still sit under the fixed Back header.
+- scrollUntilVisible: { element: { id: "gate-option-yes" }, direction: UP, timeout: 12000, centerElement: true }
 - tapOn: { id: "gate-option-yes" }
 - extendedWaitUntil: { visible: { id: "safety-block" }, timeout: 8000 }
 - scrollUntilVisible: { element: { text: "Please contact emergency services first" }, direction: DOWN, timeout: 12000 }
@@ -58,7 +60,7 @@ appId: ke.co.hiredcorp.kwikserve
 
 # ── NON-BLOCKING PATH — "No" restores the form ────────────────────────────────
 # Reading the block body scrolled past the gate; bring it back before answering.
-- scrollUntilVisible: { element: { id: "gate-option-no" }, direction: UP, timeout: 12000 }
+- scrollUntilVisible: { element: { id: "gate-option-no" }, direction: UP, timeout: 12000, centerElement: true }
 - tapOn: { id: "gate-option-no" }
 - extendedWaitUntil: { notVisible: { id: "safety-block" }, timeout: 8000 }
 # The form is restored BELOW the gate and the seven issue options, so it is off-screen at this

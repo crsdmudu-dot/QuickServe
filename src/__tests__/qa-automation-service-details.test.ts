@@ -13,7 +13,7 @@
  */
 
 import { existsSync, readdirSync, readFileSync } from 'fs';
-import { join, dirname } from 'path';
+import { join, dirname, basename } from 'path';
 
 import { SERVICES } from '@/constants/services';
 
@@ -394,5 +394,39 @@ describe('The legacy review flow does not assume a fixed Booking Detail screen l
     expect(source).toMatch(/scrollUntilVisible.*Submit review/);
     expect(source).toContain('- tapOn: "Submit review"');
     expect(source).toMatch(/extendedWaitUntil:.*"Edit review"/);
+  });
+});
+
+
+// Run 32150749532 (House Cleaning, option-scope-kitchen_only): a preceding DOWN scroll left the
+// option above the ScrollView viewport but still inside screen bounds. Maestro's visibility model
+// is frame-vs-screen and models no occlusion, so it reported the option 100% visible, performed
+// zero scroll gestures (302 ms vs 2462 ms in the run that passed) and tapped a point underneath the
+// fixed Back header — a no-op. scope stayed whole_home, bedrooms never pruned, the assertion failed
+// and the product was never at fault. centerElement makes an UP scroll continue until the element's
+// centre clears the top 30% of the screen, which is far below the header; when the target is
+// already clear it changes nothing. The rule is the mechanism, not a list of known-bad sites.
+describe('UP-scroll targets that are then tapped are brought clear of the fixed header', () => {
+  it('every UP scroll whose target is tapped next uses centerElement', () => {
+    const offenders: string[] = [];
+
+    for (const file of flowFiles()) {
+      const lines = commandLines(read(file));
+      lines.forEach((line, i) => {
+        if (!line.includes('scrollUntilVisible') || !/direction:\s*UP/.test(line)) return;
+        const target = /id:\s*"([^"]+)"/.exec(line)?.[1];
+        if (!target) return; // heading round-trips select by text and are handled separately
+
+        const next = lines[i + 1] ?? '';
+        const tapsSameTarget = next.startsWith('- tapOn') && next.includes(`"${target}"`);
+        if (!tapsSameTarget) return; // scrolled to assert, not to tap — occlusion cannot mislead it
+
+        if (!/centerElement:\s*true/.test(line)) {
+          offenders.push(`${basename(file)}: UP scroll to ${target} is tapped without centerElement`);
+        }
+      });
+    }
+
+    expect(offenders).toEqual([]);
   });
 });
