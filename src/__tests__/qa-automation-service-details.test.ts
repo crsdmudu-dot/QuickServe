@@ -16,6 +16,7 @@ import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join, dirname, basename } from 'path';
 
 import { SERVICES } from '@/constants/services';
+import { SERVICE_FORMS } from '@/constants/service-forms';
 
 const FLOW_DIR = join(__dirname, '..', '..', 'qa', 'native', 'flows');
 
@@ -423,6 +424,44 @@ describe('UP-scroll targets that are then tapped are brought clear of the fixed 
 
         if (!/centerElement:\s*true/.test(line)) {
           offenders.push(`${basename(file)}: UP scroll to ${target} is tapped without centerElement`);
+        }
+      });
+    }
+
+    expect(offenders).toEqual([]);
+  });
+});
+
+
+// Run 32183656801 (Grocery, substitution): the flow selected the question label with the bare
+// string "If something is unavailable". Required questions render their label with a trailing
+// " *", and Maestro matches text selectors as a FULL-match regex, so the bare pattern could never
+// match "If something is unavailable *". The screenshot and hierarchy both showed the question,
+// its three options, the media block and Continue rendered correctly — the product was fine and
+// the selector simply could not match. Every other label selector in that flow is already wrapped.
+// Scoped deliberately to REQUIRED question labels: those are the ones that carry the asterisk.
+// Service titles, step counters, item headings and typed values are matched bare on purpose.
+describe('Required-field question labels are not selected with bare full-match text', () => {
+  it('every required label selector allows for the trailing asterisk', () => {
+    const requiredLabels = new Set<string>();
+    for (const form of Object.values(SERVICE_FORMS)) {
+      const questions = [form.primary, ...form.questions];
+      for (const q of questions) {
+        if (q?.required && typeof q.label === 'string') requiredLabels.add(q.label);
+      }
+    }
+    expect(requiredLabels.size).toBeGreaterThan(0);
+
+    const offenders: string[] = [];
+    for (const file of flowFiles()) {
+      commandLines(read(file)).forEach((line) => {
+        // Only bare selectors matter — a wrapped ".*…*" pattern already tolerates the asterisk.
+        const quoted = line.match(/"([^"]+)"/g) ?? [];
+        for (const raw of quoted) {
+          const value = raw.slice(1, -1);
+          if (value.includes('.*')) continue;
+          if (!requiredLabels.has(value)) continue;
+          offenders.push(`${basename(file)}: "${value}" is a required label and cannot full-match its " *" suffix`);
         }
       });
     }

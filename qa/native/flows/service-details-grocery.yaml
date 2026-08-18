@@ -106,8 +106,12 @@ appId: ke.co.hiredcorp.kwikserve
 - takeScreenshot: sd-gr-04-goods-budget
 
 # ── Substitution preference (required) ────────────────────────────────────────
-- scrollUntilVisible: { element: { text: "If something is unavailable" }, direction: DOWN, timeout: 12000 }
-- assertVisible: "If something is unavailable"
+# Required questions render their label with a trailing " *", and Maestro matches text
+# selectors as a FULL-match regex, so the bare string cannot match "If something is
+# unavailable *". Run 32183656801 failed here while the screenshot and hierarchy both showed
+# the question rendered correctly. Wrapped, like every other label selector in this flow.
+- scrollUntilVisible: { element: { text: ".*If something is unavailable.*" }, direction: DOWN, timeout: 12000 }
+- assertVisible: ".*If something is unavailable.*"
 - scrollUntilVisible: { element: { id: "option-substitution-call" }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "option-substitution-call" }
 
