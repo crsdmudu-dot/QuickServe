@@ -29,7 +29,10 @@ on:
 jobs:
   ios-journeys:
     runs-on: macos-14
-    timeout-minutes: 60
+    # 90, not 60. Run 32176129714 was cancelled mid Phase 3F on the 60-minute cap with no test
+    # failure: the steps ahead of it consumed 49m 51s, Phase 3F needs 12-14 on its own, and Grocery
+    # still has to run after that. The suite simply outgrew the old budget as coverage was added.
+    timeout-minutes: 90
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       QA_SUPABASE_URL: ${{ secrets.QA_SUPABASE_URL }}
