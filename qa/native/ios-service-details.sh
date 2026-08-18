@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 #
-# Service Details V1.5 — iOS Simulator orchestration for the Service Details flows.
+# Service Details V1.5 — iOS Simulator orchestration for the CORE Service Details flows.
 #
 # Two groups, deliberately separated:
 #   1. READ-ONLY flows. They stop at the Address or Review step and never tap Place Booking, so
 #      they create NO QA data and need no cleanup. Safe to run repeatedly.
 #   2. The distinct-duplicate flow, which DOES create two bookings and is therefore marker-scoped
 #      and cleaned up on exit, exactly like ios-booking-duplicate.sh.
+#
+# Grocery is NOT here. It runs from ios-service-details-grocery.sh, last of all, because its
+# deep-form iOS accessibility limitation is fail-fast-fatal and was blocking the remaining legacy
+# regression evidence. That is evidence ORDERING only — Grocery is unchanged and still fatal.
 #
 # Requires (same as the other iOS runners): `maestro` on PATH, a booted iOS simulator with
 # ke.co.hiredcorp.kwikserve installed, node, jq, and QA_* credentials in the environment.
@@ -20,7 +24,7 @@ FLOWS="qa/native/flows"
 BE="node qa/native/backend.mjs"
 MARKER="SDV15-$(date +%s)"
 
-echo "::group::Service Details flows — marker $MARKER"
+echo "::group::Core Service Details flows — marker $MARKER"
 req() { : "${!1:?Missing required env var $1}"; }
 for v in QA_SUPABASE_URL QA_SUPABASE_ANON_KEY QA_SERVICE_ROLE_KEY QA_CUSTOMER_EMAIL QA_CUSTOMER_PASSWORD; do req "$v"; done
 
@@ -53,15 +57,6 @@ CNT=$($BE find "$MARKER" | jq -r '.count')
 echo "bookings created with marker: $CNT"
 [ "$CNT" = "2" ] || { echo "FAIL: expected 2 bookings (standard + laundry), got $CNT"; exit 1; }
 
-# ── 3. Grocery LAST ───────────────────────────────────────────────────────────
-# Grocery is the longest form in the suite, and on the iOS simulator its accessibility hierarchy
-# can go stale at deep scroll positions while the target is visibly rendered on screen. Because
-# this runner is fail-fast, that environmental limitation was preventing the four independent
-# flows above from ever obtaining runtime evidence. Running Grocery last removes that coupling.
-# This is an environment characteristic, not a Grocery product failure — the flow has already
-# proven its item list, brand capture and goods-budget wording at runtime.
-run service-details-grocery.yaml
-
-echo "== ALL SERVICE DETAILS FLOWS PASSED (marker $MARKER) =="
+echo "== ALL CORE SERVICE DETAILS FLOWS PASSED (marker $MARKER) =="
 echo "::endgroup::"
 # cleanup runs on EXIT

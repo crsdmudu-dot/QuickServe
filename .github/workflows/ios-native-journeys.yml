@@ -106,14 +106,14 @@ jobs:
           maestro test qa/native/flows/customer-nav-search.yaml \
             -e CUST_EMAIL="$QA_CUSTOMER_EMAIL" -e CUST_PW="$QA_CUSTOMER_PASSWORD"
 
-      # Service Details V1.6 — the six V1.5 flows, via the existing runner (never re-listed here).
+      # Service Details V1.6 — the five CORE flows, via the existing runner (never re-listed here).
       # Runs BEFORE the remaining Phase 4E.2 flows: this pipeline is serial and fail-fast, and a
       # flake in an unrelated legacy step was preventing the active certification target from
       # executing at all (run 32112036669). The stable smoke checks above stay first because they
       # are prerequisites — they prove login, cold start and navigation work before anything else
       # is attempted. The runner is self-cleaning: only booking-duplicate-distinct.yaml creates
       # data, under its own SDV15-<epoch> marker, removed by an EXIT trap.
-      - name: Service Details V1.6 — Service Details flows (House Cleaning, Grocery, Massage, Towing gate, Address Back, distinct-duplicate)
+      - name: Service Details V1.6 — CORE flows (House Cleaning, Massage, Towing gate, Address Back, distinct-duplicate)
         run: bash qa/native/ios-service-details.sh
 
       - name: Phase 4E.2 — notification-center refresh (Android defect #1 replay)
@@ -129,6 +129,14 @@ jobs:
 
       - name: Run Phase 3F customer/provider journeys on iOS
         run: bash qa/native/ios-journeys.sh
+
+      # Grocery runs LAST OF ALL. Its deep-form iOS accessibility limitation is reproducible and
+      # fail-fast-fatal, and while it sat inside the core suite it was preventing the four legacy
+      # regression steps above from ever executing. This is evidence ordering only: the flow is
+      # unchanged, its exit code is NOT swallowed, and there is deliberately no continue-on-error —
+      # a Grocery failure still fails the workflow.
+      - name: Service Details V1.6 — Grocery flow (known deep-form limitation; runs last)
+        run: bash qa/native/ios-service-details-grocery.sh
 
       - name: Upload Maestro artifacts (screenshots / logs)
         if: always()
