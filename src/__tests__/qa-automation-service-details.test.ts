@@ -212,8 +212,8 @@ describe('Representative Service Details coverage exists', () => {
   // It encoded the scroll-to-heading MECHANISM, which runs 32031583358 and 32035890869 showed to be
   // structurally unreliable at the deepest Grocery position. Dismissal now taps a nearby static
   // label with no scroll at all, so that rule would forbid the correct behaviour. Its intent lives
-  // on, inverted, in "never dismisses the keyboard by scrolling the whole form back to the service
-  // heading" below. Do not reinstate it.
+  // on, per-site, in "uses the keyboard-dismiss strategy proven at each site" below, which
+  // permits BOTH mechanisms and forbids each only where runtime showed it fails. Do not reinstate.
 
   it('never assumes the whole Review card fits one viewport', () => {
     // Run 32026499557 failed here: the flow scrolled once to the "Service Details" header, then
@@ -246,32 +246,47 @@ describe('Representative Service Details coverage exists', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('never dismisses the keyboard by scrolling the whole form back to the service heading', () => {
-    // Runs 32031583358 and 32035890869 both died at the same site: after typing the goods budget,
-    // a scroll all the way back to the "Grocery Delivery" heading timed out — while the failure
-    // screenshot showed that heading fully rendered. Maestro's accessibility snapshot had gone
-    // stale at a mid-form position, so the scroll loop was searching blind. waitToSettleTimeoutMs
-    // did not help, because the snapshot was not merely late.
+  it('uses the keyboard-dismiss strategy proven at each site, not one global mechanism', () => {
+    // Neither dismissal method works everywhere, and runtime proved both halves:
     //
-    // The rule is therefore about DISTANCE, not timing: the keyboard must be dismissed by tapping
-    // something NEAR the field — its own label, or the card header it belongs to — never by
-    // scrolling the length of the form to the service title. Local scrolls to a nearby element are
-    // fine; this only forbids the service-title round trip.
-    const serviceTitles = new Set(SERVICES.map((s) => s.title));
+    //   HEADING-SCROLL (inputText -> scroll to service title -> tap it) passed House Cleaning
+    //   end to end in runs 32031583358 and 32035890869, and passed all five Grocery ITEM-field
+    //   dismissals in 32035890869. But it failed 2/2 at Grocery's goods-budget field, the deepest
+    //   point in the longest form, where Maestro's accessibility snapshot goes stale mid-scroll.
+    //
+    //   OWN-LABEL (inputText -> tap the field's own label, no scroll) removes that long scroll,
+    //   but the label sits directly above its input and does not reliably blur it: run
+    //   32114392487 left "48" in a bedrooms field capped at 10, so the app correctly refused to
+    //   continue.
+    //
+    // So the rule is per-site, encoded by flow and field class rather than by line number.
     const offenders: string[] = [];
-    for (const file of flowFiles().filter((f) => /service-details-.*\.yaml$/.test(f))) {
-      const lines = commandLines(read(file));
+
+    // A. Short numeric forms — heading-scroll is proven here; own-label caused the regression.
+    //    Every text entry must be followed by a scroll-then-tap, never a bare tap.
+    for (const name of ['service-details-house-cleaning.yaml', 'service-details-address-back.yaml']) {
+      const lines = commandLines(read(join(FLOW_DIR, name)));
       lines.forEach((line, i) => {
         if (!line.startsWith('- inputText:')) return;
-        const scroll = lines[i + 1] ?? '';
-        const tap = lines[i + 2] ?? '';
-        const target = /^- tapOn: "([^"]+)"/.exec(tap)?.[1];
-        if (!target || !serviceTitles.has(target)) return;
-        if (scroll.includes('scrollUntilVisible') && scroll.includes(target)) {
-          offenders.push(`${file}: dismisses the keyboard by scrolling back to the "${target}" heading`);
+        const next = lines[i + 1] ?? '';
+        if (!next.startsWith('- scrollUntilVisible')) {
+          offenders.push(`${name}: ${line} is dismissed without the proven scroll-then-tap`);
         }
       });
     }
+
+    // B. Grocery's goods budget — the one site where the heading round trip demonstrably fails.
+    const grocery = commandLines(read(join(FLOW_DIR, 'service-details-grocery.yaml')));
+    grocery.forEach((line, i) => {
+      if (!/^- inputText:/.test(line)) return;
+      const typedIntoBudget = grocery.slice(Math.max(0, i - 2), i).some((l) => l.includes('input-max_goods_budget'));
+      if (!typedIntoBudget) return;
+      const after = grocery.slice(i + 1, i + 3).join(' | ');
+      if (after.includes('scrollUntilVisible') && after.includes('"Grocery Delivery"')) {
+        offenders.push('service-details-grocery.yaml: budget dismissal must not scroll back to the service heading');
+      }
+    });
+
     expect(offenders).toEqual([]);
   });
 

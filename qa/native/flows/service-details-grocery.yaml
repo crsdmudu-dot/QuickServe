@@ -37,17 +37,13 @@ appId: ke.co.hiredcorp.kwikserve
 - scrollUntilVisible: { element: { id: "item-name-line_.*" }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "item-name-line_.*" }
 - inputText: "Milk"
-# Every card repeats the "Item"/"Quantity" labels, so this card's unique "Item 1" header is
-# the dismiss target. A SMALL LOCAL scroll only — never back to the page heading.
-- scrollUntilVisible: { element: { text: "Item 1" }, direction: UP, timeout: 12000 }
-- tapOn: "Item 1"
+- scrollUntilVisible: { element: { text: "Grocery Delivery" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
+- tapOn: "Grocery Delivery"
 - scrollUntilVisible: { element: { id: "item-qty-line_.*" }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "item-qty-line_.*" }
 - inputText: "2"
-# Every card repeats the "Item"/"Quantity" labels, so this card's unique "Item 1" header is
-# the dismiss target. A SMALL LOCAL scroll only — never back to the page heading.
-- scrollUntilVisible: { element: { text: "Item 1" }, direction: UP, timeout: 12000 }
-- tapOn: "Item 1"
+- scrollUntilVisible: { element: { text: "Grocery Delivery" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
+- tapOn: "Grocery Delivery"
 - scrollUntilVisible: { element: { id: "unit-line_.*-bottles" }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "unit-line_.*-bottles" }
 # Brand is optional and is exercised on this line only. Targeted by its OWN testID: tapping the
@@ -60,10 +56,8 @@ appId: ke.co.hiredcorp.kwikserve
 # PROOF the value was captured, not merely typed at: the Input is CONTROLLED (value={line.brand}),
 # so the field can only display text that reached state.
 - assertVisible: "Brookside"
-# Every card repeats the "Item"/"Quantity" labels, so this card's unique "Item 1" header is
-# the dismiss target. A SMALL LOCAL scroll only — never back to the page heading.
-- scrollUntilVisible: { element: { text: "Item 1" }, direction: UP, timeout: 12000 }
-- tapOn: "Item 1"
+- scrollUntilVisible: { element: { text: "Grocery Delivery" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
+- tapOn: "Grocery Delivery"
 - takeScreenshot: sd-gr-02-item1
 
 # ── Add another item — the first line must survive ────────────────────────────
@@ -80,17 +74,13 @@ appId: ke.co.hiredcorp.kwikserve
 - scrollUntilVisible: { element: { id: "item-name-line_.*", below: { text: "Item 2" } }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "item-name-line_.*", below: { text: "Item 2" } }
 - inputText: "Rice"
-# Every card repeats the "Item"/"Quantity" labels, so this card's unique "Item 2" header is
-# the dismiss target. A SMALL LOCAL scroll only — never back to the page heading.
-- scrollUntilVisible: { element: { text: "Item 2" }, direction: UP, timeout: 12000 }
-- tapOn: "Item 2"
+- scrollUntilVisible: { element: { text: "Grocery Delivery" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
+- tapOn: "Grocery Delivery"
 - scrollUntilVisible: { element: { id: "item-qty-line_.*", below: { text: "Item 2" } }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "item-qty-line_.*", below: { text: "Item 2" } }
 - inputText: "5"
-# Every card repeats the "Item"/"Quantity" labels, so this card's unique "Item 2" header is
-# the dismiss target. A SMALL LOCAL scroll only — never back to the page heading.
-- scrollUntilVisible: { element: { text: "Item 2" }, direction: UP, timeout: 12000 }
-- tapOn: "Item 2"
+- scrollUntilVisible: { element: { text: "Grocery Delivery" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
+- tapOn: "Grocery Delivery"
 - scrollUntilVisible: { element: { id: "unit-line_.*-kg", below: { text: "Item 2" } }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "unit-line_.*-kg", below: { text: "Item 2" } }
 # Item 1 is still there, with its typed values intact.

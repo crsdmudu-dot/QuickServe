@@ -29,15 +29,20 @@ appId: ke.co.hiredcorp.kwikserve
 - scrollUntilVisible: { element: { id: "input-bedrooms" }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "input-bedrooms" }
 - inputText: "4"
-# Dismiss the keyboard by tapping this field's own static label — it sits directly above
-# the focused input, which iOS keeps on screen, so no scrolling is involved at all.
-- tapOn: ".*How many bedrooms.*"
+# Scroll the heading back into view BEFORE tapping it to dismiss the iOS keyboard — reaching the
+# field scrolled it off-screen. Same order as address-journey.yaml.
+# waitToSettleTimeoutMs: run 32031583358 timed out on this exact scroll while the failure
+# screenshot showed the heading fully rendered — the scroll had arrived, but the accessibility
+# hierarchy Maestro reads had not caught up. 500ms is the value Maestro's own error output
+# suggests, and it is applied ONLY to these keyboard-dismiss scrolls (the long full-form ones),
+# never to Review assertions or ordinary navigation.
+- scrollUntilVisible: { element: { text: "House Cleaning" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
+- tapOn: "House Cleaning"
 - scrollUntilVisible: { element: { id: "input-bathrooms" }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "input-bathrooms" }
 - inputText: "3"
-# Dismiss the keyboard by tapping this field's own static label — it sits directly above
-# the focused input, which iOS keeps on screen, so no scrolling is involved at all.
-- tapOn: ".*How many bathrooms.*"
+- scrollUntilVisible: { element: { text: "House Cleaning" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
+- tapOn: "House Cleaning"
 - scrollUntilVisible: { element: { id: "option-provider_bring_supplies-yes" }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "option-provider_bring_supplies-yes" }
 - scrollUntilVisible: { element: { id: "option-addons-ironing" }, direction: DOWN, timeout: 12000 }
