@@ -186,6 +186,20 @@ describe('Representative Service Details coverage exists', () => {
     expect(source).toMatch(/assertNotVisible:\s*\{\s*id:\s*"service-details-media"/);
   });
 
+  it('reaches a service buried in the Home grid via Search, not a deep Home scroll', () => {
+    // Run 32120724458 died before Towing even started: scrolling Home to reach Car Towing left
+    // the screen stopped mid-grid with an accessibility hierarchy holding no app content. Car
+    // Towing carries no badge, so it appears only in the Auto category grid far down the page.
+    // Search reaches any service in one step and customer-nav-search.yaml has proven that entry
+    // in every run. Narrow by design: this pins the ONE flow whose target is known to be buried.
+    // House Cleaning (badge "Popular", first in the catalogue) and Massage (badge "New") surface
+    // near the top of Home and their scroll entries are runtime-proven, so they are left alone.
+    const source = read(flow('service-details-towing-safety.yaml'));
+    expect(source).toContain('- tapOn: "Search services"');
+    expect(source).toContain('- inputText: "Car Towing"');
+    expect(source).not.toMatch(/scrollUntilVisible: \{ element: \{ text: "\.\*Car Towing\.\*" \}, direction: DOWN/);
+  });
+
   it('the Towing flow covers the blocking gate AND the non-blocking path', () => {
     const source = read(flow('service-details-towing-safety.yaml'));
     expect(source).toContain('gate-option-yes');

@@ -12,8 +12,20 @@ appId: ke.co.hiredcorp.kwikserve
 ---
 - runFlow: { file: steps/login-customer.yaml }
 
-- scrollUntilVisible: { element: { text: ".*Car Towing.*" }, direction: DOWN, timeout: 15000 }
-- tapOn: ".*Car Towing.*"
+# ── Enter via SEARCH, not a deep Home scroll ──────────────────────────────────
+# Car Towing carries no badge, so it appears only in the Auto category grid far down the Home
+# screen. Run 32120724458 failed scrolling to it: the screenshot showed Home stopped mid-grid
+# while the accessibility hierarchy held no app-content nodes at all — the scroll was blind.
+# Search reaches any service in one step, and is the entry customer-nav-search.yaml has proven
+# in every run of this suite.
+- tapOn: "Search services"
+- extendedWaitUntil: { visible: "Popular searches", timeout: 10000 }
+- tapOn: "Search services..."
+- inputText: "Car Towing"
+- extendedWaitUntil: { visible: ".*Car Towing.*", timeout: 12000 }
+# Tap the RESULT CARD, identified by its unique starting price, never the suggestion row above
+# it — the same disambiguation customer-nav-search.yaml uses.
+- tapOn: ".*KES 3,500.*"
 - extendedWaitUntil: { visible: "Step 1 of 5", timeout: 15000 }
 - assertVisible: { id: "gate-injury_check" }
 - assertVisible: "Is anyone injured or in immediate danger?"
