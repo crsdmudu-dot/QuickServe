@@ -50,6 +50,11 @@ appId: ke.co.hiredcorp.kwikserve
     visibilityPercentage: 10
     waitToSettleTimeoutMs: 800
 - tapOn: { id: "star-5" }
+# The scroll above accepts a 10%-visible star, so star-5 lands at the very bottom edge and the
+# comment field below it is off-screen. Service Details V1.4 added a section to Booking Detail
+# which lengthened this screen, and run 32135248465 failed tapping the placeholder without a
+# scroll of its own. Scroll to the field itself — the product is correct, the assumption was not.
+- scrollUntilVisible: { element: { text: "Share your experience…" }, direction: DOWN, timeout: 12000 }
 - tapOn: "Share your experience…"
 - inputText: "${COMMENT}"
 # Dismiss the keyboard by tapping the comment's static label, then reveal + submit.

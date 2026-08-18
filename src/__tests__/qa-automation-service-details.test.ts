@@ -366,3 +366,33 @@ describe('Flow selectors match testIDs the app actually renders', () => {
     }
   });
 });
+
+
+// Service Details V1.4 added a section to the customer Booking Detail screen, which is correct
+// product behaviour and made that screen longer. The legacy Phase 3F review flow had been
+// tapping the comment field with no scroll of its own, relying on it happening to sit on screen
+// after the star scroll — and run 32135248465 failed there. Screen length is owned by the
+// product and will keep growing, so the flow must reach each review target on its own terms.
+describe('The legacy review flow does not assume a fixed Booking Detail screen length', () => {
+  const source = read(join(FLOW_DIR, 'customer-review.yaml'));
+  const lines = commandLines(source);
+  const PLACEHOLDER = 'Share your experience…';
+
+  it('scrolls to the comment field before tapping it, rather than riding the star scroll', () => {
+    const tapIndex = lines.findIndex((l) => l.startsWith('- tapOn:') && l.includes(PLACEHOLDER));
+    expect(tapIndex).toBeGreaterThan(-1);
+
+    const scrollIndex = lines.findIndex(
+      (l) => l.includes('scrollUntilVisible') && l.includes(PLACEHOLDER),
+    );
+    expect(scrollIndex).toBeGreaterThan(-1);
+    expect(scrollIndex).toBeLessThan(tapIndex);
+  });
+
+  it('still submits a real review — the fix must not trade coverage for a green run', () => {
+    expect(source).toContain('- inputText: "${COMMENT}"');
+    expect(source).toMatch(/scrollUntilVisible.*Submit review/);
+    expect(source).toContain('- tapOn: "Submit review"');
+    expect(source).toMatch(/extendedWaitUntil:.*"Edit review"/);
+  });
+});
