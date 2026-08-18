@@ -106,6 +106,16 @@ jobs:
           maestro test qa/native/flows/customer-nav-search.yaml \
             -e CUST_EMAIL="$QA_CUSTOMER_EMAIL" -e CUST_PW="$QA_CUSTOMER_PASSWORD"
 
+      # Service Details V1.6 — the six V1.5 flows, via the existing runner (never re-listed here).
+      # Runs BEFORE the remaining Phase 4E.2 flows: this pipeline is serial and fail-fast, and a
+      # flake in an unrelated legacy step was preventing the active certification target from
+      # executing at all (run 32112036669). The stable smoke checks above stay first because they
+      # are prerequisites — they prove login, cold start and navigation work before anything else
+      # is attempted. The runner is self-cleaning: only booking-duplicate-distinct.yaml creates
+      # data, under its own SDV15-<epoch> marker, removed by an EXIT trap.
+      - name: Service Details V1.6 — Service Details flows (House Cleaning, Grocery, Massage, Towing gate, Address Back, distinct-duplicate)
+        run: bash qa/native/ios-service-details.sh
+
       - name: Phase 4E.2 — notification-center refresh (Android defect #1 replay)
         run: bash qa/native/ios-notif-refresh.sh
 
@@ -113,15 +123,6 @@ jobs:
         run: |
           maestro test qa/native/flows/address-journey.yaml \
             -e CUST_EMAIL="$QA_CUSTOMER_EMAIL" -e CUST_PW="$QA_CUSTOMER_PASSWORD"
-
-      # Service Details V1.6 — the six V1.5 flows, via the existing runner (never re-listed here).
-      # Placed after address-journey so the plain Service Details → Address transition has already
-      # been proven in isolation, and immediately before the duplicate journey so the two halves of
-      # the duplicate-warning story read in order: different primary → no warning (this step), then
-      # same primary → warning (next step). The runner is self-cleaning: only booking-duplicate-
-      # distinct.yaml creates data, under its own SDV15-<epoch> marker, removed by an EXIT trap.
-      - name: Service Details V1.6 — Service Details flows (House Cleaning, Grocery, Massage, Towing gate, Address Back, distinct-duplicate)
-        run: bash qa/native/ios-service-details.sh
 
       - name: Phase 4E.2 — booking duplicate warning + idempotency journey
         run: bash qa/native/ios-booking-duplicate.sh
