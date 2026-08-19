@@ -469,3 +469,56 @@ describe('Required-field question labels are not selected with bare full-match t
     expect(offenders).toEqual([]);
   });
 });
+
+
+// Android CORE run 2026-08-19 failed asserting question-bathrooms straight after whole_home
+// disclosed it. The product was correct — a manual scroll screenshot shows bedrooms AND bathrooms
+// rendered — but they sit below the fold: the hierarchy held question-bedrooms as a 1px sliver at
+// [72,2919][1272,2920] on a 2992px screen, and question-bathrooms not at all. iOS reports frames
+// for nodes scrolled outside the ScrollView clip, so the same assertions passed there; Android
+// reports only what is on screen, so it caught an assumption that was never true on either.
+//
+// Scoped to the targets MEASURED below the fold, not to conditional questions in general. Sites
+// with a single disclosed block above them (question-scope, question-duration_minutes,
+// question-laundry_quantity) were measured on-screen and are deliberately left alone — a blanket
+// rule would force churn at sites the audit proved safe.
+describe('Targets disclosed below the fold are scrolled to before being asserted', () => {
+  const BELOW_FOLD = ['question-bedrooms', 'question-bathrooms', 'input-bedrooms'];
+
+  it('every visibility assertion on a below-fold target is preceded by a scroll to it', () => {
+    const offenders: string[] = [];
+
+    for (const file of flowFiles()) {
+      const lines = commandLines(read(file));
+      lines.forEach((line, i) => {
+        const isAssertion =
+          line.startsWith('- assertVisible') ||
+          (line.startsWith('- extendedWaitUntil') && line.includes('visible:') && !line.includes('notVisible'));
+        if (!isAssertion) return;
+
+        for (const target of BELOW_FOLD) {
+          if (!line.includes(`"${target}"`)) continue;
+          // The scroll must REACH this target first. Scrolling DOWN to input-X also reaches
+          // question-X: the label renders directly above its field, so an element entering from
+          // the bottom arrives after its own label. Flows that assert the field VALUE must target
+          // the input, so accepting the pair is modelling the mechanism, not loosening the rule.
+          const pair = target.startsWith('question-')
+            ? target.replace('question-', 'input-')
+            : target.replace('input-', 'question-');
+          const reached = lines
+            .slice(Math.max(0, i - 3), i)
+            .some(
+              (l) =>
+                l.includes('scrollUntilVisible') &&
+                (l.includes(`"${target}"`) || l.includes(`"${pair}"`)),
+            );
+          if (!reached) {
+            offenders.push(`${basename(file)}: "${target}" is asserted without first scrolling to it`);
+          }
+        }
+      });
+    }
+
+    expect(offenders).toEqual([]);
+  });
+});

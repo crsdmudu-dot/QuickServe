@@ -25,8 +25,11 @@ appId: ke.co.hiredcorp.kwikserve
 - extendedWaitUntil: { visible: { id: "question-scope" }, timeout: 8000 }
 - scrollUntilVisible: { element: { id: "option-scope-whole_home" }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "option-scope-whole_home" }
-- extendedWaitUntil: { visible: { id: "input-bedrooms" }, timeout: 8000 }
+# Reach the field before waiting on it: after whole_home discloses bedrooms/bathrooms they
+# sit below the fold on Android (see service-details-house-cleaning.yaml). Same two
+# commands, ordered so the wait cannot depend on the viewport.
 - scrollUntilVisible: { element: { id: "input-bedrooms" }, direction: DOWN, timeout: 12000 }
+- extendedWaitUntil: { visible: { id: "input-bedrooms" }, timeout: 8000 }
 - tapOn: { id: "input-bedrooms" }
 - inputText: "4"
 # Scroll the heading back into view BEFORE tapping it to dismiss the iOS keyboard — reaching the

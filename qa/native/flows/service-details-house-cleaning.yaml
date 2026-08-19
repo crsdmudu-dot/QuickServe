@@ -51,7 +51,16 @@ appId: ke.co.hiredcorp.kwikserve
 - extendedWaitUntil: { visible: { id: "question-scope" }, timeout: 8000 }
 - scrollUntilVisible: { element: { id: "option-scope-whole_home" }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "option-scope-whole_home" }
+# Android run 2026-08-19 failed asserting question-bathrooms here. Both questions WERE
+# disclosed — a manual scroll screenshot shows them rendered — but they sit below the fold:
+# the hierarchy had question-bedrooms as a 1px sliver at [72,2919][1272,2920] on a 2992px
+# screen and question-bathrooms absent entirely. iOS reports frames for nodes scrolled out
+# of the ScrollView clip, so it passed; Android reports only what is on screen. The
+# assumption that two disclosed blocks fit the viewport was never true, just never caught.
+# Scroll to each target before its own assertion; harmless on iOS, required on Android.
+- scrollUntilVisible: { element: { id: "question-bedrooms" }, direction: DOWN, timeout: 12000 }
 - extendedWaitUntil: { visible: { id: "question-bedrooms" }, timeout: 8000 }
+- scrollUntilVisible: { element: { id: "question-bathrooms" }, direction: DOWN, timeout: 12000 }
 - assertVisible: { id: "question-bathrooms" }
 - takeScreenshot: sd-hc-03-disclosed
 
@@ -95,6 +104,9 @@ appId: ke.co.hiredcorp.kwikserve
 
 # Change back — the questions return, and the flow stays coherent (re-answer required).
 - tapOn: { id: "option-scope-whole_home" }
+# Same below-the-fold geometry as the first disclosure above — reach the question before
+# waiting on it rather than relying on it happening to be in the viewport.
+- scrollUntilVisible: { element: { id: "question-bedrooms" }, direction: DOWN, timeout: 12000 }
 - extendedWaitUntil: { visible: { id: "question-bedrooms" }, timeout: 8000 }
 - scrollUntilVisible: { element: { id: "input-bedrooms" }, direction: DOWN, timeout: 12000 }
 - tapOn: { id: "input-bedrooms" }
