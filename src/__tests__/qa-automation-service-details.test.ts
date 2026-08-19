@@ -522,3 +522,75 @@ describe('Targets disclosed below the fold are scrolled to before being asserted
     expect(offenders).toEqual([]);
   });
 });
+
+
+// The Android runners drive a LOCAL emulator, unlike the iOS ones which run on a CI macOS host
+// with a single simulator. Two things must hold or a "certification" run means nothing: every
+// Maestro invocation must state the platform, and it must state WHICH device — a second emulator
+// or a plugged-in phone would otherwise make the target ambiguous. The third rule keeps the
+// non-push runner honest: this APK was built without GOOGLE_SERVICES_JSON, so a push-dependent
+// flow appearing there would be an unbacked certification claim, not a coverage improvement.
+describe('Android runners target an explicit device and stay non-push', () => {
+  const RUNNER_DIR = join(__dirname, '..', '..', 'qa', 'native');
+  const androidRunners = () =>
+    readdirSync(RUNNER_DIR)
+      .filter((f) => f.startsWith('android-') && f.endsWith('.sh'))
+      .map((f) => join(RUNNER_DIR, f));
+
+  /** Lines that actually invoke Maestro to run a flow. */
+  const maestroInvocations = (source: string) =>
+    source
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => !l.startsWith('#'))
+      .filter((l) => l.includes('maestro ') && l.includes('test'));
+
+  it('there is at least one Android runner to check', () => {
+    expect(androidRunners().length).toBeGreaterThan(0);
+  });
+
+  it('every Maestro invocation names the platform and an explicit device', () => {
+    const offenders: string[] = [];
+    for (const file of androidRunners()) {
+      const source = read(file);
+      // A helper (mt(), run()) may carry the flags on behalf of the calls that use it.
+      const helperCovers = source.includes('--platform android') && source.includes('--device "$DEVICE"');
+      for (const line of maestroInvocations(source)) {
+        const own = line.includes('--platform android') && line.includes('--device');
+        if (!own && !helperCovers) {
+          offenders.push(`${basename(file)}: maestro invoked without explicit platform/device`);
+        }
+      }
+      // The ASSIGNMENT, not the word: ANDROID_DEVICE also appears in the failure message, so a
+      // bare substring check would pass even with the override deleted.
+      if (!source.includes('${ANDROID_DEVICE:-}')) offenders.push(`${basename(file)}: no ANDROID_DEVICE override`);
+      if (!source.includes('pm list packages')) offenders.push(`${basename(file)}: no installed-package precondition`);
+      if (!source.includes('set -euo pipefail')) offenders.push(`${basename(file)}: missing set -euo pipefail`);
+      // Code only — the runners discuss `continue-on-error` in prose precisely to explain why
+      // they do not use it, and a guard that cannot tell comment from command is worse than none.
+      const code = source
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l && !l.startsWith('#'));
+      if (code.some((l) => l.includes('continue-on-error'))) {
+        offenders.push(`${basename(file)}: continue-on-error is never acceptable here`);
+      }
+      if (code.some((l) => l.includes('maestro ') && l.includes('|| true'))) {
+        offenders.push(`${basename(file)}: a certification command must not be || true`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('no Android runner exercises a push-dependent flow', () => {
+    const PUSH_FLOWS = ['push-delivery', 'push-token', 'terminated-push', 'push-routing'];
+    const offenders: string[] = [];
+    for (const file of androidRunners()) {
+      const source = read(file);
+      for (const flow of PUSH_FLOWS) {
+        if (source.includes(`${flow}.yaml`)) offenders.push(`${basename(file)}: references push-dependent ${flow}.yaml`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+});
