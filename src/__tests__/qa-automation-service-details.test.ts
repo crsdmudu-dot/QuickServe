@@ -594,3 +594,37 @@ describe('Android runners target an explicit device and stay non-push', () => {
     expect(offenders).toEqual([]);
   });
 });
+
+// Phase 3F, 2026-08-19: the third provider-advance tapped the job card, then failed waiting for
+// "Job Detail" because Android's location-consent dialog ("... use Location ... No thanks / Turn
+// on") was on top for the whole 20s window. Job Detail renders a provider live-location section,
+// which is what raises it. The flow already had a "No thanks" guard — ordered AFTER the assertion
+// it was meant to protect, so it could never run. iOS raises no such dialog there, which is why
+// the ordering survived on that platform. A dismissal guard is only useful before the assertion
+// that the dialog can block.
+describe('System-dialog guards run before the assertion they protect', () => {
+  const flowPath = join(__dirname, '..', '..', 'qa', 'native', 'flows', 'provider-advance.yaml');
+
+  it('the job-card tap is followed by a dialog guard before the Job Detail wait', () => {
+    const lines = commandLines(read(flowPath));
+
+    const tapIndex = lines.findIndex((l) => l.startsWith('- tapOn') && l.includes('House Cleaning'));
+    expect(tapIndex).toBeGreaterThan(-1);
+
+    const jobDetailIndex = lines.findIndex(
+      (l, i) => i > tapIndex && l.includes('visible: "Job Detail"'),
+    );
+    expect(jobDetailIndex).toBeGreaterThan(tapIndex);
+
+    const guardBetween = lines
+      .slice(tapIndex + 1, jobDetailIndex)
+      .some((l) => l.includes('runFlow') && (l.includes('No thanks') || l.includes('Allow')));
+
+    expect(guardBetween).toBe(true);
+  });
+
+  it('still waits for Job Detail on its own terms — the fix must not drop the assertion', () => {
+    const source = read(flowPath);
+    expect(source).toContain('- extendedWaitUntil: { visible: "Job Detail", timeout: 20000 }');
+  });
+});

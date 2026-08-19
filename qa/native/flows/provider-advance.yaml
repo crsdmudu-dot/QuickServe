@@ -37,7 +37,18 @@ appId: ke.co.hiredcorp.kwikserve
 # iOS groups the job-card texts into one combined accessibility label; .*…* matches it.
 - extendedWaitUntil: { visible: ".*House Cleaning.*", timeout: 20000 }
 - tapOn: ".*House Cleaning.*"
+# Dismiss BEFORE asserting the screen underneath. Job Detail renders a provider
+# live-location section, which makes Android raise its location-consent dialog ("... your
+# device will need to use Location ... No thanks / Turn on"). On 2026-08-19 that dialog was
+# on top for the whole 20s window and failed the Job Detail wait, while the guard that
+# exists to dismiss it sat AFTER the assertion it was meant to protect. iOS raises no such
+# dialog here, which is why the ordering survived there.
+- runFlow: { when: { visible: "No thanks" }, commands: [ { tapOn: "No thanks" } ] }
+- runFlow: { when: { visible: "Don.t Allow" }, commands: [ { tapOn: "Don.t Allow" } ] }
 - extendedWaitUntil: { visible: "Job Detail", timeout: 20000 }
+# Kept AFTER as well: the dialog is raised by the live-location hook as the screen mounts,
+# so it can also surface once Job Detail is already up — the scroll and tap below need the
+# screen clear too. Both guards skip silently when nothing is showing.
 - runFlow: { when: { visible: "No thanks" }, commands: [ { tapOn: "No thanks" } ] }
 - runFlow: { when: { visible: "Don.t Allow" }, commands: [ { tapOn: "Don.t Allow" } ] }
 # The Job Detail screen scrolls; once the job is on-the-way the live-location section
