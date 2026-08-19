@@ -58,7 +58,17 @@ appId: ke.co.hiredcorp.kwikserve
 - tapOn: "Share your experience…"
 - inputText: "${COMMENT}"
 # Dismiss the keyboard by tapping the comment's static label, then reveal + submit.
-- tapOn: "Comment (optional)"
+# Android Phase 3F 2026-08-19 failed here: after inputText the soft keyboard changed the
+# visible region and the label was no longer in the hierarchy at all — the visible nodes
+# ran from the Activity timeline down to "Your review", i.e. the label had dropped BELOW
+# the fold. Android reports only on-screen nodes where iOS also reports frames outside the
+# ScrollView clip, so a bare tap on a nearby label is safe there and not here. Reach it.
+#
+# Selector: Maestro treats text as a regex, so bare "Comment (optional)" would parse the
+# parentheses as a capture group. Wrapped in .* like the other label selectors in this
+# suite, which avoids the metacharacters entirely and matches the rendered label.
+- scrollUntilVisible: { element: { text: ".*Comment.*optional.*" }, direction: DOWN, timeout: 12000 }
+- tapOn: ".*Comment.*optional.*"
 - scrollUntilVisible: { element: { text: "Submit review" }, direction: DOWN, timeout: 15000 }
 - tapOn: "Submit review"
 - extendedWaitUntil: { visible: "Edit review", timeout: 20000 }

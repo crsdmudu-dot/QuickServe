@@ -628,3 +628,43 @@ describe('System-dialog guards run before the assertion they protect', () => {
     expect(source).toContain('- extendedWaitUntil: { visible: "Job Detail", timeout: 20000 }');
   });
 });
+
+// Android Phase 3F, 2026-08-19: customer-review entered the comment successfully, then failed
+// tapping the "Comment (optional)" label to dismiss the keyboard. The label was not in the
+// hierarchy at all — the visible nodes ran from the Activity timeline down to "Your review", so
+// the soft keyboard had pushed the label below the fold. Android reports only on-screen nodes
+// where iOS also reports frames outside the ScrollView clip, so tapping a nearby label without
+// reaching it is safe on one platform and not the other.
+//
+// The selector is the second half: Maestro treats text as a regex, so a bare "Comment (optional)"
+// parses the parentheses as a capture group rather than literal characters.
+describe('The review keyboard-dismiss label is reached and safely selected', () => {
+  const flowPath = join(__dirname, '..', '..', 'qa', 'native', 'flows', 'customer-review.yaml');
+
+  it('scrolls to the comment label before tapping it', () => {
+    const lines = commandLines(read(flowPath));
+
+    const tapIndex = lines.findIndex((l) => l.startsWith('- tapOn') && /Comment/.test(l));
+    expect(tapIndex).toBeGreaterThan(-1);
+
+    const scrollIndex = lines.findIndex(
+      (l) => l.includes('scrollUntilVisible') && /Comment/.test(l),
+    );
+    expect(scrollIndex).toBeGreaterThan(-1);
+    expect(scrollIndex).toBeLessThan(tapIndex);
+  });
+
+  it('never selects the comment label with bare regex parentheses', () => {
+    const offenders = commandLines(read(flowPath)).filter((l) => l.includes('Comment (optional)'));
+    expect(offenders).toEqual([]);
+  });
+
+  it('still submits a real review — Android compatibility must not cost coverage', () => {
+    const source = read(flowPath);
+    expect(source).toContain('- inputText: "${COMMENT}"');
+    expect(source).toMatch(/scrollUntilVisible.*Submit review/);
+    expect(source).toContain('- tapOn: "Submit review"');
+    expect(source).toMatch(/extendedWaitUntil:.*"Edit review"/);
+    expect(source).toContain('- tapOn: { id: "star-5" }');
+  });
+});
