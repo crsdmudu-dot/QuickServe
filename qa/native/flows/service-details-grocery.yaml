@@ -100,8 +100,15 @@ appId: ke.co.hiredcorp.kwikserve
 - assertNotVisible: ".*Total to pay.*"
 - tapOn: { id: "input-max_goods_budget" }
 - inputText: "5000"
-# Dismiss the keyboard by tapping this field's own static label — it sits directly above
-# the focused input, which iOS keeps on screen, so no scrolling is involved at all.
+# Dismiss the keyboard by tapping this field's own static label. iOS keeps the focused input
+# and the label above it on screen, so no scroll was needed there — but Android moved the
+# label out of the hierarchy entirely when the soft keyboard opened. The 2026-08-19 run
+# failed here with "Element not found" while the visible nodes were the item list above the
+# budget block, i.e. the label had dropped BELOW the fold. Android reports only on-screen
+# nodes where iOS also reports frames outside the ScrollView clip. Reach it before tapping;
+# a no-op on iOS, required on Android. Selector is already wildcard-safe and matched twice
+# earlier in this same flow, so only the scroll was missing.
+- scrollUntilVisible: { element: { text: ".*Maximum to spend on the goods.*" }, direction: DOWN, timeout: 12000 }
 - tapOn: ".*Maximum to spend on the goods.*"
 - takeScreenshot: sd-gr-04-goods-budget
 

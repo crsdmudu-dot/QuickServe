@@ -668,3 +668,40 @@ describe('The review keyboard-dismiss label is reached and safely selected', () 
     expect(source).toContain('- tapOn: { id: "star-5" }');
   });
 });
+
+// Android Grocery, 2026-08-19: after entering the budget, the tap on the goods-budget label used
+// to dismiss the keyboard failed with "Element not found". The label was gone from the hierarchy —
+// visible nodes were the item list ABOVE the budget block — because the soft keyboard changed the
+// visible region. The flow's own comment had recorded the iOS reasoning ("iOS keeps it on screen,
+// so no scrolling is involved at all"), which is exactly the assumption Android breaks. Fourth
+// instance of one pattern: a label tapped for keyboard dismissal must be REACHED first.
+describe('The Grocery goods-budget dismissal label is reached before it is tapped', () => {
+  const flowPath = join(FLOW_DIR, 'service-details-grocery.yaml');
+  const LABEL = 'Maximum to spend on the goods';
+
+  it('scrolls to the budget label before tapping it to dismiss the keyboard', () => {
+    const lines = commandLines(read(flowPath));
+
+    const budgetInput = lines.findIndex((l) => l.startsWith('- inputText:') && l.includes('5000'));
+    expect(budgetInput).toBeGreaterThan(-1);
+
+    const dismissTap = lines.findIndex(
+      (l, i) => i > budgetInput && l.startsWith('- tapOn:') && l.includes(LABEL),
+    );
+    expect(dismissTap).toBeGreaterThan(budgetInput);
+
+    const reached = lines
+      .slice(budgetInput + 1, dismissTap)
+      .some((l) => l.includes('scrollUntilVisible') && l.includes(LABEL));
+
+    expect(reached).toBe(true);
+  });
+
+  it('still proves the goods-budget wording and the amount entered', () => {
+    const source = read(flowPath);
+    expect(source).toContain('- inputText: "5000"');
+    expect(source).toContain('input-max_goods_budget');
+    expect(source).toMatch(/assertVisible:\s*".\*Maximum to spend on the goods.\*"/);
+    expect(source).toMatch(/assertVisible:\s*".\*Delivery and service fees are separate.\*"/);
+  });
+});
