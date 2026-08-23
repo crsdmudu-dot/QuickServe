@@ -1,7 +1,7 @@
 # Service Details V1.5 — CAR TOWING safety gate: the blocking path and the normal path.
 #
 # The injury question runs BEFORE the form. Answering YES must stop the booking and point the
-# customer at emergency services; it must NOT read as though QuickServe is an emergency
+# customer at emergency services; it must NOT read as though KwikServe is an emergency
 # responder, and — by locked decision OD3 — no emergency telephone number is hardcoded anywhere,
 # because the correct number is jurisdictional. Both halves are asserted here.
 #
@@ -44,8 +44,8 @@ appId: ke.co.hiredcorp.kwikserve
 - scrollUntilVisible: { element: { text: "Please contact emergency services first" }, direction: DOWN, timeout: 12000 }
 - assertVisible: "Please contact emergency services first"
 # The body is a separate, longer node below the title.
-- scrollUntilVisible: { element: { text: ".*QuickServe is not an emergency service.*" }, direction: DOWN, timeout: 12000 }
-- assertVisible: ".*QuickServe is not an emergency service.*"
+- scrollUntilVisible: { element: { text: ".*KwikServe is not an emergency service.*" }, direction: DOWN, timeout: 12000 }
+- assertVisible: ".*KwikServe is not an emergency service.*"
 - takeScreenshot: sd-tw-02-blocked
 
 # The form and its Continue button are gone — progression is genuinely blocked, not just warned.

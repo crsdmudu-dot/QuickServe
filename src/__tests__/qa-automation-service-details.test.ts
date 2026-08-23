@@ -228,7 +228,19 @@ describe('Representative Service Details coverage exists', () => {
     expect(source).toContain('gate-option-yes');
     expect(source).toContain('gate-option-no');
     expect(source).toContain('safety-block');
-    expect(source).toContain('QuickServe is not an emergency service');
+    // Post-rebrand: the safety copy must name KwikServe. The old assertion was written from the
+    // implementation and therefore pinned the stale pre-rebrand name in place — S24 manual
+    // certification caught it, automation never could.
+    expect(source).toContain('KwikServe is not an emergency service');
+    // Mutation testing showed the flow assertion alone does NOT pin the product copy: reverting
+    // service-forms.ts to "QuickServe" left this suite green. Assert the CONFIG the customer
+    // actually reads, so the stale brand cannot come back through the source it lives in.
+    {
+      const forms = readFileSync(join(__dirname, '..', 'constants', 'service-forms.ts'), 'utf8');
+      expect(forms).toContain('KwikServe is not an emergency service');
+      expect(forms).not.toContain('QuickServe is not an emergency service');
+    }
+    expect(source).not.toContain('QuickServe is not an emergency service');
     // Locked decision OD3 — no emergency number may be presented.
     expect(source).toMatch(/assertNotVisible:\s*".\*999/);
     expect(source).toMatch(/assertNotVisible:\s*".\*112/);

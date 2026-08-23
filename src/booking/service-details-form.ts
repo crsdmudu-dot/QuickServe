@@ -204,6 +204,61 @@ export function validateItems(q: Question, lines: DraftItemLine[]): ItemErrors {
 }
 
 /** Validate every VISIBLE question. Hidden questions are never required. */
+/**
+ * Drop the validation errors whose answer has since changed.
+ *
+ * `validate` runs only when the customer presses Continue, so `errors` is a snapshot of that
+ * moment while `answers` keeps moving. Without this the form contradicts itself: a required
+ * question shows a green selected answer AND "This is required." until Continue is pressed again.
+ * Observed on the physical S24 against two independent required fields (variant and
+ * provider_bring_supplies), which is what proved it was the shared error state rather than one
+ * control.
+ *
+ * An error belongs to the answer that produced it: once that answer changes, the message is stale.
+ * Errors for OTHER fields are deliberately preserved, so pressing Continue with several fields
+ * missing still shows every outstanding one. This clears feedback only — `validate` remains the
+ * sole authority on whether the form may advance.
+ */
+export function clearResolvedErrors(
+  form: ServiceForm,
+  prev: Errors,
+  before: FormState,
+  after: FormState,
+): Errors {
+  const keys = Object.keys(prev);
+  if (keys.length === 0) return prev;
+
+  const itemListKey = orderedQuestions(form).find((q) => q.kind === 'itemlist')?.key;
+  const gateKey = form.safetyGate?.key;
+  // Questions still on screen after the change. An error for a question that is no longer
+  // rendered is unreachable: the customer cannot act on it and must not be blocked by it.
+  const stillVisible = new Set(visibleQuestions(form, after.answers).map((q) => q.key));
+
+  const next: Errors = { ...prev };
+  let changed = false;
+
+  for (const key of keys) {
+    // Answer changed — including becoming undefined, which is how pruning removes a hidden
+    // question's answer, so a pruned field never keeps an error for a question that is gone.
+    const answerChanged = !Object.is(before.answers[key], after.answers[key]);
+    // The item-list error keys off its question; any edit to the lines resolves it.
+    const linesChanged = key === itemListKey && before.lines !== after.lines;
+    // The safety gate lives outside `answers`.
+    const gateChanged = key === gateKey && before.gate !== after.gate;
+
+    // Pruning removes a question without its answer ever changing (it was never answered),
+    // so visibility must be checked as well as value.
+    const noLongerShown = key !== gateKey && !stillVisible.has(key);
+
+    if (answerChanged || linesChanged || gateChanged || noLongerShown) {
+      delete next[key];
+      changed = true;
+    }
+  }
+
+  return changed ? next : prev;
+}
+
 export function validate(form: ServiceForm, state: FormState): Errors {
   const errors: Errors = {};
   const { answers, lines } = state;

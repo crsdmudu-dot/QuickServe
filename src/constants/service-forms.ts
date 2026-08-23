@@ -1012,7 +1012,7 @@ const carTowing: ServiceForm = {
     blockTitle: 'Please contact emergency services first',
     blockBody:
       'If anyone is injured or in immediate danger, please contact emergency services before requesting a tow. ' +
-      'QuickServe is not an emergency service. Once everyone is safe, come back and we will arrange the tow.',
+      'KwikServe is not an emergency service. Once everyone is safe, come back and we will arrange the tow.',
   },
   primary: {
     key: 'issue',

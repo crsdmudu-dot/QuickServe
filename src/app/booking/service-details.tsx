@@ -28,6 +28,7 @@ import { Text } from '@/components/ui/text';
 import { getServiceForm } from '@/constants/service-forms';
 import { useServices } from '@/services/services-provider';
 import {
+  clearResolvedErrors,
   isSafetyBlocked,
   stateFromSnapshot,
   toSnapshot,
@@ -59,6 +60,16 @@ export default function ServiceDetailsScreen() {
   function handleBack() {
     if (router.canGoBack()) router.back();
     else router.replace('/home');
+  }
+
+  /**
+   * Every answer change flows through here, so error clearing lives in ONE place rather than
+   * being repeated at each control. Covers all four state-change paths: single/number/text/date
+   * questions, the item list, add-on multi-select, and the safety gate.
+   */
+  function handleFormChange(next: FormState) {
+    setErrors((prev) => clearResolvedErrors(form!, prev, state, next));
+    setState(next);
   }
 
   const backHeader = (
@@ -138,7 +149,7 @@ export default function ServiceDetailsScreen() {
                     fullWidth
                     variant={state.gate === o.key ? 'primary' : 'secondary'}
                     testID={`gate-option-${o.key}`}
-                    onPress={() => setState({ ...state, gate: o.key })}
+                    onPress={() => handleFormChange({ ...state, gate: o.key })}
                   />
                 ))}
               </View>
@@ -164,7 +175,7 @@ export default function ServiceDetailsScreen() {
               <ServiceDetailsForm
                 form={form}
                 state={state}
-                onChange={setState}
+                onChange={handleFormChange}
                 errors={errors}
                 photos={issuePhotos}
                 onAddPhoto={handlePickPhoto}
