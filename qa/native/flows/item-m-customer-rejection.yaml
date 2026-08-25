@@ -1,0 +1,52 @@
+# Item M — S1: the NEW kwikserve:// scheme reaches KwikServe, and the J guard REFUSES a customer.
+#
+# This is the check Phase 7B could not execute at all. On the physical iPhone, quickserve://admin
+# was intercepted by the legacy QuickServe app before KwikServe ran, so J-customer produced no
+# result — no PASS and no FAIL. Commit 060df7e adds `kwikserve` as an uncontested address; this
+# flow is the first runtime exercise of it.
+#
+# WHAT THIS PROVES, AND WHAT IT DOES NOT.
+# The CI simulator has ONLY KwikServe installed — `xcrun simctl install` places one app. So this
+# flow proves REGISTRATION and ROUTING (the scheme reaches the app, expo-router resolves /admin)
+# and GUARD BEHAVIOUR (a customer session is refused). It proves NOTHING about the collision:
+# there is no competing app here, so kwikserve:// cannot be shown to win against one. Only the
+# physical iPhone, which holds both apps, can demonstrate that. Do not report a pass here as
+# evidence that item M is resolved.
+#
+# FIRING MECHANISM. `openLink` is used because it keeps the authenticated session and the deep
+# link inside ONE flow, which is required — the guard must evaluate a signed-in customer, and a
+# separate `launchApp` would clear that state. Its behaviour with iOS custom schemes is not
+# documentation-confirmed, so if it proves unreliable at runtime the fallback is mechanical and
+# pre-marked below: split the flow at the FALLBACK SPLIT POINT, fire the URL from the workflow
+# with `xcrun simctl openurl "$DEVICE_ID" "kwikserve://admin"`, and run the remainder as a second
+# flow WITHOUT launchApp so the session survives. No assertion changes.
+#
+# Read-only. No booking, no mutation, nothing tapped after the link fires.
+#
+# Params via -e: CUST_EMAIL, CUST_PW.
+appId: ke.co.hiredcorp.kwikserve
+---
+- runFlow: { file: steps/login-customer.yaml }
+- assertVisible: "What service do you need today?"
+- takeScreenshot: item-m-01-customer-home-before
+
+# ── FALLBACK SPLIT POINT — see header ─────────────────────────────────────────
+- openLink: "kwikserve://admin"
+# ── end split point ───────────────────────────────────────────────────────────
+
+# The guard renders null while the role resolves, then redirects. Wait for the DESTINATION rather
+# than sleeping, so a slow resolve cannot be mistaken for a pass.
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 20000 }
+- takeScreenshot: item-m-02-customer-rejected
+
+# ── The customer must be on their own surface, not admin ──────────────────────
+- assertVisible: "What service do you need today?"
+
+# ── No admin chrome. "Providers" and the Admin title are admin-only; Payments and My Bookings
+#    are NOT asserted against because the customer surface carries tabs with those names. ───────
+- assertNotVisible: "Providers"
+- assertNotVisible: "Admin"
+
+# ── No authorization error surface either: the guard must REDIRECT, not strand the user ────────
+- assertNotVisible: "Not authorized"
+- assertNotVisible: ".*admin access.*"
