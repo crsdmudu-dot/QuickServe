@@ -26,6 +26,7 @@ described.
 | Single Expo codebase → Android + iOS (+ web) | **Implemented** (`app.json`, `package.json`) |
 | EAS build profiles (dev / preview / production) | **Implemented** (`eas.json`) |
 | Push notifications (dev/EAS build only; Expo Go excluded) | **Implemented + physically certified on both platforms** (`src/lib/push.ts`) — Android FCM in [Phase 5E](../../qa/PHASE-5E-ANDROID-PACKAGE-MIGRATION-FCM-PUSH-CERTIFICATION.md), iOS APNs in [Phase 6H](../../qa/PHASE-6H-IOS-KWIKSERVE-APNS-PUSH-CERTIFICATION.md). QA backend only — production push is **not** certified |
+| Service Details V1.6 capture + post-booking snapshot rendering | **Implemented + physically certified on Android** (`src/booking/service-details-form.ts`, `src/components/booking/service-details-summary.tsx`) — Samsung S24 in [Phase 7A](../../qa/PHASE-7A-SERVICE-DETAILS-V16-ANDROID-PHYSICAL-CERTIFICATION.md). iOS physical device **not** certified |
 | Photo attach via media library | **Implemented** (`expo-image-picker`) |
 | Provider foreground location sharing | **Implemented** (`expo-location`) |
 | Network monitoring / offline banner | **Implemented** (`@react-native-community/netinfo`) |
