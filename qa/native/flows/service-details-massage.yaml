@@ -22,8 +22,29 @@ appId: ke.co.hiredcorp.kwikserve
 ---
 - runFlow: { file: steps/login-customer.yaml }
 
-- scrollUntilVisible: { element: { text: ".*Massage.*" }, direction: DOWN, timeout: 15000 }
-- tapOn: ".*Massage.*"
+# ── Enter via SEARCH, not a deep Home scroll ──────────────────────────────────
+# Run 32850930655 died here, before the form was ever reached: scrolling Home for Massage spent
+# its full 15s and covered only about half the page. The screenshot stops at "Auto Services" and
+# the captured hierarchy holds only the nodes then on screen — this list is virtualised, so a
+# service scrolled past the viewport is genuinely absent from the tree rather than merely below
+# the fold. Massage is category 'personal', the LAST service of the LAST entry in CATEGORY_ORDER
+# (['home','auto','delivery','personal']), which makes it the deepest target on the whole screen.
+#
+# b3bbfcf fixed exactly this failure class for Car Towing and deliberately left this flow alone,
+# reasoning that Massage's "New" badge surfaces it near the top. Run 32850930655 disproved that.
+# Search reaches any service in one step and customer-nav-search.yaml has proven that entry in
+# every run of this suite.
+- tapOn: "Search services"
+- extendedWaitUntil: { visible: "Popular searches", timeout: 10000 }
+- tapOn: "Search services..."
+- inputText: "Massage"
+- extendedWaitUntil: { visible: ".*Massage.*", timeout: 12000 }
+# Tap the RESULT CARD, never the suggestion row above it. Towing disambiguates by its unique
+# starting price; Massage CANNOT — KES 2,000 is shared with Plumbing and Mechanic On Demand.
+# Its subtitle is unique across all 19 services and appears nowhere else in src/, the suggestion
+# row carries the search term rather than a subtitle, and "You might like" renders only when there
+# are NO results, so this selects the result card and nothing else.
+- tapOn: ".*Relax at home.*"
 - extendedWaitUntil: { visible: "Step 1 of 5", timeout: 15000 }
 - assertVisible: ".*What kind of massage.*"
 - takeScreenshot: sd-ms-01-step1

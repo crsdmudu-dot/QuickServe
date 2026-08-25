@@ -214,13 +214,43 @@ describe('Representative Service Details coverage exists', () => {
     // the screen stopped mid-grid with an accessibility hierarchy holding no app content. Car
     // Towing carries no badge, so it appears only in the Auto category grid far down the page.
     // Search reaches any service in one step and customer-nav-search.yaml has proven that entry
-    // in every run. Narrow by design: this pins the ONE flow whose target is known to be buried.
-    // House Cleaning (badge "Popular", first in the catalogue) and Massage (badge "New") surface
-    // near the top of Home and their scroll entries are runtime-proven, so they are left alone.
-    const source = read(flow('service-details-towing-safety.yaml'));
-    expect(source).toContain('- tapOn: "Search services"');
-    expect(source).toContain('- inputText: "Car Towing"');
-    expect(source).not.toMatch(/scrollUntilVisible: \{ element: \{ text: "\.\*Car Towing\.\*" \}, direction: DOWN/);
+    // in every run.
+    //
+    // Massage was ADDED to this guard after run 32850930655. b3bbfcf had left it on a Home scroll
+    // reasoning that its "New" badge surfaced it near the top; the run disproved that, timing out
+    // at 15s roughly half way down the page. Massage is the last service of the last category in
+    // CATEGORY_ORDER, so it is the deepest target on Home — the same fragility, not a new one.
+    const buried: Array<[string, string, string]> = [
+      ['service-details-towing-safety.yaml', 'Car Towing', 'Car Towing'],
+      ['service-details-massage.yaml', 'Massage', 'Massage'],
+    ];
+    for (const [file, query, homeTarget] of buried) {
+      const source = read(flow(file));
+      expect(source).toContain('- tapOn: "Search services"');
+      expect(source).toContain(`- inputText: "${query}"`);
+      // The blind Home traversal must be gone, not merely supplemented.
+      expect(source).not.toMatch(
+        new RegExp(`scrollUntilVisible: \\{ element: \\{ text: "\\.\\*${homeTarget}\\.\\*" \\}, direction: DOWN`),
+      );
+    }
+  });
+
+  it('the Massage result card is selected by a disambiguator that is actually unique', () => {
+    // Towing taps its result card by starting price because 3,500 is unique. Massage cannot copy
+    // that: KES 2,000 is shared with Plumbing and Mechanic On Demand, so a price tap would be
+    // ambiguous. It taps the subtitle instead — which only holds if the subtitle stays unique.
+    // This guard fails the moment someone gives another service the same subtitle.
+    const services = readFileSync(join(__dirname, '..', 'constants', 'services.ts'), 'utf8');
+    const subtitles = [...services.matchAll(/subtitle:\s*'([^']*)'/g)].map((m) => m[1]);
+    expect(subtitles.filter((s) => s === 'Relax at home')).toHaveLength(1);
+    expect(new Set(subtitles).size).toBe(subtitles.length);
+
+    const source = read(flow('service-details-massage.yaml'));
+    expect(source).toContain('- tapOn: ".*Relax at home.*"');
+    // Never the shared price, which would hit whichever KES 2,000 card rendered first. Asserted
+    // over COMMAND lines only — the flow's comment names that price to explain why it is unusable,
+    // and a whole-file match would fail on the explanation rather than on a real selector.
+    expect(commandLines(source).join('\n')).not.toContain('KES 2,000');
   });
 
   it('the Towing flow covers the blocking gate AND the non-blocking path', () => {
