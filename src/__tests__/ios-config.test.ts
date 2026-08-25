@@ -58,8 +58,20 @@ describe('iOS identity', () => {
   test('orientation remains portrait', () => {
     expect(expo.orientation).toBe('portrait');
   });
-  test('scheme is quickserve', () => {
-    expect(expo.scheme).toBe('quickserve');
+  // Item M (Phase 7B §11): legacy QuickServe and KwikServe both register `quickserve`, and iOS
+  // resolves a contested scheme silently with no chooser — so `quickserve://` could not reach
+  // KwikServe on a device holding both apps, and J-customer could not be executed there.
+  //
+  // `kwikserve` is the uncontested address that fixes that. `quickserve` is RETAINED for backward
+  // compatibility with any link already distributed, so this does NOT eliminate the collision:
+  // `quickserve://` stays ambiguous wherever both apps are installed. Dropping it is a later step,
+  // gated on retiring the legacy app.
+  //
+  // Order is load-bearing: Expo treats the first entry as the default for `Linking.createURL`.
+  // Nothing calls that today, so the effect is currently latent — which is exactly why it needs a
+  // guard rather than a comment.
+  test('registers kwikserve first and retains quickserve for compatibility', () => {
+    expect(expo.scheme).toEqual(['kwikserve', 'quickserve']);
   });
 });
 
