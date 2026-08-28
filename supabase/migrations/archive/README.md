@@ -66,3 +66,33 @@ the live expression verbatim — plus one additional conjunct pinning `service_d
 
 Don't apply this file. Apply `0038_provider_service_details_immutable.sql`, which contains the
 same policy plus the `service_details` pin. This file exists for the historical record only.
+
+### Production consequence of the version collision — verified 2026-08-29
+
+The note above establishes the collision's effect **in QA**, where the terminal-state policy is
+live and the booking-idempotency schema is also present. **Production differs, and the difference
+was not visible in migration history.**
+
+A read-only `pg_dump` of Production (`lkigkltvstlxfdztffds`, schema-only, explicit `--project-ref`,
+no relink) established that its recorded `0034` corresponds to the **earlier terminal-state
+migration**, and that the later booking-idempotency changes are absent:
+
+| Object | QA | Production |
+|---|---|---|
+| `bookings.idempotency_key` | present | **absent** |
+| `bookings_idempotency_key_uidx` | present | **absent** |
+| `bookings_active_dedup` | dropped | **still present** |
+
+Both environments report `0034` as applied, so `supabase migration list` cannot surface this —
+the version row is shared, the contents are not.
+
+Because version `0034` is already recorded remotely, **normal migration application can never
+deliver `0034_booking_idempotency_key.sql` to Production**; `db push` skips the version.
+
+**Forward reconciliation:** `0039_reconcile_booking_idempotency.sql` reproduces that migration's
+effective schema through the normal path, guarded so it is a no-op wherever the schema already
+exists. `supabase migration repair` was **deliberately not used**, for the same reason recorded
+above — it is version-keyed and cannot distinguish two files sharing `0034`.
+
+**Status: `0039` is AUTHORED and NOT APPLIED.** Production has not been reconciled. Neither
+historical `0034` file was renamed, moved, edited, or retroactively corrected by this note.
