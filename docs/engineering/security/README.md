@@ -37,6 +37,11 @@ rate-limiting, centralized monitoring, and secret rotation are **Partial** or **
 - **PostgREST / RPC** — table and function calls run under the caller's JWT; the database, not
   the client, decides access.
 - **RLS** — the primary data-access boundary (30 tables; `supabase/migrations/0003`, `0004`).
+  Runtime tenant isolation on `public.bookings` — cross-customer `SELECT` refusal and non-admin
+  admin-field write refusal — is certified in
+  [Phase 7D](../../qa/PHASE-7D-RLS-TENANT-ISOLATION-CERTIFICATION.md). That certification covers
+  **only those two policy paths**; other tables, INSERT/DELETE paths, and provider UPDATE column
+  pinning remain unprobed.
 - **Edge Functions** — server-side code for third parties/secrets; JWT-verified or secret-gated.
 - **Storage** — a private `booking-photos` bucket with policy-scoped access.
 - **External providers** — M-Pesa Daraja, Expo Push, Google Places/Maps — reached only from
