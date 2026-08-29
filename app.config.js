@@ -98,7 +98,18 @@ module.exports = ({ config }) => {
     (fs.existsSync('./google-services.json') ? './google-services.json' : undefined);
 
   // Release builds validate; every other profile keeps the tolerant behaviour above.
-  if (process.env.EAS_BUILD_PROFILE === 'production') {
+  //
+  // Prefix match, not equality. An exact `=== 'production'` check silently skipped the guard for
+  // `production-internal` — a profile that extends `production`, uses the production environment
+  // and the production Supabase backend, and therefore needs the Firebase check just as much. A
+  // production-connected build must not lose this protection because its profile has a different
+  // name. Every `production*` profile is enforced.
+  //
+  // Residual gap, deliberately accepted for now: a future production-connected profile named
+  // without that prefix (say `store-candidate`) would still bypass this. Keying on the resolved
+  // environment instead of the profile name would close it — the production env vars are provably
+  // loaded at config-evaluation time — and is the right change when such a profile is added.
+  if ((process.env.EAS_BUILD_PROFILE ?? '').startsWith('production')) {
     assertProductionFirebaseConfig(googleServicesFile);
   }
 

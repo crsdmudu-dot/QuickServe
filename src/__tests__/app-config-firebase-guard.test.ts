@@ -156,6 +156,36 @@ describe('production profile — the guard fails loudly', () => {
   });
 });
 
+/**
+ * The guard originally matched `EAS_BUILD_PROFILE === 'production'` exactly, which silently
+ * skipped `production-internal` — a profile that extends `production`, uses the production
+ * environment and the production Supabase backend, and so needs the check just as much. A
+ * production-connected build must not lose this protection because its profile has a different
+ * name. These pin the prefix match so the exact-equality form cannot come back.
+ */
+describe('every production* profile is enforced, not just "production"', () => {
+  const productionProfiles = ['production', 'production-internal', 'production-anything'];
+
+  it.each(productionProfiles)('%s FAILS when no Firebase config resolves', (profile) => {
+    expect(() => evaluate({ EAS_BUILD_PROFILE: profile })).toThrow(
+      /production Firebase config missing/,
+    );
+  });
+
+  it.each(productionProfiles)('%s FAILS on a wrong Firebase project', (profile) => {
+    const wrong = writeFixture(`wrong-${profile}.json`, fixture('some-other-project', [PACKAGE]));
+    expect(() => evaluate({ EAS_BUILD_PROFILE: profile, GOOGLE_SERVICES_JSON: wrong })).toThrow(
+      /Firebase project mismatch/,
+    );
+  });
+
+  it.each(productionProfiles)('%s SUCCEEDS with the approved project + package', (profile) => {
+    const good = writeFixture(`good-${profile}.json`, fixture(PROJECT_ID, [PACKAGE]));
+    const out = evaluate({ EAS_BUILD_PROFILE: profile, GOOGLE_SERVICES_JSON: good });
+    expect(out.android.googleServicesFile).toBe(good);
+  });
+});
+
 describe('non-production profiles — tolerant behaviour is preserved', () => {
   it('no Firebase config + NO profile → succeeds, googleServicesFile unset', () => {
     const out = evaluate({});
