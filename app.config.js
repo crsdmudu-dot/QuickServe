@@ -14,12 +14,93 @@
 //
 // The file is never committed (see .gitignore); it reaches EAS only through the
 // GOOGLE_SERVICES_JSON file env var.
+//
+// PRODUCTION FAIL-LOUD GUARD.
+// Case 3 above is deliberate tolerance, and it is correct for web export, local dev
+// and any machine without the file — but it is WRONG for a release build. A
+// production build that resolves no Firebase config still succeeds, installs and
+// launches looking completely healthy, while push notifications are dead:
+// getExpoPushTokenAsync fails and src/lib/push.ts returns null by design (correct
+// for Expo Go, but it also masks a real misconfiguration). Nothing surfaces the
+// problem until someone manually tests push on a device after release.
+//
+// So on the `production` EAS build profile ONLY, this file validates instead of
+// tolerating. It checks the resolved file actually EXISTS — not merely that the env
+// var is a non-empty string — and that it identifies the approved Firebase project
+// and carries the production Android package. Those two identity checks convert the
+// other silent failure (right file shape, wrong project) into a build-time error.
+//
+// The project id and package below are production INVARIANTS, not secrets: they are
+// the same values already committed in app.json and the QA phase reports. No API
+// key, OAuth client id or file content is read into the error path or printed.
 const fs = require('fs');
+
+/** Production Firebase invariants — see docs/qa/PHASE-5E and PHASE-7A. */
+const PROD_FIREBASE_PROJECT_ID = 'quickserve-1bfa9';
+const PROD_ANDROID_PACKAGE = 'ke.co.hiredcorp.kwikserve';
+
+/**
+ * Fail the build unless `file` is a readable google-services.json for the approved
+ * production Firebase project and Android package.
+ *
+ * Throws with a classification only — never the file's contents.
+ */
+function assertProductionFirebaseConfig(file) {
+  if (!file) {
+    throw new Error(
+      'production Firebase config missing: neither GOOGLE_SERVICES_JSON nor ./google-services.json resolved. ' +
+        'Set the GOOGLE_SERVICES_JSON file variable on the EAS production environment.',
+    );
+  }
+  if (!fs.existsSync(file)) {
+    throw new Error(
+      'production Firebase config missing: the resolved google-services.json path does not exist. ' +
+        'GOOGLE_SERVICES_JSON must point at a real file at config-evaluation time.',
+    );
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch {
+    // Deliberately does not echo the parser message: it can quote file content.
+    throw new Error('production Firebase config unreadable/invalid JSON.');
+  }
+
+  const projectId = parsed && parsed.project_info && parsed.project_info.project_id;
+  if (projectId !== PROD_FIREBASE_PROJECT_ID) {
+    throw new Error(
+      `Firebase project mismatch: expected ${PROD_FIREBASE_PROJECT_ID}, got ${
+        projectId ? String(projectId) : '(none)'
+      }.`,
+    );
+  }
+
+  const packages = Array.isArray(parsed.client)
+    ? parsed.client.map(
+        (c) =>
+          c &&
+          c.client_info &&
+          c.client_info.android_client_info &&
+          c.client_info.android_client_info.package_name,
+      )
+    : [];
+  if (!packages.includes(PROD_ANDROID_PACKAGE)) {
+    throw new Error(
+      `Firebase Android package mismatch: no client for ${PROD_ANDROID_PACKAGE} in the resolved config.`,
+    );
+  }
+}
 
 module.exports = ({ config }) => {
   const googleServicesFile =
     process.env.GOOGLE_SERVICES_JSON ||
     (fs.existsSync('./google-services.json') ? './google-services.json' : undefined);
+
+  // Release builds validate; every other profile keeps the tolerant behaviour above.
+  if (process.env.EAS_BUILD_PROFILE === 'production') {
+    assertProductionFirebaseConfig(googleServicesFile);
+  }
 
   if (googleServicesFile) {
     config.android = { ...(config.android || {}), googleServicesFile };
