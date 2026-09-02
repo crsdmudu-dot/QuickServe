@@ -40,16 +40,37 @@ export async function getOAuthToken(): Promise<string> {
 }
 
 /**
+ * Outcome of an STK Push submission, with the HTTP transport status preserved.
+ *
+ * The caller MUST be able to tell a real Daraja answer apart from a transport failure.
+ * Collapsing the two (by returning only the parsed body) makes an HTTP 5xx that happens to
+ * carry a JSON body look like an ordinary application rejection, which is not safe for money:
+ * the request was still transmitted and the customer may still be charged.
+ */
+export type StkPushResult = {
+  /** True only for a 2xx HTTP response. */
+  ok: boolean;
+  /** HTTP status code returned by Daraja (0 is never produced; fetch throws instead). */
+  status: number;
+  /** Parsed JSON body, or null when the response body was not valid JSON. */
+  body: Record<string, unknown> | null;
+};
+
+/**
  * Send an STK Push request to the Daraja API.
  *
  * @param token   - Bearer token obtained from `getOAuthToken()`.
  * @param payload - Pre-built payload from `buildStkPushPayload()`.
- * @returns Daraja JSON response object.
+ * @returns The HTTP status, an ok flag and the parsed body (null if unparseable).
+ *
+ * A network-level failure still throws, which the caller treats as ambiguous. A non-2xx
+ * response does NOT throw: it is returned with its status so the caller can refuse to draw a
+ * conclusion from it. No credential is ever placed in the returned structure.
  */
 export async function stkPush(
   token: string,
   payload: Record<string, unknown>,
-): Promise<Record<string, unknown>> {
+): Promise<StkPushResult> {
   const base = Deno.env.get('DARAJA_BASE_URL')!;
   const r = buildStkPushRequest(base, token, payload);
 
@@ -59,5 +80,13 @@ export async function stkPush(
     body: JSON.stringify(r.body),
   });
 
-  return await res.json();
+  let body: Record<string, unknown> | null = null;
+  try {
+    body = await res.json();
+  } catch {
+    // A non-JSON body (gateway HTML page, empty body) tells us nothing about collection.
+    body = null;
+  }
+
+  return { ok: res.ok, status: res.status, body };
 }
