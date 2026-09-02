@@ -30,6 +30,14 @@ export type PaymentAttempt = {
   result_code: number | null;
   result_desc: string | null;
   callback_received_at: string | null;
+  // Settlement evidence added by migration 0045. Optional so rows selected before 0045 is
+  // applied still type-check. settlement_reference is the provider's actual transaction
+  // identity (M-Pesa MpesaReceiptNumber); external_reference above remains the REQUEST id.
+  settlement_reference?: string | null;
+  collected_amount?: number | null;
+  resolution_note?: string | null;
+  resolution_reference?: string | null;
+  resolved_at?: string | null;
 };
 
 // ── Customer Mutations ─────────────────────────────────────────────────────
@@ -102,29 +110,51 @@ export async function adminGetPaymentAttempts(): Promise<PaymentAttempt[]> {
 // ── Admin Mutations ────────────────────────────────────────────────────────
 
 /**
- * Admin: confirm an attempt.
- * Calls `confirm_payment_attempt` RPC which flips the parent payment to paid.
+ * Admin: confirm that this attempt WAS collected externally (migration 0045).
+ *
+ * The old one-argument RPC was dropped because it settled a payment with no evidence at all:
+ * it never read the attempt amount, the wallet/promo split, or any provider reference. The
+ * backend now requires the collected amount to equal BOTH the attempt amount and the payment's
+ * current external due, plus a note and — for non-cash providers — the provider's transaction
+ * reference, which becomes the authoritative settlement identity.
+ *
+ * The server is the authority for all of that. The checks here only stop obviously incomplete
+ * submissions from making a pointless round trip.
  */
 export async function adminConfirmAttempt(
   attemptId: string,
+  collectedAmount: number,
+  confirmationNote: string,
+  confirmationReference: string | null,
 ): Promise<{ ok: boolean; error?: string }> {
   const { error } = await supabase.rpc('confirm_payment_attempt', {
     p_attempt_id: attemptId,
+    p_collected_amount: collectedAmount,
+    p_confirmation_note: confirmationNote,
+    p_confirmation_reference: confirmationReference,
   });
   if (error) return { ok: false, error: 'Could not confirm payment. Please try again.' };
   return { ok: true };
 }
 
 /**
- * Admin: cancel an attempt.
- * Calls `cancel_payment_attempt` RPC which marks the attempt as cancelled.
+ * Admin: record that this attempt did NOT collect (migration 0045).
+ *
+ * Replaces the evidence-free `cancel_payment_attempt`. Moving an attempt out of a blocking
+ * state asserts that the provider was checked and no money moved — a financially material
+ * claim — so a note is mandatory and the actor and timestamp are recorded server-side. It never
+ * writes a settlement reference.
  */
-export async function adminCancelAttempt(
+export async function adminReconcileAttemptNoCollection(
   attemptId: string,
+  reconciliationNote: string,
+  providerReference: string | null,
 ): Promise<{ ok: boolean; error?: string }> {
-  const { error } = await supabase.rpc('cancel_payment_attempt', {
+  const { error } = await supabase.rpc('reconcile_payment_attempt_no_collection', {
     p_attempt_id: attemptId,
+    p_reconciliation_note: reconciliationNote,
+    p_provider_reference: providerReference,
   });
-  if (error) return { ok: false, error: 'Could not cancel attempt. Please try again.' };
+  if (error) return { ok: false, error: 'Could not reconcile attempt. Please try again.' };
   return { ok: true };
 }

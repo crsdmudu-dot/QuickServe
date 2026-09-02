@@ -3,7 +3,7 @@
  *
  * Loads all payments via adminGetAllPayments() on mount and displays them in a
  * DataTable. Each row shows amount, status badge, split, method, booking ref,
- * and date. Admin can override the payment status via four small buttons per row.
+ * and date. Admin can override the payment status via the operational buttons per row.
  *
  * Wrapped by AdminShell via the (admin-web)/_layout.tsx — this screen only
  * needs to return its content (no Shell wrapper here).
@@ -30,7 +30,12 @@ import {
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
-const ALL_PAYMENT_STATUSES: PaymentStatus[] = ['pending', 'paid', 'refunded', 'cancelled'];
+// Generic override is operational only (migration 0045). 'paid' is reachable ONLY through an
+// evidenced settlement path — confirm_payment_attempt or a validated M-Pesa callback — because
+// a paid transition mints a provider earning. 'refunded' stays unavailable until refund
+// accounting exists, since provider_earnings is never retracted. The backend rejects both, so
+// offering them here would only produce errors.
+const OVERRIDE_PAYMENT_STATUSES: PaymentStatus[] = ['pending', 'cancelled'];
 
 // ── Column definitions ─────────────────────────────────────────────────────
 
@@ -100,7 +105,7 @@ function buildColumns(
       header: 'Override',
       render: (row) => (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
-          {ALL_PAYMENT_STATUSES.map((s) => (
+          {OVERRIDE_PAYMENT_STATUSES.map((s) => (
             <Button
               key={s}
               label={s.charAt(0).toUpperCase() + s.slice(1)}

@@ -30,15 +30,16 @@ const mockAdminGetPaymentAttempts = jest.fn().mockResolvedValue([
 ]);
 
 const mockAdminConfirmAttempt = jest.fn().mockResolvedValue({ ok: true });
-const mockAdminCancelAttempt = jest.fn().mockResolvedValue({ ok: true });
+const mockAdminReconcileAttempt = jest.fn().mockResolvedValue({ ok: true });
 
 jest.mock('@/lib/attempts', () => ({
   adminGetPaymentAttempts: (...args: unknown[]) => mockAdminGetPaymentAttempts(...args),
   adminConfirmAttempt: (...args: unknown[]) => mockAdminConfirmAttempt(...args),
-  adminCancelAttempt: (...args: unknown[]) => mockAdminCancelAttempt(...args),
+  adminReconcileAttemptNoCollection: (...args: unknown[]) =>
+    mockAdminReconcileAttempt(...args),
 }));
 
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import AdminPaymentAttemptsScreen from '@/app/admin/payment-attempts';
 
 const MOCK_ATTEMPT = {
@@ -62,10 +63,10 @@ describe('AdminPaymentAttemptsScreen', () => {
   beforeEach(() => {
     mockAdminGetPaymentAttempts.mockClear();
     mockAdminConfirmAttempt.mockClear();
-    mockAdminCancelAttempt.mockClear();
+    mockAdminReconcileAttempt.mockClear();
     mockAdminGetPaymentAttempts.mockResolvedValue([MOCK_ATTEMPT]);
     mockAdminConfirmAttempt.mockResolvedValue({ ok: true });
-    mockAdminCancelAttempt.mockResolvedValue({ ok: true });
+    mockAdminReconcileAttempt.mockResolvedValue({ ok: true });
   });
 
   it('renders the formatted amount after attempts load', async () => {
@@ -85,11 +86,47 @@ describe('AdminPaymentAttemptsScreen', () => {
     expect(screen.getByText('MPESA · 254712345678')).toBeOnTheScreen();
   });
 
-  it('pressing Confirm calls adminConfirmAttempt with the attempt id', async () => {
+  it('opens an evidence form before confirming, then sends all four arguments', async () => {
     render(<AdminPaymentAttemptsScreen />);
     await screen.findByText('KES 1,500');
-    fireEvent.press(screen.getByText('Confirm'));
-    expect(mockAdminConfirmAttempt).toHaveBeenCalledWith('a1');
+    fireEvent.press(screen.getByText('Confirm collected'));
+
+    // The action alone must not settle anything (0045 removed the evidence-free path).
+    expect(mockAdminConfirmAttempt).not.toHaveBeenCalled();
+
+    fireEvent.changeText(screen.getByTestId('resolution-note'), 'Verified in portal');
+    fireEvent.changeText(screen.getByTestId('resolution-reference'), 'NLJ7RT61SV');
+    fireEvent.press(screen.getByText('Submit confirmation'));
+
+    await waitFor(() =>
+      expect(mockAdminConfirmAttempt).toHaveBeenCalledWith(
+        'a1',
+        1500,
+        'Verified in portal',
+        'NLJ7RT61SV',
+      ),
+    );
+  });
+
+  it('records no collection through the reconciliation RPC and requires a note', async () => {
+    render(<AdminPaymentAttemptsScreen />);
+    await screen.findByText('KES 1,500');
+    fireEvent.press(screen.getByText('Record no collection'));
+
+    fireEvent.press(screen.getByText('Submit reconciliation'));
+    expect(await screen.findByText('Reconciliation note is required.')).toBeOnTheScreen();
+    expect(mockAdminReconcileAttempt).not.toHaveBeenCalled();
+
+    fireEvent.changeText(screen.getByTestId('resolution-note'), 'No transaction at provider');
+    fireEvent.press(screen.getByText('Submit reconciliation'));
+
+    await waitFor(() =>
+      expect(mockAdminReconcileAttempt).toHaveBeenCalledWith(
+        'a1',
+        'No transaction at provider',
+        null,
+      ),
+    );
   });
 
   it('shows empty state when there are no attempts', async () => {

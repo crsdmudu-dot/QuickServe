@@ -19,18 +19,27 @@ import { AttemptStatusBadge } from '@/components/ui/attempt-status-badge';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { formatKes } from '@/lib/currency';
+import { Input } from '@/components/ui/input';
 import {
   adminGetPaymentAttempts,
   adminConfirmAttempt,
-  adminCancelAttempt,
+  adminReconcileAttemptNoCollection,
   type PaymentAttempt,
 } from '@/lib/attempts';
+
+/**
+ * Statuses an admin may still resolve - mirrors the accepted set in both 0045 RPCs.
+ * 'timed_out' is included deliberately: the provider outcome is unresolved, so it needs a human
+ * decision in one direction or the other rather than being treated as a safe failure.
+ */
+const RESOLVABLE: PaymentAttempt['status'][] = ['initiated', 'pending', 'timed_out'];
+
+type ResolveMode = 'confirm' | 'reconcile';
 
 // ── Column definitions ─────────────────────────────────────────────────────
 
 function buildColumns(
-  onConfirm: (id: string) => void,
-  onCancel: (id: string) => void,
+  onResolve: (row: PaymentAttempt, mode: ResolveMode) => void,
 ): Column<PaymentAttempt>[] {
   return [
     {
@@ -123,7 +132,7 @@ function buildColumns(
       key: 'actions',
       header: 'Actions',
       render: (row) => {
-        if (row.status !== 'pending' && row.status !== 'initiated') {
+        if (!RESOLVABLE.includes(row.status)) {
           return (
             <Text variant="caption" color="textSecondary">
               {'—'}
@@ -132,16 +141,16 @@ function buildColumns(
         }
         return (
           <View style={{ flexDirection: 'row', gap: 4 }}>
-            <Button label="Confirm" onPress={() => onConfirm(row.id)} />
+            <Button label="Confirm collected" onPress={() => onResolve(row, 'confirm')} />
             <Button
-              label="Cancel"
+              label="No collection"
               variant="ghost"
-              onPress={() => onCancel(row.id)}
+              onPress={() => onResolve(row, 'reconcile')}
             />
           </View>
         );
       },
-      width: 160,
+      width: 260,
     },
   ];
 }
@@ -153,6 +162,12 @@ export default function AdminWebPaymentAttemptsScreen() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [target, setTarget] = useState<PaymentAttempt | null>(null);
+  const [mode, setMode] = useState<ResolveMode>('confirm');
+  const [amount, setAmount] = useState('');
+  const [note, setNote] = useState('');
+  const [reference, setReference] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoadError(false);
@@ -171,29 +186,69 @@ export default function AdminWebPaymentAttemptsScreen() {
     load();
   }, [load]);
 
-  async function handleConfirm(id: string) {
+  // Migration 0045 removed both evidence-free actions. Confirming asserts "this collection
+  // HAPPENED" and needs the collected amount, a note and - for non-cash - the provider's
+  // transaction reference. The old Cancel asserted "no money moved" with no evidence; it is now
+  // an explicit no-collection reconciliation requiring a note. The backend stays authoritative
+  // for amounts, eligibility and uniqueness; these checks only block incomplete submissions.
+  function openResolve(row: PaymentAttempt, m: ResolveMode) {
     setActionError('');
-    const r = await adminConfirmAttempt(id);
-    if (r.ok) {
-      const rows = await adminGetPaymentAttempts();
-      setAttempts(rows);
+    setTarget(row);
+    setMode(m);
+    setAmount(m === 'confirm' ? String(row.amount) : '');
+    setNote('');
+    setReference('');
+  }
+
+  function closeResolve() {
+    setTarget(null);
+    setAmount('');
+    setNote('');
+    setReference('');
+  }
+
+  async function submitResolve() {
+    if (!target) return;
+    setActionError('');
+    const trimmedNote = note.trim();
+    const trimmedRef = reference.trim();
+
+    if (!trimmedNote) {
+      setActionError(
+        mode === 'confirm' ? 'Confirmation note is required.' : 'Reconciliation note is required.',
+      );
+      return;
+    }
+
+    setBusy(true);
+    let r: { ok: boolean; error?: string };
+    if (mode === 'confirm') {
+      const collected = Number(amount);
+      if (!Number.isFinite(collected) || collected <= 0) {
+        setActionError('Collected amount must be a positive number.');
+        setBusy(false);
+        return;
+      }
+      if (target.provider !== 'cash' && !trimmedRef) {
+        setActionError('Transaction reference is required for this provider.');
+        setBusy(false);
+        return;
+      }
+      r = await adminConfirmAttempt(target.id, collected, trimmedNote, trimmedRef || null);
     } else {
-      setActionError(r.error ?? 'Could not confirm payment.');
+      r = await adminReconcileAttemptNoCollection(target.id, trimmedNote, trimmedRef || null);
+    }
+    setBusy(false);
+
+    if (r.ok) {
+      closeResolve();
+      setAttempts(await adminGetPaymentAttempts());
+    } else {
+      setActionError(r.error ?? 'Could not update attempt.');
     }
   }
 
-  async function handleCancel(id: string) {
-    setActionError('');
-    const r = await adminCancelAttempt(id);
-    if (r.ok) {
-      const rows = await adminGetPaymentAttempts();
-      setAttempts(rows);
-    } else {
-      setActionError(r.error ?? 'Could not cancel attempt.');
-    }
-  }
-
-  const columns = buildColumns(handleConfirm, handleCancel);
+  const columns = buildColumns(openResolve);
 
   return (
     <>
@@ -202,6 +257,67 @@ export default function AdminWebPaymentAttemptsScreen() {
         <Text variant="caption" color="error">
           {actionError}
         </Text>
+      ) : null}
+      {target ? (
+        <View style={{ gap: 8, marginBottom: 12 }}>
+          <Text variant="label" color="text">
+            {mode === 'confirm'
+              ? 'Confirm collection for attempt #' + target.id.slice(0, 8)
+              : 'Record no collection for attempt #' + target.id.slice(0, 8)}
+          </Text>
+
+          {mode === 'confirm' ? (
+            <Input
+              label="Collected amount"
+              value={amount}
+              onChangeText={setAmount}
+              keyboardType="numeric"
+              helperText="Must equal the attempt amount and the payment's remaining external due."
+              testID="collected-amount"
+            />
+          ) : null}
+
+          <Input
+            label={mode === 'confirm' ? 'Confirmation note' : 'Reconciliation note'}
+            value={note}
+            onChangeText={setNote}
+            multiline
+            helperText={
+              mode === 'confirm'
+                ? 'How was this collection verified?'
+                : 'How was it verified that no money was collected?'
+            }
+            testID="resolution-note"
+          />
+
+          <Input
+            label={
+              mode === 'confirm'
+                ? target.provider === 'cash'
+                  ? 'Transaction reference (optional for cash)'
+                  : 'Transaction reference'
+                : 'Provider reference (optional)'
+            }
+            value={reference}
+            onChangeText={setReference}
+            autoCapitalize="characters"
+            helperText={
+              mode === 'confirm'
+                ? 'Provider receipt, e.g. the M-Pesa transaction code.'
+                : 'Provider enquiry or case reference, if any.'
+            }
+            testID="resolution-reference"
+          />
+
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Button
+              label={mode === 'confirm' ? 'Submit confirmation' : 'Submit reconciliation'}
+              onPress={submitResolve}
+              disabled={busy}
+            />
+            <Button label="Cancel" variant="ghost" onPress={closeResolve} disabled={busy} />
+          </View>
+        </View>
       ) : null}
       <DataTable
         columns={columns}

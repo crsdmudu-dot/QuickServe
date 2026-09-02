@@ -26,7 +26,12 @@ import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Text } from '@/components/ui/text';
 
-const ALL_PAYMENT_STATUSES: PaymentStatus[] = ['pending', 'paid', 'refunded', 'cancelled'];
+// Generic override is operational only (migration 0045). 'paid' is reachable ONLY through an
+// evidenced settlement path — confirm_payment_attempt or a validated M-Pesa callback — because
+// a paid transition mints a provider earning. 'refunded' stays unavailable until refund
+// accounting exists, since provider_earnings is never retracted. The backend rejects both, so
+// offering them here would only produce errors.
+const OVERRIDE_PAYMENT_STATUSES: PaymentStatus[] = ['pending', 'cancelled'];
 
 export default function AdminPaymentsScreen() {
   const theme = useTheme();
@@ -105,7 +110,7 @@ export default function AdminPaymentsScreen() {
 
               {/* Status override buttons — tidy action row */}
               <View style={styles.actions}>
-                {ALL_PAYMENT_STATUSES.map((s) => (
+                {OVERRIDE_PAYMENT_STATUSES.map((s) => (
                   <Button
                     key={s}
                     label={s.charAt(0).toUpperCase() + s.slice(1)}

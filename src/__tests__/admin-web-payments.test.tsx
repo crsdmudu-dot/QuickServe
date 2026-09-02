@@ -58,12 +58,13 @@ const MOCK_ATTEMPT = {
 
 const mockAdminGetPaymentAttempts = jest.fn().mockResolvedValue([MOCK_ATTEMPT]);
 const mockAdminConfirmAttempt = jest.fn().mockResolvedValue({ ok: true });
-const mockAdminCancelAttempt = jest.fn().mockResolvedValue({ ok: true });
+const mockAdminReconcileAttempt = jest.fn().mockResolvedValue({ ok: true });
 
 jest.mock('@/lib/attempts', () => ({
   adminGetPaymentAttempts: (...args: unknown[]) => mockAdminGetPaymentAttempts(...args),
   adminConfirmAttempt: (...args: unknown[]) => mockAdminConfirmAttempt(...args),
-  adminCancelAttempt: (...args: unknown[]) => mockAdminCancelAttempt(...args),
+  adminReconcileAttemptNoCollection: (...args: unknown[]) =>
+    mockAdminReconcileAttempt(...args),
 }));
 
 // ── Earnings mocks ──────────────────────────────────────────────────────────
@@ -132,25 +133,25 @@ describe('AdminWebPaymentsScreen', () => {
     expect(await screen.findByText('#bk123456')).toBeOnTheScreen();
   });
 
-  it('calls adminOverridePaymentStatus when an override button is pressed', async () => {
+  it('calls adminOverridePaymentStatus when an operational override is pressed', async () => {
     render(<AdminWebPaymentsScreen />);
     await screen.findByText('KES 3,000');
-    // 'Paid' button triggers override to 'paid'
-    fireEvent.press(screen.getAllByText('Paid')[0]);
+    fireEvent.press(screen.getAllByText('Cancelled')[0]);
     await waitFor(() =>
-      expect(mockAdminOverridePaymentStatus).toHaveBeenCalledWith('pay1', 'paid'),
+      expect(mockAdminOverridePaymentStatus).toHaveBeenCalledWith('pay1', 'cancelled'),
     );
   });
 
-  it('updates the row status locally after a successful override', async () => {
-    // Start as pending, override to paid; local state should update
-    mockAdminOverridePaymentStatus.mockResolvedValueOnce({ ok: true });
+  it('does NOT offer paid or refunded through the generic override (0045)', async () => {
+    // A paid transition mints a provider earning, so it is reachable only through an evidenced
+    // settlement path; refunded stays unavailable while provider_earnings is never retracted.
+    // The backend rejects both, so the UI must not offer them.
     render(<AdminWebPaymentsScreen />);
     await screen.findByText('KES 3,000');
-    fireEvent.press(screen.getAllByText('Paid')[0]);
-    await waitFor(() =>
-      expect(mockAdminOverridePaymentStatus).toHaveBeenCalledWith('pay1', 'paid'),
-    );
+    expect(screen.queryByText('Paid')).toBeNull();
+    expect(screen.queryByText('Refunded')).toBeNull();
+    expect(screen.getAllByText('Pending').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Cancelled').length).toBeGreaterThan(0);
   });
 
   it('shows empty state when there are no payments', async () => {
@@ -239,10 +240,10 @@ describe('AdminWebPaymentAttemptsScreen', () => {
   beforeEach(() => {
     mockAdminGetPaymentAttempts.mockClear();
     mockAdminConfirmAttempt.mockClear();
-    mockAdminCancelAttempt.mockClear();
+    mockAdminReconcileAttempt.mockClear();
     mockAdminGetPaymentAttempts.mockResolvedValue([MOCK_ATTEMPT]);
     mockAdminConfirmAttempt.mockResolvedValue({ ok: true });
-    mockAdminCancelAttempt.mockResolvedValue({ ok: true });
+    mockAdminReconcileAttempt.mockResolvedValue({ ok: true });
   });
 
   it('renders the formatted amount after data loads', async () => {
@@ -266,22 +267,81 @@ describe('AdminWebPaymentAttemptsScreen', () => {
     expect(await screen.findByText('Checkout: ws_CO_123')).toBeOnTheScreen();
   });
 
-  it('calls adminConfirmAttempt with the attempt id when Confirm is pressed', async () => {
+  it('requires evidence before confirming: opens a form, then sends all four arguments', async () => {
     render(<AdminWebPaymentAttemptsScreen />);
     await screen.findByText('KES 1,500');
-    fireEvent.press(screen.getByText('Confirm'));
+    fireEvent.press(screen.getByText('Confirm collected'));
+
+    // Pressing the action alone must not settle anything - the form appears first.
+    expect(mockAdminConfirmAttempt).not.toHaveBeenCalled();
+
+    fireEvent.changeText(screen.getByTestId('resolution-note'), 'Verified in portal');
+    fireEvent.changeText(screen.getByTestId('resolution-reference'), 'NLJ7RT61SV');
+    fireEvent.press(screen.getByText('Submit confirmation'));
+
     await waitFor(() =>
-      expect(mockAdminConfirmAttempt).toHaveBeenCalledWith('att1'),
+      expect(mockAdminConfirmAttempt).toHaveBeenCalledWith(
+        'att1',
+        1500,
+        'Verified in portal',
+        'NLJ7RT61SV',
+      ),
     );
   });
 
-  it('calls adminCancelAttempt with the attempt id when Cancel is pressed', async () => {
+  it('blocks confirmation when the note is missing', async () => {
     render(<AdminWebPaymentAttemptsScreen />);
     await screen.findByText('KES 1,500');
-    fireEvent.press(screen.getByText('Cancel'));
+    fireEvent.press(screen.getByText('Confirm collected'));
+    fireEvent.changeText(screen.getByTestId('resolution-reference'), 'NLJ7RT61SV');
+    fireEvent.press(screen.getByText('Submit confirmation'));
+
+    expect(await screen.findByText('Confirmation note is required.')).toBeOnTheScreen();
+    expect(mockAdminConfirmAttempt).not.toHaveBeenCalled();
+  });
+
+  it('blocks confirmation for a non-cash provider without a transaction reference', async () => {
+    render(<AdminWebPaymentAttemptsScreen />);
+    await screen.findByText('KES 1,500');
+    fireEvent.press(screen.getByText('Confirm collected'));
+    fireEvent.changeText(screen.getByTestId('resolution-note'), 'Verified in portal');
+    fireEvent.press(screen.getByText('Submit confirmation'));
+
+    expect(
+      await screen.findByText('Transaction reference is required for this provider.'),
+    ).toBeOnTheScreen();
+    expect(mockAdminConfirmAttempt).not.toHaveBeenCalled();
+  });
+
+  it('records no collection through the reconciliation RPC, note required', async () => {
+    render(<AdminWebPaymentAttemptsScreen />);
+    await screen.findByText('KES 1,500');
+    fireEvent.press(screen.getByText('No collection'));
+
+    fireEvent.press(screen.getByText('Submit reconciliation'));
+    expect(await screen.findByText('Reconciliation note is required.')).toBeOnTheScreen();
+    expect(mockAdminReconcileAttempt).not.toHaveBeenCalled();
+
+    fireEvent.changeText(screen.getByTestId('resolution-note'), 'Daraja shows no transaction');
+    fireEvent.press(screen.getByText('Submit reconciliation'));
+
     await waitFor(() =>
-      expect(mockAdminCancelAttempt).toHaveBeenCalledWith('att1'),
+      expect(mockAdminReconcileAttempt).toHaveBeenCalledWith(
+        'att1',
+        'Daraja shows no transaction',
+        null,
+      ),
     );
+  });
+
+  it('offers resolution for a timed_out attempt (unresolved, not a safe failure)', async () => {
+    mockAdminGetPaymentAttempts.mockResolvedValueOnce([
+      { ...MOCK_ATTEMPT, status: 'timed_out' as const },
+    ]);
+    render(<AdminWebPaymentAttemptsScreen />);
+    await screen.findByText('KES 1,500');
+    expect(screen.getByText('Confirm collected')).toBeOnTheScreen();
+    expect(screen.getByText('No collection')).toBeOnTheScreen();
   });
 
   it('shows empty state when there are no attempts', async () => {
@@ -290,14 +350,14 @@ describe('AdminWebPaymentAttemptsScreen', () => {
     expect(await screen.findByText('No payment attempts yet.')).toBeOnTheScreen();
   });
 
-  it('does not show Confirm/Cancel for non-pending/initiated attempts', async () => {
+  it('offers no resolution actions for terminal attempts', async () => {
     mockAdminGetPaymentAttempts.mockResolvedValueOnce([
       { ...MOCK_ATTEMPT, status: 'successful' as const },
     ]);
     render(<AdminWebPaymentAttemptsScreen />);
     await screen.findByText('KES 1,500');
-    expect(screen.queryByText('Confirm')).toBeNull();
-    expect(screen.queryByText('Cancel')).toBeNull();
+    expect(screen.queryByText('Confirm collected')).toBeNull();
+    expect(screen.queryByText('No collection')).toBeNull();
   });
 });
 

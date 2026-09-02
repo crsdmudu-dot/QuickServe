@@ -3,7 +3,7 @@ import {
   getPaymentAttempts,
   adminGetPaymentAttempts,
   adminConfirmAttempt,
-  adminCancelAttempt,
+  adminReconcileAttemptNoCollection,
 } from '@/lib/attempts';
 
 // ── Mock Supabase ──────────────────────────────────────────────────────────
@@ -149,21 +149,35 @@ describe('adminGetPaymentAttempts', () => {
   });
 });
 
-// ── adminConfirmAttempt ────────────────────────────────────────────────────
+// ── adminConfirmAttempt (0045: evidence-bearing) ────────────────────────
 
 describe('adminConfirmAttempt', () => {
-  it('calls confirm_payment_attempt RPC with correct args on success', async () => {
+  it('sends all four evidence arguments to confirm_payment_attempt', async () => {
     rpc.mockResolvedValue({ error: null });
-    const res = await adminConfirmAttempt('att1');
+    const res = await adminConfirmAttempt('att1', 4000, 'Verified in Daraja portal', 'NLJ7RT61SV');
     expect(res).toEqual({ ok: true });
     expect(mockRpc).toHaveBeenCalledWith('confirm_payment_attempt', {
       p_attempt_id: 'att1',
+      p_collected_amount: 4000,
+      p_confirmation_note: 'Verified in Daraja portal',
+      p_confirmation_reference: 'NLJ7RT61SV',
+    });
+  });
+
+  it('passes a null reference through unchanged (cash has no provider receipt)', async () => {
+    rpc.mockResolvedValue({ error: null });
+    await adminConfirmAttempt('att2', 1500, 'Cash handed over at site', null);
+    expect(mockRpc).toHaveBeenCalledWith('confirm_payment_attempt', {
+      p_attempt_id: 'att2',
+      p_collected_amount: 1500,
+      p_confirmation_note: 'Cash handed over at site',
+      p_confirmation_reference: null,
     });
   });
 
   it('returns friendly error when RPC fails', async () => {
     rpc.mockResolvedValue({ error: { message: 'not allowed' } });
-    const res = await adminConfirmAttempt('att1');
+    const res = await adminConfirmAttempt('att1', 4000, 'note', 'REF');
     expect(res).toEqual({
       ok: false,
       error: 'Could not confirm payment. Please try again.',
@@ -171,24 +185,36 @@ describe('adminConfirmAttempt', () => {
   });
 });
 
-// ── adminCancelAttempt ─────────────────────────────────────────────────────
+// ── adminReconcileAttemptNoCollection (0045: replaces cancel) ───────────────
 
-describe('adminCancelAttempt', () => {
-  it('calls cancel_payment_attempt RPC with correct args on success', async () => {
+describe('adminReconcileAttemptNoCollection', () => {
+  it('calls reconcile_payment_attempt_no_collection with note and reference', async () => {
     rpc.mockResolvedValue({ error: null });
-    const res = await adminCancelAttempt('att1');
+    const res = await adminReconcileAttemptNoCollection(
+      'att1',
+      'Daraja shows no transaction',
+      'CASE-1234',
+    );
     expect(res).toEqual({ ok: true });
-    expect(mockRpc).toHaveBeenCalledWith('cancel_payment_attempt', {
+    expect(mockRpc).toHaveBeenCalledWith('reconcile_payment_attempt_no_collection', {
       p_attempt_id: 'att1',
+      p_reconciliation_note: 'Daraja shows no transaction',
+      p_provider_reference: 'CASE-1234',
     });
+  });
+
+  it('never calls the removed cancel_payment_attempt RPC', async () => {
+    rpc.mockResolvedValue({ error: null });
+    await adminReconcileAttemptNoCollection('att1', 'note', null);
+    expect(mockRpc).not.toHaveBeenCalledWith('cancel_payment_attempt', expect.anything());
   });
 
   it('returns friendly error when RPC fails', async () => {
     rpc.mockResolvedValue({ error: { message: 'not allowed' } });
-    const res = await adminCancelAttempt('att1');
+    const res = await adminReconcileAttemptNoCollection('att1', 'note', null);
     expect(res).toEqual({
       ok: false,
-      error: 'Could not cancel attempt. Please try again.',
+      error: 'Could not reconcile attempt. Please try again.',
     });
   });
 });
