@@ -189,13 +189,22 @@ describe('0038 — forward-only', () => {
 describe('migration sequence', () => {
   const files = (): string[] => fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql'));
 
-  it('0038 exists and is the highest version', () => {
+  /**
+   * This replaced an `expect(highest).toBe(38)` assertion that only held while 0038 happened to
+   * be the newest migration in the directory. It protected nothing the sibling tests below do
+   * not already cover — uniqueness of 0038, its ordering after 0037, and the no-duplicate-version
+   * rule — and it broke on every subsequent migration, so it was an accidental ceiling rather
+   * than an intended invariant (the file header lists no such invariant).
+   *
+   * What IS worth pinning is the property the Supabase CLI actually depends on: every executable
+   * migration filename must carry a parseable 4-digit version prefix, because the CLI keys
+   * migration history on it and a file without one is silently skipped.
+   */
+  it('0038 exists and every migration carries a CLI-parseable 4-digit version', () => {
     expect(fs.existsSync(REPAIR)).toBe(true);
-    const highest = files()
-      .map((f) => parseInt(f.slice(0, 4), 10))
-      .filter((n) => !Number.isNaN(n))
-      .reduce((a, b) => Math.max(a, b), 0);
-    expect(highest).toBe(38);
+    const unparseable = files().filter((f) => !/^\d{4}_/.test(f));
+    expect(unparseable).toEqual([]);
+    expect(files()).toContain('0038_provider_service_details_immutable.sql');
   });
 
   it('0038 is a unique version', () => {
