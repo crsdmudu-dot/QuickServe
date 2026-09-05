@@ -69,21 +69,27 @@ jest.mock('@/lib/attempts', () => ({
 
 // ── Earnings mocks ──────────────────────────────────────────────────────────
 
-const MOCK_EARNING = {
-  id: 'earn1',
-  provider_id: 'prov12345678',
-  booking_id: 'bk12345678',
-  amount: 2100,
-  payout_status: 'pending' as const,
-  created_at: '2026-07-01T00:00:00Z',
+const MOCK_LEDGER = {
+  earning_id: 'earn1',
+  booking_id: 'bk123456-0000-0000-0000-000000000000',
+  provider_id: 'prov1234-0000-0000-0000-000000000000',
+  provider_entitlement: 2100,
+  deductions_total: 0,
+  net_provider_payable: 2100,
+  amount_disbursed: 0,
+  outstanding_provider_liability: 2100,
+  stored_payout_status: 'pending' as const,
+  derived_payout_status: 'pending' as const,
 };
 
-const mockAdminGetAllEarnings = jest.fn().mockResolvedValue([MOCK_EARNING]);
-const mockAdminMarkPayoutPaid = jest.fn().mockResolvedValue({ ok: true });
+const mockAdminGetPayoutLedger = jest.fn().mockResolvedValue([MOCK_LEDGER]);
 
 jest.mock('@/lib/earnings', () => ({
-  adminGetAllEarnings: (...args: unknown[]) => mockAdminGetAllEarnings(...args),
-  adminMarkPayoutPaid: (...args: unknown[]) => mockAdminMarkPayoutPaid(...args),
+  adminGetPayoutLedger: (...args: unknown[]) => mockAdminGetPayoutLedger(...args),
+}));
+
+jest.mock('@/components/admin-web/admin-provider-payout-panel', () => ({
+  AdminProviderPayoutPanel: () => null,
 }));
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
@@ -365,20 +371,26 @@ describe('AdminWebPaymentAttemptsScreen', () => {
 
 describe('AdminWebEarningsScreen', () => {
   beforeEach(() => {
-    mockAdminGetAllEarnings.mockClear();
-    mockAdminMarkPayoutPaid.mockClear();
-    mockAdminGetAllEarnings.mockResolvedValue([MOCK_EARNING]);
-    mockAdminMarkPayoutPaid.mockResolvedValue({ ok: true });
+    mockAdminGetPayoutLedger.mockClear();
+    mockAdminGetPayoutLedger.mockResolvedValue([MOCK_LEDGER]);
   });
 
-  it('renders the formatted amount after data loads', async () => {
+  it('renders the provider entitlement after data loads', async () => {
     render(<AdminWebEarningsScreen />);
-    expect(await screen.findByText('KES 2,100')).toBeOnTheScreen();
+    expect(await screen.findAllByText('KES 2,100')).not.toHaveLength(0);
   });
 
   it('renders the payout status badge (Pending)', async () => {
     render(<AdminWebEarningsScreen />);
     expect(await screen.findByText('Pending')).toBeOnTheScreen();
+  });
+
+  it('supports the partially_paid status introduced by Provider Payout V1', async () => {
+    mockAdminGetPayoutLedger.mockResolvedValueOnce([
+      { ...MOCK_LEDGER, stored_payout_status: 'partially_paid' as const },
+    ]);
+    render(<AdminWebEarningsScreen />);
+    expect(await screen.findByText('Partially paid')).toBeOnTheScreen();
   });
 
   it('renders the provider ref (first 8 chars of provider_id)', async () => {
@@ -391,35 +403,31 @@ describe('AdminWebEarningsScreen', () => {
     expect(await screen.findByText('#bk123456')).toBeOnTheScreen();
   });
 
-  it('calls adminMarkPayoutPaid when the button is pressed', async () => {
+  it('offers Record payout, never wording that implies KwikServe sends the money', async () => {
     render(<AdminWebEarningsScreen />);
-    await screen.findByText('KES 2,100');
-    fireEvent.press(screen.getByText('Mark payout paid'));
-    await waitFor(() =>
-      expect(mockAdminMarkPayoutPaid).toHaveBeenCalledWith('earn1'),
-    );
+    expect(await screen.findByText('Record payout')).toBeOnTheScreen();
+    expect(screen.queryByText('Mark payout paid')).toBeNull();
+    expect(screen.queryByText('Send payout')).toBeNull();
+    expect(screen.queryByText('Pay provider now')).toBeNull();
+    expect(screen.queryByText('Transfer funds')).toBeNull();
   });
 
-  it('updates the row payout_status to paid locally after success', async () => {
-    render(<AdminWebEarningsScreen />);
-    await screen.findByText('KES 2,100');
-    fireEvent.press(screen.getByText('Mark payout paid'));
-    await waitFor(() =>
-      expect(mockAdminMarkPayoutPaid).toHaveBeenCalledWith('earn1'),
-    );
-  });
-
-  it('does not show Mark payout paid for already-paid earnings', async () => {
-    mockAdminGetAllEarnings.mockResolvedValueOnce([
-      { ...MOCK_EARNING, payout_status: 'paid' as const },
+  it('does not offer payout recording when nothing is outstanding', async () => {
+    mockAdminGetPayoutLedger.mockResolvedValueOnce([
+      {
+        ...MOCK_LEDGER,
+        amount_disbursed: 2100,
+        outstanding_provider_liability: 0,
+        stored_payout_status: 'paid' as const,
+      },
     ]);
     render(<AdminWebEarningsScreen />);
-    await screen.findByText('KES 2,100');
-    expect(screen.queryByText('Mark payout paid')).toBeNull();
+    expect(await screen.findByText('View ledger')).toBeOnTheScreen();
+    expect(screen.queryByText('Record payout')).toBeNull();
   });
 
   it('shows empty state when there are no earnings', async () => {
-    mockAdminGetAllEarnings.mockResolvedValueOnce([]);
+    mockAdminGetPayoutLedger.mockResolvedValueOnce([]);
     render(<AdminWebEarningsScreen />);
     expect(await screen.findByText('No earnings yet.')).toBeOnTheScreen();
   });

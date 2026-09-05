@@ -101,21 +101,24 @@ jest.mock('@/lib/reviews', () => ({
   ],
 }));
 
-const mockAdminGetProviderEarnings = jest.fn().mockResolvedValue([
+const mockAdminGetProviderPayoutLedger = jest.fn().mockResolvedValue([
   {
-    id: 'earn1',
-    provider_id: 'prov1',
+    earning_id: 'earn1',
     booking_id: 'bk1',
-    amount: 2100,
-    payout_status: 'pending',
-    created_at: '2026-06-01T00:00:00Z',
+    provider_id: 'prov1',
+    provider_entitlement: 2100,
+    deductions_total: 0,
+    net_provider_payable: 2100,
+    amount_disbursed: 0,
+    outstanding_provider_liability: 2100,
+    stored_payout_status: 'pending' as const,
+    derived_payout_status: 'pending' as const,
   },
 ]);
-const mockAdminMarkPayoutPaid = jest.fn().mockResolvedValue({ ok: true });
 
 jest.mock('@/lib/earnings', () => ({
-  adminGetProviderEarnings: (...args: unknown[]) => mockAdminGetProviderEarnings(...args),
-  adminMarkPayoutPaid: (...args: unknown[]) => mockAdminMarkPayoutPaid(...args),
+  adminGetProviderPayoutLedger: (...args: unknown[]) =>
+    mockAdminGetProviderPayoutLedger(...args),
 }));
 
 // InternalNotesPanel + AccountFlagPanel (added to providers/[id] as context links) pull operations data
@@ -208,8 +211,7 @@ describe('AdminWebProviderDetailScreen (detail)', () => {
     mockAdminUpdateProviderProfile.mockClear();
     mockGetProviderReviews.mockClear();
     mockSetReviewHidden.mockClear();
-    mockAdminGetProviderEarnings.mockClear();
-    mockAdminMarkPayoutPaid.mockClear();
+    mockAdminGetProviderPayoutLedger.mockClear();
     mockGetProviderRatingBreakdown.mockClear();
   });
 
@@ -239,13 +241,13 @@ describe('AdminWebProviderDetailScreen (detail)', () => {
     expect(await screen.findByText('KES 2,100')).toBeOnTheScreen();
   });
 
-  it('calls adminMarkPayoutPaid when Mark payout paid is pressed', async () => {
+  it('offers no payout mutation on the provider detail screen', async () => {
+    // Payout is recorded only on the Earnings & Payouts screen, behind a confirmation step.
     render(<AdminWebProviderDetailScreen />);
     await screen.findByText('KES 2,100');
-    fireEvent.press(screen.getByText('Mark payout paid'));
-    await waitFor(() =>
-      expect(mockAdminMarkPayoutPaid).toHaveBeenCalledWith('earn1'),
-    );
+    for (const label of ['Mark payout paid', 'Record payout', 'Send payout', 'Pay provider now']) {
+      expect(screen.queryByText(label)).toBeNull();
+    }
   });
 
   it('calls setProviderApproval with approved when Approve is pressed', async () => {

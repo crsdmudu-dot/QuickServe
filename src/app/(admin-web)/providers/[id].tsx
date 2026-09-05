@@ -3,7 +3,7 @@
  *
  * Desktop two-column layout:
  *   Left  — identity, approval, verify toggle, profile edit.
- *   Right — ratings/reviews (hide/unhide), earnings/payouts (mark paid).
+ *   Right — ratings/reviews (hide/unhide), provider payout ledger (read-only summary).
  *
  * Reuses all lib helpers and UI components from the mobile admin provider
  * detail screen (src/app/admin/provider/[id].tsx) — only the layout changes.
@@ -31,11 +31,17 @@ import {
   type ProviderRatingBreakdown,
 } from '@/lib/reviews';
 import {
-  adminGetProviderEarnings,
-  adminMarkPayoutPaid,
-  type ProviderEarning,
+  adminGetProviderPayoutLedger,
+  type ProviderPayoutLedgerRow,
 } from '@/lib/earnings';
 import { formatKes } from '@/lib/currency';
+
+/** Payout is recorded on the Earnings & Payouts screen; this detail view is read-only. */
+const PAYOUT_STATUS_LABELS: Record<string, string> = {
+  pending: 'Pending',
+  partially_paid: 'Partially paid',
+  paid: 'Paid',
+};
 import { PageMeta } from '@/components/admin-web/page-meta';
 import { Avatar } from '@/components/ui/avatar';
 import { VerifiedBadge } from '@/components/ui/verified-badge';
@@ -76,7 +82,7 @@ export default function AdminWebProviderDetailScreen() {
 
   // ── Right column state ─────────────────────────────────────────────────
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [earnings, setEarnings] = useState<ProviderEarning[]>([]);
+  const [ledger, setLedger] = useState<ProviderPayoutLedgerRow[]>([]);
   // Aggregated rating breakdown — display-only; not used for ranking or dispatch.
   const [breakdown, setBreakdown] = useState<ProviderRatingBreakdown | null>(null);
 
@@ -87,7 +93,7 @@ export default function AdminWebProviderDetailScreen() {
   }, [id]);
 
   const loadEarnings = useCallback(() => {
-    if (id) adminGetProviderEarnings(id).then(setEarnings);
+    if (id) adminGetProviderPayoutLedger(id).then(setLedger);
   }, [id]);
 
   // ── Initial data load ──────────────────────────────────────────────────
@@ -189,15 +195,6 @@ export default function AdminWebProviderDetailScreen() {
     }
   }
 
-  async function handleMarkPayoutPaid(earningId: string) {
-    setError('');
-    const result = await adminMarkPayoutPaid(earningId);
-    if (result.ok) {
-      loadEarnings();
-    } else {
-      setError(result.error ?? 'Could not update payout.');
-    }
-  }
 
   // ── Loading / not-found guard ──────────────────────────────────────────
 
@@ -374,33 +371,33 @@ export default function AdminWebProviderDetailScreen() {
 
       {/* Earnings / Payouts */}
       <SectionHeader title="Earnings & Payouts" />
-      {earnings.length === 0 ? (
+      {ledger.length === 0 ? (
         <Text variant="caption" color="textSecondary">
           No earnings recorded yet.
         </Text>
       ) : (
-        earnings.map((e) => (
-          <Card key={e.id} style={styles.earningRow}>
+        ledger.map((e) => (
+          <Card key={e.earning_id} style={styles.earningRow}>
             <View style={styles.earningInfo}>
               <Text variant="label" weight="semibold">
-                {formatKes(e.amount)}
+                {formatKes(e.net_provider_payable)}
+              </Text>
+              <Text variant="caption" color="textSecondary">
+                {`Entitlement ${formatKes(e.provider_entitlement)} · Deductions ${formatKes(
+                  e.deductions_total,
+                )}`}
+              </Text>
+              <Text variant="caption" color="textSecondary">
+                {`Disbursed ${formatKes(e.amount_disbursed)} · Outstanding ${formatKes(
+                  e.outstanding_provider_liability,
+                )}`}
               </Text>
               <Text
                 variant="caption"
-                color={e.payout_status === 'paid' ? 'primary' : 'textSecondary'}>
-                {e.payout_status === 'paid' ? 'Paid' : 'Pending'}
-              </Text>
-              <Text variant="caption" color="textTertiary">
-                {new Date(e.created_at).toLocaleDateString()}
+                color={e.stored_payout_status === 'paid' ? 'primary' : 'textSecondary'}>
+                {PAYOUT_STATUS_LABELS[e.stored_payout_status]}
               </Text>
             </View>
-            {e.payout_status === 'pending' && (
-              <Button
-                label="Mark payout paid"
-                variant="primary"
-                onPress={() => handleMarkPayoutPaid(e.id)}
-              />
-            )}
           </Card>
         ))
       )}

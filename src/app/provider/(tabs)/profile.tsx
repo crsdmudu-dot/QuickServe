@@ -21,11 +21,18 @@ import {
   type ProviderRatingBreakdown,
 } from '@/lib/reviews';
 import {
-  getMyEarnings,
+  getMyPayoutLedger,
   getProviderEarningsSummary,
-  type ProviderEarning,
   type EarningsSummary,
+  type ProviderPayoutLedgerRow,
 } from '@/lib/earnings';
+
+/** Provider view is READ-ONLY: there is no payout action anywhere on this screen. */
+const PROVIDER_PAYOUT_LABELS: Record<string, string> = {
+  pending: 'Pending payout',
+  partially_paid: 'Partially paid out',
+  paid: 'Paid out',
+};
 import { formatKes } from '@/lib/currency';
 import { Avatar } from '@/components/ui/avatar';
 import { VerifiedBadge } from '@/components/ui/verified-badge';
@@ -81,8 +88,14 @@ export default function ProviderProfileScreen() {
   // Aggregated rating breakdown — display-only; not used for ranking or dispatch.
   const [breakdown, setBreakdown] = useState<ProviderRatingBreakdown | null>(null);
   // Earnings are read-only — providers view only; no payout actions here.
-  const [earnings, setEarnings] = useState<ProviderEarning[]>([]);
-  const [earningsSummary, setEarningsSummary] = useState<EarningsSummary>({ pending: 0, paid: 0 });
+  const [ledger, setLedger] = useState<ProviderPayoutLedgerRow[]>([]);
+  const [earningsSummary, setEarningsSummary] = useState<EarningsSummary>({
+    entitlement: 0,
+    deductions: 0,
+    net_payable: 0,
+    disbursed: 0,
+    outstanding: 0,
+  });
 
   useEffect(() => {
     // Load profile and reviews only when approved and session exists.
@@ -98,7 +111,7 @@ export default function ProviderProfileScreen() {
       getProviderRatingBreakdown(userId).then(setBreakdown);
       // Earnings are self-scoped via RLS — no provider ID argument needed.
       getProviderEarningsSummary().then(setEarningsSummary);
-      getMyEarnings().then(setEarnings);
+      getMyPayoutLedger().then(setLedger);
     }
   }, [approvalStatus, session]);
 
@@ -208,22 +221,32 @@ export default function ProviderProfileScreen() {
         <View style={styles.section}>
           <SectionHeader title="Earnings" />
           <Card style={styles.summaryCard}>
-            <Text variant="body">Pending: {formatKes(earningsSummary.pending)}</Text>
-            <Text variant="body">Paid: {formatKes(earningsSummary.paid)}</Text>
+            <Text variant="body">Entitlement: {formatKes(earningsSummary.entitlement)}</Text>
+            <Text variant="body">Deductions: {formatKes(earningsSummary.deductions)}</Text>
+            <Text variant="body">Net payable: {formatKes(earningsSummary.net_payable)}</Text>
+            <Text variant="body">Paid out: {formatKes(earningsSummary.disbursed)}</Text>
+            <Text variant="body">Outstanding: {formatKes(earningsSummary.outstanding)}</Text>
           </Card>
-          {earnings.length === 0 ? (
+          {ledger.length === 0 ? (
             <Text variant="caption" color="textSecondary">No earnings yet.</Text>
           ) : (
-            earnings.map((e) => (
-              <Card key={e.id} style={styles.earningCard}>
-                <Text variant="heading">{formatKes(e.amount)}</Text>
-                <Text
-                  variant="caption"
-                  color={e.payout_status === 'paid' ? 'success' : 'warning'}>
-                  {e.payout_status === 'paid' ? 'Paid out' : 'Pending payout'}
+            ledger.map((e) => (
+              <Card key={e.earning_id} style={styles.earningCard}>
+                <Text variant="heading">{formatKes(e.net_provider_payable)}</Text>
+                <Text variant="caption" color="textSecondary">
+                  {`Entitlement ${formatKes(e.provider_entitlement)} · Deductions ${formatKes(
+                    e.deductions_total,
+                  )}`}
                 </Text>
                 <Text variant="caption" color="textSecondary">
-                  {new Date(e.created_at).toLocaleDateString()}
+                  {`Paid out ${formatKes(e.amount_disbursed)} · Outstanding ${formatKes(
+                    e.outstanding_provider_liability,
+                  )}`}
+                </Text>
+                <Text
+                  variant="caption"
+                  color={e.stored_payout_status === 'paid' ? 'success' : 'warning'}>
+                  {PROVIDER_PAYOUT_LABELS[e.stored_payout_status]}
                 </Text>
               </Card>
             ))

@@ -120,10 +120,16 @@ jest.mock('@/lib/providers', () => ({
 // ── @/lib/earnings mock ───────────────────────────────────────────────────────
 
 jest.mock('@/lib/earnings', () => ({
-  getProviderEarningsSummary: jest.fn().mockResolvedValue({ pending: 0, paid: 0 }),
-  getMyEarnings: jest.fn().mockResolvedValue([]),
-  adminGetProviderEarnings: jest.fn().mockResolvedValue([]),
-  adminMarkPayoutPaid: jest.fn().mockResolvedValue({ ok: true }),
+  // Provider Payout V1: figures come from the ledger view; the legacy mark-paid path is gone.
+  getProviderEarningsSummary: jest.fn().mockResolvedValue({
+    entitlement: 0,
+    deductions: 0,
+    net_payable: 0,
+    disbursed: 0,
+    outstanding: 0,
+  }),
+  getMyPayoutLedger: jest.fn().mockResolvedValue([]),
+  adminGetProviderPayoutLedger: jest.fn().mockResolvedValue([]),
 }));
 
 // ── @/lib/operations mock ─────────────────────────────────────────────────────

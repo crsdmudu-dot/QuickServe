@@ -1,18 +1,20 @@
 /**
- * src/app/(admin-web)/earnings/index.tsx — Web Admin Earnings & Payouts List
+ * src/app/(admin-web)/earnings/index.tsx — Web Admin Provider Earnings & Payouts
  *
- * Loads all provider earnings via adminGetAllEarnings() on mount and displays
- * them in a DataTable. Each row shows amount, payout status, provider ref,
- * booking ref, and date. Pending rows get a "Mark payout paid" button that
- * updates the local row on success.
+ * Lists every provider earning with its authoritative ledger figures — entitlement, deductions,
+ * net payable, disbursed and outstanding — read from the provider_payout_ledger view.
  *
- * Wrapped by AdminShell via the (admin-web)/_layout.tsx — this screen only
- * needs to return its content (no Shell wrapper here).
+ * The legacy one-click "Mark payout paid" action is GONE. Marking a status without an amount,
+ * method, reference, actor or date is not evidence of a payment. Selecting a row now opens the
+ * payout panel, where the admin records a transfer that has ALREADY been made externally.
+ *
+ * Wrapped by AdminShell via the (admin-web)/_layout.tsx.
  */
 
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { AdminProviderPayoutPanel } from '@/components/admin-web/admin-provider-payout-panel';
 import { DataTable, type Column } from '@/components/admin-web/data-table';
 import { PageMeta } from '@/components/admin-web/page-meta';
 import { Button } from '@/components/ui/button';
@@ -21,16 +23,16 @@ import { Radii, Spacing, type ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatKes } from '@/lib/currency';
 import {
-  adminGetAllEarnings,
-  adminMarkPayoutPaid,
-  type ProviderEarning,
+  adminGetPayoutLedger,
   type PayoutStatus,
+  type ProviderPayoutLedgerRow,
 } from '@/lib/earnings';
 
 // ── Payout status badge ────────────────────────────────────────────────────
 
 const PAYOUT_STATUS_COLORS: Record<PayoutStatus, ThemeColor> = {
   pending: 'warning',
+  partially_paid: 'warning',
   paid: 'success',
 };
 
@@ -41,6 +43,7 @@ const COLOR_TO_SURFACE: Partial<Record<ThemeColor, ThemeColor>> = {
 
 const PAYOUT_STATUS_LABELS: Record<PayoutStatus, string> = {
   pending: 'Pending',
+  partially_paid: 'Partially paid',
   paid: 'Paid',
 };
 
@@ -69,15 +72,59 @@ const badgeStyles = StyleSheet.create({
 // ── Column definitions ─────────────────────────────────────────────────────
 
 function buildColumns(
-  onMarkPaid: (id: string) => void,
-): Column<ProviderEarning>[] {
+  onSelect: (earningId: string) => void,
+): Column<ProviderPayoutLedgerRow>[] {
   return [
     {
-      key: 'amount',
-      header: 'Amount',
+      key: 'entitlement',
+      header: 'Entitlement',
       render: (row) => (
         <Text variant="label" color="text">
-          {formatKes(row.amount)}
+          {formatKes(row.provider_entitlement)}
+        </Text>
+      ),
+      width: 110,
+      align: 'right',
+    },
+    {
+      key: 'deductions',
+      header: 'Deductions',
+      render: (row) => (
+        <Text variant="caption" color="textSecondary">
+          {formatKes(row.deductions_total)}
+        </Text>
+      ),
+      width: 100,
+      align: 'right',
+    },
+    {
+      key: 'net',
+      header: 'Net payable',
+      render: (row) => (
+        <Text variant="label" color="text">
+          {formatKes(row.net_provider_payable)}
+        </Text>
+      ),
+      width: 110,
+      align: 'right',
+    },
+    {
+      key: 'disbursed',
+      header: 'Disbursed',
+      render: (row) => (
+        <Text variant="caption" color="textSecondary">
+          {formatKes(row.amount_disbursed)}
+        </Text>
+      ),
+      width: 100,
+      align: 'right',
+    },
+    {
+      key: 'outstanding',
+      header: 'Outstanding',
+      render: (row) => (
+        <Text variant="label" color="text">
+          {formatKes(row.outstanding_provider_liability)}
         </Text>
       ),
       width: 110,
@@ -86,8 +133,8 @@ function buildColumns(
     {
       key: 'payout_status',
       header: 'Payout Status',
-      render: (row) => <PayoutStatusBadge status={row.payout_status} />,
-      width: 120,
+      render: (row) => <PayoutStatusBadge status={row.stored_payout_status} />,
+      width: 130,
     },
     {
       key: 'provider',
@@ -110,34 +157,17 @@ function buildColumns(
       width: 110,
     },
     {
-      key: 'date',
-      header: 'Date',
-      render: (row) => (
-        <Text variant="caption" color="textSecondary">
-          {new Date(row.created_at).toLocaleDateString()}
-        </Text>
-      ),
-      width: 110,
-    },
-    {
       key: 'actions',
       header: 'Actions',
-      render: (row) => {
-        if (row.payout_status !== 'pending') {
-          return (
-            <Text variant="caption" color="textSecondary">
-              {'—'}
-            </Text>
-          );
-        }
-        return (
-          <Button
-            label="Mark payout paid"
-            onPress={() => onMarkPaid(row.id)}
-          />
-        );
-      },
-      width: 160,
+      render: (row) => (
+        <Button
+          label={
+            row.outstanding_provider_liability > 0 ? 'Record payout' : 'View ledger'
+          }
+          onPress={() => onSelect(row.earning_id)}
+        />
+      ),
+      width: 150,
     },
   ];
 }
@@ -145,17 +175,16 @@ function buildColumns(
 // ── Screen ──────────────────────────────────────────────────────────────────
 
 export default function AdminWebEarningsScreen() {
-  const [earnings, setEarnings] = useState<ProviderEarning[]>([]);
+  const [rows, setRows] = useState<ProviderPayoutLedgerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const [actionError, setActionError] = useState('');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoadError(false);
     setLoading(true);
     try {
-      const rows = await adminGetAllEarnings();
-      setEarnings(rows);
+      setRows(await adminGetPayoutLedger());
     } catch {
       setLoadError(true);
     } finally {
@@ -167,37 +196,30 @@ export default function AdminWebEarningsScreen() {
     load();
   }, [load]);
 
-  async function handleMarkPaid(id: string) {
-    setActionError('');
-    const result = await adminMarkPayoutPaid(id);
-    if (result.ok) {
-      setEarnings((prev) =>
-        prev.map((e) => (e.id === id ? { ...e, payout_status: 'paid' as PayoutStatus } : e)),
-      );
-    } else {
-      setActionError(result.error ?? 'Could not update payout.');
-    }
-  }
-
-  const columns = buildColumns(handleMarkPaid);
+  const columns = buildColumns(setSelectedId);
 
   return (
     <>
       <PageMeta title="Earnings & Payouts" />
-      {actionError ? (
-        <Text variant="caption" color="error">
-          {actionError}
-        </Text>
-      ) : null}
       <DataTable
         columns={columns}
-        rows={earnings}
-        keyExtractor={(e) => e.id}
+        rows={rows}
+        keyExtractor={(r) => r.earning_id}
         loading={loading}
         error={loadError}
         onRetry={load}
         emptyLabel="No earnings yet."
       />
+      {selectedId ? (
+        <View style={styles.panel}>
+          <Button label="Close ledger" variant="ghost" onPress={() => setSelectedId(null)} />
+          <AdminProviderPayoutPanel earningId={selectedId} onChanged={load} />
+        </View>
+      ) : null}
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  panel: { marginTop: Spacing.four, gap: Spacing.two },
+});

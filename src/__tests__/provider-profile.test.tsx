@@ -71,14 +71,22 @@ jest.mock('@/lib/reviews', () => ({
   ],
 }));
 
+const ZERO_SUMMARY = {
+  entitlement: 0,
+  deductions: 0,
+  net_payable: 0,
+  disbursed: 0,
+  outstanding: 0,
+};
+
 const mockGetProviderEarningsSummary = jest
   .fn()
-  .mockResolvedValue({ pending: 0, paid: 0 });
-const mockGetMyEarnings = jest.fn().mockResolvedValue([]);
+  .mockResolvedValue(ZERO_SUMMARY);
+const mockGetMyPayoutLedger = jest.fn().mockResolvedValue([]);
 
 jest.mock('@/lib/earnings', () => ({
   getProviderEarningsSummary: (...args: unknown[]) => mockGetProviderEarningsSummary(...args),
-  getMyEarnings: (...args: unknown[]) => mockGetMyEarnings(...args),
+  getMyPayoutLedger: (...args: unknown[]) => mockGetMyPayoutLedger(...args),
 }));
 
 const mockSignOut = jest.fn().mockResolvedValue(undefined);
@@ -107,10 +115,10 @@ describe('ProviderProfileScreen — approved', () => {
     mockGetProviderRatingBreakdown.mockClear();
     mockSignOut.mockClear();
     mockGetProviderEarningsSummary.mockClear();
-    mockGetMyEarnings.mockClear();
+    mockGetMyPayoutLedger.mockClear();
     // Restore default empty responses for earnings.
-    mockGetProviderEarningsSummary.mockResolvedValue({ pending: 0, paid: 0 });
-    mockGetMyEarnings.mockResolvedValue([]);
+    mockGetProviderEarningsSummary.mockResolvedValue(ZERO_SUMMARY);
+    mockGetMyPayoutLedger.mockResolvedValue([]);
   });
 
   it('shows name, verified badge and completed jobs count after data loads', async () => {
@@ -164,26 +172,45 @@ describe('ProviderProfileScreen — approved', () => {
     expect(await screen.findByText('Quality')).toBeOnTheScreen();
   });
 
-  it('shows earnings summary with pending and paid totals in the Earnings section', async () => {
-    // Override defaults so this test has non-zero earnings data.
-    mockGetProviderEarningsSummary.mockResolvedValue({ pending: 2100, paid: 5000 });
-    mockGetMyEarnings.mockResolvedValue([
+  it('shows the payout ledger summary in the Earnings section', async () => {
+    // Provider Payout V1: entitlement, deductions, net payable, disbursed and outstanding —
+    // all read from the ledger view, never recomputed client-side.
+    mockGetProviderEarningsSummary.mockResolvedValue({
+      entitlement: 7100,
+      deductions: 500,
+      net_payable: 6600,
+      disbursed: 5000,
+      outstanding: 1600,
+    });
+    mockGetMyPayoutLedger.mockResolvedValue([
       {
-        id: 'e1',
-        provider_id: 'p1',
+        earning_id: 'e1',
         booking_id: 'bk1',
-        amount: 2100,
-        payout_status: 'pending' as const,
-        created_at: '2026-06-01T10:00:00Z',
+        provider_id: 'p1',
+        provider_entitlement: 2100,
+        deductions_total: 0,
+        net_provider_payable: 2100,
+        amount_disbursed: 0,
+        outstanding_provider_liability: 2100,
+        stored_payout_status: 'pending' as const,
+        derived_payout_status: 'pending' as const,
       },
     ]);
 
     render(<ProviderProfileScreen />);
-    // Wait for profile to load first (mirrors existing approved-profile pattern).
     await screen.findByText('Jane Smith');
-    // Earnings summary card should show formatted KES amounts.
-    expect(await screen.findByText('Pending: KES 2,100')).toBeOnTheScreen();
-    expect(await screen.findByText('Paid: KES 5,000')).toBeOnTheScreen();
+    expect(await screen.findByText('Entitlement: KES 7,100')).toBeOnTheScreen();
+    expect(await screen.findByText('Net payable: KES 6,600')).toBeOnTheScreen();
+    expect(await screen.findByText('Paid out: KES 5,000')).toBeOnTheScreen();
+    expect(await screen.findByText('Outstanding: KES 1,600')).toBeOnTheScreen();
+  });
+
+  it('gives the provider no payout mutation control', async () => {
+    render(<ProviderProfileScreen />);
+    await screen.findByText('Jane Smith');
+    for (const label of ['Record payout', 'Mark payout paid', 'Record deduction', 'Reverse deduction']) {
+      expect(screen.queryByText(label)).toBeNull();
+    }
   });
 });
 
