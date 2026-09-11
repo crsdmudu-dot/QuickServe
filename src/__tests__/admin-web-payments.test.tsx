@@ -67,6 +67,42 @@ jest.mock('@/lib/attempts', () => ({
     mockAdminReconcileAttempt(...args),
 }));
 
+// ── 0053 review mock (the web attempts screen reads the review RPC, not the raw table) ──────
+const MOCK_REVIEW_ROW = {
+  attempt_id: 'a1',
+  payment_id: 'pay123456-0000-0000-0000-000000000000',
+  booking_id: 'bk123456-0000-0000-0000-000000000000',
+  status: 'timed_out' as const,
+  amount: 1500,
+  created_at: '2026-06-24T00:00:00Z',
+  age_seconds: 900,
+  callback_received_at: null,
+  result_code: null,
+  result_desc: null,
+  checkout_request_id: 'ws_CO_123',
+  merchant_request_id: 'MR-1',
+  has_collected_amount: false,
+  has_settlement_reference: false,
+  discrepancy_count: 0,
+  latest_discrepancy_type: null,
+  payment_status: 'pending',
+  blocks_retry: true,
+  needs_operator: true,
+  resolved_at: null,
+  resolved_by_present: false,
+  resolution_note: null,
+  resolution_reference: null,
+  category: 'reconcile' as const,
+  urgency: 'due' as const,
+  phone_masked: '***678',
+};
+const mockAdminGetMpesaAttemptReview = jest.fn().mockResolvedValue([MOCK_REVIEW_ROW]);
+jest.mock('@/lib/supabase', () => ({ supabase: { rpc: jest.fn() } }));
+jest.mock('@/lib/mpesa-ops', () => {
+  const actual = jest.requireActual('@/lib/mpesa-ops');
+  return { ...actual, adminGetMpesaAttemptReview: (...a: unknown[]) => mockAdminGetMpesaAttemptReview(...a) };
+});
+
 // ── Earnings mocks ──────────────────────────────────────────────────────────
 
 const MOCK_LEDGER = {
@@ -242,132 +278,48 @@ describe('AdminWebPaymentsScreen — pagination', () => {
 
 // ── Payment attempts list tests ─────────────────────────────────────────────
 
-describe('AdminWebPaymentAttemptsScreen', () => {
+describe('AdminWebPaymentAttemptsScreen (reconciliation queue, 0053 review RPC)', () => {
+  // Behavioural coverage of the queue, the two-step confirmation and the evidence rules lives in
+  // admin-web-payment-attempts-review.test.tsx. This block keeps the screen's basic contract:
+  // it renders review rows, offers the two protected actions only for resolvable statuses, and
+  // never exposes a raw MSISDN.
   beforeEach(() => {
-    mockAdminGetPaymentAttempts.mockClear();
-    mockAdminConfirmAttempt.mockClear();
-    mockAdminReconcileAttempt.mockClear();
-    mockAdminGetPaymentAttempts.mockResolvedValue([MOCK_ATTEMPT]);
-    mockAdminConfirmAttempt.mockResolvedValue({ ok: true });
-    mockAdminReconcileAttempt.mockResolvedValue({ ok: true });
+    mockAdminGetMpesaAttemptReview.mockClear();
+    mockAdminGetMpesaAttemptReview.mockResolvedValue([MOCK_REVIEW_ROW]);
   });
 
-  it('renders the formatted amount after data loads', async () => {
+  it('renders the formatted amount and the masked phone after data loads', async () => {
     render(<AdminWebPaymentAttemptsScreen />);
     expect(await screen.findByText('KES 1,500')).toBeOnTheScreen();
-  });
-
-  it('renders the attempt status badge', async () => {
-    render(<AdminWebPaymentAttemptsScreen />);
-    expect(await screen.findByText('Pending')).toBeOnTheScreen();
-  });
-
-  it('renders the provider in uppercase', async () => {
-    render(<AdminWebPaymentAttemptsScreen />);
-    await screen.findByText('KES 1,500');
-    expect(screen.getByText('MPESA')).toBeOnTheScreen();
-  });
-
-  it('renders the checkout request id when present', async () => {
-    render(<AdminWebPaymentAttemptsScreen />);
-    expect(await screen.findByText('Checkout: ws_CO_123')).toBeOnTheScreen();
-  });
-
-  it('requires evidence before confirming: opens a form, then sends all four arguments', async () => {
-    render(<AdminWebPaymentAttemptsScreen />);
-    await screen.findByText('KES 1,500');
-    fireEvent.press(screen.getByText('Confirm collected'));
-
-    // Pressing the action alone must not settle anything - the form appears first.
-    expect(mockAdminConfirmAttempt).not.toHaveBeenCalled();
-
-    fireEvent.changeText(screen.getByTestId('resolution-note'), 'Verified in portal');
-    fireEvent.changeText(screen.getByTestId('resolution-reference'), 'NLJ7RT61SV');
-    fireEvent.press(screen.getByText('Submit confirmation'));
-
-    await waitFor(() =>
-      expect(mockAdminConfirmAttempt).toHaveBeenCalledWith(
-        'att1',
-        1500,
-        'Verified in portal',
-        'NLJ7RT61SV',
-      ),
-    );
-  });
-
-  it('blocks confirmation when the note is missing', async () => {
-    render(<AdminWebPaymentAttemptsScreen />);
-    await screen.findByText('KES 1,500');
-    fireEvent.press(screen.getByText('Confirm collected'));
-    fireEvent.changeText(screen.getByTestId('resolution-reference'), 'NLJ7RT61SV');
-    fireEvent.press(screen.getByText('Submit confirmation'));
-
-    expect(await screen.findByText('Confirmation note is required.')).toBeOnTheScreen();
-    expect(mockAdminConfirmAttempt).not.toHaveBeenCalled();
-  });
-
-  it('blocks confirmation for a non-cash provider without a transaction reference', async () => {
-    render(<AdminWebPaymentAttemptsScreen />);
-    await screen.findByText('KES 1,500');
-    fireEvent.press(screen.getByText('Confirm collected'));
-    fireEvent.changeText(screen.getByTestId('resolution-note'), 'Verified in portal');
-    fireEvent.press(screen.getByText('Submit confirmation'));
-
-    expect(
-      await screen.findByText('Transaction reference is required for this provider.'),
-    ).toBeOnTheScreen();
-    expect(mockAdminConfirmAttempt).not.toHaveBeenCalled();
-  });
-
-  it('records no collection through the reconciliation RPC, note required', async () => {
-    render(<AdminWebPaymentAttemptsScreen />);
-    await screen.findByText('KES 1,500');
-    fireEvent.press(screen.getByText('No collection'));
-
-    fireEvent.press(screen.getByText('Submit reconciliation'));
-    expect(await screen.findByText('Reconciliation note is required.')).toBeOnTheScreen();
-    expect(mockAdminReconcileAttempt).not.toHaveBeenCalled();
-
-    fireEvent.changeText(screen.getByTestId('resolution-note'), 'Daraja shows no transaction');
-    fireEvent.press(screen.getByText('Submit reconciliation'));
-
-    await waitFor(() =>
-      expect(mockAdminReconcileAttempt).toHaveBeenCalledWith(
-        'att1',
-        'Daraja shows no transaction',
-        null,
-      ),
-    );
+    expect(screen.getByText('***678')).toBeOnTheScreen();
+    expect(screen.queryByText(/254712345678/)).toBeNull();
   });
 
   it('offers resolution for a timed_out attempt (unresolved, not a safe failure)', async () => {
-    mockAdminGetPaymentAttempts.mockResolvedValueOnce([
-      { ...MOCK_ATTEMPT, status: 'timed_out' as const },
-    ]);
     render(<AdminWebPaymentAttemptsScreen />);
     await screen.findByText('KES 1,500');
-    expect(screen.getByText('Confirm collected')).toBeOnTheScreen();
-    expect(screen.getByText('No collection')).toBeOnTheScreen();
-  });
-
-  it('shows empty state when there are no attempts', async () => {
-    mockAdminGetPaymentAttempts.mockResolvedValueOnce([]);
-    render(<AdminWebPaymentAttemptsScreen />);
-    expect(await screen.findByText('No payment attempts yet.')).toBeOnTheScreen();
+    expect(screen.getByTestId('confirm-a1')).toBeOnTheScreen();
+    expect(screen.getByTestId('nocollect-a1')).toBeOnTheScreen();
+    expect(screen.getByText('Reconciliation required')).toBeOnTheScreen();
   });
 
   it('offers no resolution actions for terminal attempts', async () => {
-    mockAdminGetPaymentAttempts.mockResolvedValueOnce([
-      { ...MOCK_ATTEMPT, status: 'successful' as const },
+    mockAdminGetMpesaAttemptReview.mockResolvedValueOnce([
+      { ...MOCK_REVIEW_ROW, attempt_id: 'a2', status: 'failed' as const, category: 'failed' as const, urgency: 'normal' as const, blocks_retry: false, needs_operator: false },
     ]);
     render(<AdminWebPaymentAttemptsScreen />);
-    await screen.findByText('KES 1,500');
-    expect(screen.queryByText('Confirm collected')).toBeNull();
-    expect(screen.queryByText('No collection')).toBeNull();
+    fireEvent.press(await screen.findByText('Show all'));
+    await screen.findByText('Provider reported failure');
+    expect(screen.queryByTestId('confirm-a2')).toBeNull();
+    expect(screen.queryByTestId('nocollect-a2')).toBeNull();
+  });
+
+  it('shows the needs-attention empty state when nothing requires an operator', async () => {
+    mockAdminGetMpesaAttemptReview.mockResolvedValueOnce([]);
+    render(<AdminWebPaymentAttemptsScreen />);
+    expect(await screen.findByText('Nothing needs an operator right now.')).toBeOnTheScreen();
   });
 });
-
-// ── Earnings list tests ─────────────────────────────────────────────────────
 
 describe('AdminWebEarningsScreen', () => {
   beforeEach(() => {

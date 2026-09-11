@@ -102,7 +102,14 @@ export default function AdminPaymentAttemptsScreen() {
       }
       r = await adminConfirmAttempt(a.id, collected, trimmedNote, trimmedRef || null);
     } else {
-      r = await adminReconcileAttemptNoCollection(a.id, trimmedNote, trimmedRef || null);
+      // 0053: no-collection needs structured evidence. This screen has no portal-check
+      // declaration control, so it can only submit provider-reference evidence.
+      if (!trimmedRef) {
+        setError('Provider reference is required (use the web admin for a portal-check declaration).');
+        setBusy(false);
+        return;
+      }
+      r = await adminReconcileAttemptNoCollection(a.id, trimmedNote, trimmedRef, 'provider_reference');
     }
     setBusy(false);
 

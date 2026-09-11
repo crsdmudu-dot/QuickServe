@@ -32,9 +32,11 @@ function fnBody(name: string): string {
 }
 
 describe('0052 — provider disbursement analytics', () => {
-  it('is the only new migration after 0051 and edits nothing earlier', () => {
+  it('sits immediately after 0051 and is the only 0052 migration', () => {
     const files = fs.readdirSync(dir).filter((f) => /^\d{4}_.*\.sql$/.test(f)).sort();
-    expect(files[files.length - 1]).toBe(MIGRATION);
+    const idx0051 = files.findIndex((f) => f.startsWith('0051_'));
+    expect(idx0051).toBeGreaterThan(-1);
+    expect(files[idx0051 + 1]).toBe(MIGRATION);
     expect(files.filter((f) => f.startsWith('0052'))).toHaveLength(1);
     expect(files.filter((f) => f.startsWith('0051'))).toHaveLength(1);
   });

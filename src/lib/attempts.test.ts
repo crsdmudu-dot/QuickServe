@@ -188,30 +188,43 @@ describe('adminConfirmAttempt', () => {
 // ── adminReconcileAttemptNoCollection (0045: replaces cancel) ───────────────
 
 describe('adminReconcileAttemptNoCollection', () => {
-  it('calls reconcile_payment_attempt_no_collection with note and reference', async () => {
+  it('calls reconcile_payment_attempt_no_collection with note, reference and the structured evidence source', async () => {
     rpc.mockResolvedValue({ error: null });
     const res = await adminReconcileAttemptNoCollection(
       'att1',
       'Daraja shows no transaction',
       'CASE-1234',
+      'provider_reference',
     );
     expect(res).toEqual({ ok: true });
     expect(mockRpc).toHaveBeenCalledWith('reconcile_payment_attempt_no_collection', {
       p_attempt_id: 'att1',
       p_reconciliation_note: 'Daraja shows no transaction',
       p_provider_reference: 'CASE-1234',
+      p_evidence_source: 'provider_reference',
+    });
+  });
+
+  it('sends portal_lookup as the evidence source when the operator declares the portal check', async () => {
+    rpc.mockResolvedValue({ error: null });
+    await adminReconcileAttemptNoCollection('att1', 'Portal shows no transaction', null, 'portal_lookup');
+    expect(mockRpc).toHaveBeenCalledWith('reconcile_payment_attempt_no_collection', {
+      p_attempt_id: 'att1',
+      p_reconciliation_note: 'Portal shows no transaction',
+      p_provider_reference: null,
+      p_evidence_source: 'portal_lookup',
     });
   });
 
   it('never calls the removed cancel_payment_attempt RPC', async () => {
     rpc.mockResolvedValue({ error: null });
-    await adminReconcileAttemptNoCollection('att1', 'note', null);
+    await adminReconcileAttemptNoCollection('att1', 'note', null, 'portal_lookup');
     expect(mockRpc).not.toHaveBeenCalledWith('cancel_payment_attempt', expect.anything());
   });
 
   it('returns friendly error when RPC fails', async () => {
     rpc.mockResolvedValue({ error: { message: 'not allowed' } });
-    const res = await adminReconcileAttemptNoCollection('att1', 'note', null);
+    const res = await adminReconcileAttemptNoCollection('att1', 'note', null, 'portal_lookup');
     expect(res).toEqual({
       ok: false,
       error: 'Could not reconcile attempt. Please try again.',

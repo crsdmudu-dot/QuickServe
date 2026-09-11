@@ -104,17 +104,27 @@ where created_at > now() - interval '1 hour';
 **Alert threshold:** > 20 % failed attempts in any 1-hour window → investigate Daraja status
 or set `MPESA_MODE=mock` as a kill switch.
 
-### Stale pending attempts
+### Stale / ambiguous attempts (operational queue)
+
+Since migration 0036 the `mpesa-reconcile-stale-attempts` cron ages `initiated`/`pending`
+attempts with no callback to `timed_out` after 5 minutes; since 0053 the `mpesa-ops-alert-sweep`
+cron raises one admin notification per attempt per kind (`admin_attempt_timed_out`,
+`admin_attempt_discrepancy`, `admin_attempt_stale`). Use the review RPC rather than raw status
+queries — it derives the operational category, urgency and whether retry is blocked:
 
 ```sql
--- Attempts pending > 5 minutes (STK push timeout)
-select id, booking_id, created_at
-from public.payment_attempts
-where status = 'pending'
-  and created_at < now() - interval '5 minutes';
+-- Admin session required (is_admin()). Most urgent first.
+select attempt_id, category, urgency, status, amount, age_seconds, blocks_retry,
+       latest_discrepancy_type, payment_status
+from public.admin_mpesa_attempt_review()
+where needs_operator;
 ```
 
-These may indicate a missed callback. Manually confirm and cancel if needed.
+`timed_out` and discrepancy rows are AMBIGUOUS, not failed: do not retry and do not "cancel" on a
+hunch. Resolve only from evidence through `confirm_payment_attempt` or
+`reconcile_payment_attempt_no_collection` as described in
+[`mpesa-operations-runbook.md`](./mpesa-operations-runbook.md). (The former one-argument
+confirm and the evidence-free cancel were removed in 0045.)
 
 ### M-Pesa kill switch
 

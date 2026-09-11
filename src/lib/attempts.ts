@@ -145,15 +145,20 @@ export async function adminConfirmAttempt(
  * claim — so a note is mandatory and the actor and timestamp are recorded server-side. It never
  * writes a settlement reference.
  */
+/** 0053: the structured evidence behind a no-collection reconciliation, persisted server-side. */
+export type NoCollectionEvidenceSource = 'provider_reference' | 'portal_lookup';
+
 export async function adminReconcileAttemptNoCollection(
   attemptId: string,
   reconciliationNote: string,
   providerReference: string | null,
+  evidenceSource: NoCollectionEvidenceSource,
 ): Promise<{ ok: boolean; error?: string }> {
   const { error } = await supabase.rpc('reconcile_payment_attempt_no_collection', {
     p_attempt_id: attemptId,
     p_reconciliation_note: reconciliationNote,
     p_provider_reference: providerReference,
+    p_evidence_source: evidenceSource,
   });
   if (error) return { ok: false, error: 'Could not reconcile attempt. Please try again.' };
   return { ok: true };

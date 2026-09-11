@@ -119,12 +119,19 @@ describe('AdminPaymentAttemptsScreen', () => {
 
     fireEvent.changeText(screen.getByTestId('resolution-note'), 'No transaction at provider');
     fireEvent.press(screen.getByText('Submit reconciliation'));
+    // 0053: a note alone is not evidence; the mobile screen can only submit a provider reference.
+    expect(await screen.findByText(/Provider reference is required/)).toBeOnTheScreen();
+    expect(mockAdminReconcileAttempt).not.toHaveBeenCalled();
+
+    fireEvent.changeText(screen.getByTestId('resolution-reference'), 'SAF-CASE-1');
+    fireEvent.press(screen.getByText('Submit reconciliation'));
 
     await waitFor(() =>
       expect(mockAdminReconcileAttempt).toHaveBeenCalledWith(
         'a1',
         'No transaction at provider',
-        null,
+        'SAF-CASE-1',
+        'provider_reference',
       ),
     );
   });
