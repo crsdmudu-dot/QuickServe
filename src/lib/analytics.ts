@@ -43,19 +43,29 @@ export type BookingsSummary = {
 export type FinancialPoint = {
   period: string;
   revenue: number;
+  /** LEGACY (0025): gross provider entitlement accrued in the bucket, by earning created_at.
+   *  Not money paid out. Kept for contract compatibility; do not present it as "payouts". */
   provider_payouts: number;
   quickserve_revenue: number;
   wallet_used: number;
   promo_used: number;
+  /** 0052: real disbursements (provider_payouts.amount) bucketed by the date the money moved. */
+  provider_payouts_disbursed: number;
 };
 
 /** Financial summary row — analytics_financial_summary. */
 export type FinancialSummary = {
   revenue: number;
+  /** LEGACY (0025): gross provider entitlement accrued in the window. See FinancialPoint. */
   provider_payouts: number;
   quickserve_revenue: number;
   wallet_used: number;
   promo_used: number;
+  /** 0052: real disbursements whose paid_at falls within the selected window. */
+  provider_payouts_disbursed: number;
+  /** 0052: CURRENT net amount owed to all providers (entitlement − deductions − disbursed) from
+   *  the canonical payout ledger. A snapshot — never filtered by the analytics date range. */
+  provider_outstanding_liability: number;
 };
 
 /** A row from the provider leaderboard — analytics_providers. */
@@ -118,6 +128,8 @@ const DEFAULT_FINANCIAL_SUMMARY: FinancialSummary = {
   quickserve_revenue: 0,
   wallet_used: 0,
   promo_used: 0,
+  provider_payouts_disbursed: 0,
+  provider_outstanding_liability: 0,
 };
 
 const DEFAULT_CUSTOMER_STATS: CustomerStats = {

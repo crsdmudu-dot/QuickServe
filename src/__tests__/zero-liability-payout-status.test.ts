@@ -22,9 +22,11 @@ const noComments = sql
   .join('\n');
 
 describe('0051 — zero-liability earnings are settled, not pending', () => {
-  it('is a new forward-only migration after 0050 and edits nothing earlier', () => {
+  it('is a new forward-only migration immediately after 0050 and edits nothing earlier', () => {
     const files = fs.readdirSync(dir).filter((f) => /^\d{4}_.*\.sql$/.test(f)).sort();
-    expect(files[files.length - 1]).toBe(MIGRATION);
+    const idx0050 = files.findIndex((f) => f.startsWith('0050_'));
+    expect(idx0050).toBeGreaterThan(-1);
+    expect(files[idx0050 + 1]).toBe(MIGRATION);
     expect(files.filter((f) => f.startsWith('0051'))).toHaveLength(1);
   });
 

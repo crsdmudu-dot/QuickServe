@@ -77,18 +77,26 @@ export type BookingsSummary = {
 export type FinancialPoint = {
   period: string;
   revenue: number;
+  /** LEGACY gross entitlement (0025); the UI no longer presents it as payouts. */
   provider_payouts: number;
   quickserve_revenue: number;
   wallet_used: number;
   promo_used: number;
+  /** 0052: real disbursements bucketed by paid_at. */
+  provider_payouts_disbursed: number;
 };
 
 export type FinancialSummary = {
   revenue: number;
+  /** LEGACY gross entitlement (0025); the UI no longer presents it as payouts. */
   provider_payouts: number;
   quickserve_revenue: number;
   wallet_used: number;
   promo_used: number;
+  /** 0052: real disbursements within the selected window. */
+  provider_payouts_disbursed: number;
+  /** 0052: current outstanding liability snapshot (not date-filtered). */
+  provider_outstanding_liability: number;
 };
 
 export type ProviderStat = {
@@ -150,6 +158,8 @@ export const FINANCIAL_SUMMARY: FinancialSummary = {
   quickserve_revenue: 30000,
   wallet_used: 15000,
   promo_used: 4000,
+  provider_payouts_disbursed: 41000,
+  provider_outstanding_liability: 27000,
 };
 
 export const CUSTOMERS: CustomerStats = {
@@ -165,8 +175,8 @@ export const BOOKINGS_TS: BookingsPoint[] = [
 ];
 
 export const FINANCIAL_TS: FinancialPoint[] = [
-  { period: '2026-07-01T00:00:00.000Z', revenue: 40000, provider_payouts: 28000, quickserve_revenue: 12000, wallet_used: 6000, promo_used: 1500 },
-  { period: '2026-07-08T00:00:00.000Z', revenue: 58000, provider_payouts: 40000, quickserve_revenue: 18000, wallet_used: 9000, promo_used: 2500 },
+  { period: '2026-07-01T00:00:00.000Z', revenue: 40000, provider_payouts: 28000, quickserve_revenue: 12000, wallet_used: 6000, promo_used: 1500, provider_payouts_disbursed: 16000 },
+  { period: '2026-07-08T00:00:00.000Z', revenue: 58000, provider_payouts: 40000, quickserve_revenue: 18000, wallet_used: 9000, promo_used: 2500, provider_payouts_disbursed: 25000 },
 ];
 
 /**
@@ -217,6 +227,8 @@ export const ZERO_FINANCIAL_SUMMARY: FinancialSummary = {
   quickserve_revenue: 0,
   wallet_used: 0,
   promo_used: 0,
+  provider_payouts_disbursed: 0,
+  provider_outstanding_liability: 0,
 };
 
 export const ZERO_CUSTOMERS: CustomerStats = {

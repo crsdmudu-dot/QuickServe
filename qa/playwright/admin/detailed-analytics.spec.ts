@@ -35,7 +35,7 @@ const ALL_KPI_TESTIDS = [
   'kpi-revenue', 'kpi-gross-bookings', 'kpi-completed-bookings', 'kpi-active-providers',
   'kpi-active-customers', 'kpi-avg-booking-value',
   'kpi-completion-rate', 'kpi-cancellation-rate', 'kpi-avg-completion', 'kpi-pending', 'kpi-completed',
-  'kpi-fin-revenue', 'kpi-fin-payouts', 'kpi-fin-qs-revenue', 'kpi-fin-wallet', 'kpi-fin-promo',
+  'kpi-fin-revenue', 'kpi-fin-payouts', 'kpi-fin-outstanding', 'kpi-fin-qs-revenue', 'kpi-fin-wallet', 'kpi-fin-promo',
   'kpi-new-customers', 'kpi-returning-customers', 'kpi-retention-rate', 'kpi-repeat-booking-rate',
 ] as const;
 
@@ -180,7 +180,10 @@ test.describe('Admin Detailed Analytics', { tag: ['@admin', '@detailed-analytics
         const { dash, tracker, guard } = await setupDetailed(page);
         await dash.goto();
         await dash.expectKpi('kpi-fin-revenue', 'KES 98,000');
-        await dash.expectKpi('kpi-fin-payouts', 'KES 68,000');
+        // 0052: the payouts tile shows real disbursements (41,000), never the legacy gross
+        // entitlement (68,000); outstanding liability is a current snapshot.
+        await dash.expectKpi('kpi-fin-payouts', 'KES 41,000');
+        await dash.expectKpi('kpi-fin-outstanding', 'KES 27,000');
         await dash.expectKpi('kpi-fin-qs-revenue', 'KES 30,000');
         await dash.expectKpi('kpi-fin-wallet', 'KES 15,000');
         await dash.expectKpi('kpi-fin-promo', 'KES 4,000');

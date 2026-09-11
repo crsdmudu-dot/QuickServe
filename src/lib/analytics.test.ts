@@ -212,6 +212,22 @@ describe('getAnalyticsFinancialSummary', () => {
     expect(result).toEqual(row);
   });
 
+  it('passes through the 0052 disbursement and outstanding-liability fields untouched', async () => {
+    // Legacy provider_payouts (gross entitlement) and the new fields can legitimately differ:
+    // providers were owed 800 in the window but nothing has been paid out yet.
+    const row = {
+      revenue: 1000,
+      provider_payouts: 800,
+      quickserve_revenue: 200,
+      wallet_used: 100,
+      promo_used: 50,
+      provider_payouts_disbursed: 0,
+      provider_outstanding_liability: 800,
+    };
+    mockRpc.mockResolvedValue({ data: [row], error: null });
+    expect(await getAnalyticsFinancialSummary('from', 'to')).toEqual(row);
+  });
+
   it('returns zeroed default on error', async () => {
     mockRpc.mockResolvedValue({ data: null, error: { message: 'err' } });
     expect(await getAnalyticsFinancialSummary('from', 'to')).toEqual({
@@ -220,6 +236,8 @@ describe('getAnalyticsFinancialSummary', () => {
       quickserve_revenue: 0,
       wallet_used: 0,
       promo_used: 0,
+      provider_payouts_disbursed: 0,
+      provider_outstanding_liability: 0,
     });
   });
 
@@ -231,6 +249,8 @@ describe('getAnalyticsFinancialSummary', () => {
       quickserve_revenue: 0,
       wallet_used: 0,
       promo_used: 0,
+      provider_payouts_disbursed: 0,
+      provider_outstanding_liability: 0,
     });
   });
 });
