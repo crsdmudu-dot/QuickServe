@@ -38,7 +38,10 @@ jest.mock('@/components/admin-web/charts/bar-chart', () => ({
     return (
       <View testID={testID ?? 'bar-chart'}>
         {(data ?? []).map((d: { label: string; value: number }, i: number) => (
-          <Text key={i}>{d.label}</Text>
+          <View key={i}>
+            <Text>{d.label}</Text>
+            <Text testID={`${testID ?? 'bar-chart'}-value-${i}`}>{String(d.value)}</Text>
+          </View>
         ))}
       </View>
     );
@@ -388,6 +391,63 @@ describe('AdminWebAnalyticsScreen (analytics dashboard)', () => {
     await waitFor(() =>
       expect(mockExportCsv).toHaveBeenCalledWith('providers.csv', expect.any(Array)),
     );
+  });
+
+  // ── Top providers = GROSS entitlement (sum(provider_earnings.amount)), named as such ────
+
+  it('titles the top-providers chart by gross entitlement, never "earnings"', async () => {
+    render(<AdminWebAnalyticsScreen />);
+    expect(await screen.findByText(/^Top providers by gross entitlement/)).toBeOnTheScreen();
+    expect(screen.queryByText(/Top providers by earnings/)).toBeNull();
+  });
+
+  it('keeps the chart values and ranking exactly as the RPC returns total_earnings', async () => {
+    render(<AdminWebAnalyticsScreen />);
+    await screen.findByTestId('chart-providers-bar-value-0');
+    // Order and values are the RPC's (ordered by total_earnings desc) — untouched by the rename.
+    expect(screen.getByTestId('chart-providers-bar-value-0')).toHaveTextContent('80000');
+    expect(screen.getByTestId('chart-providers-bar-value-1')).toHaveTextContent('60000');
+  });
+
+  it('ranks by gross entitlement, not net payable, disbursed or outstanding', async () => {
+    // gross 10,000; deductions 2,000; disbursed 3,000; outstanding 5,000 — the chart must use 10,000.
+    mockGetAnalyticsProviders.mockResolvedValueOnce([
+      { provider_id: 'prov-gross-0001', full_name: 'Gross Test', completed_jobs: 1, avg_rating: 4.0, total_earnings: 10000, completion_rate: 100 },
+    ]);
+    mockGetAnalyticsFinancialSummary.mockResolvedValueOnce({
+      ...MOCK_FINANCIAL_SUMMARY,
+      provider_payouts: 10000,
+      provider_payouts_disbursed: 3000,
+      provider_outstanding_liability: 5000,
+    });
+    render(<AdminWebAnalyticsScreen />);
+    await screen.findByTestId('chart-providers-bar-value-0');
+    expect(screen.getByTestId('chart-providers-bar-value-0')).toHaveTextContent('10000');
+    for (const wrong of ['8000', '5000', '3000']) {
+      expect(screen.getByTestId('chart-providers-bar-value-0')).not.toHaveTextContent(wrong);
+    }
+  });
+
+  it('exports providers.csv with the gross-entitlement value under an explicit heading', async () => {
+    render(<AdminWebAnalyticsScreen />);
+    await screen.findByText('KES 150,000');
+    fireEvent.press(screen.getAllByText('Download CSV')[3]);
+    await waitFor(() =>
+      expect(mockExportCsv).toHaveBeenCalledWith('providers.csv', expect.any(Array)),
+    );
+    const call = mockExportCsv.mock.calls.find((c) => c[0] === 'providers.csv') as [string, Record<string, unknown>[]];
+    const rows = call[1];
+    expect(rows).toHaveLength(2);
+    expect(Object.keys(rows[0])).toEqual([
+      'provider_id', 'full_name', 'completed_jobs', 'avg_rating', 'provider_entitlement_gross', 'completion_rate',
+    ]);
+    expect(rows[0].provider_entitlement_gross).toBe(80000);
+    expect(rows[1].provider_entitlement_gross).toBe(60000);
+    for (const r of rows) {
+      for (const k of Object.keys(r)) {
+        expect(k).not.toMatch(/earnings|payout/i);
+      }
+    }
   });
 
   // ── Bucket change re-calls wrappers ────────────────────────────────────────

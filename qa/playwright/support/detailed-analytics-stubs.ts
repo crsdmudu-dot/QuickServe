@@ -260,7 +260,7 @@ export const EXPECTED_KPIS_CSV = [
 
 /** Exact expected CSV for the Providers "Download CSV" using PROVIDERS_CSV. */
 export const EXPECTED_PROVIDERS_CSV = [
-  'provider_id,full_name,completed_jobs,avg_rating,total_earnings,completion_rate',
+  'provider_id,full_name,completed_jobs,avg_rating,provider_entitlement_gross,completion_rate',
   "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,'=SUM(A1),10,4,50000,90",
   'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb,"Otieno, Grace",8,4.5,40000,88',
   'cccccccc-cccc-4ccc-8ccc-cccccccccccc,"O""Brien",6,4.1,30000,85',

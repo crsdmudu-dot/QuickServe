@@ -521,11 +521,20 @@ export default function AnalyticsDetailedScreen() {
         title="Provider analytics"
 
         onDownload={() =>
-          void exportCsv('providers.csv', providers as unknown as Record<string, unknown>[])
+          // total_earnings is sum(provider_earnings.amount) — GROSS entitlement, before
+          // deductions and regardless of disbursement. Export it under that explicit name.
+          void exportCsv(
+            'providers.csv',
+            providers.map(({ total_earnings, completion_rate, ...rest }) => ({
+              ...rest,
+              provider_entitlement_gross: total_earnings,
+              completion_rate,
+            })) as unknown as Record<string, unknown>[],
+          )
         }
       />
       <Text variant="label" color="textSecondary" style={{ marginBottom: Spacing.two }}>
-        Top providers by earnings (display-only)
+        Top providers by gross entitlement (display-only)
       </Text>
       <BarChart
         data={providerBarData}
