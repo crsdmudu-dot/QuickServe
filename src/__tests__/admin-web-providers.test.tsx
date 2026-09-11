@@ -241,6 +241,28 @@ describe('AdminWebProviderDetailScreen (detail)', () => {
     expect(await screen.findByText('KES 2,100')).toBeOnTheScreen();
   });
 
+  it('labels a zero-liability earning Paid on the provider detail, never Pending', async () => {
+    // Approved provider so the only possible "Pending" text on the page is a payout label.
+    mockGetProviderProfile.mockResolvedValueOnce(MOCK_APPROVED);
+    mockAdminGetProviderPayoutLedger.mockResolvedValueOnce([
+      {
+        earning_id: 'earn0',
+        booking_id: 'bk0',
+        provider_id: 'prov1',
+        provider_entitlement: 0,
+        deductions_total: 0,
+        net_provider_payable: 0,
+        amount_disbursed: 0,
+        outstanding_provider_liability: 0,
+        stored_payout_status: 'pending' as const,
+        derived_payout_status: 'pending' as const,
+      },
+    ]);
+    render(<AdminWebProviderDetailScreen />);
+    expect(await screen.findByText('Paid')).toBeOnTheScreen();
+    expect(screen.queryByText('Pending')).toBeNull();
+  });
+
   it('offers no payout mutation on the provider detail screen', async () => {
     // Payout is recorded only on the Earnings & Payouts screen, behind a confirmation step.
     render(<AdminWebProviderDetailScreen />);

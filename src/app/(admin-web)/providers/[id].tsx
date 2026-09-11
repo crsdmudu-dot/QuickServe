@@ -36,6 +36,8 @@ import {
 } from '@/lib/earnings';
 import { formatKes } from '@/lib/currency';
 
+import { resolvePayoutStatus } from '@/lib/payout-status';
+
 /** Payout is recorded on the Earnings & Payouts screen; this detail view is read-only. */
 const PAYOUT_STATUS_LABELS: Record<string, string> = {
   pending: 'Pending',
@@ -394,8 +396,8 @@ export default function AdminWebProviderDetailScreen() {
               </Text>
               <Text
                 variant="caption"
-                color={e.stored_payout_status === 'paid' ? 'primary' : 'textSecondary'}>
-                {PAYOUT_STATUS_LABELS[e.stored_payout_status]}
+                color={resolvePayoutStatus(e) === 'paid' ? 'primary' : 'textSecondary'}>
+                {PAYOUT_STATUS_LABELS[resolvePayoutStatus(e)]}
               </Text>
             </View>
           </Card>

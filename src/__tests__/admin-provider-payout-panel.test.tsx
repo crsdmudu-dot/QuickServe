@@ -103,6 +103,23 @@ describe('AdminProviderPayoutPanel — zero outstanding', () => {
     expect(await screen.findByTestId('nothing-outstanding')).toBeOnTheScreen();
     expect(screen.queryByTestId('payout-review')).toBeNull();
   });
+
+  it('reports the payout status of a zero-liability earning as paid, not pending', async () => {
+    mockAdminGetPayoutLedger.mockResolvedValue([
+      {
+        ...LEDGER,
+        provider_entitlement: 0,
+        net_provider_payable: 0,
+        outstanding_provider_liability: 0,
+        stored_payout_status: 'pending' as const,
+        derived_payout_status: 'pending' as const,
+      },
+    ]);
+    render(<AdminProviderPayoutPanel earningId="earn1" />);
+    await screen.findByTestId('nothing-outstanding');
+    expect(screen.getByText('paid')).toBeOnTheScreen();
+    expect(screen.queryByText('pending')).toBeNull();
+  });
 });
 
 describe('AdminProviderPayoutPanel — confirmation step', () => {

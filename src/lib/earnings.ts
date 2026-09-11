@@ -25,8 +25,10 @@ import { newIdempotencyKey } from '@/lib/idempotency';
 // ── Types ──────────────────────────────────────────────────────────────────
 
 /** Stored projection on provider_earnings, maintained only by the payout RPCs.
- *  `pending` also covers a fully-deducted earning with nothing left to pay — the amounts, not
- *  the status, are authoritative for the zero-liability condition. */
+ *  The stored value can lag the amounts (a zero-share earning is inserted with the column
+ *  default 'pending'), so screens must present `resolvePayoutStatus(row)` from
+ *  '@/lib/payout-status', which — like the 0051 SQL derivation — reports 'paid' whenever the
+ *  outstanding liability is zero. The amounts, not the label, are authoritative. */
 export type PayoutStatus = 'pending' | 'partially_paid' | 'paid';
 
 /** Closed list from 0041. Deliberately excludes commission, platform fee, wallet, promo and any

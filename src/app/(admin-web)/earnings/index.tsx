@@ -27,6 +27,7 @@ import {
   type PayoutStatus,
   type ProviderPayoutLedgerRow,
 } from '@/lib/earnings';
+import { resolvePayoutStatus } from '@/lib/payout-status';
 
 // ── Payout status badge ────────────────────────────────────────────────────
 
@@ -133,7 +134,7 @@ function buildColumns(
     {
       key: 'payout_status',
       header: 'Payout Status',
-      render: (row) => <PayoutStatusBadge status={row.stored_payout_status} />,
+      render: (row) => <PayoutStatusBadge status={resolvePayoutStatus(row)} />,
       width: 130,
     },
     {

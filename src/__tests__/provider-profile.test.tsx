@@ -205,6 +205,27 @@ describe('ProviderProfileScreen — approved', () => {
     expect(await screen.findByText('Outstanding: KES 1,600')).toBeOnTheScreen();
   });
 
+  it('shows a zero-value earning as paid out, never as a pending payout', async () => {
+    mockGetMyPayoutLedger.mockResolvedValue([
+      {
+        earning_id: 'e0',
+        booking_id: 'bk0',
+        provider_id: 'p1',
+        provider_entitlement: 0,
+        deductions_total: 0,
+        net_provider_payable: 0,
+        amount_disbursed: 0,
+        outstanding_provider_liability: 0,
+        stored_payout_status: 'pending' as const,
+        derived_payout_status: 'pending' as const,
+      },
+    ]);
+    render(<ProviderProfileScreen />);
+    await screen.findByText('Jane Smith');
+    expect(await screen.findByText('Paid out')).toBeOnTheScreen();
+    expect(screen.queryByText('Pending payout')).toBeNull();
+  });
+
   it('gives the provider no payout mutation control', async () => {
     render(<ProviderProfileScreen />);
     await screen.findByText('Jane Smith');

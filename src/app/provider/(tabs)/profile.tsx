@@ -27,6 +27,8 @@ import {
   type ProviderPayoutLedgerRow,
 } from '@/lib/earnings';
 
+import { resolvePayoutStatus } from '@/lib/payout-status';
+
 /** Provider view is READ-ONLY: there is no payout action anywhere on this screen. */
 const PROVIDER_PAYOUT_LABELS: Record<string, string> = {
   pending: 'Pending payout',
@@ -245,8 +247,8 @@ export default function ProviderProfileScreen() {
                 </Text>
                 <Text
                   variant="caption"
-                  color={e.stored_payout_status === 'paid' ? 'success' : 'warning'}>
-                  {PROVIDER_PAYOUT_LABELS[e.stored_payout_status]}
+                  color={resolvePayoutStatus(e) === 'paid' ? 'success' : 'warning'}>
+                  {PROVIDER_PAYOUT_LABELS[resolvePayoutStatus(e)]}
                 </Text>
               </Card>
             ))

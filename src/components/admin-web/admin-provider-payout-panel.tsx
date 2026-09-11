@@ -27,6 +27,7 @@ import { Text } from '@/components/ui/text';
 import { Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatKes } from '@/lib/currency';
+import { resolvePayoutStatus } from '@/lib/payout-status';
 import {
   DEDUCTION_CATEGORIES,
   PAYOUT_METHODS,
@@ -286,7 +287,7 @@ export function AdminProviderPayoutPanel({ earningId, onChanged }: Props) {
         <Row label="Net provider payable" value={formatKes(ledger.net_provider_payable)} strong />
         <Row label="Already disbursed" value={formatKes(ledger.amount_disbursed)} />
         <Row label="Outstanding" value={formatKes(outstanding)} strong />
-        <Row label="Payout status" value={ledger.stored_payout_status} />
+        <Row label="Payout status" value={resolvePayoutStatus(ledger)} />
         {!canRecordPayout ? (
           <Text variant="caption" color="textSecondary" testID="nothing-outstanding">
             Nothing outstanding — no payout to record.

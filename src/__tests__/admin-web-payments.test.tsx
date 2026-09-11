@@ -386,8 +386,15 @@ describe('AdminWebEarningsScreen', () => {
   });
 
   it('supports the partially_paid status introduced by Provider Payout V1', async () => {
+    // Amounts are authoritative: a partial payout leaves a real remaining liability.
     mockAdminGetPayoutLedger.mockResolvedValueOnce([
-      { ...MOCK_LEDGER, stored_payout_status: 'partially_paid' as const },
+      {
+        ...MOCK_LEDGER,
+        amount_disbursed: 500,
+        outstanding_provider_liability: 1600,
+        stored_payout_status: 'partially_paid' as const,
+        derived_payout_status: 'partially_paid' as const,
+      },
     ]);
     render(<AdminWebEarningsScreen />);
     expect(await screen.findByText('Partially paid')).toBeOnTheScreen();
@@ -396,6 +403,40 @@ describe('AdminWebEarningsScreen', () => {
   it('renders the provider ref (first 8 chars of provider_id)', async () => {
     render(<AdminWebEarningsScreen />);
     expect(await screen.findByText('#prov1234')).toBeOnTheScreen();
+  });
+
+  it('never badges a zero-liability earning as Pending, even when the stored status lags', async () => {
+    // Certified Production shape: provider_share 0 → earning amount 0, column default 'pending'.
+    mockAdminGetPayoutLedger.mockResolvedValueOnce([
+      {
+        ...MOCK_LEDGER,
+        provider_entitlement: 0,
+        net_provider_payable: 0,
+        outstanding_provider_liability: 0,
+        stored_payout_status: 'pending' as const,
+        derived_payout_status: 'pending' as const,
+      },
+    ]);
+    render(<AdminWebEarningsScreen />);
+    expect(await screen.findByText('Paid')).toBeOnTheScreen();
+    expect(screen.queryByText('Pending')).toBeNull();
+    expect(screen.queryByText('Record payout')).toBeNull();
+  });
+
+  it('never badges a fully-deducted earning as Pending', async () => {
+    mockAdminGetPayoutLedger.mockResolvedValueOnce([
+      {
+        ...MOCK_LEDGER,
+        deductions_total: 2100,
+        net_provider_payable: 0,
+        outstanding_provider_liability: 0,
+        stored_payout_status: 'pending' as const,
+        derived_payout_status: 'pending' as const,
+      },
+    ]);
+    render(<AdminWebEarningsScreen />);
+    expect(await screen.findByText('Paid')).toBeOnTheScreen();
+    expect(screen.queryByText('Pending')).toBeNull();
   });
 
   it('renders the booking ref (first 8 chars of booking_id)', async () => {
