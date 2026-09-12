@@ -1,0 +1,38 @@
+# Item M — S2: the LEGACY quickserve:// scheme is still registered and still routes.
+#
+# Commit 060df7e adds `kwikserve` but deliberately RETAINS `quickserve`, because a read-only audit
+# could not prove from the repository that no quickserve:// link had already been distributed to
+# testers. Silently breaking such a link would be a worse failure than a known ambiguity. This
+# flow is the evidence that the retained scheme still works.
+#
+# CLASSIFICATION — ROUTING / BACKWARD COMPATIBILITY EVIDENCE ONLY.
+# A pass here says the quickserve scheme is still registered in the binary and still resolves to
+# /admin, where the guard refuses a customer. It says NOTHING WHATSOEVER about the physical
+# collision. On the CI simulator quickserve:// is UNCONTESTED — the legacy QuickServe app is not
+# installed — so the ambiguity that defines item M cannot arise here and cannot be tested here.
+# On a physical device holding both apps, quickserve:// remains ambiguous and is EXPECTED to reach
+# the legacy app. That is the unchanged consequence of sidestepping the collision rather than
+# removing it. Item M is NOT closed by this flow passing.
+#
+# Firing mechanism and fallback: identical to item-m-customer-rejection.yaml — see that header.
+#
+# Read-only. No booking, no mutation, nothing tapped after the link fires.
+#
+# Params via -e: CUST_EMAIL, CUST_PW.
+appId: ke.co.hiredcorp.kwikserve
+---
+- runFlow: { file: steps/login-customer.yaml }
+- assertVisible: "What service do you need today?"
+
+# ── FALLBACK SPLIT POINT — see item-m-customer-rejection.yaml header ──────────
+- openLink: "quickserve://admin"
+# ── end split point ───────────────────────────────────────────────────────────
+
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 20000 }
+- takeScreenshot: item-m-03-legacy-scheme-rejected
+
+# Same J-customer rejection behaviour as S1, reached through the retained scheme.
+- assertVisible: "What service do you need today?"
+- assertNotVisible: "Providers"
+- assertNotVisible: "Admin"
+- assertNotVisible: "Not authorized"

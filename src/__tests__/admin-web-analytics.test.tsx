@@ -20,12 +20,13 @@ jest.mock('@/services/services-provider', () => {
 // ── Chart component stubs (avoid react-native-svg in jsdom) ──────────────────
 
 jest.mock('@/components/admin-web/charts/trend-card', () => ({
-  TrendCard: ({ title, value, testID }: { title: string; value: string | number | null; testID?: string }) => {
+  TrendCard: ({ title, value, subtitle, testID }: { title: string; value: string | number | null; subtitle?: string; testID?: string }) => {
     const { View, Text } = require('react-native');
     return (
       <View testID={testID ?? 'trend-card'}>
         <Text>{title}</Text>
         <Text>{value ?? '—'}</Text>
+        {subtitle ? <Text>{subtitle}</Text> : null}
       </View>
     );
   },
@@ -37,7 +38,10 @@ jest.mock('@/components/admin-web/charts/bar-chart', () => ({
     return (
       <View testID={testID ?? 'bar-chart'}>
         {(data ?? []).map((d: { label: string; value: number }, i: number) => (
-          <Text key={i}>{d.label}</Text>
+          <View key={i}>
+            <Text>{d.label}</Text>
+            <Text testID={`${testID ?? 'bar-chart'}-value-${i}`}>{String(d.value)}</Text>
+          </View>
         ))}
       </View>
     );
@@ -105,7 +109,7 @@ jest.mock('@/lib/analytics', () => ({
 
 // ── Imports ───────────────────────────────────────────────────────────────────
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import AdminWebAnalyticsScreen from '@/app/(admin-web)/analytics/detailed';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -133,15 +137,19 @@ const MOCK_BOOKINGS_SUMMARY = {
 };
 
 const MOCK_FINANCIAL_TS = [
-  { period: '2026-06-01', revenue: 50000, provider_payouts: 40000, quickserve_revenue: 10000, wallet_used: 5000, promo_used: 1000 },
+  { period: '2026-06-01', revenue: 50000, provider_payouts: 40000, quickserve_revenue: 10000, wallet_used: 5000, promo_used: 1000, provider_payouts_disbursed: 20000 },
 ];
 
+// provider_payouts is the LEGACY gross-entitlement figure (0025). The tile must show the 0052
+// disbursement figure instead, and the outstanding liability as a current snapshot.
 const MOCK_FINANCIAL_SUMMARY = {
   revenue: 999000,
   provider_payouts: 120000,
   quickserve_revenue: 30000,
   wallet_used: 12000,
   promo_used: 3000,
+  provider_payouts_disbursed: 45000,
+  provider_outstanding_liability: 75000,
 };
 
 const MOCK_PROVIDERS = [
@@ -273,6 +281,79 @@ describe('AdminWebAnalyticsScreen (analytics dashboard)', () => {
     );
   });
 
+  // ── Provider payouts = real disbursements; outstanding = current snapshot (0052) ──────
+
+  it('labels the payouts tile as disbursed and shows the disbursement figure, not gross entitlement', async () => {
+    render(<AdminWebAnalyticsScreen />);
+    expect(await screen.findByText('Provider payouts (disbursed)')).toBeOnTheScreen();
+    expect(within(screen.getByTestId('kpi-fin-payouts')).getByText('KES 45,000')).toBeOnTheScreen();
+    expect(screen.queryByText('Provider Payouts')).toBeNull();
+    // The legacy gross-entitlement number must not be presented anywhere on the page.
+    expect(screen.queryByText('KES 120,000')).toBeNull();
+  });
+
+  it('shows outstanding liability to providers as an explicitly current snapshot', async () => {
+    render(<AdminWebAnalyticsScreen />);
+    expect(await screen.findByText('Outstanding to providers')).toBeOnTheScreen();
+    const tile = within(screen.getByTestId('kpi-fin-outstanding'));
+    expect(tile.getByText('KES 75,000')).toBeOnTheScreen();
+    expect(tile.getByText(/current/i)).toBeOnTheScreen();
+  });
+
+  it('shows KES 0 disbursed alongside a positive outstanding balance when nothing has been paid yet', async () => {
+    mockGetAnalyticsFinancialSummary.mockResolvedValue({
+      ...MOCK_FINANCIAL_SUMMARY,
+      provider_payouts: 120000, // large accrued entitlement in the window
+      provider_payouts_disbursed: 0,
+      provider_outstanding_liability: 120000,
+    });
+    render(<AdminWebAnalyticsScreen />);
+    await screen.findByText('Provider payouts (disbursed)');
+    expect(within(screen.getByTestId('kpi-fin-payouts')).getByText('KES 0')).toBeOnTheScreen();
+    expect(within(screen.getByTestId('kpi-fin-outstanding')).getByText('KES 120,000')).toBeOnTheScreen();
+  });
+
+  it('exports ONE financial CSV: period rows plus a window-total row, explicit headings, never the ambiguous legacy one', async () => {
+    // One click must yield one download: browsers may block a second programmatic download
+    // from the same gesture, so the window totals and the current outstanding liability ride
+    // in the same file as a final `window_total` row sharing the same column set.
+    render(<AdminWebAnalyticsScreen />);
+    await screen.findByText('KES 150,000');
+
+    const csvButtons = screen.getAllByText('Download CSV');
+    fireEvent.press(csvButtons[2]); // Financial analytics = index 2
+
+    await waitFor(() =>
+      expect(mockExportCsv).toHaveBeenCalledWith('financial.csv', expect.any(Array)),
+    );
+    const financialCalls = mockExportCsv.mock.calls.filter((c) => c[0] === 'financial.csv');
+    expect(financialCalls).toHaveLength(1);
+    expect(mockExportCsv).toHaveBeenCalledTimes(1);
+
+    const rows = financialCalls[0][1] as Record<string, unknown>[];
+    expect(rows).toHaveLength(2);
+    const [periodRow, totalRow] = rows;
+
+    // Every row shares one header set (toCsv derives headers from the first row).
+    expect(Object.keys(totalRow)).toEqual(Object.keys(periodRow));
+    for (const r of rows) {
+      expect(r).not.toHaveProperty('provider_payouts');
+      expect(r).toHaveProperty('provider_entitlement_gross_legacy');
+    }
+
+    expect(periodRow.row_type).toBe('period');
+    expect(periodRow.period).toBe('2026-06-01');
+    expect(periodRow.provider_payouts_disbursed).toBe(20000);
+    expect(periodRow.provider_entitlement_gross_legacy).toBe(40000);
+    expect(periodRow.provider_outstanding_liability_current).toBe('');
+
+    expect(totalRow.row_type).toBe('window_total');
+    expect(totalRow.provider_payouts_disbursed).toBe(45000);
+    expect(totalRow.provider_entitlement_gross_legacy).toBe(120000);
+    expect(totalRow.provider_outstanding_liability_current).toBe(75000);
+    expect(totalRow.revenue).toBe(999000);
+  });
+
   // ── Download CSV calls exportCsv ───────────────────────────────────────────
 
   it('pressing "Download CSV" on Executive KPIs calls exportCsv with kpis.csv', async () => {
@@ -310,6 +391,63 @@ describe('AdminWebAnalyticsScreen (analytics dashboard)', () => {
     await waitFor(() =>
       expect(mockExportCsv).toHaveBeenCalledWith('providers.csv', expect.any(Array)),
     );
+  });
+
+  // ── Top providers = GROSS entitlement (sum(provider_earnings.amount)), named as such ────
+
+  it('titles the top-providers chart by gross entitlement, never "earnings"', async () => {
+    render(<AdminWebAnalyticsScreen />);
+    expect(await screen.findByText(/^Top providers by gross entitlement/)).toBeOnTheScreen();
+    expect(screen.queryByText(/Top providers by earnings/)).toBeNull();
+  });
+
+  it('keeps the chart values and ranking exactly as the RPC returns total_earnings', async () => {
+    render(<AdminWebAnalyticsScreen />);
+    await screen.findByTestId('chart-providers-bar-value-0');
+    // Order and values are the RPC's (ordered by total_earnings desc) — untouched by the rename.
+    expect(screen.getByTestId('chart-providers-bar-value-0')).toHaveTextContent('80000');
+    expect(screen.getByTestId('chart-providers-bar-value-1')).toHaveTextContent('60000');
+  });
+
+  it('ranks by gross entitlement, not net payable, disbursed or outstanding', async () => {
+    // gross 10,000; deductions 2,000; disbursed 3,000; outstanding 5,000 — the chart must use 10,000.
+    mockGetAnalyticsProviders.mockResolvedValueOnce([
+      { provider_id: 'prov-gross-0001', full_name: 'Gross Test', completed_jobs: 1, avg_rating: 4.0, total_earnings: 10000, completion_rate: 100 },
+    ]);
+    mockGetAnalyticsFinancialSummary.mockResolvedValueOnce({
+      ...MOCK_FINANCIAL_SUMMARY,
+      provider_payouts: 10000,
+      provider_payouts_disbursed: 3000,
+      provider_outstanding_liability: 5000,
+    });
+    render(<AdminWebAnalyticsScreen />);
+    await screen.findByTestId('chart-providers-bar-value-0');
+    expect(screen.getByTestId('chart-providers-bar-value-0')).toHaveTextContent('10000');
+    for (const wrong of ['8000', '5000', '3000']) {
+      expect(screen.getByTestId('chart-providers-bar-value-0')).not.toHaveTextContent(wrong);
+    }
+  });
+
+  it('exports providers.csv with the gross-entitlement value under an explicit heading', async () => {
+    render(<AdminWebAnalyticsScreen />);
+    await screen.findByText('KES 150,000');
+    fireEvent.press(screen.getAllByText('Download CSV')[3]);
+    await waitFor(() =>
+      expect(mockExportCsv).toHaveBeenCalledWith('providers.csv', expect.any(Array)),
+    );
+    const call = mockExportCsv.mock.calls.find((c) => c[0] === 'providers.csv') as [string, Record<string, unknown>[]];
+    const rows = call[1];
+    expect(rows).toHaveLength(2);
+    expect(Object.keys(rows[0])).toEqual([
+      'provider_id', 'full_name', 'completed_jobs', 'avg_rating', 'provider_entitlement_gross', 'completion_rate',
+    ]);
+    expect(rows[0].provider_entitlement_gross).toBe(80000);
+    expect(rows[1].provider_entitlement_gross).toBe(60000);
+    for (const r of rows) {
+      for (const k of Object.keys(r)) {
+        expect(k).not.toMatch(/earnings|payout/i);
+      }
+    }
   });
 
   // ── Bucket change re-calls wrappers ────────────────────────────────────────

@@ -1,0 +1,41 @@
+# Reusable subflow — Service Details (booking step 1 of 5) for HOUSE CLEANING, minimum path.
+#
+# Service Details V1.3 inserted this screen between selecting a service and choosing an address.
+# Every customer journey that creates a House Cleaning booking through the UI has to cross it, so
+# the traversal lives here once instead of being copied into each flow.
+#
+# Deliberately MINIMAL: it answers only what House Cleaning marks required for `standard_clean`,
+# and picks `kitchen_only` for scope precisely because that scope hides the bedrooms/bathrooms
+# questions — fewer fields, fewer ways for an unrelated journey to fail. The dedicated flow
+# service-details-house-cleaning.yaml is the one that exercises the full progressive-disclosure
+# behaviour; this subflow only has to get through the step.
+#
+# Selectors are testIDs from src/components/booking/service-details-form.tsx
+# (`option-<question>-<option>`) and src/app/booking/service-details.tsx, not visible copy — so
+# a future wording change cannot silently break every journey at once.
+#
+# Caller contract: entered with Service Details already on screen (i.e. straight after tapping a
+# House Cleaning card). Leaves the app on the Address step.
+appId: ke.co.hiredcorp.kwikserve
+---
+- extendedWaitUntil: { visible: "Step 1 of 5", timeout: 15000 }
+- assertVisible: ".*What kind of cleaning do you need.*"
+
+# Primary question — what the customer is buying.
+- tapOn: { id: "option-variant-standard_clean" }
+
+# Scope becomes visible only once a cleaning type is chosen (progressive disclosure).
+- extendedWaitUntil: { visible: { id: "question-scope" }, timeout: 8000 }
+- scrollUntilVisible: { element: { id: "option-scope-kitchen_only" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "option-scope-kitchen_only" }
+
+# Supplies is required for every cleaning type except laundry-only.
+- scrollUntilVisible: { element: { id: "option-provider_bring_supplies-yes" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "option-provider_bring_supplies-yes" }
+
+# House Cleaning disables media by locked V1.2 decision — no photo control should exist here.
+- assertNotVisible: { id: "service-details-media" }
+
+- scrollUntilVisible: { element: { id: "service-details-continue" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "service-details-continue" }
+- extendedWaitUntil: { visible: "Your Address", timeout: 15000 }

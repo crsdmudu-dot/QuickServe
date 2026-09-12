@@ -1,18 +1,18 @@
 {
   "expo": {
-    "name": "QuickServe",
+    "name": "KwikServe",
     "slug": "QuickServe",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "quickserve",
+    "scheme": ["kwikserve", "quickserve"],
     "userInterfaceStyle": "automatic",
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.quickserve.app",
+      "bundleIdentifier": "ke.co.hiredcorp.kwikserve",
       "buildNumber": "1",
       "associatedDomains": ["applinks:REPLACE_ME.quickserve.app"]
     },
@@ -24,7 +24,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.quickserve.app",
+      "package": "ke.co.hiredcorp.kwikserve",
       "versionCode": 1
     },
     "web": {
@@ -48,14 +48,14 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "QuickServe needs photo access to attach job photos."
+          "photosPermission": "KwikServe needs photo access to attach job photos."
         }
       ],
       "expo-notifications",
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "QuickServe shares your live location with the customer only while you are travelling to and performing an active job."
+          "locationWhenInUsePermission": "KwikServe shares your live location with the customer only while you are travelling to and performing an active job."
         }
       ],
       ["@sentry/react-native/expo", { "organization": "", "project": "" }]

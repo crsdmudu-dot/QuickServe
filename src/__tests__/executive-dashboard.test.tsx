@@ -139,6 +139,14 @@ import ExecutiveDashboard from '@/app/(admin-web)/analytics/index';
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
+describe('ExecutiveDashboard — top providers terminology', () => {
+  it('titles the top-providers chart by gross entitlement, never "earnings"', async () => {
+    render(<ExecutiveDashboard />);
+    expect(await screen.findByText(/^Top providers by gross entitlement/)).toBeOnTheScreen();
+    expect(screen.queryByText(/Top providers by earnings/)).toBeNull();
+  });
+});
+
 describe('ExecutiveDashboard (executive analytics landing)', () => {
   beforeEach(() => {
     jest.clearAllMocks();

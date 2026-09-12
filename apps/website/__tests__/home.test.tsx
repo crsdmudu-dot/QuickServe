@@ -1,4 +1,4 @@
-// home.test.tsx — integration tests for the QuickServe Home page (app/page.tsx).
+// home.test.tsx — integration tests for the KwikServe Home page (app/page.tsx).
 
 import { render, screen, getAllByRole } from '@testing-library/react';
 import Home from '@/app/page';

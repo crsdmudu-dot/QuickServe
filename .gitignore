@@ -7,6 +7,8 @@ node_modules/
 .expo/
 dist/
 web-build/
+# Cloudflare Wrangler local dev state (created by `wrangler dev`)
+.wrangler/
 expo-env.d.ts
 
 # Native
@@ -59,3 +61,15 @@ supabase/.temp/
 # Phase 3H iOS CI: downloaded simulator build (runner-only, never commit)
 /app.tar.gz
 /app/
+
+# Phase 4E.1 Android FCM: client config is provided to EAS via a file-type env
+# variable (GOOGLE_SERVICES_JSON), never committed. The service-account private
+# key must NEVER be committed either.
+google-services.json
+*google-services*.json
+*-firebase-adminsdk-*.json
+
+# EAS local credentials vehicle — TEMPORARY, holds keystore path + passwords.
+# NEVER commit. Used only to upload the existing keystore to EAS remote, then deleted.
+credentials.json
+.adbtmp/

@@ -1,5 +1,5 @@
 /**
- * Tests for src/app/(customer)/trust.tsx (Slice 34 Task 5)
+ * Tests for src/app/trust.tsx (Slice 34 Task 5)
  *
  * Verifies:
  *   - TrustSignalCard is rendered with signals
@@ -41,7 +41,7 @@ jest.mock('@/components/customer/safety-tips-card', () => ({
 
 // VerifiedBadge — keep real component (it's a simple View+Text, no side effects)
 
-import TrustScreen from '@/app/(customer)/trust';
+import TrustScreen from '@/app/trust';
 
 // ── Tests ──────────────────────────────────────────────────────────────────────
 
@@ -56,10 +56,10 @@ describe('TrustScreen', () => {
     expect(screen.getByText('Verified providers')).toBeOnTheScreen();
   });
 
-  it('renders "Verified by QuickServe" badge text', () => {
+  it('renders "Verified by KwikServe" badge text', () => {
     render(<TrustScreen />);
-    // VerifiedBadge + body text both contain "Verified by QuickServe" — at least one present
-    expect(screen.getAllByText('Verified by QuickServe').length).toBeGreaterThanOrEqual(1);
+    // VerifiedBadge + body text both contain "Verified by KwikServe" — at least one present
+    expect(screen.getAllByText('Verified by KwikServe').length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders TrustSignalCard with illustrative signals', () => {

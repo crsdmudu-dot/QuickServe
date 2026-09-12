@@ -8,7 +8,11 @@ import {
   assignProvider,
   updateAdminNotes,
   getBookingProfessional,
+  isLikelyDuplicateBooking,
+  findActiveDuplicateBooking,
 } from '@/lib/bookings';
+import { newIdempotencyKey } from '@/lib/idempotency';
+import { buildServiceDetailsSnapshot } from '@/lib/service-details';
 
 const mockGetUser = jest.fn();
 const mockInsert = jest.fn();
@@ -17,6 +21,7 @@ const mockRange = jest.fn();
 const mockUpdate = jest.fn();
 const mockUpdateEq = jest.fn();
 const mockSingle = jest.fn();
+const mockMaybeSingle = jest.fn();
 const mockSelectEq = jest.fn();
 const mockRpc = jest.fn();
 
@@ -44,8 +49,12 @@ jest.mock('@/lib/supabase', () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
-  // Default: selectEq returns { single } so getBookingById can chain .single()
-  mockSelectEq.mockReturnValue({ single: (...a: unknown[]) => mockSingle(...a) });
+  // Default: selectEq returns { single, maybeSingle } so getBookingById can chain .single()
+  // and createBooking's idempotent-recovery path can chain .maybeSingle().
+  mockSelectEq.mockReturnValue({
+    single: (...a: unknown[]) => mockSingle(...a),
+    maybeSingle: (...a: unknown[]) => mockMaybeSingle(...a),
+  });
 });
 
 describe('createBooking', () => {
@@ -70,6 +79,10 @@ describe('createBooking', () => {
       // Slice 24 scheduling fields (defaults when not provided)
       scheduling_type: 'datetime', time_window: null, window_start: null,
       window_end: null, recurrence: 'one_time',
+      // Phase 4E.2 — idempotency key is null when the caller omits it
+      idempotency_key: null,
+      // Service Details V1 — null when the caller omits it (pre-V1 behaviour preserved)
+      service_details: null,
     });
   });
   it('inserts provided scheduling fields verbatim', async () => {
@@ -100,6 +113,285 @@ describe('createBooking', () => {
     mockInsert.mockReturnValue({ select: () => ({ single: () => Promise.resolve({ data: { id: 'bk1' }, error: null }) }) });
     const res = await createBooking({ serviceId: 's', address: 'a', scheduledFor: 't' });
     expect(res).toEqual({ ok: true, id: 'bk1' });
+  });
+
+  it('passes the idempotency_key through to the insert when provided', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    mockInsert.mockReturnValue({ select: () => ({ single: () => Promise.resolve({ data: { id: 'bk9' }, error: null }) }) });
+    await createBooking({ serviceId: 's', address: 'a', scheduledFor: 't', idempotencyKey: 'idem-123' });
+    expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({ idempotency_key: 'idem-123' }));
+  });
+
+  // ── Service Details V1 ──────────────────────────────────────────────────
+  it('persists the service_details snapshot when provided', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    mockInsert.mockReturnValue({ select: () => ({ single: () => Promise.resolve({ data: { id: 'bk10' }, error: null }) }) });
+    const service_details = buildServiceDetailsSnapshot({
+      formVersion: 1,
+      serviceSlug: 'house-cleaning',
+      serviceTitle: 'House Cleaning',
+      primaryKind: 'variant',
+      primary: { key: 'variant', question: 'What kind of cleaning?', kind: 'single', value: 'deep', display: 'Deep clean' },
+    });
+    const res = await createBooking({ serviceId: 'house-cleaning', address: 'a', scheduledFor: 't', service_details });
+    expect(res).toEqual({ ok: true, id: 'bk10' });
+    expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({ service_details }));
+  });
+
+  it('stores service_details as null when the caller omits it (pre-V1 callers unaffected)', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    mockInsert.mockReturnValue({ select: () => ({ single: () => Promise.resolve({ data: { id: 'bk11' }, error: null }) }) });
+    await createBooking({ serviceId: 's', address: 'a', scheduledFor: 't' });
+    expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({ service_details: null }));
+  });
+
+  it('service_details does not disturb idempotent recovery', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    mockInsert.mockReturnValue({ select: () => ({ single: () => Promise.resolve({ data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint "bookings_idempotency_key_uidx"' } }) }) });
+    mockMaybeSingle.mockResolvedValue({ data: { id: 'bk-existing' }, error: null });
+    const service_details = buildServiceDetailsSnapshot({
+      formVersion: 1, serviceSlug: 's', serviceTitle: 'S', primaryKind: 'issue',
+      primary: { key: 'issue', question: 'Q', kind: 'single', value: 'leak', display: 'Leak' },
+    });
+    const res = await createBooking({ serviceId: 's', address: 'a', scheduledFor: 't', idempotencyKey: 'idem-123', service_details });
+    expect(res).toEqual({ ok: true, id: 'bk-existing', recovered: true });
+  });
+
+  it('RECOVERS the existing booking on a unique-violation retry (same idempotency key) — no second row, no error', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    // Insert raises 23505 (the key already created a booking on the first, timed-out attempt).
+    mockInsert.mockReturnValue({ select: () => ({ single: () => Promise.resolve({ data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint "bookings_idempotency_key_uidx"' } }) }) });
+    // Recovery select(...).eq('idempotency_key', ...).maybeSingle() returns the existing booking.
+    mockMaybeSingle.mockResolvedValue({ data: { id: 'bk-existing' }, error: null });
+    const res = await createBooking({ serviceId: 's', address: 'a', scheduledFor: 't', idempotencyKey: 'idem-123' });
+    expect(res).toEqual({ ok: true, id: 'bk-existing', recovered: true });
+    expect(mockSelectEq).toHaveBeenCalledWith('idempotency_key', 'idem-123');
+  });
+
+  it('returns a normal error on 23505 when no idempotency key was used (cannot recover)', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    mockInsert.mockReturnValue({ select: () => ({ single: () => Promise.resolve({ data: null, error: { code: '23505', message: 'duplicate key' } }) }) });
+    expect(await createBooking({ serviceId: 's', address: 'a', scheduledFor: 't' })).toEqual({
+      ok: false, error: 'Could not create booking. Please try again.',
+    });
+  });
+});
+
+describe('newIdempotencyKey', () => {
+  it('returns a UUID-shaped string and a different value each call', () => {
+    const a = newIdempotencyKey();
+    expect(a).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+    expect(newIdempotencyKey()).not.toBe(a);
+  });
+});
+
+describe('isLikelyDuplicateBooking (business matcher)', () => {
+  const base = {
+    id: 'e1', service_id: 'plumbing', status: 'pending' as const,
+    address: 'Yaya Towers, Nairobi', building_name: 'Yaya Towers', floor: '7', door_number: '7B',
+  };
+  const input = { serviceId: 'plumbing', address: 'Yaya Towers, Nairobi', building_name: 'Yaya Towers', floor: '7', door_number: '7B' };
+
+  it('Case D — same service + same active destination/unit → duplicate', () => {
+    expect(isLikelyDuplicateBooking(base as never, input)).toBe(true);
+  });
+  it('Case C — different unit (door 8A vs 7B) → NOT duplicate', () => {
+    expect(isLikelyDuplicateBooking({ ...base, door_number: '8A' } as never, input)).toBe(false);
+  });
+  it('Case B — different address → NOT duplicate', () => {
+    expect(isLikelyDuplicateBooking({ ...base, address: 'Kilimani, Nairobi' } as never, input)).toBe(false);
+  });
+  it('Case A — different service → NOT duplicate', () => {
+    expect(isLikelyDuplicateBooking(base as never, { ...input, serviceId: 'house-cleaning' })).toBe(false);
+  });
+  it('Case J — completed/cancelled existing → NOT duplicate', () => {
+    expect(isLikelyDuplicateBooking({ ...base, status: 'completed' } as never, input)).toBe(false);
+    expect(isLikelyDuplicateBooking({ ...base, status: 'cancelled' } as never, input)).toBe(false);
+  });
+  it('does not force-match when the new address is blank', () => {
+    expect(isLikelyDuplicateBooking(base as never, { ...input, address: '' })).toBe(false);
+  });
+  it('case-insensitive + trims when comparing destination fields', () => {
+    expect(isLikelyDuplicateBooking({ ...base, door_number: ' 7b ' } as never, input)).toBe(true);
+  });
+
+  // ── Service Details V1.5 — primary meaning participates in the heuristic ────
+  //
+  // Only the stable PRIMARY machine value is compared, and only when BOTH sides produced one.
+  // Everything else falls back to the pre-V1.5 service/destination heuristic, so a legacy or
+  // malformed snapshot can never switch duplicate protection off.
+
+  /** A minimal snapshot carrying `primary.value` — the only field the matcher reads. */
+  const snap = (primaryValue: unknown) => ({
+    schema: 1,
+    form_version: 1,
+    service_slug: 'plumbing',
+    service_title: 'Plumbing',
+    primary_kind: 'issue',
+    primary: { key: 'issue', question: 'What is wrong?', kind: 'single', value: primaryValue, display: 'x' },
+    answers: [],
+    addons: [],
+    items: null,
+    flags: {},
+  });
+
+  it('same service/destination + SAME primary Service Details → still a duplicate', () => {
+    expect(
+      isLikelyDuplicateBooking(
+        { ...base, service_details: snap('blocked_drain') } as never,
+        { ...input, serviceDetails: snap('blocked_drain') },
+      ),
+    ).toBe(true);
+  });
+
+  it('same service/destination + DIFFERENT primary Service Details → NOT a duplicate', () => {
+    expect(
+      isLikelyDuplicateBooking(
+        { ...base, service_details: snap('blocked_drain') } as never,
+        { ...input, serviceDetails: snap('leaking_tap') },
+      ),
+    ).toBe(false);
+  });
+
+  it('BOTH snapshots null (legacy bookings) → existing warning is preserved', () => {
+    expect(
+      isLikelyDuplicateBooking({ ...base, service_details: null } as never, { ...input, serviceDetails: null }),
+    ).toBe(true);
+  });
+
+  it('ONE snapshot missing → existing warning is preserved (absence never disables protection)', () => {
+    expect(
+      isLikelyDuplicateBooking(
+        { ...base, service_details: null } as never,
+        { ...input, serviceDetails: snap('leaking_tap') },
+      ),
+    ).toBe(true);
+    expect(
+      isLikelyDuplicateBooking(
+        { ...base, service_details: snap('leaking_tap') } as never,
+        { ...input, serviceDetails: undefined },
+      ),
+    ).toBe(true);
+  });
+
+  it('malformed or non-string primary → safe fallback to the existing warning', () => {
+    for (const bad of [{ nope: true }, 'string', 42, [], snap(null), snap(7), snap(['a'])]) {
+      expect(
+        isLikelyDuplicateBooking(
+          { ...base, service_details: bad } as never,
+          { ...input, serviceDetails: snap('leaking_tap') },
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it('a different PRIMARY never rescues a different service or destination', () => {
+    // The new dimension only ever makes the matcher MORE selective, never less.
+    expect(
+      isLikelyDuplicateBooking(
+        { ...base, service_details: snap('same') } as never,
+        { ...input, serviceId: 'house-cleaning', serviceDetails: snap('same') },
+      ),
+    ).toBe(false);
+    expect(
+      isLikelyDuplicateBooking(
+        { ...base, address: 'Kilimani, Nairobi', service_details: snap('same') } as never,
+        { ...input, serviceDetails: snap('same') },
+      ),
+    ).toBe(false);
+  });
+
+  it('compares ONLY the primary value — add-ons and follow-ups are not duplicate identity', () => {
+    const existing = {
+      ...base,
+      service_details: {
+        ...snap('blocked_drain'),
+        answers: [{ key: 'urgency', question: 'How urgent?', kind: 'single', value: 'today', display: 'Today' }],
+        addons: [{ key: 'inspection', label: 'Inspection' }],
+      },
+    };
+    const incoming = {
+      ...input,
+      serviceDetails: {
+        ...snap('blocked_drain'),
+        answers: [{ key: 'urgency', question: 'How urgent?', kind: 'single', value: 'this_week', display: 'This week' }],
+        addons: [],
+      },
+    };
+    // Different follow-ups and add-ons, same primary → still the same request.
+    expect(isLikelyDuplicateBooking(existing as never, incoming)).toBe(true);
+  });
+
+  it('callers that omit serviceDetails entirely keep exactly the pre-V1.5 behaviour', () => {
+    expect(isLikelyDuplicateBooking(base as never, input)).toBe(true);
+    expect(isLikelyDuplicateBooking({ ...base, door_number: '8A' } as never, input)).toBe(false);
+  });
+});
+
+describe('findActiveDuplicateBooking', () => {
+  const input = { serviceId: 'plumbing', address: 'Yaya Towers, Nairobi', building_name: 'Yaya Towers', floor: '7', door_number: '7B' };
+  it('returns the matching active booking from the caller-own list', async () => {
+    // getCustomerBookings(0, 50) chains order().range(): the mock attaches .range onto order()'s
+    // return, so mockOrder must yield an object; the awaited value comes from mockRange.
+    mockOrder.mockResolvedValue({ data: [], error: null });
+    mockRange.mockResolvedValue({ data: [
+      { id: 'x', service_id: 'house-cleaning', status: 'pending', address: 'Yaya Towers, Nairobi', building_name: 'Yaya Towers', floor: '7', door_number: '7B' },
+      { id: 'dup', service_id: 'plumbing', status: 'pending', address: 'Yaya Towers, Nairobi', building_name: 'Yaya Towers', floor: '7', door_number: '7B' },
+    ], error: null });
+    const res = await findActiveDuplicateBooking(input);
+    expect(res?.id).toBe('dup');
+  });
+  it('returns null when nothing matches', async () => {
+    mockOrder.mockResolvedValue({ data: [], error: null });
+    mockRange.mockResolvedValue({ data: [
+      { id: 'y', service_id: 'plumbing', status: 'pending', address: 'Kilimani', building_name: '', floor: '', door_number: '' },
+    ], error: null });
+    expect(await findActiveDuplicateBooking(input)).toBeNull();
+  });
+
+  // ── Service Details V1.5 ───────────────────────────────────────────────────
+
+  const primarySnap = (value: string) => ({
+    schema: 1,
+    form_version: 1,
+    service_slug: 'plumbing',
+    service_title: 'Plumbing',
+    primary_kind: 'issue',
+    primary: { key: 'issue', question: 'What is wrong?', kind: 'single', value, display: value },
+    answers: [],
+    addons: [],
+    items: null,
+    flags: {},
+  });
+
+  it('skips an active same-destination booking whose primary request is different', async () => {
+    mockOrder.mockResolvedValue({ data: [], error: null });
+    mockRange.mockResolvedValue({ data: [
+      { id: 'other-request', service_id: 'plumbing', status: 'pending', address: 'Yaya Towers, Nairobi', building_name: 'Yaya Towers', floor: '7', door_number: '7B', service_details: primarySnap('blocked_drain') },
+    ], error: null });
+
+    expect(await findActiveDuplicateBooking({ ...input, serviceDetails: primarySnap('leaking_tap') })).toBeNull();
+  });
+
+  it('still finds the booking whose primary request matches', async () => {
+    mockOrder.mockResolvedValue({ data: [], error: null });
+    mockRange.mockResolvedValue({ data: [
+      { id: 'other-request', service_id: 'plumbing', status: 'pending', address: 'Yaya Towers, Nairobi', building_name: 'Yaya Towers', floor: '7', door_number: '7B', service_details: primarySnap('blocked_drain') },
+      { id: 'same-request', service_id: 'plumbing', status: 'pending', address: 'Yaya Towers, Nairobi', building_name: 'Yaya Towers', floor: '7', door_number: '7B', service_details: primarySnap('leaking_tap') },
+    ], error: null });
+
+    const res = await findActiveDuplicateBooking({ ...input, serviceDetails: primarySnap('leaking_tap') });
+    expect(res?.id).toBe('same-request');
+  });
+
+  it('still warns against a legacy booking with no snapshot', async () => {
+    mockOrder.mockResolvedValue({ data: [], error: null });
+    mockRange.mockResolvedValue({ data: [
+      { id: 'legacy', service_id: 'plumbing', status: 'pending', address: 'Yaya Towers, Nairobi', building_name: 'Yaya Towers', floor: '7', door_number: '7B', service_details: null },
+    ], error: null });
+
+    const res = await findActiveDuplicateBooking({ ...input, serviceDetails: primarySnap('leaking_tap') });
+    expect(res?.id).toBe('legacy');
   });
 });
 

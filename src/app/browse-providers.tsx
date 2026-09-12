@@ -34,6 +34,7 @@ import { MarketplaceEmptyState } from '@/components/ui/marketplace-empty-state';
 import { MarketplaceProviderCard } from '@/components/ui/marketplace-provider-card';
 import { ProviderFilterControls } from '@/components/ui/provider-filter-controls';
 import { ProviderSortControls } from '@/components/ui/provider-sort-controls';
+import { Button } from '@/components/ui/button';
 import { SearchBar } from '@/components/ui/search-bar';
 import { Text } from '@/components/ui/text';
 
@@ -118,6 +119,7 @@ export default function ProvidersScreen() {
     >
       {/* ── Header ──────────────────────────────────────────────────── */}
       <View style={styles.header}>
+        <Button label="← Back" variant="ghost" onPress={() => router.back()} />
         <Text variant="title" style={styles.heading}>
           Browse Providers
         </Text>

@@ -1,0 +1,100 @@
+# Service Details V1.5 — CAR TOWING safety gate: the blocking path and the normal path.
+#
+# The injury question runs BEFORE the form. Answering YES must stop the booking and point the
+# customer at emergency services; it must NOT read as though KwikServe is an emergency
+# responder, and — by locked decision OD3 — no emergency telephone number is hardcoded anywhere,
+# because the correct number is jurisdictional. Both halves are asserted here.
+#
+# Nothing is placed — the flow stops at the Address step.
+#
+# Params via -e: CUST_EMAIL, CUST_PW.
+appId: ke.co.hiredcorp.kwikserve
+---
+- runFlow: { file: steps/login-customer.yaml }
+
+# ── Enter via SEARCH, not a deep Home scroll ──────────────────────────────────
+# Car Towing carries no badge, so it appears only in the Auto category grid far down the Home
+# screen. Run 32120724458 failed scrolling to it: the screenshot showed Home stopped mid-grid
+# while the accessibility hierarchy held no app-content nodes at all — the scroll was blind.
+# Search reaches any service in one step, and is the entry customer-nav-search.yaml has proven
+# in every run of this suite.
+- tapOn: "Search services"
+- extendedWaitUntil: { visible: "Popular searches", timeout: 10000 }
+- tapOn: "Search services..."
+- inputText: "Car Towing"
+- extendedWaitUntil: { visible: ".*Car Towing.*", timeout: 12000 }
+# Tap the RESULT CARD, identified by its unique starting price, never the suggestion row above
+# it — the same disambiguation customer-nav-search.yaml uses.
+- tapOn: ".*KES 3,500.*"
+- extendedWaitUntil: { visible: "Step 1 of 5", timeout: 15000 }
+- assertVisible: { id: "gate-injury_check" }
+- assertVisible: "Is anyone injured or in immediate danger?"
+- takeScreenshot: sd-tw-01-gate
+
+# ── Choose a towing reason first, so the block is proven to override a part-filled form ──
+- scrollUntilVisible: { element: { id: "option-issue-accident" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "option-issue-accident" }
+
+# ── BLOCKING PATH — "Yes, someone is injured or in danger" ────────────────────
+# Header-occlusion guard (run 32150749532 class): scrolling DOWN to the issue options pushes the
+# gate toward the top edge, where a "visible" element can still sit under the fixed Back header.
+- scrollUntilVisible: { element: { id: "gate-option-yes" }, direction: UP, timeout: 12000, centerElement: true }
+- tapOn: { id: "gate-option-yes" }
+- extendedWaitUntil: { visible: { id: "safety-block" }, timeout: 8000 }
+- scrollUntilVisible: { element: { text: "Please contact emergency services first" }, direction: DOWN, timeout: 12000 }
+- assertVisible: "Please contact emergency services first"
+# The body is a separate, longer node below the title.
+- scrollUntilVisible: { element: { text: ".*KwikServe is not an emergency service.*" }, direction: DOWN, timeout: 12000 }
+- assertVisible: ".*KwikServe is not an emergency service.*"
+- takeScreenshot: sd-tw-02-blocked
+
+# The form and its Continue button are gone — progression is genuinely blocked, not just warned.
+- assertNotVisible: { id: "service-details-continue" }
+- assertNotVisible: { id: "question-vehicle_make_model" }
+- assertNotVisible: "Your Address"
+
+# Locked decision OD3 — no emergency telephone number is presented anywhere on this screen.
+- assertNotVisible: ".*999.*"
+- assertNotVisible: ".*112.*"
+- assertNotVisible: ".*911.*"
+
+# ── NON-BLOCKING PATH — "No" restores the form ────────────────────────────────
+# Reading the block body scrolled past the gate; bring it back before answering.
+- scrollUntilVisible: { element: { id: "gate-option-no" }, direction: UP, timeout: 12000, centerElement: true }
+- tapOn: { id: "gate-option-no" }
+- extendedWaitUntil: { notVisible: { id: "safety-block" }, timeout: 8000 }
+# The form is restored BELOW the gate and the seven issue options, so it is off-screen at this
+# point. Run 32125271205 failed asserting it visible without scrolling: the screenshot showed
+# "No" selected, the block cleared and the form correctly rendered further down the page.
+- scrollUntilVisible: { element: { id: "question-vehicle_make_model" }, direction: DOWN, timeout: 12000 }
+- assertVisible: { id: "question-vehicle_make_model" }
+- takeScreenshot: sd-tw-03-unblocked
+
+- scrollUntilVisible: { element: { id: "input-vehicle_make_model" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "input-vehicle_make_model" }
+- inputText: "Toyota Prado"
+# Scroll the heading back into view BEFORE tapping it to dismiss the iOS keyboard — reaching the
+# field scrolled it off-screen. Same order as address-journey.yaml.
+# waitToSettleTimeoutMs: run 32031583358 timed out on this exact scroll while the failure
+# screenshot showed the heading fully rendered — the scroll had arrived, but the accessibility
+# hierarchy Maestro reads had not caught up. 500ms is the value Maestro's own error output
+# suggests, and it is applied ONLY to these keyboard-dismiss scrolls (the long full-form ones),
+# never to Review assertions or ordinary navigation.
+- scrollUntilVisible: { element: { text: "Car Towing" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
+- tapOn: "Car Towing"
+- scrollUntilVisible: { element: { id: "input-destination" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "input-destination" }
+- inputText: "Westlands garage"
+- scrollUntilVisible: { element: { text: "Car Towing" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
+- tapOn: "Car Towing"
+- scrollUntilVisible: { element: { id: "option-can_roll_or_steer-not_sure" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "option-can_roll_or_steer-not_sure" }
+- scrollUntilVisible: { element: { id: "option-difficult_access-no" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "option-difficult_access-no" }
+
+# ── Continue reaches Address ──────────────────────────────────────────────────
+- scrollUntilVisible: { element: { id: "service-details-continue" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "service-details-continue" }
+- extendedWaitUntil: { visible: "Your Address", timeout: 15000 }
+- assertVisible: "Step 2 of 5"
+- takeScreenshot: sd-tw-04-address

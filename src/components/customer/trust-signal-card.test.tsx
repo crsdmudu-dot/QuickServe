@@ -35,14 +35,14 @@ describe('TrustSignalCard', () => {
 
   it('renders VerifiedBadge for the verified signal', () => {
     render(<TrustSignalCard signals={SIGNALS} />);
-    // VerifiedBadge renders "Verified by QuickServe"
-    expect(screen.getByText('Verified by QuickServe')).toBeOnTheScreen();
+    // VerifiedBadge renders "Verified by KwikServe"
+    expect(screen.getByText('Verified by KwikServe')).toBeOnTheScreen();
   });
 
   it('does NOT render VerifiedBadge when no verified signal', () => {
     const noVerified = SIGNALS.filter((s) => s.key !== 'verified');
     render(<TrustSignalCard signals={noVerified} />);
-    expect(screen.queryByText('Verified by QuickServe')).toBeNull();
+    expect(screen.queryByText('Verified by KwikServe')).toBeNull();
   });
 
   it('renders empty state when signals array is empty', () => {

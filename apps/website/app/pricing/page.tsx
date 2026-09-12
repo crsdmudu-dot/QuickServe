@@ -17,9 +17,9 @@ import TrustBadge from '@/components/TrustBadge';
 import CtaSection from '@/components/CtaSection';
 
 export const metadata = buildMetadata({
-  title: 'Simple, Transparent Pricing — QuickServe',
+  title: 'Simple, Transparent Pricing — KwikServe',
   description:
-    'No hidden fees, no surprises. QuickServe shows you the full price before you confirm every booking. Pay securely per service — fair rates, upfront quotes, guaranteed quality.',
+    'No hidden fees, no surprises. KwikServe shows you the full price before you confirm every booking. Pay securely per service — fair rates, upfront quotes, guaranteed quality.',
   path: '/pricing',
 });
 
@@ -137,7 +137,7 @@ export default function PricingPage() {
       {/* ------------------------------------------------------------------ */}
       <CtaSection
         heading="See Prices in the App"
-        body="Download QuickServe to view live, upfront pricing for every service in your area."
+        body="Download KwikServe to view live, upfront pricing for every service in your area."
         primaryCta={PRIMARY_CTA}
         secondaryCta={PROVIDER_CTA}
       />

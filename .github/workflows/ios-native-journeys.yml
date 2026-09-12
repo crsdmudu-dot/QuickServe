@@ -12,6 +12,10 @@ name: iOS Native Journeys (Phase 3F flows on iOS Simulator)
 #   QA_SERVICE_ROLE_KEY      - QA service-role key (setup-verify / assignment / cleanup only)
 #   QA_CUSTOMER_EMAIL / QA_CUSTOMER_PASSWORD
 #   QA_PROVIDER1_EMAIL / QA_PROVIDER1_PASSWORD
+#   QA_ADMIN_EMAIL / QA_ADMIN_PASSWORD
+#       Service Details V1.6 — used for the MANUAL mobile-admin surface certification only.
+#       The automated Service Details suite below does not require them and will run without
+#       them; they are wired here so the admin portion needs no further workflow change.
 # (No product secrets are embedded; simulator builds need no Apple credentials.)
 
 on:
@@ -25,7 +29,10 @@ on:
 jobs:
   ios-journeys:
     runs-on: macos-14
-    timeout-minutes: 60
+    # 90, not 60. Run 32176129714 was cancelled mid Phase 3F on the 60-minute cap with no test
+    # failure: the steps ahead of it consumed 49m 51s, Phase 3F needs 12-14 on its own, and Grocery
+    # still has to run after that. The suite simply outgrew the old budget as coverage was added.
+    timeout-minutes: 90
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       QA_SUPABASE_URL: ${{ secrets.QA_SUPABASE_URL }}
@@ -35,6 +42,8 @@ jobs:
       QA_CUSTOMER_PASSWORD: ${{ secrets.QA_CUSTOMER_PASSWORD }}
       QA_PROVIDER1_EMAIL: ${{ secrets.QA_PROVIDER1_EMAIL }}
       QA_PROVIDER1_PASSWORD: ${{ secrets.QA_PROVIDER1_PASSWORD }}
+      QA_ADMIN_EMAIL: ${{ secrets.QA_ADMIN_EMAIL }}
+      QA_ADMIN_PASSWORD: ${{ secrets.QA_ADMIN_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -80,13 +89,57 @@ jobs:
           open -a Simulator || true
           xcrun simctl install "$DEVICE_ID" "$APP_PATH"
           echo "Installed $APP_PATH"
-          xcrun simctl listapps "$DEVICE_ID" | grep -i quickserve || true
+          xcrun simctl listapps "$DEVICE_ID" | grep -i kwikserve || true
 
       - name: Entry reachability smoke (iOS deterministic entry)
         run: maestro test qa/native/flows/entry-reachability.yaml
 
+      - name: Phase 4E.2 — cold-relaunch resilience (logged-out + logged-in, no black screen)
+        run: |
+          maestro test qa/native/flows/cold-relaunch.yaml \
+            -e CUST_EMAIL="$QA_CUSTOMER_EMAIL" -e CUST_PW="$QA_CUSTOMER_PASSWORD"
+
+      - name: Phase 4E.2 — Booking Detail back-navigation (visible Back → My Bookings, no trap)
+        run: |
+          maestro test qa/native/flows/booking-detail-back.yaml \
+            -e CUST_EMAIL="$QA_CUSTOMER_EMAIL" -e CUST_PW="$QA_CUSTOMER_PASSWORD"
+
+      - name: Phase 4E.2 — customer nav/search regression (Android-hurdle replay)
+        run: |
+          maestro test qa/native/flows/customer-nav-search.yaml \
+            -e CUST_EMAIL="$QA_CUSTOMER_EMAIL" -e CUST_PW="$QA_CUSTOMER_PASSWORD"
+
+      # Service Details V1.6 — the five CORE flows, via the existing runner (never re-listed here).
+      # Runs BEFORE the remaining Phase 4E.2 flows: this pipeline is serial and fail-fast, and a
+      # flake in an unrelated legacy step was preventing the active certification target from
+      # executing at all (run 32112036669). The stable smoke checks above stay first because they
+      # are prerequisites — they prove login, cold start and navigation work before anything else
+      # is attempted. The runner is self-cleaning: only booking-duplicate-distinct.yaml creates
+      # data, under its own SDV15-<epoch> marker, removed by an EXIT trap.
+      - name: Service Details V1.6 — CORE flows (House Cleaning, Massage, Towing gate, Address Back, distinct-duplicate)
+        run: bash qa/native/ios-service-details.sh
+
+      - name: Phase 4E.2 — notification-center refresh (Android defect #1 replay)
+        run: bash qa/native/ios-notif-refresh.sh
+
+      - name: Phase 4E.2 — delivery-address journey (Places New autocomplete + last-mile fields)
+        run: |
+          maestro test qa/native/flows/address-journey.yaml \
+            -e CUST_EMAIL="$QA_CUSTOMER_EMAIL" -e CUST_PW="$QA_CUSTOMER_PASSWORD"
+
+      - name: Phase 4E.2 — booking duplicate warning + idempotency journey
+        run: bash qa/native/ios-booking-duplicate.sh
+
       - name: Run Phase 3F customer/provider journeys on iOS
         run: bash qa/native/ios-journeys.sh
+
+      # Grocery runs LAST OF ALL. Its deep-form iOS accessibility limitation is reproducible and
+      # fail-fast-fatal, and while it sat inside the core suite it was preventing the four legacy
+      # regression steps above from ever executing. This is evidence ordering only: the flow is
+      # unchanged, its exit code is NOT swallowed, and there is deliberately no continue-on-error —
+      # a Grocery failure still fails the workflow.
+      - name: Service Details V1.6 — Grocery flow (known deep-form limitation; runs last)
+        run: bash qa/native/ios-service-details-grocery.sh
 
       - name: Upload Maestro artifacts (screenshots / logs)
         if: always()
@@ -95,5 +148,6 @@ jobs:
           name: maestro-ios-artifacts
           path: |
             ~/.maestro/tests
+            ${{ github.workspace }}/*.png
           if-no-files-found: ignore
           retention-days: 14

@@ -1,4 +1,4 @@
-import { searchPlaces, getPlaceDetails } from '@/lib/places';
+import { searchPlaces, getPlaceDetails, newSessionToken } from '@/lib/places';
 import type { PlaceSuggestion, PlaceDetailsWithMap } from '@/lib/places';
 
 // ── Mock Supabase ──────────────────────────────────────────────────────────────
@@ -46,6 +46,14 @@ describe('searchPlaces', () => {
     });
   });
 
+  it('forwards the session token in the body when provided', async () => {
+    invoke.mockResolvedValue({ data: { suggestions: [] }, error: null });
+    await searchPlaces('  Westlands  ', 'tok-abc');
+    expect(mockInvoke).toHaveBeenCalledWith('places-autocomplete', {
+      body: { query: 'Westlands', sessionToken: 'tok-abc' },
+    });
+  });
+
   it('returns [] when the Edge Function returns an error', async () => {
     invoke.mockResolvedValue({ data: null, error: { message: 'not configured' } });
     const result = await searchPlaces('Karen');
@@ -84,6 +92,14 @@ describe('getPlaceDetails', () => {
     });
   });
 
+  it('forwards the session token in the body when provided', async () => {
+    invoke.mockResolvedValue({ data: { details: null }, error: null });
+    await getPlaceDetails('place-abc', 'tok-abc');
+    expect(mockInvoke).toHaveBeenCalledWith('place-details', {
+      body: { placeId: 'place-abc', sessionToken: 'tok-abc' },
+    });
+  });
+
   it('returns null when the Edge Function returns an error', async () => {
     invoke.mockResolvedValue({ data: null, error: { message: 'not found' } });
     const result = await getPlaceDetails('place-abc');
@@ -94,5 +110,19 @@ describe('getPlaceDetails', () => {
     invoke.mockResolvedValue({ data: {}, error: null });
     const result = await getPlaceDetails('place-abc');
     expect(result).toBeNull();
+  });
+});
+
+// ── newSessionToken ──────────────────────────────────────────────────────────
+
+describe('newSessionToken', () => {
+  it('returns a non-empty UUID-shaped string', () => {
+    const t = newSessionToken();
+    expect(typeof t).toBe('string');
+    expect(t).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+  });
+
+  it('returns a different token on each call (unique per session)', () => {
+    expect(newSessionToken()).not.toBe(newSessionToken());
   });
 });

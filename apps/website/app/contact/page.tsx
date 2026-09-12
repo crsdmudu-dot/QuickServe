@@ -11,9 +11,9 @@ import SectionHeading from '@/components/SectionHeading';
 import CtaSection from '@/components/CtaSection';
 
 export const metadata = buildMetadata({
-  title: 'Contact QuickServe — Get in Touch',
+  title: 'Contact KwikServe — Get in Touch',
   description:
-    'Get in touch with the QuickServe team. Email us, find us on social media, or visit our FAQ and Support pages for quick answers.',
+    'Get in touch with the KwikServe team. Email us, find us on social media, or visit our FAQ and Support pages for quick answers.',
   path: '/contact',
 });
 
@@ -28,7 +28,7 @@ export default function ContactPage() {
           <SectionHeading
             as="h1"
             eyebrow="Get in Touch"
-            title="Contact QuickServe"
+            title="Contact KwikServe"
             subtitle="Have a question, feedback, or enquiry? We'd love to hear from you. Reach out via email or social media — our team will get back to you as soon as possible."
             align="center"
           />
@@ -120,7 +120,7 @@ export default function ContactPage() {
             title="Interested in Joining as a Service Provider?"
           />
           <p className="text-body text-textSecondary">
-            If you&apos;re a professional looking to grow your business on QuickServe, visit our{' '}
+            If you&apos;re a professional looking to grow your business on KwikServe, visit our{' '}
             <Link
               href="/become-a-provider"
               className="text-primary underline underline-offset-2 hover:text-primaryDark"
@@ -137,7 +137,7 @@ export default function ContactPage() {
       {/* ------------------------------------------------------------------ */}
       <CtaSection
         heading="Ready to Book a Service?"
-        body="Download the QuickServe app and book a vetted professional in under a minute."
+        body="Download the KwikServe app and book a vetted professional in under a minute."
         primaryCta={PRIMARY_CTA}
       />
     </>

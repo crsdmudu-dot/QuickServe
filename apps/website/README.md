@@ -1,8 +1,8 @@
-# QuickServe Marketing Website
+# KwikServe Marketing Website
 
-Public marketing website for QuickServe — trusted on-demand home services in Nairobi.
+Public marketing website for KwikServe — trusted on-demand home services in Nairobi.
 
-This is a standalone Next.js App Router application (static export). It lives at `apps/website/` inside the QuickServe monorepo and has its own `node_modules`, React, and toolchain — completely separate from the Expo app.
+This is a standalone Next.js App Router application (static export). It lives at `apps/website/` inside the KwikServe monorepo and has its own `node_modules`, React, and toolchain — completely separate from the Expo app.
 
 ## Getting started
 

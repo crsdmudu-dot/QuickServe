@@ -58,31 +58,79 @@ const MOCK_ATTEMPT = {
 
 const mockAdminGetPaymentAttempts = jest.fn().mockResolvedValue([MOCK_ATTEMPT]);
 const mockAdminConfirmAttempt = jest.fn().mockResolvedValue({ ok: true });
-const mockAdminCancelAttempt = jest.fn().mockResolvedValue({ ok: true });
+const mockAdminReconcileAttempt = jest.fn().mockResolvedValue({ ok: true });
 
 jest.mock('@/lib/attempts', () => ({
   adminGetPaymentAttempts: (...args: unknown[]) => mockAdminGetPaymentAttempts(...args),
   adminConfirmAttempt: (...args: unknown[]) => mockAdminConfirmAttempt(...args),
-  adminCancelAttempt: (...args: unknown[]) => mockAdminCancelAttempt(...args),
+  adminReconcileAttemptNoCollection: (...args: unknown[]) =>
+    mockAdminReconcileAttempt(...args),
 }));
+
+// ── 0053 review mock (the web attempts screen reads the review RPC, not the raw table) ──────
+const MOCK_REVIEW_ROW = {
+  attempt_id: 'a1',
+  payment_id: 'pay123456-0000-0000-0000-000000000000',
+  booking_id: 'bk123456-0000-0000-0000-000000000000',
+  status: 'timed_out' as const,
+  amount: 1500,
+  created_at: '2026-06-24T00:00:00Z',
+  age_seconds: 900,
+  callback_received_at: null,
+  result_code: null,
+  result_desc: null,
+  checkout_request_id: 'ws_CO_123',
+  merchant_request_id: 'MR-1',
+  has_collected_amount: false,
+  has_settlement_reference: false,
+  discrepancy_count: 0,
+  latest_discrepancy_type: null,
+  payment_status: 'pending',
+  blocks_retry: true,
+  needs_operator: true,
+  resolved_at: null,
+  resolved_by_present: false,
+  resolution_note: null,
+  resolution_reference: null,
+  category: 'reconcile' as const,
+  urgency: 'due' as const,
+  phone_masked: '***678',
+};
+const mockAdminGetMpesaAttemptReview = jest.fn().mockResolvedValue([MOCK_REVIEW_ROW]);
+jest.mock('@/lib/supabase', () => ({ supabase: { rpc: jest.fn() } }));
+jest.mock('@/lib/mpesa-ops', () => {
+  const actual = jest.requireActual('@/lib/mpesa-ops');
+  return {
+    ...actual,
+    adminGetMpesaAttemptReview: (...a: unknown[]) => mockAdminGetMpesaAttemptReview(...a),
+    adminGetMpesaCallbackEvents: jest.fn().mockResolvedValue([]),
+    adminReviewMpesaCallbackEvent: jest.fn().mockResolvedValue({ ok: true }),
+  };
+});
 
 // ── Earnings mocks ──────────────────────────────────────────────────────────
 
-const MOCK_EARNING = {
-  id: 'earn1',
-  provider_id: 'prov12345678',
-  booking_id: 'bk12345678',
-  amount: 2100,
-  payout_status: 'pending' as const,
-  created_at: '2026-07-01T00:00:00Z',
+const MOCK_LEDGER = {
+  earning_id: 'earn1',
+  booking_id: 'bk123456-0000-0000-0000-000000000000',
+  provider_id: 'prov1234-0000-0000-0000-000000000000',
+  provider_entitlement: 2100,
+  deductions_total: 0,
+  net_provider_payable: 2100,
+  amount_disbursed: 0,
+  outstanding_provider_liability: 2100,
+  stored_payout_status: 'pending' as const,
+  derived_payout_status: 'pending' as const,
 };
 
-const mockAdminGetAllEarnings = jest.fn().mockResolvedValue([MOCK_EARNING]);
-const mockAdminMarkPayoutPaid = jest.fn().mockResolvedValue({ ok: true });
+const mockAdminGetPayoutLedger = jest.fn().mockResolvedValue([MOCK_LEDGER]);
 
 jest.mock('@/lib/earnings', () => ({
-  adminGetAllEarnings: (...args: unknown[]) => mockAdminGetAllEarnings(...args),
-  adminMarkPayoutPaid: (...args: unknown[]) => mockAdminMarkPayoutPaid(...args),
+  adminGetPayoutLedger: (...args: unknown[]) => mockAdminGetPayoutLedger(...args),
+}));
+
+jest.mock('@/components/admin-web/admin-provider-payout-panel', () => ({
+  AdminProviderPayoutPanel: () => null,
 }));
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
@@ -117,7 +165,7 @@ describe('AdminWebPaymentsScreen', () => {
   it('renders the split breakdown', async () => {
     render(<AdminWebPaymentsScreen />);
     expect(
-      await screen.findByText('Provider KES 2,100 · QuickServe KES 900'),
+      await screen.findByText('Provider KES 2,100 · KwikServe KES 900'),
     ).toBeOnTheScreen();
   });
 
@@ -132,25 +180,25 @@ describe('AdminWebPaymentsScreen', () => {
     expect(await screen.findByText('#bk123456')).toBeOnTheScreen();
   });
 
-  it('calls adminOverridePaymentStatus when an override button is pressed', async () => {
+  it('calls adminOverridePaymentStatus when an operational override is pressed', async () => {
     render(<AdminWebPaymentsScreen />);
     await screen.findByText('KES 3,000');
-    // 'Paid' button triggers override to 'paid'
-    fireEvent.press(screen.getAllByText('Paid')[0]);
+    fireEvent.press(screen.getAllByText('Cancelled')[0]);
     await waitFor(() =>
-      expect(mockAdminOverridePaymentStatus).toHaveBeenCalledWith('pay1', 'paid'),
+      expect(mockAdminOverridePaymentStatus).toHaveBeenCalledWith('pay1', 'cancelled'),
     );
   });
 
-  it('updates the row status locally after a successful override', async () => {
-    // Start as pending, override to paid; local state should update
-    mockAdminOverridePaymentStatus.mockResolvedValueOnce({ ok: true });
+  it('does NOT offer paid or refunded through the generic override (0045)', async () => {
+    // A paid transition mints a provider earning, so it is reachable only through an evidenced
+    // settlement path; refunded stays unavailable while provider_earnings is never retracted.
+    // The backend rejects both, so the UI must not offer them.
     render(<AdminWebPaymentsScreen />);
     await screen.findByText('KES 3,000');
-    fireEvent.press(screen.getAllByText('Paid')[0]);
-    await waitFor(() =>
-      expect(mockAdminOverridePaymentStatus).toHaveBeenCalledWith('pay1', 'paid'),
-    );
+    expect(screen.queryByText('Paid')).toBeNull();
+    expect(screen.queryByText('Refunded')).toBeNull();
+    expect(screen.getAllByText('Pending').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Cancelled').length).toBeGreaterThan(0);
   });
 
   it('shows empty state when there are no payments', async () => {
@@ -235,85 +283,58 @@ describe('AdminWebPaymentsScreen — pagination', () => {
 
 // ── Payment attempts list tests ─────────────────────────────────────────────
 
-describe('AdminWebPaymentAttemptsScreen', () => {
+describe('AdminWebPaymentAttemptsScreen (reconciliation queue, 0053 review RPC)', () => {
+  // Behavioural coverage of the queue, the two-step confirmation and the evidence rules lives in
+  // admin-web-payment-attempts-review.test.tsx. This block keeps the screen's basic contract:
+  // it renders review rows, offers the two protected actions only for resolvable statuses, and
+  // never exposes a raw MSISDN.
   beforeEach(() => {
-    mockAdminGetPaymentAttempts.mockClear();
-    mockAdminConfirmAttempt.mockClear();
-    mockAdminCancelAttempt.mockClear();
-    mockAdminGetPaymentAttempts.mockResolvedValue([MOCK_ATTEMPT]);
-    mockAdminConfirmAttempt.mockResolvedValue({ ok: true });
-    mockAdminCancelAttempt.mockResolvedValue({ ok: true });
+    mockAdminGetMpesaAttemptReview.mockClear();
+    mockAdminGetMpesaAttemptReview.mockResolvedValue([MOCK_REVIEW_ROW]);
   });
 
-  it('renders the formatted amount after data loads', async () => {
+  it('renders the formatted amount and the masked phone after data loads', async () => {
     render(<AdminWebPaymentAttemptsScreen />);
     expect(await screen.findByText('KES 1,500')).toBeOnTheScreen();
+    expect(screen.getByText('***678')).toBeOnTheScreen();
+    expect(screen.queryByText(/254712345678/)).toBeNull();
   });
 
-  it('renders the attempt status badge', async () => {
-    render(<AdminWebPaymentAttemptsScreen />);
-    expect(await screen.findByText('Pending')).toBeOnTheScreen();
-  });
-
-  it('renders the provider in uppercase', async () => {
+  it('offers resolution for a timed_out attempt (unresolved, not a safe failure)', async () => {
     render(<AdminWebPaymentAttemptsScreen />);
     await screen.findByText('KES 1,500');
-    expect(screen.getByText('MPESA')).toBeOnTheScreen();
+    expect(screen.getByTestId('confirm-a1')).toBeOnTheScreen();
+    expect(screen.getByTestId('nocollect-a1')).toBeOnTheScreen();
+    expect(screen.getByText('Reconciliation required')).toBeOnTheScreen();
   });
 
-  it('renders the checkout request id when present', async () => {
-    render(<AdminWebPaymentAttemptsScreen />);
-    expect(await screen.findByText('Checkout: ws_CO_123')).toBeOnTheScreen();
-  });
-
-  it('calls adminConfirmAttempt with the attempt id when Confirm is pressed', async () => {
-    render(<AdminWebPaymentAttemptsScreen />);
-    await screen.findByText('KES 1,500');
-    fireEvent.press(screen.getByText('Confirm'));
-    await waitFor(() =>
-      expect(mockAdminConfirmAttempt).toHaveBeenCalledWith('att1'),
-    );
-  });
-
-  it('calls adminCancelAttempt with the attempt id when Cancel is pressed', async () => {
-    render(<AdminWebPaymentAttemptsScreen />);
-    await screen.findByText('KES 1,500');
-    fireEvent.press(screen.getByText('Cancel'));
-    await waitFor(() =>
-      expect(mockAdminCancelAttempt).toHaveBeenCalledWith('att1'),
-    );
-  });
-
-  it('shows empty state when there are no attempts', async () => {
-    mockAdminGetPaymentAttempts.mockResolvedValueOnce([]);
-    render(<AdminWebPaymentAttemptsScreen />);
-    expect(await screen.findByText('No payment attempts yet.')).toBeOnTheScreen();
-  });
-
-  it('does not show Confirm/Cancel for non-pending/initiated attempts', async () => {
-    mockAdminGetPaymentAttempts.mockResolvedValueOnce([
-      { ...MOCK_ATTEMPT, status: 'successful' as const },
+  it('offers no resolution actions for terminal attempts', async () => {
+    mockAdminGetMpesaAttemptReview.mockResolvedValueOnce([
+      { ...MOCK_REVIEW_ROW, attempt_id: 'a2', status: 'failed' as const, category: 'failed' as const, urgency: 'normal' as const, blocks_retry: false, needs_operator: false },
     ]);
     render(<AdminWebPaymentAttemptsScreen />);
-    await screen.findByText('KES 1,500');
-    expect(screen.queryByText('Confirm')).toBeNull();
-    expect(screen.queryByText('Cancel')).toBeNull();
+    fireEvent.press(await screen.findByText('Show all'));
+    await screen.findByText('Provider reported failure');
+    expect(screen.queryByTestId('confirm-a2')).toBeNull();
+    expect(screen.queryByTestId('nocollect-a2')).toBeNull();
+  });
+
+  it('shows the needs-attention empty state when nothing requires an operator', async () => {
+    mockAdminGetMpesaAttemptReview.mockResolvedValueOnce([]);
+    render(<AdminWebPaymentAttemptsScreen />);
+    expect(await screen.findByText('Nothing needs an operator right now.')).toBeOnTheScreen();
   });
 });
 
-// ── Earnings list tests ─────────────────────────────────────────────────────
-
 describe('AdminWebEarningsScreen', () => {
   beforeEach(() => {
-    mockAdminGetAllEarnings.mockClear();
-    mockAdminMarkPayoutPaid.mockClear();
-    mockAdminGetAllEarnings.mockResolvedValue([MOCK_EARNING]);
-    mockAdminMarkPayoutPaid.mockResolvedValue({ ok: true });
+    mockAdminGetPayoutLedger.mockClear();
+    mockAdminGetPayoutLedger.mockResolvedValue([MOCK_LEDGER]);
   });
 
-  it('renders the formatted amount after data loads', async () => {
+  it('renders the provider entitlement after data loads', async () => {
     render(<AdminWebEarningsScreen />);
-    expect(await screen.findByText('KES 2,100')).toBeOnTheScreen();
+    expect(await screen.findAllByText('KES 2,100')).not.toHaveLength(0);
   });
 
   it('renders the payout status badge (Pending)', async () => {
@@ -321,9 +342,58 @@ describe('AdminWebEarningsScreen', () => {
     expect(await screen.findByText('Pending')).toBeOnTheScreen();
   });
 
+  it('supports the partially_paid status introduced by Provider Payout V1', async () => {
+    // Amounts are authoritative: a partial payout leaves a real remaining liability.
+    mockAdminGetPayoutLedger.mockResolvedValueOnce([
+      {
+        ...MOCK_LEDGER,
+        amount_disbursed: 500,
+        outstanding_provider_liability: 1600,
+        stored_payout_status: 'partially_paid' as const,
+        derived_payout_status: 'partially_paid' as const,
+      },
+    ]);
+    render(<AdminWebEarningsScreen />);
+    expect(await screen.findByText('Partially paid')).toBeOnTheScreen();
+  });
+
   it('renders the provider ref (first 8 chars of provider_id)', async () => {
     render(<AdminWebEarningsScreen />);
     expect(await screen.findByText('#prov1234')).toBeOnTheScreen();
+  });
+
+  it('never badges a zero-liability earning as Pending, even when the stored status lags', async () => {
+    // Certified Production shape: provider_share 0 → earning amount 0, column default 'pending'.
+    mockAdminGetPayoutLedger.mockResolvedValueOnce([
+      {
+        ...MOCK_LEDGER,
+        provider_entitlement: 0,
+        net_provider_payable: 0,
+        outstanding_provider_liability: 0,
+        stored_payout_status: 'pending' as const,
+        derived_payout_status: 'pending' as const,
+      },
+    ]);
+    render(<AdminWebEarningsScreen />);
+    expect(await screen.findByText('Paid')).toBeOnTheScreen();
+    expect(screen.queryByText('Pending')).toBeNull();
+    expect(screen.queryByText('Record payout')).toBeNull();
+  });
+
+  it('never badges a fully-deducted earning as Pending', async () => {
+    mockAdminGetPayoutLedger.mockResolvedValueOnce([
+      {
+        ...MOCK_LEDGER,
+        deductions_total: 2100,
+        net_provider_payable: 0,
+        outstanding_provider_liability: 0,
+        stored_payout_status: 'pending' as const,
+        derived_payout_status: 'pending' as const,
+      },
+    ]);
+    render(<AdminWebEarningsScreen />);
+    expect(await screen.findByText('Paid')).toBeOnTheScreen();
+    expect(screen.queryByText('Pending')).toBeNull();
   });
 
   it('renders the booking ref (first 8 chars of booking_id)', async () => {
@@ -331,35 +401,31 @@ describe('AdminWebEarningsScreen', () => {
     expect(await screen.findByText('#bk123456')).toBeOnTheScreen();
   });
 
-  it('calls adminMarkPayoutPaid when the button is pressed', async () => {
+  it('offers Record payout, never wording that implies KwikServe sends the money', async () => {
     render(<AdminWebEarningsScreen />);
-    await screen.findByText('KES 2,100');
-    fireEvent.press(screen.getByText('Mark payout paid'));
-    await waitFor(() =>
-      expect(mockAdminMarkPayoutPaid).toHaveBeenCalledWith('earn1'),
-    );
+    expect(await screen.findByText('Record payout')).toBeOnTheScreen();
+    expect(screen.queryByText('Mark payout paid')).toBeNull();
+    expect(screen.queryByText('Send payout')).toBeNull();
+    expect(screen.queryByText('Pay provider now')).toBeNull();
+    expect(screen.queryByText('Transfer funds')).toBeNull();
   });
 
-  it('updates the row payout_status to paid locally after success', async () => {
-    render(<AdminWebEarningsScreen />);
-    await screen.findByText('KES 2,100');
-    fireEvent.press(screen.getByText('Mark payout paid'));
-    await waitFor(() =>
-      expect(mockAdminMarkPayoutPaid).toHaveBeenCalledWith('earn1'),
-    );
-  });
-
-  it('does not show Mark payout paid for already-paid earnings', async () => {
-    mockAdminGetAllEarnings.mockResolvedValueOnce([
-      { ...MOCK_EARNING, payout_status: 'paid' as const },
+  it('does not offer payout recording when nothing is outstanding', async () => {
+    mockAdminGetPayoutLedger.mockResolvedValueOnce([
+      {
+        ...MOCK_LEDGER,
+        amount_disbursed: 2100,
+        outstanding_provider_liability: 0,
+        stored_payout_status: 'paid' as const,
+      },
     ]);
     render(<AdminWebEarningsScreen />);
-    await screen.findByText('KES 2,100');
-    expect(screen.queryByText('Mark payout paid')).toBeNull();
+    expect(await screen.findByText('View ledger')).toBeOnTheScreen();
+    expect(screen.queryByText('Record payout')).toBeNull();
   });
 
   it('shows empty state when there are no earnings', async () => {
-    mockAdminGetAllEarnings.mockResolvedValueOnce([]);
+    mockAdminGetPayoutLedger.mockResolvedValueOnce([]);
     render(<AdminWebEarningsScreen />);
     expect(await screen.findByText('No earnings yet.')).toBeOnTheScreen();
   });

@@ -79,12 +79,12 @@ describe('FaqItem', () => {
   it('answer is hidden initially, appears after clicking, and aria-expanded updates', () => {
     render(
       <FaqItem
-        question="What is QuickServe?"
+        question="What is KwikServe?"
         answer="An on-demand services platform."
       />,
     );
 
-    const button = screen.getByRole('button', { name: /what is quickserve\?/i });
+    const button = screen.getByRole('button', { name: /what is kwikserve\?/i });
 
     // Answer should not be visible initially
     expect(screen.queryByText('An on-demand services platform.')).not.toBeInTheDocument();
@@ -159,11 +159,11 @@ describe('MarketingFooter', () => {
 // ---------------------------------------------------------------------------
 describe('SeoJsonLd', () => {
   it('renders a script tag containing the serialised JSON', () => {
-    const data = { '@context': 'https://schema.org', '@type': 'Organization', name: 'QuickServe' };
+    const data = { '@context': 'https://schema.org', '@type': 'Organization', name: 'KwikServe' };
     const { container } = render(<SeoJsonLd data={data} />);
     const script = container.querySelector('script[type="application/ld+json"]');
     expect(script).toBeInTheDocument();
     expect(script?.innerHTML).toContain('"@type":"Organization"');
-    expect(script?.innerHTML).toContain('"name":"QuickServe"');
+    expect(script?.innerHTML).toContain('"name":"KwikServe"');
   });
 });

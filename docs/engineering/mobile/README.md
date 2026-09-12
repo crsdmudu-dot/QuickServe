@@ -25,7 +25,8 @@ described.
 |---|---|
 | Single Expo codebase → Android + iOS (+ web) | **Implemented** (`app.json`, `package.json`) |
 | EAS build profiles (dev / preview / production) | **Implemented** (`eas.json`) |
-| Push notifications (dev/EAS build only; Expo Go excluded) | **Partial** (`src/lib/push.ts`) |
+| Push notifications (dev/EAS build only; Expo Go excluded) | **Implemented + physically certified on both platforms** (`src/lib/push.ts`) — Android FCM in [Phase 5E](../../qa/PHASE-5E-ANDROID-PACKAGE-MIGRATION-FCM-PUSH-CERTIFICATION.md), iOS APNs in [Phase 6H](../../qa/PHASE-6H-IOS-KWIKSERVE-APNS-PUSH-CERTIFICATION.md). QA backend only — production push is **not** certified |
+| Service Details V1.6 capture + post-booking snapshot rendering | **Implemented + physically certified on Android** (`src/booking/service-details-form.ts`, `src/components/booking/service-details-summary.tsx`) — Samsung S24 in [Phase 7A](../../qa/PHASE-7A-SERVICE-DETAILS-V16-ANDROID-PHYSICAL-CERTIFICATION.md). iOS **partially certified** on physical iPhone in [Phase 7B](../../qa/PHASE-7B-SERVICE-DETAILS-V16-IOS-PHYSICAL-CERTIFICATION.md); the J route guard was then certified in **both** directions in [Phase 7C](../../qa/PHASE-7C-ITEM-M-SCHEME-REMEDIATION-IOS-J-CERTIFICATION.md) after the item M scheme remediation. Grocery, Massage, Review and Customer Booking Detail remain **not** exercised on a physical iPhone |
 | Photo attach via media library | **Implemented** (`expo-image-picker`) |
 | Provider foreground location sharing | **Implemented** (`expo-location`) |
 | Network monitoring / offline banner | **Implemented** (`@react-native-community/netinfo`) |
@@ -79,11 +80,11 @@ flowchart TD
 
 Verified from `app.json`:
 
-- **Android** — `package: "com.quickserve.app"`, `versionCode: 1`; adaptive icon
+- **Android** — `package: "ke.co.hiredcorp.kwikserve"`, `versionCode: 1`; adaptive icon
   (foreground/background/monochrome, `backgroundColor #E6F4FE`); `predictiveBackGestureEnabled:
   false`. Builds via EAS: `development`/`preview` → **APK**
   (`eas.json android.buildType: "apk"`), `production` → **AAB** (default).
-- **iOS** — `bundleIdentifier: "com.quickserve.app"`, `buildNumber: "1"`; icon
+- **iOS** — `bundleIdentifier: "ke.co.hiredcorp.kwikserve"` (Hired Corp Ltd; same string as the Android `package` by design — Apple App IDs and Android application IDs are separate namespaces), `buildNumber: "1"`; icon
   `./assets/expo.icon`; `associatedDomains: ["applinks:REPLACE_ME.quickserve.app"]` (a
   **placeholder** — see §6). Builds via EAS `production` → **.ipa**; `development` is real-device
   only (`eas.json ios.simulator: false`).

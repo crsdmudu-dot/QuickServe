@@ -1,4 +1,4 @@
-// lib/site.ts — SEO helpers and JSON-LD generators for QuickServe marketing website.
+// lib/site.ts — SEO helpers and JSON-LD generators for KwikServe marketing website.
 // Pure data functions — no data fetching, no Supabase, no side effects.
 
 import type { Metadata } from 'next';
@@ -7,10 +7,10 @@ export const SITE_URL = 'https://quickserve.co.ke';
 
 // PLACEHOLDER — update social handles before public launch
 export const BRAND = {
-  name: 'QuickServe',
+  name: 'KwikServe',
   tagline: 'Trusted home services in Nairobi',
   description:
-    'QuickServe connects customers in Nairobi with verified professionals for home, auto, delivery, and personal-care services.',
+    'KwikServe connects customers in Nairobi with verified professionals for home, auto, delivery, and personal-care services.',
   email: 'hello@quickserve.co.ke',
   socials: [
     'https://twitter.com/quickserveke', // PLACEHOLDER
@@ -49,7 +49,7 @@ export function buildMetadata({
       title,
       description,
       url,
-      siteName: 'QuickServe',
+      siteName: 'KwikServe',
       type: 'website',
       images: [image],
     },

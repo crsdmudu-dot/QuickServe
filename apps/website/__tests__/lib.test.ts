@@ -28,9 +28,9 @@ describe('buildMetadata', () => {
     expect(og.url).toBe('https://quickserve.co.ke/services');
   });
 
-  it('sets openGraph.siteName to QuickServe', () => {
+  it('sets openGraph.siteName to KwikServe', () => {
     const og = meta.openGraph as { siteName: string };
-    expect(og.siteName).toBe('QuickServe');
+    expect(og.siteName).toBe('KwikServe');
   });
 
   it('accepts an optional ogImage', () => {
@@ -60,8 +60,8 @@ describe('organizationJsonLd', () => {
     expect(ld['url']).toBe('https://quickserve.co.ke');
   });
 
-  it('name is QuickServe', () => {
-    expect(ld['name']).toBe('QuickServe');
+  it('name is KwikServe', () => {
+    expect(ld['name']).toBe('KwikServe');
   });
 
   it('sameAs does not contain placeholder social URLs (twitter/facebook/instagram)', () => {

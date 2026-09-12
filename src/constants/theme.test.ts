@@ -1,7 +1,7 @@
 import { Colors, Radii, Shadows, Typography } from '@/constants/theme';
 
 describe('design tokens', () => {
-  it('exposes the QuickServe brand palette (light)', () => {
+  it('exposes the KwikServe brand palette (light)', () => {
     expect(Colors.light.primary).toBe('#00875A');
     expect(Colors.light.primaryDark).toBe('#006B47');
     expect(Colors.light.primaryTint).toBe('#E7F7F0');

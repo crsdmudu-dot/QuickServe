@@ -1,0 +1,35 @@
+# public/_headers — response headers for the Cloudflare Workers Static Assets deployment.
+# `expo export --platform web` copies public/ into dist/, so this file ships with every build.
+# Rules accumulate top-down; `! Name` removes a header set by a more general rule above.
+#
+# The Content-Security-Policy is REPORT-ONLY for the first certification cycle: it must produce
+# browser console reports (evidence), not break the admin web. Promote to enforcing only after the
+# routing/auth certification runs clean. Known Expo facts behind the directives:
+#   - every generated document carries exactly one inline script, the constant
+#     `globalThis.__EXPO_ROUTER_HYDRATE__=true;` → allowed by its SHA-256 (identical across
+#     exports and Expo SDK 56; re-derive after an Expo upgrade: sha256 of the script body, base64);
+#   - react-native-web pre-renders inline `style=""` attributes and a <style> tag → 'unsafe-inline'
+#     for styles is required by the framework output;
+#   - the only backend origin is the Production Supabase project host (a public identifier);
+#   - no WebSocket (Realtime) is used by the admin web; no Sentry DSN is configured.
+#
+# Caching: one conservative revalidation policy for EVERY response. `not_found_handling:
+# "single-page-application"` (wrangler.jsonc) answers unmatched paths — including a missing
+# /_expo/static/... or /assets/... file — with the HTML shell, and `_headers` matches by URL only,
+# so a long-lived/immutable rule on those prefixes would let a browser pin that fallback document
+# to a hashed asset URL (a rollback hazard). Long-lived caching for hashed assets may be
+# reconsidered only after missing asset paths return genuine 404 responses. Content-hashed bundle
+# names plus ETag revalidation keep every deployment safe under this policy.
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()
+  X-Frame-Options: DENY
+  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'sha256-67fhrP0+BkBqmgGGXTtgiVO/9EQs3QruYNU/7fnRkI8='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://lkigkltvstlxfdztffds.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Keep the workers.dev certification hostname out of search indexes. A future custom domain does
+# not match this rule and stays indexable.
+https://quickserve.:subdomain.workers.dev/*
+  X-Robots-Tag: noindex

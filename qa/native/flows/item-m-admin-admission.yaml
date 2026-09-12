@@ -1,0 +1,41 @@
+# Item M — S3: the NEW kwikserve:// scheme ADMITS a legitimate admin.
+#
+# A route guard is only proven when it both refuses and admits. S1 covers refusal; this covers
+# admission through the same new scheme, so a pass in S1 cannot be explained away by the scheme
+# simply failing to route anywhere.
+#
+# Admin admission itself already passed on the physical iPhone (Phase 7B §10.2), but that was via
+# ordinary role routing on sign-in — never via a deep link, because item M blocked every deep-link
+# attempt. This is the first exercise of admin admission THROUGH a scheme URL.
+#
+# Same simulator boundary as S1: registration, routing and guard behaviour only. No collision
+# evidence is produced or implied.
+#
+# NO MUTATION. The Admin surface carries live write controls — Approve, Reject, Assign, Send
+# quote, Update Status, Save notes, Verify/Delete photos. This flow asserts and screenshots only.
+# Nothing is tapped after the link fires. Do not add a tap here to "confirm the button works";
+# that would write provider approval or booking state to the QA backend.
+#
+# Firing mechanism and fallback: identical to item-m-customer-rejection.yaml — see that header.
+#
+# Params via -e: ADMIN_EMAIL, ADMIN_PW.
+appId: ke.co.hiredcorp.kwikserve
+---
+- runFlow: { file: steps/login-admin.yaml }
+
+# ── FALLBACK SPLIT POINT — see item-m-customer-rejection.yaml header ──────────
+- openLink: "kwikserve://admin"
+# ── end split point ───────────────────────────────────────────────────────────
+
+- extendedWaitUntil: { visible: "Providers", timeout: 20000 }
+- takeScreenshot: item-m-04-admin-admitted
+
+# ── Admin chrome renders AND REMAINS. The second assertion after the screenshot is deliberate:
+#    it re-checks after a settle, so admin chrome that flashed and vanished would not pass. ─────
+- assertVisible: "Admin"
+- assertVisible: "Providers"
+- assertVisible: "Bookings"
+
+# ── Not bounced to a customer or provider surface, and not stranded on an error ───────────────
+- assertNotVisible: "What service do you need today?"
+- assertNotVisible: "Not authorized"

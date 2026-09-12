@@ -17,8 +17,8 @@ import BenefitItem from '@/components/BenefitItem';
 import CtaSection from '@/components/CtaSection';
 
 export const metadata = buildMetadata({
-  title: 'Become a Service Provider in Nairobi — Join QuickServe',
-  description: `Grow your business as a service provider in Nairobi. Join QuickServe, get a steady stream of jobs, set your own hours, and keep more of your earnings. ${SEO_PHRASES[5]} — apply free today.`,
+  title: 'Become a Service Provider in Nairobi — Join KwikServe',
+  description: `Grow your business as a service provider in Nairobi. Join KwikServe, get a steady stream of jobs, set your own hours, and keep more of your earnings. ${SEO_PHRASES[5]} — apply free today.`,
   path: '/become-a-provider',
 });
 
@@ -34,10 +34,10 @@ export default function BecomeAProviderPage() {
             For Service Professionals
           </span>
           <h1 className="text-display font-bold text-ink leading-tight">
-            Grow Your Business with QuickServe
+            Grow Your Business with KwikServe
           </h1>
           <p className="text-body text-textSecondary max-w-2xl">
-            Whether you&apos;re a plumber, electrician, cleaner, mechanic, or beautician — QuickServe
+            Whether you&apos;re a plumber, electrician, cleaner, mechanic, or beautician — KwikServe
             connects you with customers who need your skills right now. Get a steady stream of jobs,
             set your own schedule, and build a reputation that drives repeat business.
           </p>
@@ -68,7 +68,7 @@ export default function BecomeAProviderPage() {
           <SectionHeading
             eyebrow="Why Join Us"
             title="Built for Professionals Like You"
-            subtitle="QuickServe is designed to help service professionals in Nairobi earn more, work smarter, and grow their reputation."
+            subtitle="KwikServe is designed to help service professionals in Nairobi earn more, work smarter, and grow their reputation."
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
             {PROVIDER_BENEFITS.map((benefit) => (
@@ -91,7 +91,7 @@ export default function BecomeAProviderPage() {
           <SectionHeading
             eyebrow="Getting Started"
             title="Apply in Minutes"
-            subtitle="Joining QuickServe as a service provider is quick, free, and straightforward."
+            subtitle="Joining KwikServe as a service provider is quick, free, and straightforward."
             align="center"
           />
           <ol className="grid grid-cols-1 sm:grid-cols-2 gap-6 list-none">
@@ -140,7 +140,7 @@ export default function BecomeAProviderPage() {
           />
           <p className="text-body text-textSecondary">
             If you are skilled, reliable, and passionate about delivering great service, we want you
-            on the QuickServe platform. We currently onboard professionals in Nairobi across all 19+
+            on the KwikServe platform. We currently onboard professionals in Nairobi across all 19+
             service categories — from electricians and plumbers to cleaners, mechanics, beauticians,
             and delivery riders. Expansion to other Kenyan cities is underway.
           </p>
@@ -163,7 +163,7 @@ export default function BecomeAProviderPage() {
       {/* ------------------------------------------------------------------ */}
       <CtaSection
         heading="Ready to Start Earning?"
-        body="Join hundreds of professionals already growing their business on QuickServe. Apply today — it's free."
+        body="Join hundreds of professionals already growing their business on KwikServe. Apply today — it's free."
         primaryCta={PROVIDER_CTA}
         secondaryCta={SECONDARY_CTA}
       />

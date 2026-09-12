@@ -14,7 +14,7 @@ describe('WelcomeScreen', () => {
   beforeEach(() => mockPush.mockClear());
   it('renders brand + tagline and navigates on Get Started', () => {
     render(<WelcomeScreen />);
-    expect(screen.getByText('QuickServe')).toBeOnTheScreen();
+    expect(screen.getByText('KwikServe')).toBeOnTheScreen();
     expect(screen.getByText('Premium services, on demand.')).toBeOnTheScreen();
     fireEvent.press(screen.getByText('Get Started'));
     expect(mockPush).toHaveBeenCalledWith('/role-select');

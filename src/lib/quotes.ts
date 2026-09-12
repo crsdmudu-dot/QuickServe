@@ -54,7 +54,7 @@ export async function declineQuote(
 
 // ── Pure helpers ───────────────────────────────────────────────────────────
 
-/** QuickServe's cut for a quote: amount minus the provider's share. */
+/** KwikServe's cut for a quote: amount minus the provider's share. */
 export function computeQuickServeShare(amount: number, providerShare: number): number {
   return amount - providerShare;
 }

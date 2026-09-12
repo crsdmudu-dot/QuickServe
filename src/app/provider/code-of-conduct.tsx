@@ -69,7 +69,7 @@ export default function ProviderCodeOfConductScreen() {
             Code of Conduct
           </Text>
           <Text variant="body" color="textSecondary">
-            As a QuickServe provider, you agree to uphold the following
+            As a KwikServe provider, you agree to uphold the following
             standards on every job.
           </Text>
         </View>

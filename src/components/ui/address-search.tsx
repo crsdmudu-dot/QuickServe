@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Spacing } from '@/constants/theme';
-import { getPlaceDetails, searchPlaces } from '@/lib/places';
+import { getPlaceDetails, newSessionToken, searchPlaces } from '@/lib/places';
 import type { PlaceDetailsWithMap, PlaceSuggestion } from '@/lib/places';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -38,6 +38,16 @@ export function AddressSearch({ onSelect, onManual }: AddressSearchProps) {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [selectError, setSelectError] = useState<string | null>(null);
 
+  // One Places (New) session token per search session — correlates the autocomplete
+  // requests with the Place Details call for billing. Created lazily on the first real
+  // query, reused for every keystroke-batch, passed to getPlaceDetails on selection,
+  // then rotated so the next search starts a fresh session. Never per-keystroke.
+  const sessionTokenRef = useRef<string | null>(null);
+  function ensureSessionToken(): string {
+    if (!sessionTokenRef.current) sessionTokenRef.current = newSessionToken();
+    return sessionTokenRef.current;
+  }
+
   // Debounce: wait 350 ms after the user stops typing before calling the API.
   useEffect(() => {
     // Clear previous results when the query changes.
@@ -45,17 +55,20 @@ export function AddressSearch({ onSelect, onManual }: AddressSearchProps) {
     setSelectError(null);
 
     if (!query.trim()) {
-      // Empty query → clear everything; no API call.
+      // Empty query → clear everything; no API call. Abandoning the search also ends
+      // the session, so drop the token (the next search will start a new one).
       setSuggestions([]);
       setSearched(false);
       setLoading(false);
+      sessionTokenRef.current = null;
       return;
     }
 
     setLoading(true);
     const timer = setTimeout(async () => {
       try {
-        const results = await searchPlaces(query);
+        // Reuse the current session token (created once per session, not per keystroke).
+        const results = await searchPlaces(query, ensureSessionToken());
         setSuggestions(results);
         setSearched(true);
       } catch {
@@ -72,7 +85,11 @@ export function AddressSearch({ onSelect, onManual }: AddressSearchProps) {
 
   async function handleSelect(suggestion: PlaceSuggestion) {
     setSelectError(null);
-    const details = await getPlaceDetails(suggestion.placeId);
+    // Complete the session with the SAME token used for autocomplete.
+    const details = await getPlaceDetails(suggestion.placeId, sessionTokenRef.current ?? undefined);
+    // The Place Details request ends the billing session — rotate so a later search
+    // (e.g. after "Change address") begins a fresh one.
+    sessionTokenRef.current = null;
     if (details) {
       onSelect(details, suggestion);
     } else {

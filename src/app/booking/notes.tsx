@@ -47,7 +47,7 @@ export default function NotesScreen() {
       >
         {/* Step indicator */}
         <Text variant="caption" color="textSecondary" style={styles.step}>
-          Step 3 of 4
+          Step 4 of 5
         </Text>
 
         <Text variant="title" style={styles.title}>

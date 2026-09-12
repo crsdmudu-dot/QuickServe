@@ -16,7 +16,7 @@ describe('ProfessionalCard', () => {
     );
     expect(screen.getByText('Jane')).toBeOnTheScreen();
     expect(screen.getByText('Plumbing')).toBeOnTheScreen();
-    expect(screen.getByText('Verified by QuickServe')).toBeOnTheScreen();
+    expect(screen.getByText('Verified by KwikServe')).toBeOnTheScreen();
     expect(screen.getByText('5 jobs completed')).toBeOnTheScreen();
   });
 
@@ -32,6 +32,6 @@ describe('ProfessionalCard', () => {
         }}
       />
     );
-    expect(screen.queryByText('Verified by QuickServe')).toBeNull();
+    expect(screen.queryByText('Verified by KwikServe')).toBeNull();
   });
 });

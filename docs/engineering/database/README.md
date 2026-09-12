@@ -25,8 +25,10 @@ Full RLS policy text and API/RPC call contracts are summarized here and deferred
 Migrations `0001`–`0034` are aligned local↔remote with the dedicated QA project. RLS is
 enabled on **30** tables (**84** policies). There are **21** triggers and **~84** Postgres
 functions (most `SECURITY DEFINER`). The booking/dispatch spine is certified
-(`qa/playwright/certification/`); payment settlement and push delivery are **Partial**
-(uncertified end-to-end).
+(`qa/playwright/certification/`); payment settlement is **Partial** (uncertified end-to-end).
+Push delivery is **physically certified on QA** for both platforms (Android
+[Phase 5E](../../qa/PHASE-5E-ANDROID-PACKAGE-MIGRATION-FCM-PUSH-CERTIFICATION.md), iOS
+[Phase 6H](../../qa/PHASE-6H-IOS-KWIKSERVE-APNS-PUSH-CERTIFICATION.md)); production push is not.
 
 ## 3. Database Platform
 
@@ -86,7 +88,7 @@ erDiagram
 | **Services** | Bookable catalog | `services`, `service_categories` | 0030 | Implemented |
 | **Bookings** | Core booking + lifecycle + evidence | `bookings`, `booking_activity`, `booking_photos` | 0002, 0007, 0006 | Implemented (certified) |
 | **Providers** | Provider stats, earnings, quality, conduct, live location | `provider_earnings`, `provider_quality_actions`, `provider_conduct_acceptances`, `provider_locations` (+ provider fields on `profiles`) | 0005, 0010, 0018, 0028 | Implemented / Partial (tracking) |
-| **Notifications** | In-app notifications + push config | `notifications`, `notification_preferences`, `private.push_config` | 0007, 0015, 0020 | Implemented (delivery Partial) |
+| **Notifications** | In-app notifications + push config | `notifications`, `notification_preferences`, `private.push_config` | 0007, 0015, 0020 | Implemented (QA delivery certified — Android 5E, iOS 6H; production uncertified) |
 | **Payments** | Payments and attempts (M-Pesa) | `payments`, `payment_attempts` | 0010, 0011, 0012 | Partial (uncertified E2E) |
 | **Chat** | Per-booking messaging | `booking_messages` | 0013 | Implemented |
 | **Reviews** | Ratings + private feedback | `reviews`, `review_private_feedback` | 0008, 0022, 0029 | Implemented |

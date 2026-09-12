@@ -15,7 +15,7 @@
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'b1' }),
-  router: { push: jest.fn(), replace: jest.fn() },
+  router: { push: jest.fn(), replace: jest.fn(), back: jest.fn(), canGoBack: jest.fn(() => true) },
 }));
 
 // Mock ServicesProvider — booking-detail.tsx uses useServices() for getServiceBySlug
@@ -134,7 +134,14 @@ jest.mock('@/lib/receipts', () => ({
 }));
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { router } from 'expo-router';
 import BookingDetailScreen from '@/app/booking/[id]';
+
+const mockRouter = router as unknown as {
+  back: jest.Mock;
+  replace: jest.Mock;
+  canGoBack: jest.Mock;
+};
 
 const BASE_BOOKING = {
   id: 'b1',
@@ -190,6 +197,55 @@ describe('BookingDetailScreen', () => {
     mockApplyWalletToPayment.mockResolvedValue({ ok: true });
     // Default: promo redeem succeeds with 200 discount.
     mockRedeemPromo.mockResolvedValue({ ok: true, discount: 200 });
+    // Back-navigation mocks: default to a valid previous route.
+    mockRouter.back.mockClear();
+    mockRouter.replace.mockClear();
+    mockRouter.canGoBack.mockReset();
+    mockRouter.canGoBack.mockReturnValue(true);
+  });
+
+  // ── Back navigation (Phase 4E.2 — Booking Detail had no visible Back on iOS) ──
+  it('renders a visible Back affordance while the booking is still loading (never trapped)', () => {
+    // getBookingById never resolves within this tick → loading state.
+    mockGetBookingById.mockReturnValue(new Promise(() => {}));
+    render(<BookingDetailScreen />);
+    expect(screen.getByTestId('booking-detail-back')).toBeOnTheScreen();
+  });
+
+  it('renders a visible Back affordance once the booking has loaded', async () => {
+    mockGetBookingById.mockResolvedValue(BASE_BOOKING);
+    render(<BookingDetailScreen />);
+    await screen.findByText('No provider assigned yet');
+    expect(screen.getByTestId('booking-detail-back')).toBeOnTheScreen();
+  });
+
+  it('Back pops the previous route when a valid navigation stack exists', async () => {
+    mockRouter.canGoBack.mockReturnValue(true);
+    mockGetBookingById.mockResolvedValue(BASE_BOOKING);
+    render(<BookingDetailScreen />);
+    await screen.findByText('No provider assigned yet');
+    fireEvent.press(screen.getByTestId('booking-detail-back'));
+    expect(mockRouter.back).toHaveBeenCalledTimes(1);
+    expect(mockRouter.replace).not.toHaveBeenCalled();
+  });
+
+  it('Back uses the safe /bookings fallback when there is NO previous route (cold-start/deep-link)', async () => {
+    mockRouter.canGoBack.mockReturnValue(false);
+    mockGetBookingById.mockResolvedValue(BASE_BOOKING);
+    render(<BookingDetailScreen />);
+    await screen.findByText('No provider assigned yet');
+    fireEvent.press(screen.getByTestId('booking-detail-back'));
+    expect(mockRouter.replace).toHaveBeenCalledWith('/bookings');
+    expect(mockRouter.back).not.toHaveBeenCalled();
+  });
+
+  it('loads the booking by the id from the route params (content still renders)', async () => {
+    mockGetBookingById.mockResolvedValue(BASE_BOOKING);
+    render(<BookingDetailScreen />);
+    await screen.findByText('No provider assigned yet');
+    // The screen fetches by the id supplied via useLocalSearchParams (mocked to 'b1').
+    expect(mockGetBookingById).toHaveBeenCalledWith('b1');
+    expect(screen.getByText('Booking Detail')).toBeOnTheScreen();
   });
 
   it('Case A: in-app provider shows ProfessionalCard; phone is NOT rendered', async () => {
@@ -213,7 +269,7 @@ describe('BookingDetailScreen', () => {
 
     expect(await screen.findByText('Jane')).toBeOnTheScreen();
     expect(screen.getByText('Plumbing')).toBeOnTheScreen();
-    expect(screen.getByText('Verified by QuickServe')).toBeOnTheScreen();
+    expect(screen.getByText('Verified by KwikServe')).toBeOnTheScreen();
     expect(screen.getByText('5 jobs completed')).toBeOnTheScreen();
     expect(screen.queryByText('0700')).toBeNull();
   });
@@ -230,7 +286,7 @@ describe('BookingDetailScreen', () => {
     render(<BookingDetailScreen />);
 
     expect(await screen.findByText('Bob')).toBeOnTheScreen();
-    expect(screen.queryByText('Verified by QuickServe')).toBeNull();
+    expect(screen.queryByText('Verified by KwikServe')).toBeNull();
     expect(screen.queryByText('0700')).toBeNull();
   });
 
@@ -381,7 +437,7 @@ describe('BookingDetailScreen', () => {
     // Type private feedback.
     const privateFeedbackText = 'Great job overall, very tidy.';
     fireEvent.changeText(
-      screen.getByPlaceholderText('Only visible to QuickServe admin…'),
+      screen.getByPlaceholderText('Only visible to KwikServe admin…'),
       privateFeedbackText,
     );
 
@@ -666,6 +722,109 @@ describe('BookingDetailScreen', () => {
       expect(mockApplyWalletToPayment).toHaveBeenCalledWith('pay2', 500);
       // After apply, getPaymentForBooking should be re-called (reloadPayment).
       expect(mockGetPaymentForBooking.mock.calls.length).toBeGreaterThan(callsBefore);
+    });
+  });
+
+  it('shows the structured destination breakdown the customer entered (DestinationSummary)', async () => {
+    // Consistency fix: the customer's own booking detail now renders the same
+    // DestinationSummary used by the provider/admin/review screens, so the building/
+    // floor/door/landmark/access details they entered are echoed back.
+    mockGetBookingById.mockResolvedValue({
+      ...BASE_BOOKING,
+      address: 'Westlands, Nairobi, Kenya',
+      address_label: 'Westlands',
+      latitude: -1.2675,
+      longitude: 36.812,
+      building_name: 'Yaya Towers',
+      floor: '7',
+      door_number: '7B',
+      landmark: 'Opposite Yaya Centre',
+      access_notes: 'Tell security you are visiting apartment 7B.',
+    });
+
+    render(<BookingDetailScreen />);
+
+    expect(await screen.findByText('Building: Yaya Towers')).toBeOnTheScreen();
+    expect(screen.getByText('Floor: 7')).toBeOnTheScreen();
+    expect(screen.getByText('Door/Unit: 7B')).toBeOnTheScreen();
+    expect(screen.getByText('Landmark: Opposite Yaya Centre')).toBeOnTheScreen();
+    expect(
+      screen.getByText('Access: Tell security you are visiting apartment 7B.'),
+    ).toBeOnTheScreen();
+  });
+
+  // ── Service Details V1.4 ───────────────────────────────────────────────────
+
+  describe('Service Details', () => {
+    const SNAPSHOT = {
+      schema: 1,
+      form_version: 2,
+      service_slug: 'house-cleaning',
+      service_title: 'House Cleaning',
+      primary_kind: 'variant',
+      primary: {
+        key: 'variant',
+        question: 'What kind of cleaning do you need?',
+        kind: 'single',
+        value: 'deep_clean',
+        display: 'Deep cleaning',
+      },
+      answers: [
+        { key: 'scope', question: 'Scope', kind: 'single', value: 'whole_home', display: 'Whole home' },
+        { key: 'bedrooms', question: 'Bedrooms', kind: 'number', value: 4, display: '4' },
+        { key: 'supplies', question: 'Provider brings supplies', kind: 'boolean', value: true, display: 'Yes' },
+      ],
+      addons: [{ key: 'ironing', label: 'Ironing' }],
+      items: null,
+      flags: { priority: true },
+    };
+
+    it('shows the customer what they originally requested', async () => {
+      mockGetBookingById.mockResolvedValue({ ...BASE_BOOKING, service_details: SNAPSHOT });
+
+      render(<BookingDetailScreen />);
+
+      expect(await screen.findByText('Service Details')).toBeOnTheScreen();
+      expect(screen.getByText('What kind of cleaning do you need?')).toBeOnTheScreen();
+      expect(screen.getByText('Deep cleaning')).toBeOnTheScreen();
+      expect(screen.getByText('Whole home')).toBeOnTheScreen();
+      expect(screen.getByText('Yes')).toBeOnTheScreen();
+      expect(screen.getByText('• Ironing')).toBeOnTheScreen();
+    });
+
+    it('does not repeat operational priority wording to the customer', async () => {
+      mockGetBookingById.mockResolvedValue({ ...BASE_BOOKING, service_details: SNAPSHOT });
+
+      render(<BookingDetailScreen />);
+
+      await screen.findByText('Service Details');
+      expect(screen.queryByText('Priority attention')).toBeNull();
+    });
+
+    it('renders a legacy booking (no snapshot) safely, with no Service Details section', async () => {
+      mockGetBookingById.mockResolvedValue({ ...BASE_BOOKING, service_details: null });
+
+      render(<BookingDetailScreen />);
+
+      // The rest of the screen still renders normally…
+      expect(await screen.findByText('Booking Detail')).toBeOnTheScreen();
+      expect(screen.getByText('Ring doorbell')).toBeOnTheScreen();
+      // …and the section is simply absent — no error, no placeholder, no raw data.
+      expect(screen.queryByText('Service Details')).toBeNull();
+      expect(screen.queryByTestId('service-details-summary')).toBeNull();
+      expect(screen.queryByTestId('service-details-summary-empty')).toBeNull();
+    });
+
+    it('renders a malformed snapshot safely rather than crashing', async () => {
+      mockGetBookingById.mockResolvedValue({
+        ...BASE_BOOKING,
+        service_details: { schema: 1, service_slug: 'house-cleaning', primary: { key: 'v' }, answers: 'nope' },
+      });
+
+      render(<BookingDetailScreen />);
+
+      expect(await screen.findByText('Booking Detail')).toBeOnTheScreen();
+      expect(screen.queryByText('Service Details')).toBeNull();
     });
   });
 });

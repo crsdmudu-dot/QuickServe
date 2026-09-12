@@ -1,4 +1,4 @@
-// app/sitemap.ts — static sitemap for all 12 QuickServe marketing routes.
+// app/sitemap.ts — static sitemap for all 12 KwikServe marketing routes.
 // No data fetching — pure static export.
 // `dynamic = 'force-static'` is required for `output: 'export'` in Next 15.
 

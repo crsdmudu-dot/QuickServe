@@ -133,7 +133,7 @@ Each domain is backed by tables/policies in `supabase/migrations/` and client wr
 | Booking lifecycle | `src/constants/booking-status.ts`; `0004`, `0034` | Implemented (certified) |
 | Booking activity / audit | `0007_activity_notifications.sql`, `0020` | Implemented (certified) |
 | Notifications (in-app) | `0020_notification_system.sql`; `src/lib/notifications.ts` | Implemented (rows certified) |
-| Push delivery | `0015_push_triggers.sql`, `send-push`; `src/lib/push.ts` | Partial (delivery uncertified) |
+| Push delivery | `0015_push_triggers.sql`, `send-push`; `src/lib/push.ts` | Implemented (physically certified on QA — Android [5E](../../qa/PHASE-5E-ANDROID-PACKAGE-MIGRATION-FCM-PUSH-CERTIFICATION.md), iOS [6H](../../qa/PHASE-6H-IOS-KWIKSERVE-APNS-PUSH-CERTIFICATION.md); production uncertified) |
 | Chat | `0013_booking_messages.sql`; `src/lib/messages.ts` | Implemented |
 | Location / tracking | `0018_provider_locations.sql`, `tracking-map`; `src/lib/tracking.ts` | Partial (not E2E-certified) |
 | Ratings & reviews | `0008`, `0022_ratings_v2.sql`, `0029`; `src/lib/reviews.ts` | Implemented |
@@ -269,8 +269,11 @@ status of these functions is out of scope for this document — see
   (`supabase/migrations/0015_push_triggers.sql`).
 - **Realtime subscriptions** — **Implemented (capability).** Used by chat (`booking_messages`)
   and tracking (`provider_locations`).
-- **Push delivery** — **Partially implemented / uncertified.** `send-push` → Expo Push exists,
-  but actual device delivery is a manual/uncertified item (QA does not assert delivery).
+- **Push delivery** — **Implemented and physically certified on QA.** `send-push` → Expo Push →
+  FCM/APNs, with real device delivery certified on physical hardware for both platforms
+  ([Phase 5E](../../qa/PHASE-5E-ANDROID-PACKAGE-MIGRATION-FCM-PUSH-CERTIFICATION.md) Android,
+  [Phase 6H](../../qa/PHASE-6H-IOS-KWIKSERVE-APNS-PUSH-CERTIFICATION.md) iOS). **Production push
+  delivery remains uncertified.**
 
 ## 13. Payments Backend
 

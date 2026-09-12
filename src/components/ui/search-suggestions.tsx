@@ -1,10 +1,13 @@
 // search-suggestions.tsx — Renders auto-complete suggestions as tappable rows.
-// Uses searchSuggestions(query) from lib/search.ts (pure, no network).
+// Suggestions are derived from the LIVE DB catalogue (useServices().services) via
+// searchSuggestions(services, query) — never the hardcoded constants — so a
+// suggestion can never reference a service absent from the live catalogue.
 // Returns nothing when query is empty.
 
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { searchSuggestions } from '@/lib/search';
+import { useServices } from '@/services/services-provider';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { Text } from '@/components/ui/text';
@@ -22,7 +25,8 @@ export type SearchSuggestionsProps = {
  */
 export function SearchSuggestions({ query, onSelect }: SearchSuggestionsProps) {
   const theme = useTheme();
-  const suggestions = searchSuggestions(query);
+  const { services } = useServices();
+  const suggestions = searchSuggestions(services, query);
 
   if (!query.trim() || suggestions.length === 0) return null;
 

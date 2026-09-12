@@ -14,6 +14,9 @@
  *   node qa/native/backend.mjs review <bookingId>
  *   node qa/native/backend.mjs provider-rating <providerId>
  *   node qa/native/backend.mjs cleanup <marker>
+ *   node qa/native/backend.mjs notify <role> <title> <body>   # seed an in-app notification (QA data)
+ *   node qa/native/backend.mjs notif-count <role> <title>     # exact-title row count (dup check)
+ *   node qa/native/backend.mjs notif-clean <role> <titlePrefix> # delete seeded rows (cleanup)
  */
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -71,6 +74,35 @@ function pickBooking(b) {
   };
 }
 
+// ── Notification-center QA helpers (Phase 4E.2 iOS refresh journey) ───────────
+// Seeds/queries/cleans in-app notification rows via the service role (bypasses RLS,
+// like the certified 3F setup helpers). Used ONLY to drive the real Notifications
+// screen's refresh behaviour on the simulator — never to fake push/APNs delivery.
+async function notify(role, title, body) {
+  const { id } = await providerId(role);
+  const r = await j('POST', '/rest/v1/notifications', {
+    headers: { ...svc, Prefer: 'return=representation' },
+    body: { user_id: id, title, body, type: 'generic', category: 'system' },
+  });
+  if (r.status >= 300) throw new Error(`notify HTTP ${r.status}: ${r.text}`);
+  const row = (r.data || [])[0] || {};
+  return { id: row.id, user_id: id, title: row.title };
+}
+
+async function notifCount(role, title) {
+  const { id } = await providerId(role);
+  const r = await j('GET', `/rest/v1/notifications?user_id=eq.${id}&title=eq.${encodeURIComponent(title)}&select=id`, { headers: svc });
+  return { count: (r.data || []).length };
+}
+
+async function notifClean(role, prefix) {
+  const { id } = await providerId(role);
+  const pat = encodeURIComponent(`${prefix}*`); // PostgREST like: * → SQL %
+  const del = await j('DELETE', `/rest/v1/notifications?user_id=eq.${id}&title=like.${pat}`, { headers: { ...svc, Prefer: 'return=representation' } });
+  const res = await j('GET', `/rest/v1/notifications?user_id=eq.${id}&title=like.${pat}&select=id`, { headers: svc });
+  return { deleted: (del.data || []).length, residual: (res.data || []).length };
+}
+
 const out = (o) => console.log(JSON.stringify(o, null, 2));
 
 try {
@@ -107,6 +139,12 @@ try {
     // residual verification
     const rb = await j('GET', `/rest/v1/bookings?notes=like.*${encodeURIComponent(marker)}*&select=id`, { headers: svc });
     out({ deletedBookings: (db.data || []).length, deletedReviews: delReviews, residualBookings: (rb.data || []).length });
+  } else if (cmd === 'notify') {
+    out(await notify(args[0], args[1], args[2]));
+  } else if (cmd === 'notif-count') {
+    out(await notifCount(args[0], args[1]));
+  } else if (cmd === 'notif-clean') {
+    out(await notifClean(args[0], args[1]));
   } else {
     console.error('unknown command:', cmd);
     process.exit(2);

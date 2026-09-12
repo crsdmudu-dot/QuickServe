@@ -1,4 +1,4 @@
-// app/layout.tsx — global shell for the QuickServe marketing website.
+// app/layout.tsx — global shell for the KwikServe marketing website.
 // Server component: Header and FaqItem carry their own 'use client'; the layout itself has no hooks.
 
 import './globals.css';
@@ -12,8 +12,8 @@ import MarketingFooter from '@/components/MarketingFooter';
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   ...buildMetadata({
-    title: 'QuickServe — Trusted Home Services in Nairobi',
-    description: `QuickServe is your on-demand platform for ${SEO_PHRASES[0]}, ${SEO_PHRASES[2]}, and more. Book verified professionals in minutes — transparent pricing, real-time tracking.`,
+    title: 'KwikServe — Trusted Home Services in Nairobi',
+    description: `KwikServe is your on-demand platform for ${SEO_PHRASES[0]}, ${SEO_PHRASES[2]}, and more. Book verified professionals in minutes — transparent pricing, real-time tracking.`,
     path: '/',
   }),
 };

@@ -2,6 +2,7 @@
 import { supabase } from '@/lib/supabase';
 import type { QuoteStatus } from '@/lib/quotes';
 import type { SchedulingType, TimeWindow, Recurrence } from '@/lib/scheduling';
+import { serviceDetailsPrimaryValue, type ServiceDetailsSnapshot } from '@/lib/service-details';
 
 /** Curated provider details returned for a booking's assigned professional. */
 export type Professional = {
@@ -37,6 +38,12 @@ export type NewBooking = {
   window_start?: string | null;
   window_end?: string | null;
   recurrence?: Recurrence;
+  // Phase 4E.2 — one client-generated key per logical submission (retry-stable). Optional so
+  // existing callers/tests keep working; when present it makes creation idempotent.
+  idempotencyKey?: string;
+  // Service Details V1 — immutable snapshot of the structured answers. Optional so existing
+  // callers/tests are unaffected; omitted or null is stored as null (pre-V1 behaviour).
+  service_details?: ServiceDetailsSnapshot | null;
 };
 
 export type Booking = {
@@ -74,13 +81,26 @@ export type Booking = {
   window_start: string | null;
   window_end: string | null;
   recurrence: string;
+  // Service Details V1 — null for every booking created before the feature. Typed as unknown
+  // rather than the snapshot type because the database may hold a snapshot written by a NEWER
+  // app version; narrow it with isServiceDetailsSnapshot() before reading.
+  service_details?: unknown;
 };
 
 // ── Customer mutations ─────────────────────────────────────────────────────
 
-export async function createBooking(input: NewBooking): Promise<{ ok: boolean; id?: string; error?: string }> {
+/**
+ * Creates a booking. When `idempotencyKey` is supplied, creation is idempotent: a duplicate
+ * submission (same key — double-tap, retry, timeout-then-retry) raises a unique-violation on
+ * the server, and we RECOVER the already-created booking instead of failing or creating a
+ * second row. One logical submission → at most one booking.
+ */
+export async function createBooking(
+  input: NewBooking,
+): Promise<{ ok: boolean; id?: string; recovered?: boolean; error?: string }> {
   const { data } = await supabase.auth.getUser();
   if (!data.user) return { ok: false, error: 'You must be signed in to book.' };
+  const idempotency_key = input.idempotencyKey ?? null;
   const { data: row, error } = await supabase.from('bookings').insert({
     customer_id: data.user.id,
     service_id: input.serviceId,
@@ -102,9 +122,111 @@ export async function createBooking(input: NewBooking): Promise<{ ok: boolean; i
     window_start: input.window_start ?? null,
     window_end: input.window_end ?? null,
     recurrence: input.recurrence ?? 'one_time',
+    // Phase 4E.2 — submission idempotency key (null when a caller omits it)
+    idempotency_key,
+    // Service Details V1 — structured snapshot (null when a caller omits it)
+    service_details: input.service_details ?? null,
   }).select('id').single();
-  if (error) return { ok: false, error: 'Could not create booking. Please try again.' };
+
+  if (error) {
+    // Idempotent-retry recovery: the same key already created a booking (unique_violation
+    // 23505). Recover it via the owner-scoped select policy — never a spurious failure or a
+    // second row. The recovered row is the customer's own (the key was generated on-device).
+    if (idempotency_key && (error.code === '23505' || /duplicate key/i.test(error.message ?? ''))) {
+      const { data: existing } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('idempotency_key', idempotency_key)
+        .maybeSingle();
+      if (existing?.id) return { ok: true, id: existing.id, recovered: true };
+    }
+    return { ok: false, error: 'Could not create booking. Please try again.' };
+  }
   return { ok: true, id: row.id };
+}
+
+// ── Business-level duplicate detection (advisory warning; NOT the idempotency guard) ──
+
+/** Fields used to compare a new booking's destination against existing ones. */
+export type DuplicateMatchInput = {
+  serviceId: string;
+  address: string;
+  building_name?: string | null;
+  floor?: string | null;
+  door_number?: string | null;
+  /**
+   * The new booking's Service Details snapshot, if it has one. Typed `unknown` for the same
+   * reason `Booking.service_details` is: it may be a shape a newer app version wrote.
+   * Optional — callers that omit it get exactly the pre-V1.5 behaviour.
+   */
+  serviceDetails?: unknown;
+};
+
+/** Trim + lowercase; null/undefined/'' all normalize to '' so they compare equal. */
+function normField(v: string | null | undefined): string {
+  return (v ?? '').trim().toLowerCase();
+}
+
+/**
+ * PURE — is `existing` a LIKELY duplicate of the new booking `input`? True only when it is the
+ * same service, still ACTIVE (not cancelled/completed), at the same destination: the address
+ * text must match, AND building/floor/door must match (so a different unit is NOT a duplicate).
+ * A blank new address never matches (manual/empty addresses aren't force-collapsed). Never throws.
+ */
+export function isLikelyDuplicateBooking(existing: Booking, input: DuplicateMatchInput): boolean {
+  if (existing.service_id !== input.serviceId) return false;
+  if (existing.status === 'cancelled' || existing.status === 'completed') return false;
+  const addr = normField(input.address);
+  if (!addr || normField(existing.address) !== addr) return false;
+  if (
+    normField(existing.building_name) !== normField(input.building_name) ||
+    normField(existing.floor) !== normField(input.floor) ||
+    normField(existing.door_number) !== normField(input.door_number)
+  ) {
+    return false;
+  }
+  return sameRequest(existing, input);
+}
+
+/**
+ * Service Details V1.5 — do the two bookings ask for the same THING?
+ *
+ * Same service at the same address is not enough on its own: "standard cleaning" and "laundry
+ * only", or a battery fault and a brake fault, are legitimately separate requests that the
+ * customer should not have to argue past a duplicate warning.
+ *
+ * The comparison is deliberately narrow and conservative:
+ *  - only the PRIMARY machine value is compared — the one stable, non-cosmetic identifier of what
+ *    was requested. Never the whole snapshot, never a mutable display label, and (in V1.5) never
+ *    add-ons or follow-up answers, which vary for what is genuinely the same job;
+ *  - two requests count as DIFFERENT only when BOTH sides produced a usable primary value and
+ *    those values disagree. Anything else — a legacy booking with `service_details = null`, a
+ *    malformed snapshot, a future shape whose primary is not a string — falls through to the
+ *    existing service/address heuristic. Missing history must never quietly switch duplicate
+ *    protection off.
+ *
+ * This is display-side advice only. It does not touch the database idempotency key (migration
+ * 0034), which remains the authoritative one-submission-one-booking guarantee.
+ */
+function sameRequest(existing: Booking, input: DuplicateMatchInput): boolean {
+  const existingPrimary = serviceDetailsPrimaryValue(existing.service_details);
+  const incomingPrimary = serviceDetailsPrimaryValue(input.serviceDetails);
+  if (existingPrimary === null || incomingPrimary === null) return true; // not comparable → warn as before
+  return existingPrimary === incomingPrimary;
+}
+
+/**
+ * Returns the customer's own newest ACTIVE booking that looks like a duplicate of `input`, or
+ * null. Reads only the caller's rows (getCustomerBookings is RLS owner-scoped) — a customer can
+ * never learn about another user's booking. Best-effort: returns null on any read error.
+ */
+export async function findActiveDuplicateBooking(input: DuplicateMatchInput): Promise<Booking | null> {
+  try {
+    const mine = await getCustomerBookings(0, 50);
+    return mine.find((b) => isLikelyDuplicateBooking(b, input)) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 // ── Customer queries ───────────────────────────────────────────────────────

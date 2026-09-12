@@ -1,0 +1,130 @@
+name: iOS Item M — kwikserve:// scheme gate (focused)
+
+# Focused runtime gate for the item M remediation (commit 060df7e), deliberately SEPARATE from
+# `ios-native-journeys.yml`.
+#
+# Why a separate workflow rather than a step in the full suite: the full suite takes ~40 minutes
+# and exercises the entire product. This gate answers one narrow question — does the new
+# kwikserve:// scheme route, and does the /admin guard refuse a customer and admit an admin
+# through it — and needs to be runnable on its own, repeatedly, without paying for or perturbing
+# the whole regression run. Adding it as a step there would make it unreachable in isolation.
+#
+# WHAT A GREEN RUN HERE DOES NOT MEAN. The simulator has ONLY KwikServe installed, so
+# quickserve:// is UNCONTESTED here and the legacy-app collision that defines item M cannot arise.
+# This gate certifies REGISTRATION, ROUTING and GUARD BEHAVIOUR. It does not close item M, does
+# not make quickserve:// unambiguous on any physical device, and is not a substitute for the
+# physical-iPhone check. See qa/native/ios-item-m-scheme.sh and docs/qa/PHASE-7B.
+#
+# build_id is REQUIRED, unlike the full suite where it may be left blank to take the latest
+# finished build. This gate exists to prove a SPECIFIC artifact carries the dual-scheme
+# registration; silently resolving "latest" would let it certify a build nobody chose, and the
+# fingerprint cannot be used to tell iOS builds apart (it hashes the native layer, and prior
+# builds differed only in JavaScript).
+#
+# Required repository secrets:
+#   EXPO_TOKEN, QA_CUSTOMER_EMAIL / QA_CUSTOMER_PASSWORD, QA_ADMIN_EMAIL / QA_ADMIN_PASSWORD
+# (No product secrets are embedded; simulator builds need no Apple credentials.)
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_id:
+        description: "EAS iOS simulator build ID to certify (REQUIRED — no latest-build fallback)"
+        required: true
+
+jobs:
+  item-m-scheme:
+    runs-on: macos-14
+    # Three read-only flows, each a cold launch + sign-in + one deep link. Well inside 30; the
+    # budget is for runner and simulator-boot variance, not for test growth.
+    timeout-minutes: 30
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      QA_CUSTOMER_EMAIL: ${{ secrets.QA_CUSTOMER_EMAIL }}
+      QA_CUSTOMER_PASSWORD: ${{ secrets.QA_CUSTOMER_PASSWORD }}
+      QA_ADMIN_EMAIL: ${{ secrets.QA_ADMIN_EMAIL }}
+      QA_ADMIN_PASSWORD: ${{ secrets.QA_ADMIN_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install tools (eas-cli, Maestro)
+        run: |
+          set -euxo pipefail
+          npm install -g eas-cli
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Install app dependencies (eas needs node_modules to resolve the expo-router config plugin)
+        run: npm ci
+
+      - name: Download the PINNED EAS iOS simulator build
+        run: |
+          set -euo pipefail
+          BUILD_ID="${{ github.event.inputs.build_id }}"
+          test -n "$BUILD_ID" || { echo "build_id is required for this gate"; exit 1; }
+          URL=$(eas build:view "$BUILD_ID" --json | jq -r '.artifacts.applicationArchiveUrl')
+          test -n "$URL" && test "$URL" != "null" || { echo "No artifact for build $BUILD_ID"; exit 1; }
+          # Prove the pinned build is actually a simulator artifact from the intended commit before
+          # installing it. A device build or a stale commit would fail later in a far less obvious
+          # way — this fails immediately, with the reason.
+          SIM=$(eas build:view "$BUILD_ID" --json | jq -r '.isForIosSimulator')
+          COMMIT=$(eas build:view "$BUILD_ID" --json | jq -r '.gitCommitHash')
+          echo "build $BUILD_ID  isForIosSimulator=$SIM  commit=$COMMIT"
+          test "$SIM" = "true" || { echo "Build $BUILD_ID is not a simulator artifact"; exit 1; }
+          echo "Downloading iOS simulator build (URL redacted)…"
+          curl -fSL "$URL" -o app.tar.gz
+          mkdir -p app && tar -xzf app.tar.gz -C app
+          APP=$(find app -maxdepth 3 -name "*.app" | head -1)
+          test -n "$APP" || { echo "No .app in artifact"; ls -R app; exit 1; }
+          echo "APP_PATH=$APP" >> "$GITHUB_ENV"
+          echo "App: $APP"
+
+      - name: Prove the installed artifact registers both schemes
+        run: |
+          set -euo pipefail
+          PLIST="$APP_PATH/Info.plist"
+          test -f "$PLIST" || { echo "No Info.plist in $APP_PATH"; exit 1; }
+          # Read the native registration, not app.json. The whole point of this gate is that the
+          # BINARY carries the schemes; asserting the config would prove nothing about the build.
+          # plutil is used rather than string-scanning: scanning a binary plist is exactly the
+          # mistake that produced the false "exactly one scheme" claim in Phase 7B §11.2.
+          SCHEMES=$(plutil -extract CFBundleURLTypes.0.CFBundleURLSchemes json -o - "$PLIST")
+          echo "CFBundleURLSchemes = $SCHEMES"
+          echo "$SCHEMES" | jq -e 'index("kwikserve") != null'  > /dev/null || { echo "FAIL: kwikserve not registered";  exit 1; }
+          echo "$SCHEMES" | jq -e 'index("quickserve") != null' > /dev/null || { echo "FAIL: quickserve not registered"; exit 1; }
+          echo "$SCHEMES" | jq -e '.[0] == "kwikserve"'         > /dev/null || { echo "FAIL: kwikserve is not first/default"; exit 1; }
+          echo "Native scheme registration verified."
+
+      - name: Boot iOS simulator and install the app
+        run: |
+          set -euo pipefail
+          DEVICE_ID=$(xcrun simctl list devices available -j | jq -r '[.devices[][] | select(.name|test("iPhone"))][-1].udid')
+          test -n "$DEVICE_ID" || { echo "No available iPhone simulator"; xcrun simctl list devices available; exit 1; }
+          echo "Simulator UDID: $DEVICE_ID"
+          echo "DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$DEVICE_ID" || true
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          open -a Simulator || true
+          xcrun simctl install "$DEVICE_ID" "$APP_PATH"
+          echo "Installed $APP_PATH"
+          xcrun simctl listapps "$DEVICE_ID" | grep -i kwikserve || true
+
+      # DEVICE_ID is exported above specifically so the documented fallback needs no workflow
+      # redesign: if Maestro's openLink proves unreliable with iOS custom schemes, the flows split
+      # at their marked FALLBACK SPLIT POINT and the URL is fired here with
+      #   xcrun simctl openurl "$DEVICE_ID" "kwikserve://admin"
+      # No assertion or credential wiring changes in that case.
+      - name: Item M — focused kwikserve:// scheme gate (S1 reject, S2 compat, S3 admit)
+        run: bash qa/native/ios-item-m-scheme.sh
+
+      - name: Upload Maestro artifacts (screenshots / logs)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-item-m-artifacts
+          path: ~/.maestro/tests
+          if-no-files-found: ignore

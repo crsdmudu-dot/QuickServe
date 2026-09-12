@@ -10,9 +10,9 @@ import SectionHeading from '@/components/SectionHeading';
 import CtaSection from '@/components/CtaSection';
 
 export const metadata = buildMetadata({
-  title: 'Help & Support — QuickServe',
+  title: 'Help & Support — KwikServe',
   description:
-    'Get help with your QuickServe account, bookings, payments, and more. Browse common topics, find quick answers in our FAQ, or contact our support team directly.',
+    'Get help with your KwikServe account, bookings, payments, and more. Browse common topics, find quick answers in our FAQ, or contact our support team directly.',
   path: '/support',
 });
 

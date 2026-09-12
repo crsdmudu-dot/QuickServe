@@ -10,9 +10,9 @@ import FaqItem from '@/components/FaqItem';
 import CtaSection from '@/components/CtaSection';
 
 export const metadata = buildMetadata({
-  title: 'Frequently Asked Questions — QuickServe',
+  title: 'Frequently Asked Questions — KwikServe',
   description:
-    'Find answers to the most common questions about QuickServe: how booking works, payment options, provider verification, coverage areas, the mobile app, and how to get support.',
+    'Find answers to the most common questions about KwikServe: how booking works, payment options, provider verification, coverage areas, the mobile app, and how to get support.',
   path: '/faq',
 });
 

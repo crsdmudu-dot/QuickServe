@@ -17,8 +17,8 @@ import TrustBadge from '@/components/TrustBadge';
 import CtaSection from '@/components/CtaSection';
 
 export const metadata = buildMetadata({
-  title: 'Why Choose QuickServe — Trusted Home Services in Nairobi',
-  description: `Discover why QuickServe is Nairobi's most trusted on-demand services platform. Vetted professionals, transparent pricing, real-time tracking, and ${SEO_PHRASES[5]} delivered to your door.`,
+  title: 'Why Choose KwikServe — Trusted Home Services in Nairobi',
+  description: `Discover why KwikServe is Nairobi's most trusted on-demand services platform. Vetted professionals, transparent pricing, real-time tracking, and ${SEO_PHRASES[5]} delivered to your door.`,
   path: '/why-quickserve',
 });
 
@@ -33,7 +33,7 @@ export default function WhyQuickServePage() {
           <SectionHeading
             as="h1"
             eyebrow="Our Promise"
-            title="Why Choose QuickServe"
+            title="Why Choose KwikServe"
             subtitle={`We raise the bar on every booking. ${SEO_PHRASES[5]} — vetted, on time, and backed by transparent pricing so you can relax and let the pros handle it.`}
             align="center"
           />
@@ -48,7 +48,7 @@ export default function WhyQuickServePage() {
           <SectionHeading
             eyebrow="For Customers"
             title="Everything You Need, Every Time"
-            subtitle="QuickServe puts quality, safety, and convenience at the heart of every booking."
+            subtitle="KwikServe puts quality, safety, and convenience at the heart of every booking."
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
             {CUSTOMER_BENEFITS.map((benefit) => (
@@ -71,7 +71,7 @@ export default function WhyQuickServePage() {
           <SectionHeading
             eyebrow="Built on Safety"
             title="Our Quality Standards"
-            subtitle="Every interaction on QuickServe is designed around your safety, satisfaction, and peace of mind."
+            subtitle="Every interaction on KwikServe is designed around your safety, satisfaction, and peace of mind."
             align="center"
           />
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
@@ -97,7 +97,7 @@ export default function WhyQuickServePage() {
             title="What Sets Us Apart"
           />
           <p className="text-body text-textSecondary">
-            Unlike informal referrals or classifieds, every professional on QuickServe has been
+            Unlike informal referrals or classifieds, every professional on KwikServe has been
             identity-verified, skill-assessed, and approved before their first job. We enforce
             punctuality, monitor reviews, and remove providers who fall below our standards.
           </p>
@@ -113,7 +113,7 @@ export default function WhyQuickServePage() {
       {/* Closing CTA                                                         */}
       {/* ------------------------------------------------------------------ */}
       <CtaSection
-        heading="Experience the QuickServe Difference"
+        heading="Experience the KwikServe Difference"
         body="Join thousands of satisfied customers across Nairobi. Book your first service today."
         primaryCta={PRIMARY_CTA}
         secondaryCta={PROVIDER_CTA}

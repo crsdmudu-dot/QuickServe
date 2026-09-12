@@ -1,0 +1,135 @@
+# Service Details V1.5 — GROCERY DELIVERY, "Shop for me": the repeatable request list, the
+# MAXIMUM GOODS BUDGET and the substitution preference.
+#
+# Grocery is the representative item-list service and the one with the highest commercial risk of
+# a wording mistake: the spend ceiling authorises PURCHASING THE GOODS and is not an order total,
+# amount due or final charge. That distinction is asserted here at the UI level, in addition to
+# the unit tests. No sourcing, pricing or payment happens — the flow stops at the Address step.
+#
+# ITEM-LINE SELECTORS: each line's testID embeds a randomly generated `line_<uuid>`, so a line
+# cannot be addressed by a literal id. Rather than add presentation-only testIDs to product code:
+#   - Item 1 is filled while exactly ONE card exists (itemList minLines: 1), so the id regex
+#     matches a single element and needs no disambiguation at all;
+#   - Item 2 is anchored to its own visible "Item 2" header via `below`, because once two cards
+#     exist every testID shape and every unit button is duplicated.
+# A positional `index` was the first approach and was replaced: it is only reliable while every
+# match stays in the hierarchy as the list scrolls, and run 32026499557 showed that off-screen
+# content is not something this suite can assume is still addressable.
+#
+# Params via -e: CUST_EMAIL, CUST_PW.
+appId: ke.co.hiredcorp.kwikserve
+---
+- runFlow: { file: steps/login-customer.yaml }
+
+- scrollUntilVisible: { element: { text: ".*Grocery Delivery.*" }, direction: DOWN, timeout: 15000 }
+- tapOn: ".*Grocery Delivery.*"
+- extendedWaitUntil: { visible: "Step 1 of 5", timeout: 15000 }
+- assertVisible: ".*How would you like to shop.*"
+- takeScreenshot: sd-gr-01-step1
+
+# ── Shop for me → the request list, budget and substitution appear ────────────
+- tapOn: { id: "option-variant-shop_for_me" }
+- extendedWaitUntil: { visible: { id: "question-items" }, timeout: 8000 }
+# "Which shop?" belongs to the other two variants only.
+- assertNotVisible: { id: "question-store_name" }
+
+# ── Item 1 — Milk, 2 bottles, brand preference ────────────────────────────────
+- scrollUntilVisible: { element: { id: "item-name-line_.*" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "item-name-line_.*" }
+- inputText: "Milk"
+- scrollUntilVisible: { element: { text: "Grocery Delivery" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
+- tapOn: "Grocery Delivery"
+- scrollUntilVisible: { element: { id: "item-qty-line_.*" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "item-qty-line_.*" }
+- inputText: "2"
+- scrollUntilVisible: { element: { text: "Grocery Delivery" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
+- tapOn: "Grocery Delivery"
+- scrollUntilVisible: { element: { id: "unit-line_.*-bottles" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "unit-line_.*-bottles" }
+# Brand is optional and is exercised on this line only. Targeted by its OWN testID: tapping the
+# label instead (as this flow used to) cannot focus the field — an Input's label is a plain Text
+# sibling of the TextInput, so React Native has no way to move focus from it. That made the brand
+# step a silent no-op through runs 32021907035 to 32035890869.
+- scrollUntilVisible: { element: { id: "item-brand-line_.*" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "item-brand-line_.*" }
+- inputText: "Brookside"
+# PROOF the value was captured, not merely typed at: the Input is CONTROLLED (value={line.brand}),
+# so the field can only display text that reached state.
+- assertVisible: "Brookside"
+- scrollUntilVisible: { element: { text: "Grocery Delivery" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
+- tapOn: "Grocery Delivery"
+- takeScreenshot: sd-gr-02-item1
+
+# ── Add another item — the first line must survive ────────────────────────────
+- scrollUntilVisible: { element: { id: "add-item" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "add-item" }
+- extendedWaitUntil: { visible: "Item 2", timeout: 8000 }
+# Item 1 is ABOVE the card just added, so the viewport is past it — scroll back before asserting.
+- scrollUntilVisible: { element: { text: "Item 1" }, direction: UP, timeout: 12000 }
+- assertVisible: "Item 1"
+# ...and item 1's captured brand survived the insert too.
+- scrollUntilVisible: { element: { text: "Brookside" }, direction: DOWN, timeout: 12000 }
+- assertVisible: "Brookside"
+
+- scrollUntilVisible: { element: { id: "item-name-line_.*", below: { text: "Item 2" } }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "item-name-line_.*", below: { text: "Item 2" } }
+- inputText: "Rice"
+- scrollUntilVisible: { element: { text: "Grocery Delivery" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
+- tapOn: "Grocery Delivery"
+- scrollUntilVisible: { element: { id: "item-qty-line_.*", below: { text: "Item 2" } }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "item-qty-line_.*", below: { text: "Item 2" } }
+- inputText: "5"
+- scrollUntilVisible: { element: { text: "Grocery Delivery" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
+- tapOn: "Grocery Delivery"
+- scrollUntilVisible: { element: { id: "unit-line_.*-kg", below: { text: "Item 2" } }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "unit-line_.*-kg", below: { text: "Item 2" } }
+# Item 1 is still there, with its typed values intact.
+- scrollUntilVisible: { element: { text: "Milk" }, direction: UP, timeout: 12000 }
+- assertVisible: "Milk"
+- takeScreenshot: sd-gr-03-two-items
+
+# ── Maximum goods budget — a ceiling on the GOODS, not a total ────────────────
+- scrollUntilVisible: { element: { text: ".*Maximum to spend on the goods.*" }, direction: DOWN, timeout: 12000 }
+- assertVisible: ".*Maximum to spend on the goods.*"
+- scrollUntilVisible: { element: { text: ".*Delivery and service fees are separate.*" }, direction: DOWN, timeout: 12000 }
+- assertVisible: ".*Delivery and service fees are separate.*"
+- scrollUntilVisible: { element: { id: "input-max_goods_budget" }, direction: UP, timeout: 12000 }
+# The wording must never present this as the money the customer owes.
+- assertNotVisible: ".*Order total.*"
+- assertNotVisible: ".*Amount due.*"
+- assertNotVisible: ".*Total to pay.*"
+- tapOn: { id: "input-max_goods_budget" }
+- inputText: "5000"
+# Dismiss the keyboard by tapping this field's own static label. iOS keeps the focused input
+# and the label above it on screen, so no scroll was needed there — but Android moved the
+# label out of the hierarchy entirely when the soft keyboard opened. The 2026-08-19 run
+# failed here with "Element not found" while the visible nodes were the item list above the
+# budget block, i.e. the label had dropped BELOW the fold. Android reports only on-screen
+# nodes where iOS also reports frames outside the ScrollView clip. Reach it before tapping;
+# a no-op on iOS, required on Android. Selector is already wildcard-safe and matched twice
+# earlier in this same flow, so only the scroll was missing.
+- scrollUntilVisible: { element: { text: ".*Maximum to spend on the goods.*" }, direction: DOWN, timeout: 12000 }
+- tapOn: ".*Maximum to spend on the goods.*"
+- takeScreenshot: sd-gr-04-goods-budget
+
+# ── Substitution preference (required) ────────────────────────────────────────
+# Required questions render their label with a trailing " *", and Maestro matches text
+# selectors as a FULL-match regex, so the bare string cannot match "If something is
+# unavailable *". Run 32183656801 failed here while the screenshot and hierarchy both showed
+# the question rendered correctly. Wrapped, like every other label selector in this flow.
+- scrollUntilVisible: { element: { text: ".*If something is unavailable.*" }, direction: DOWN, timeout: 12000 }
+- assertVisible: ".*If something is unavailable.*"
+- scrollUntilVisible: { element: { id: "option-substitution-call" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "option-substitution-call" }
+
+# Grocery enables media (photograph a handwritten list instead of typing it). The block renders
+# below the substitution question, so it has to be scrolled to.
+- scrollUntilVisible: { element: { id: "service-details-media" }, direction: DOWN, timeout: 12000 }
+- assertVisible: { id: "service-details-media" }
+
+# ── Continue reaches Address ──────────────────────────────────────────────────
+- scrollUntilVisible: { element: { id: "service-details-continue" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "service-details-continue" }
+- extendedWaitUntil: { visible: "Your Address", timeout: 15000 }
+- assertVisible: "Step 2 of 5"
+- takeScreenshot: sd-gr-05-address

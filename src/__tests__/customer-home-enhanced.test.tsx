@@ -100,31 +100,31 @@ describe('HomeScreen (enhanced — additive sections)', () => {
     expect(screen.getByText('Browse all categories →')).toBeOnTheScreen();
   });
 
-  it('search bar tap pushes to /(customer)/search', () => {
+  it('search bar tap pushes to /search', () => {
     render(<HomeScreen />);
     // The SearchBar is wrapped in a TouchableOpacity
     const searchBar = screen.getByPlaceholderText('Search services');
     // Press the parent touchable (fire event on the search input's parent)
     fireEvent.press(searchBar);
-    expect(router.push).toHaveBeenCalledWith('/(customer)/search');
+    expect(router.push).toHaveBeenCalledWith('/search');
   });
 
-  it('Browse providers link pushes to /(customer)/providers', () => {
+  it('Browse providers link pushes to /providers', () => {
     render(<HomeScreen />);
     fireEvent.press(screen.getByText('🛠 Browse providers'));
-    expect(router.push).toHaveBeenCalledWith('/(customer)/providers');
+    expect(router.push).toHaveBeenCalledWith('/browse-providers');
   });
 
-  it('My favorites link pushes to /(customer)/favorites', () => {
+  it('My favorites link pushes to /favorites', () => {
     render(<HomeScreen />);
     fireEvent.press(screen.getByText('🤍 My favorites'));
-    expect(router.push).toHaveBeenCalledWith('/(customer)/favorites');
+    expect(router.push).toHaveBeenCalledWith('/favorites');
   });
 
-  it('Browse all categories footer link pushes to /(customer)/search', () => {
+  it('Browse all categories footer link pushes to /search', () => {
     render(<HomeScreen />);
     fireEvent.press(screen.getByText('Browse all categories →'));
-    expect(router.push).toHaveBeenCalledWith('/(customer)/search');
+    expect(router.push).toHaveBeenCalledWith('/search');
   });
 
   it('renders Recently Used section when recent service ids exist', async () => {

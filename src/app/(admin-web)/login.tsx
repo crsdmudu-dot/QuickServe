@@ -39,7 +39,7 @@ export default function AdminLoginScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
-      <PageMeta title="Sign in" description="Sign in to the QuickServe admin panel." />
+      <PageMeta title="Sign in" description="Sign in to the KwikServe admin panel." />
       <View style={styles.outer}>
         <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           {/* Header */}

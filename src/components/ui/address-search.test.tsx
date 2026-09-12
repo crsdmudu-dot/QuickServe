@@ -11,6 +11,7 @@
 jest.mock('@/lib/places', () => ({
   searchPlaces: jest.fn(),
   getPlaceDetails: jest.fn(),
+  newSessionToken: jest.fn(),
 }));
 
 // Also mock @/constants/motion so Skeleton's animation loop doesn't run.
@@ -28,13 +29,14 @@ jest.mock('@/constants/motion', () => ({
 
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { AddressSearch } from '@/components/ui/address-search';
-import { searchPlaces, getPlaceDetails } from '@/lib/places';
+import { searchPlaces, getPlaceDetails, newSessionToken } from '@/lib/places';
 import type { PlaceDetailsWithMap, PlaceSuggestion } from '@/lib/places';
 
 // ── Typed mock helpers ─────────────────────────────────────────────────────────
 
 const mockSearchPlaces = searchPlaces as jest.MockedFunction<typeof searchPlaces>;
 const mockGetPlaceDetails = getPlaceDetails as jest.MockedFunction<typeof getPlaceDetails>;
+const mockNewSessionToken = newSessionToken as jest.MockedFunction<typeof newSessionToken>;
 
 // ── Fixtures ───────────────────────────────────────────────────────────────────
 
@@ -59,6 +61,10 @@ describe('AddressSearch', () => {
     jest.clearAllMocks();
     mockSearchPlaces.mockResolvedValue([]);
     mockGetPlaceDetails.mockResolvedValue(null);
+    // Return a unique token per call so the component's "created once per session"
+    // caching (and rotation) is observable in the assertions below.
+    let n = 0;
+    mockNewSessionToken.mockImplementation(() => `session-token-${(n += 1)}`);
   });
 
   afterEach(() => {
@@ -81,8 +87,8 @@ describe('AddressSearch', () => {
       jest.advanceTimersByTime(400);
     });
 
-    // searchPlaces must have been called.
-    expect(mockSearchPlaces).toHaveBeenCalledWith('Main');
+    // searchPlaces must have been called (with a session token).
+    expect(mockSearchPlaces).toHaveBeenCalledWith('Main', expect.any(String));
 
     // Suggestion primary text and secondary text should appear.
     await waitFor(() => {
@@ -115,7 +121,7 @@ describe('AddressSearch', () => {
       fireEvent.press(screen.getByText('123 Main St'));
     });
 
-    expect(mockGetPlaceDetails).toHaveBeenCalledWith('place-001');
+    expect(mockGetPlaceDetails).toHaveBeenCalledWith('place-001', expect.any(String));
     await waitFor(() => {
       expect(onSelect).toHaveBeenCalledWith(DETAILS, SUGGESTION);
     });
@@ -212,5 +218,92 @@ describe('AddressSearch', () => {
     });
 
     expect(mockSearchPlaces).not.toHaveBeenCalled();
+  });
+
+  // ── 8. Session token: ONE per session, reused across keystrokes ───────────────
+
+  it('reuses one session token across debounced searches (not one per keystroke)', async () => {
+    mockSearchPlaces.mockResolvedValue([]);
+    render(<AddressSearch onSelect={jest.fn()} />);
+    const input = screen.getByPlaceholderText('Type your address…');
+
+    fireEvent.changeText(input, 'West');
+    await act(async () => {
+      jest.advanceTimersByTime(400);
+    });
+    fireEvent.changeText(input, 'Westl');
+    await act(async () => {
+      jest.advanceTimersByTime(400);
+    });
+
+    expect(mockSearchPlaces.mock.calls.length).toBeGreaterThanOrEqual(2);
+    const t1 = mockSearchPlaces.mock.calls[0][1];
+    const t2 = mockSearchPlaces.mock.calls[1][1];
+    expect(t1).toBeTruthy();
+    expect(t2).toBe(t1); // same session token reused, not regenerated per keystroke
+  });
+
+  // ── 9. Session token: selection reuses the autocomplete token, then rotates ──
+
+  it('passes the SAME token to getPlaceDetails, then rotates it for the next search', async () => {
+    mockSearchPlaces.mockResolvedValue([SUGGESTION]);
+    mockGetPlaceDetails.mockResolvedValue(DETAILS);
+    render(<AddressSearch onSelect={jest.fn()} />);
+    const input = screen.getByPlaceholderText('Type your address…');
+
+    fireEvent.changeText(input, 'Main');
+    await act(async () => {
+      jest.advanceTimersByTime(400);
+    });
+    await waitFor(() => {
+      expect(screen.getByText('123 Main St')).toBeOnTheScreen();
+    });
+    const tokenBefore = mockSearchPlaces.mock.calls[0][1];
+
+    await act(async () => {
+      fireEvent.press(screen.getByText('123 Main St'));
+    });
+    // Details completes the session with the SAME token used for autocomplete.
+    await waitFor(() => {
+      expect(mockGetPlaceDetails).toHaveBeenCalledWith('place-001', tokenBefore);
+    });
+
+    // A new search now starts a fresh session (rotated token).
+    fireEvent.changeText(input, 'Karen');
+    await act(async () => {
+      jest.advanceTimersByTime(400);
+    });
+    const tokenAfter = mockSearchPlaces.mock.calls[mockSearchPlaces.mock.calls.length - 1][1];
+    expect(tokenAfter).toBeTruthy();
+    expect(tokenAfter).not.toBe(tokenBefore);
+  });
+
+  // ── 10. Session token: clearing the query resets the session ─────────────────
+
+  it('starts a new session token after the query is cleared/abandoned', async () => {
+    mockSearchPlaces.mockResolvedValue([]);
+    render(<AddressSearch onSelect={jest.fn()} />);
+    const input = screen.getByPlaceholderText('Type your address…');
+
+    fireEvent.changeText(input, 'West');
+    await act(async () => {
+      jest.advanceTimersByTime(400);
+    });
+    const t1 = mockSearchPlaces.mock.calls[0][1];
+
+    // Clear the field — abandons the session.
+    fireEvent.changeText(input, '');
+    await act(async () => {
+      jest.advanceTimersByTime(400);
+    });
+
+    // Search again → a different session token.
+    fireEvent.changeText(input, 'Karen');
+    await act(async () => {
+      jest.advanceTimersByTime(400);
+    });
+    const tLast = mockSearchPlaces.mock.calls[mockSearchPlaces.mock.calls.length - 1][1];
+    expect(tLast).toBeTruthy();
+    expect(tLast).not.toBe(t1);
   });
 });

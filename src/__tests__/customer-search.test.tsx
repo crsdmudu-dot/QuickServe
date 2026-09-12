@@ -1,5 +1,5 @@
 /**
- * Tests for src/app/(customer)/search.tsx
+ * Tests for src/app/search.tsx
  *
  * Mocks: expo-router, lib/search, booking-draft.
  * Verifies: instant results, recent+popular shown before typing,
@@ -42,7 +42,7 @@ jest.mock('@/lib/search', () => ({
 // ── Imports (after mocks) ───────────────────────────────────────────────────
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
-import SearchScreen from '@/app/(customer)/search';
+import SearchScreen from '@/app/search';
 
 const SERVICE_CLEANING = {
   id: 'house-cleaning',
@@ -84,7 +84,7 @@ describe('SearchScreen', () => {
     expect(screen.getByText('House Cleaning')).toBeOnTheScreen();
   });
 
-  it('tapping a service result calls start(serviceId) and navigates to /booking/address', async () => {
+  it('tapping a service result calls start(serviceId) and navigates to /booking/service-details', async () => {
     mockSearchServices.mockReturnValue([SERVICE_CLEANING]);
     render(<SearchScreen />);
     const input = screen.getByPlaceholderText('Search services...');
@@ -97,7 +97,7 @@ describe('SearchScreen', () => {
     fireEvent.press(screen.getByText('House Cleaning'));
     await waitFor(() => {
       expect(mockStart).toHaveBeenCalledWith('house-cleaning');
-      expect(router.push).toHaveBeenCalledWith('/booking/address');
+      expect(router.push).toHaveBeenCalledWith('/booking/service-details');
     });
   });
 

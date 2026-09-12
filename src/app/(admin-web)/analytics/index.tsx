@@ -771,7 +771,7 @@ export default function ExecutiveDashboard() {
         ) : null}
         <View style={styles.chartBlock}>
           <Text variant="label" color="textSecondary" style={styles.chartLabel}>
-            Top providers by earnings (display-only — no ranking influence)
+            Top providers by gross entitlement (display-only — no ranking influence)
           </Text>
           <BarChart
             data={topProvidersByEarnings}

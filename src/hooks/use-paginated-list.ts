@@ -21,7 +21,7 @@ export function usePaginatedList<T>(
   error: string;
   hasMore: boolean;
   loadMore: () => void;
-  reload: () => void;
+  reload: () => Promise<void>;
 } {
   const [items, setItems] = useState<T[]>([]);
   const [loading, setLoading] = useState(false);
@@ -63,11 +63,11 @@ export function usePaginatedList<T>(
     [pageSize],
   );
 
-  /** Reset to page 0 and reload. */
+  /** Reset to page 0 and reload. Returns a promise so callers (e.g. pull-to-refresh) can await completion. */
   const reload = useCallback(() => {
     nextPageRef.current = 0;
     setHasMore(true);
-    void loadPage(0);
+    return loadPage(0);
   }, [loadPage]);
 
   /** Load the next page and append results. */

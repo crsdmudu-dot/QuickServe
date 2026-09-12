@@ -252,7 +252,7 @@ export default function ScheduleScreen() {
       >
         {/* Step indicator */}
         <Text variant="caption" color="textSecondary" style={styles.step}>
-          Step 2 of 4
+          Step 3 of 5
         </Text>
 
         <Text variant="title" style={styles.title}>

@@ -193,33 +193,33 @@ describe('searchServices', () => {
 
 describe('searchSuggestions', () => {
   it('returns [] for empty query', () => {
-    expect(searchSuggestions('')).toEqual([]);
+    expect(searchSuggestions(SERVICES, '')).toEqual([]);
   });
 
   it('returns [] for whitespace-only query', () => {
-    expect(searchSuggestions('   ')).toEqual([]);
+    expect(searchSuggestions(SERVICES, '   ')).toEqual([]);
   });
 
   it('returns suggestion strings for a matching title query', () => {
-    const result = searchSuggestions('clean');
+    const result = searchSuggestions(SERVICES, 'clean');
     expect(result.length).toBeGreaterThan(0);
     expect(result.every((s) => typeof s === 'string')).toBe(true);
   });
 
   it('returns no more than 6 suggestions', () => {
     // A broad query like "a" should match many things but we cap at 6
-    const result = searchSuggestions('a');
+    const result = searchSuggestions(SERVICES, 'a');
     expect(result.length).toBeLessThanOrEqual(6);
   });
 
   it('de-dupes suggestions', () => {
-    const result = searchSuggestions('delivery');
+    const result = searchSuggestions(SERVICES, 'delivery');
     const unique = new Set(result.map((s) => s.toLowerCase()));
     expect(unique.size).toBe(result.length);
   });
 
   it('returns [] for a query matching nothing', () => {
-    expect(searchSuggestions('zzzyyyxxx')).toEqual([]);
+    expect(searchSuggestions(SERVICES, 'zzzyyyxxx')).toEqual([]);
   });
 });
 
@@ -227,23 +227,23 @@ describe('searchSuggestions', () => {
 
 describe('noResultRecommendations', () => {
   it('returns a non-empty array', () => {
-    const result = noResultRecommendations();
+    const result = noResultRecommendations(SERVICES);
     expect(result.length).toBeGreaterThan(0);
   });
 
   it('returns no more than 6 services', () => {
-    const result = noResultRecommendations();
+    const result = noResultRecommendations(SERVICES);
     expect(result.length).toBeLessThanOrEqual(6);
   });
 
   it('contains no duplicate service ids', () => {
-    const result = noResultRecommendations();
+    const result = noResultRecommendations(SERVICES);
     const ids = result.map((s) => s.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
   it('returns valid Service objects', () => {
-    const result = noResultRecommendations();
+    const result = noResultRecommendations(SERVICES);
     for (const svc of result) {
       expect(typeof svc.id).toBe('string');
       expect(typeof svc.title).toBe('string');

@@ -1,0 +1,2 @@
+supabase/migrations/004[0-9]_*.sql -text
+supabase/migrations/005[0-9]_*.sql -text

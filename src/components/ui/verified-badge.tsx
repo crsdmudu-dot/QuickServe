@@ -1,4 +1,4 @@
-// verified-badge.tsx — Pill badge indicating QuickServe has verified the provider.
+// verified-badge.tsx — Pill badge indicating KwikServe has verified the provider.
 import { StyleSheet, View } from 'react-native';
 
 import { Radii, Spacing } from '@/constants/theme';
@@ -11,7 +11,7 @@ export function VerifiedBadge() {
   return (
     <View style={[styles.pill, { backgroundColor: theme.primarySurface }]}>
       <Text variant="caption" color="primary">
-        Verified by QuickServe
+        Verified by KwikServe
       </Text>
     </View>
   );

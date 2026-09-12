@@ -1,5 +1,5 @@
 /**
- * Tests for src/app/(customer)/preferences.tsx (Slice 34 Task 5)
+ * Tests for src/app/preferences.tsx (Slice 34 Task 5)
  *
  * Verifies:
  *   - Favorite-service toggles render; toggle calls add/removeFavoriteService optimistically.
@@ -41,7 +41,7 @@ jest.mock('@/lib/saved-addresses', () => ({
 }));
 
 import { router } from 'expo-router';
-import PreferencesScreen from '@/app/(customer)/preferences';
+import PreferencesScreen from '@/app/preferences';
 
 // ── Tests ──────────────────────────────────────────────────────────────────────
 

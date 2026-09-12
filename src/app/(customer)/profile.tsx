@@ -6,8 +6,8 @@
  *
  * New additions (Slice 34 Task 5):
  *   - ProfileCompletionCard at the top (name/phone from profiles row; hasDefaultAddress from saved-addresses)
- *   - "Preferences" link → /(customer)/preferences
- *   - "Trust & Safety" link → /(customer)/trust
+ *   - "Preferences" link → /preferences
+ *   - "Trust & Safety" link → /trust
  */
 
 import { useEffect, useState } from 'react';
@@ -129,12 +129,12 @@ export default function ProfileScreen() {
           <Button
             label="Preferences"
             variant="secondary"
-            onPress={() => router.push('/(customer)/preferences')}
+            onPress={() => router.push('/preferences')}
           />
           <Button
             label="Trust & Safety"
             variant="secondary"
-            onPress={() => router.push('/(customer)/trust')}
+            onPress={() => router.push('/trust')}
           />
           <Button label="Sign out / Switch role" onPress={signOut} />
         </View>

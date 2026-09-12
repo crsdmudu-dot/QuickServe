@@ -17,7 +17,7 @@ export default function MarketingHeader() {
           href="/"
           className="text-heading font-bold text-primary tracking-tight"
         >
-          QuickServe
+          KwikServe
         </Link>
 
         {/* Desktop nav */}

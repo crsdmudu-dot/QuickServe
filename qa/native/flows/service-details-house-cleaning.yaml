@@ -1,0 +1,182 @@
+# Service Details V1.5 — HOUSE CLEANING: progressive disclosure, required fields, stale-answer
+# pruning, and the answers surviving through to Review.
+#
+# Chosen as the representative "branching form" service: its `scope` question controls whether
+# bedrooms/bathrooms exist at all, which makes it the cleanest place to prove that changing a
+# parent answer removes the child questions AND that the discarded answers never reach the
+# snapshot. Nothing is placed — the flow stops at Review, so no QA booking data is created.
+#
+# WHAT assertNotVisible PROVES HERE — and what it does not. Maestro's visibility assertions are
+# VIEWPORT-scoped on iOS: an element that exists in a ScrollView but sits below the fold reports as
+# not visible, exactly like one that was never rendered. So a bare assertNotVisible cannot prove
+# semantic ABSENCE on a scrollable screen — it would pass either way. Each negative below is
+# therefore placed while the row it concerns is on screen, which makes it a real check of that row,
+# and it is corroboration rather than the authoritative guarantee. The authoritative proof that a
+# pruned answer can never reach the snapshot is the unit test
+# src/__tests__/service-details-form.test.ts — "a pruned answer can never reach the snapshot
+# (requirement 18)". Do not weaken either one on the strength of the other.
+#
+# Params via -e: CUST_EMAIL, CUST_PW.
+appId: ke.co.hiredcorp.kwikserve
+---
+- runFlow: { file: steps/login-customer.yaml }
+
+# ── Enter the booking flow at Service Details (step 1 of 5) ───────────────────
+- scrollUntilVisible: { element: { text: ".*House Cleaning.*" }, direction: DOWN, timeout: 15000 }
+- tapOn: ".*House Cleaning.*"
+- extendedWaitUntil: { visible: "Step 1 of 5", timeout: 15000 }
+- assertVisible: "House Cleaning"
+- assertVisible: ".*What kind of cleaning do you need.*"
+- takeScreenshot: sd-hc-01-step1
+
+# Progressive disclosure: nothing beyond the primary question exists before it is answered.
+- assertNotVisible: { id: "question-scope" }
+- assertNotVisible: { id: "question-bedrooms" }
+- assertNotVisible: { id: "question-bathrooms" }
+
+# ── Required-field enforcement: Continue must refuse an unanswered form ───────
+- scrollUntilVisible: { element: { id: "service-details-continue" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "service-details-continue" }
+- extendedWaitUntil: { visible: { id: "error-variant" }, timeout: 8000 }
+- assertNotVisible: "Your Address"
+- takeScreenshot: sd-hc-02-required-blocked
+
+# ── Deep cleaning → whole home → bedrooms + bathrooms appear ──────────────────
+# Hardened for the same class. This site cannot occlude today — at this stage only the variant
+# question is disclosed, the form fits the viewport and cannot scroll (the DOWN scroll above is
+# also a no-op in every recorded run) — but that safety is a property of the form being short,
+# not of the flow. deep_clean sits ~300 pt down, already clear, so this is a no-op in practice.
+- scrollUntilVisible: { element: { id: "option-variant-deep_clean" }, direction: UP, timeout: 12000, centerElement: true }
+- tapOn: { id: "option-variant-deep_clean" }
+- extendedWaitUntil: { visible: { id: "question-scope" }, timeout: 8000 }
+- scrollUntilVisible: { element: { id: "option-scope-whole_home" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "option-scope-whole_home" }
+# Android run 2026-08-19 failed asserting question-bathrooms here. Both questions WERE
+# disclosed — a manual scroll screenshot shows them rendered — but they sit below the fold:
+# the hierarchy had question-bedrooms as a 1px sliver at [72,2919][1272,2920] on a 2992px
+# screen and question-bathrooms absent entirely. iOS reports frames for nodes scrolled out
+# of the ScrollView clip, so it passed; Android reports only what is on screen. The
+# assumption that two disclosed blocks fit the viewport was never true, just never caught.
+# Scroll to each target before its own assertion; harmless on iOS, required on Android.
+- scrollUntilVisible: { element: { id: "question-bedrooms" }, direction: DOWN, timeout: 12000 }
+- extendedWaitUntil: { visible: { id: "question-bedrooms" }, timeout: 8000 }
+- scrollUntilVisible: { element: { id: "question-bathrooms" }, direction: DOWN, timeout: 12000 }
+- assertVisible: { id: "question-bathrooms" }
+- takeScreenshot: sd-hc-03-disclosed
+
+- scrollUntilVisible: { element: { id: "input-bedrooms" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "input-bedrooms" }
+- inputText: "4"
+# hideKeyboard is unreliable on iOS, so we tap a static heading instead — but reaching the field
+# scrolled that heading off-screen, so it must be scrolled back into view FIRST. Same order as
+# address-journey.yaml. Tapping without the scroll is what failed run 32021907035.
+# waitToSettleTimeoutMs: run 32031583358 timed out on this exact scroll while the failure
+# screenshot showed the heading fully rendered — the scroll had arrived, but the accessibility
+# hierarchy Maestro reads had not caught up. 500ms is the value Maestro's own error output
+# suggests, and it is applied ONLY to these keyboard-dismiss scrolls (the long full-form ones),
+# never to Review assertions or ordinary navigation.
+- scrollUntilVisible: { element: { text: "House Cleaning" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
+- tapOn: "House Cleaning"
+- scrollUntilVisible: { element: { id: "input-bathrooms" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "input-bathrooms" }
+- inputText: "3"
+- scrollUntilVisible: { element: { text: "House Cleaning" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
+- tapOn: "House Cleaning"
+- scrollUntilVisible: { element: { id: "option-provider_bring_supplies-yes" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "option-provider_bring_supplies-yes" }
+
+# House Cleaning disables media by locked V1.2 decision.
+- assertNotVisible: { id: "service-details-media" }
+
+# ── Stale-answer pruning: change the parent, the children disappear ───────────
+# scope drives bedrooms/bathrooms. Switching to a scope that does not use them must remove the
+# questions AND drop the answers — a pruned answer must never reach the snapshot.
+# Run 32150749532 failed here. The preceding DOWN scroll left this option ABOVE the ScrollView
+# viewport but still inside screen bounds, so Maestro judged it 100% visible, scrolled 0 px, and
+# tapped a point sitting under the fixed Back header — a no-op, so scope stayed whole_home and
+# bedrooms never pruned. centerElement makes UP scrolling continue until the centre clears the
+# top 30% of the screen, which is well below the header. It is a no-op when already clear.
+- scrollUntilVisible: { element: { id: "option-scope-kitchen_only" }, direction: UP, timeout: 12000, centerElement: true }
+- tapOn: { id: "option-scope-kitchen_only" }
+- extendedWaitUntil: { notVisible: { id: "question-bedrooms" }, timeout: 8000 }
+- assertNotVisible: { id: "question-bathrooms" }
+- takeScreenshot: sd-hc-04-pruned
+
+# Change back — the questions return, and the flow stays coherent (re-answer required).
+- tapOn: { id: "option-scope-whole_home" }
+# Same below-the-fold geometry as the first disclosure above — reach the question before
+# waiting on it rather than relying on it happening to be in the viewport.
+- scrollUntilVisible: { element: { id: "question-bedrooms" }, direction: DOWN, timeout: 12000 }
+- extendedWaitUntil: { visible: { id: "question-bedrooms" }, timeout: 8000 }
+- scrollUntilVisible: { element: { id: "input-bedrooms" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "input-bedrooms" }
+- inputText: "4"
+- scrollUntilVisible: { element: { text: "House Cleaning" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
+- tapOn: "House Cleaning"
+- scrollUntilVisible: { element: { id: "input-bathrooms" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "input-bathrooms" }
+- inputText: "3"
+- scrollUntilVisible: { element: { text: "House Cleaning" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
+- tapOn: "House Cleaning"
+
+# ── Add-ons (optional multi-select) ──────────────────────────────────────────
+- scrollUntilVisible: { element: { id: "option-addons-ironing" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "option-addons-ironing" }
+
+# ── Continue reaches Address (step 2 of 5) ───────────────────────────────────
+- scrollUntilVisible: { element: { id: "service-details-continue" }, direction: DOWN, timeout: 12000 }
+- tapOn: { id: "service-details-continue" }
+- extendedWaitUntil: { visible: "Your Address", timeout: 15000 }
+- assertVisible: "Step 2 of 5"
+- takeScreenshot: sd-hc-05-address
+
+# ── Forward to Review and confirm what was captured ──────────────────────────
+- tapOn: "Enter address manually"
+- extendedWaitUntil: { visible: "123 Main St, City", timeout: 8000 }
+- tapOn: "123 Main St, City"
+- inputText: "QA SD Test Address, Nairobi"
+- scrollUntilVisible: { element: { text: "Your Address" }, direction: UP, timeout: 12000, waitToSettleTimeoutMs: 500 }
+- tapOn: "Your Address"
+- scrollUntilVisible: { element: { text: "Continue" }, direction: DOWN, timeout: 15000 }
+- tapOn: "Continue"
+- extendedWaitUntil: { visible: "When do you need it?", timeout: 15000 }
+- assertVisible: "Step 3 of 5"
+- tapOn: ".*ASAP.*"
+- scrollUntilVisible: { element: { text: "Continue" }, direction: DOWN, timeout: 15000 }
+- tapOn: "Continue"
+- extendedWaitUntil: { visible: "Any special notes?", timeout: 15000 }
+- assertVisible: "Step 4 of 5"
+- scrollUntilVisible: { element: { text: "Continue" }, direction: DOWN, timeout: 15000 }
+- tapOn: "Continue"
+- extendedWaitUntil: { visible: "Review your booking", timeout: 15000 }
+- assertVisible: "Step 5 of 5"
+
+# V1.4 — Review reads back the step-1 snapshot, in the customer's own words.
+#
+# The card is TALLER than an iPhone SE viewport, so each value is scrolled to in turn rather than
+# asserted in a batch after one scroll. Run 32026499557 failed exactly here: "Deep cleaning" (the
+# first row) was visible and "The whole home" (the next row down) was below the fold and therefore
+# reported as not visible — the value was rendered correctly, the assertion just could not see it.
+#
+# Maestro's visibility assertions are VIEWPORT-scoped on iOS, which is why each assertNotVisible
+# below is placed while the row it concerns is on screen. See the header note on what those
+# negatives do and do not prove.
+- scrollUntilVisible: { element: { text: "Service Details" }, direction: DOWN, timeout: 12000 }
+
+# Primary answer — the saved label, never the machine value that produced it.
+- scrollUntilVisible: { element: { text: "Deep cleaning" }, direction: DOWN, timeout: 12000 }
+- assertVisible: "Deep cleaning"
+- assertNotVisible: "deep_clean"
+
+# Scope — proves the pruning outcome: the FINAL answer was whole_home, so the Scope row reads
+# "The whole home". There is exactly one Scope row, so with that row on screen the discarded
+# "Kitchen only" cannot also be the stored scope.
+- scrollUntilVisible: { element: { text: "The whole home" }, direction: DOWN, timeout: 12000 }
+- assertVisible: "The whole home"
+- assertNotVisible: "Kitchen only"
+- assertNotVisible: "whole_home"
+
+# Add-ons render from their saved labels too.
+- scrollUntilVisible: { element: { text: "• Ironing" }, direction: DOWN, timeout: 12000 }
+- assertVisible: "• Ironing"
+- takeScreenshot: sd-hc-06-review-summary

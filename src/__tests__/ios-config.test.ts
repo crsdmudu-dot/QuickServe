@@ -42,7 +42,14 @@ describe('iOS icons', () => {
 
 describe('iOS identity', () => {
   test('bundle identifier exists', () => {
-    expect(expo.ios.bundleIdentifier).toBe('com.quickserve.app');
+    // Permanent iOS bundle id (Hired Corp Ltd, hiredcorp.co.ke), migrated in Phase 6E from
+    // ke.co.hiredcorp.quickserve. The Apple App ID was registered in Phase 6B.2 with Push
+    // Notifications + Associated Domains. Matches the Android package string by design —
+    // Apple App IDs and Android application IDs are separate namespaces.
+    expect(expo.ios.bundleIdentifier).toBe('ke.co.hiredcorp.kwikserve');
+  });
+  test('old iOS bundle ke.co.hiredcorp.quickserve is no longer used', () => {
+    expect(expo.ios.bundleIdentifier).not.toBe('ke.co.hiredcorp.quickserve');
   });
   test('build number exists', () => {
     expect(typeof expo.ios.buildNumber).toBe('string');
@@ -51,8 +58,20 @@ describe('iOS identity', () => {
   test('orientation remains portrait', () => {
     expect(expo.orientation).toBe('portrait');
   });
-  test('scheme is quickserve', () => {
-    expect(expo.scheme).toBe('quickserve');
+  // Item M (Phase 7B §11): legacy QuickServe and KwikServe both register `quickserve`, and iOS
+  // resolves a contested scheme silently with no chooser — so `quickserve://` could not reach
+  // KwikServe on a device holding both apps, and J-customer could not be executed there.
+  //
+  // `kwikserve` is the uncontested address that fixes that. `quickserve` is RETAINED for backward
+  // compatibility with any link already distributed, so this does NOT eliminate the collision:
+  // `quickserve://` stays ambiguous wherever both apps are installed. Dropping it is a later step,
+  // gated on retiring the legacy app.
+  //
+  // Order is load-bearing: Expo treats the first entry as the default for `Linking.createURL`.
+  // Nothing calls that today, so the effect is currently latent — which is exactly why it needs a
+  // guard rather than a comment.
+  test('registers kwikserve first and retains quickserve for compatibility', () => {
+    expect(expo.scheme).toEqual(['kwikserve', 'quickserve']);
   });
 });
 

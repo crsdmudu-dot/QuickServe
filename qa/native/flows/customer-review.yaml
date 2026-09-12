@@ -1,6 +1,6 @@
 # Phase 3F — Customer review submission (after job completion).
 # Creds via -e; the completed House Cleaning booking must exist + be assigned.
-appId: com.quickserve.app
+appId: ke.co.hiredcorp.kwikserve
 ---
 - launchApp: { clearState: true }
 - extendedWaitUntil: { visible: "Get Started", timeout: 30000 }
@@ -39,14 +39,36 @@ appId: com.quickserve.app
 - extendedWaitUntil: { visible: "Booking Detail", timeout: 15000 }
 - runFlow: { when: { visible: "No thanks" }, commands: [ { tapOn: "No thanks" } ] }
 - assertVisible: ".*Completed.*"
-# Review section. Scroll the star row itself into view (scrolling only to the "Your review"
-# header leaves the stars, which sit below it, off-screen).
-- scrollUntilVisible: { element: { id: "star-5" }, direction: DOWN, timeout: 15000 }
+# Review section. The review form renders async after the booking detail loads, and star-5
+# (right-most star of a horizontal row) can sit at the screen edge — so give the scroll a
+# longer budget, let the UI settle between scroll steps, and accept a partially-visible star
+# (requiring 100% visibility with no settle flaked intermittently on iOS).
+- scrollUntilVisible:
+    element: { id: "star-5" }
+    direction: DOWN
+    timeout: 25000
+    visibilityPercentage: 10
+    waitToSettleTimeoutMs: 800
 - tapOn: { id: "star-5" }
+# The scroll above accepts a 10%-visible star, so star-5 lands at the very bottom edge and the
+# comment field below it is off-screen. Service Details V1.4 added a section to Booking Detail
+# which lengthened this screen, and run 32135248465 failed tapping the placeholder without a
+# scroll of its own. Scroll to the field itself — the product is correct, the assumption was not.
+- scrollUntilVisible: { element: { text: "Share your experience…" }, direction: DOWN, timeout: 12000 }
 - tapOn: "Share your experience…"
 - inputText: "${COMMENT}"
 # Dismiss the keyboard by tapping the comment's static label, then reveal + submit.
-- tapOn: "Comment (optional)"
+# Android Phase 3F 2026-08-19 failed here: after inputText the soft keyboard changed the
+# visible region and the label was no longer in the hierarchy at all — the visible nodes
+# ran from the Activity timeline down to "Your review", i.e. the label had dropped BELOW
+# the fold. Android reports only on-screen nodes where iOS also reports frames outside the
+# ScrollView clip, so a bare tap on a nearby label is safe there and not here. Reach it.
+#
+# Selector: Maestro treats text as a regex, so bare "Comment (optional)" would parse the
+# parentheses as a capture group. Wrapped in .* like the other label selectors in this
+# suite, which avoids the metacharacters entirely and matches the rendered label.
+- scrollUntilVisible: { element: { text: ".*Comment.*optional.*" }, direction: DOWN, timeout: 12000 }
+- tapOn: ".*Comment.*optional.*"
 - scrollUntilVisible: { element: { text: "Submit review" }, direction: DOWN, timeout: 15000 }
 - tapOn: "Submit review"
 - extendedWaitUntil: { visible: "Edit review", timeout: 20000 }

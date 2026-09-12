@@ -1,102 +1,132 @@
 /**
- * places.ts — Pure Google Places helper functions.
+ * places.ts — Pure Google **Places API (New)** helper functions.
  *
  * PURE TypeScript — no network calls, no Deno-only APIs, no API key literals.
- * Uses only standard globals (`encodeURIComponent`) available in both Node and Deno.
+ * Uses only standard globals available in both Node and Deno.
  *
- * These builders return request URLs and parse Google Places API responses.
- * They do NOT call fetch. The Edge Functions consume these helpers.
+ * The builders return ready-to-send request descriptors (url/method/headers/body)
+ * and the parsers read Places API (New) responses. They do NOT call fetch — the
+ * Edge Functions do.
+ *
+ * Places API (New) endpoints used here:
+ *   - Autocomplete:  POST https://places.googleapis.com/v1/places:autocomplete
+ *   - Place Details: GET  https://places.googleapis.com/v1/places/{placeId}
+ *
+ * The API key is ALWAYS passed via the `X-Goog-Api-Key` header — never hardcoded,
+ * never a URL query parameter. Results are restricted to Kenya via
+ * `includedRegionCodes: ["ke"]`. An optional session token bundles the autocomplete
+ * requests plus the following Place Details call into one billable session.
+ *
+ * Static Maps is intentionally UNCHANGED — it still uses the classic maps host and a
+ * key query param, assembled server-side and returned to the app as an opaque string.
  */
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-/** A single autocomplete suggestion from the Google Places API. */
+/** A single autocomplete suggestion (app-facing shape — unchanged across the migration). */
 export type PlaceSuggestion = {
   placeId: string;
   primaryText: string;
   secondaryText: string;
 };
 
-/** Resolved address and coordinates from the Google Place Details API. */
+/** Resolved address and coordinates (app-facing shape — unchanged across the migration). */
 export type PlaceDetails = {
   formattedAddress: string;
   latitude: number;
   longitude: number;
 };
 
+/** A ready-to-send HTTP request produced by the pure builders (no fetch here). */
+export type PlacesRequest = {
+  url: string;
+  method: 'GET' | 'POST';
+  headers: Record<string, string>;
+  /** Present only for POST requests (autocomplete). */
+  body?: string;
+};
+
+/** Base host for Places API (New). Static Maps still uses the classic maps host. */
+const PLACES_NEW_BASE = 'https://places.googleapis.com/v1';
+
+/** Read a Places API (New) localized text node `{ text: string }` → string ('' if absent). */
+function readText(node: unknown): string {
+  if (node === null || typeof node !== 'object') return '';
+  const t = (node as Record<string, unknown>)['text'];
+  return typeof t === 'string' ? t : '';
+}
+
 // ─── Autocomplete ─────────────────────────────────────────────────────────────
 
 /**
- * Build a Google Places Autocomplete request URL.
+ * Build a Places API (New) Autocomplete request.
  *
- * The key is always a parameter — never hardcoded.
- * Results are biased to Kenya via `components=country:ke`.
- *
- * Example:
- *   buildAutocompleteRequest('https://maps.googleapis.com/maps/api', 'K', 'riverside dr')
- *   → { url: '...place/autocomplete/json?input=riverside%20dr&key=K&components=country:ke' }
+ * POST https://places.googleapis.com/v1/places:autocomplete
+ * The key is sent via the `X-Goog-Api-Key` header — never hardcoded, never in the URL.
+ * Results are restricted to Kenya via `includedRegionCodes: ["ke"]`. An optional
+ * session token is included in the body when provided.
  */
 export function buildAutocompleteRequest(
-  baseUrl: string,
   key: string,
   query: string,
-): { url: string } {
-  const url =
-    `${baseUrl}/place/autocomplete/json` +
-    `?input=${encodeURIComponent(query)}` +
-    `&key=${key}` +
-    `&components=country:ke`;
-  return { url };
+  sessionToken?: string,
+): PlacesRequest {
+  const payload: Record<string, unknown> = {
+    input: query,
+    includedRegionCodes: ['ke'],
+  };
+  if (sessionToken) payload.sessionToken = sessionToken;
+
+  return {
+    url: `${PLACES_NEW_BASE}/places:autocomplete`,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': key,
+      'X-Goog-FieldMask':
+        'suggestions.placePrediction.placeId,suggestions.placePrediction.structuredFormat',
+    },
+    body: JSON.stringify(payload),
+  };
 }
 
 /**
- * Parse a Google Places Autocomplete JSON response into a list of suggestions.
+ * Parse a Places API (New) Autocomplete response into a list of suggestions.
  *
- * Reads `predictions[]` from the response object.
- * - `placeId`       = `prediction.place_id`
- * - `primaryText`   = `prediction.structured_formatting.main_text`
- * - `secondaryText` = `prediction.structured_formatting.secondary_text ?? ''`
+ * Reads `suggestions[].placePrediction`:
+ *   - placeId       = placePrediction.placeId
+ *   - primaryText   = placePrediction.structuredFormat.mainText.text
+ *   - secondaryText = placePrediction.structuredFormat.secondaryText.text ?? ''
  *
- * Null-safe: any malformed / missing data returns `[]`; entries without a
- * `place_id` are silently skipped.
+ * Null-safe: malformed / missing data returns []; entries without a placeId are skipped.
  */
 export function parseAutocomplete(json: unknown): PlaceSuggestion[] {
-  // Guard: must be a plain object.
   if (json === null || typeof json !== 'object') return [];
 
-  const obj = json as Record<string, unknown>;
-  const predictions = obj['predictions'];
-
-  // Guard: predictions must be an array.
-  if (!Array.isArray(predictions)) return [];
+  const suggestions = (json as Record<string, unknown>)['suggestions'];
+  if (!Array.isArray(suggestions)) return [];
 
   const results: PlaceSuggestion[] = [];
 
-  for (const item of predictions) {
-    // Each item must be a plain object.
+  for (const item of suggestions) {
     if (item === null || typeof item !== 'object') continue;
 
-    const prediction = item as Record<string, unknown>;
-    const placeId = prediction['place_id'];
+    const prediction = (item as Record<string, unknown>)['placePrediction'];
+    if (prediction === null || typeof prediction !== 'object') continue;
 
-    // Skip entries that have no place_id.
+    const pred = prediction as Record<string, unknown>;
+    const placeId = pred['placeId'];
     if (typeof placeId !== 'string' || placeId === '') continue;
 
-    // Safely read structured_formatting.
-    const sf = prediction['structured_formatting'];
+    const sf = pred['structuredFormat'];
     const sfObj =
-      sf !== null && typeof sf === 'object'
-        ? (sf as Record<string, unknown>)
-        : {};
+      sf !== null && typeof sf === 'object' ? (sf as Record<string, unknown>) : {};
 
-    const primaryText =
-      typeof sfObj['main_text'] === 'string' ? sfObj['main_text'] : '';
-    const secondaryText =
-      typeof sfObj['secondary_text'] === 'string'
-        ? sfObj['secondary_text']
-        : '';
-
-    results.push({ placeId, primaryText, secondaryText });
+    results.push({
+      placeId,
+      primaryText: readText(sfObj['mainText']),
+      secondaryText: readText(sfObj['secondaryText']),
+    });
   }
 
   return results;
@@ -105,69 +135,55 @@ export function parseAutocomplete(json: unknown): PlaceSuggestion[] {
 // ─── Place Details ────────────────────────────────────────────────────────────
 
 /**
- * Build a Google Place Details request URL.
+ * Build a Places API (New) Place Details request.
  *
- * The key is always a parameter — never hardcoded.
- * Only the `formatted_address` and `geometry` fields are requested.
- *
- * Example:
- *   buildDetailsRequest('https://maps.googleapis.com/maps/api', 'K', 'p1')
- *   → { url: '...place/details/json?place_id=p1&key=K&fields=formatted_address,geometry' }
+ * GET https://places.googleapis.com/v1/places/{placeId}
+ * The key is sent via the `X-Goog-Api-Key` header. The field mask is REQUIRED and is
+ * pinned to `formattedAddress,location` — exactly the two fields we consume, which
+ * keeps billing on the cheapest Place Details "Essentials" SKU. The optional session
+ * token MUST match the one used for autocomplete to complete/bill the session as one.
  */
 export function buildDetailsRequest(
-  baseUrl: string,
   key: string,
   placeId: string,
-): { url: string } {
-  const url =
-    `${baseUrl}/place/details/json` +
-    `?place_id=${encodeURIComponent(placeId)}` +
-    `&key=${key}` +
-    `&fields=formatted_address,geometry`;
-  return { url };
+  sessionToken?: string,
+): PlacesRequest {
+  const qs = sessionToken ? `?sessionToken=${encodeURIComponent(sessionToken)}` : '';
+  return {
+    url: `${PLACES_NEW_BASE}/places/${encodeURIComponent(placeId)}${qs}`,
+    method: 'GET',
+    headers: {
+      'X-Goog-Api-Key': key,
+      'X-Goog-FieldMask': 'formattedAddress,location',
+    },
+  };
 }
 
 /**
- * Parse a Google Place Details JSON response into a `PlaceDetails` object.
+ * Parse a Places API (New) Place Details response into a `PlaceDetails` object.
  *
- * Reads `result.formatted_address`, `result.geometry.location.lat`, and
- * `result.geometry.location.lng`.
- *
- * Null-safe: any missing piece or malformed input returns `null`.
+ * Reads top-level `formattedAddress`, `location.latitude`, `location.longitude`.
+ * Null-safe: any missing piece or malformed input returns null.
  */
 export function parseDetails(json: unknown): PlaceDetails | null {
-  // Guard: must be a plain object.
   if (json === null || typeof json !== 'object') return null;
 
   const obj = json as Record<string, unknown>;
-  const resultProp = obj['result'];
 
-  // Guard: result must be a plain object.
-  if (resultProp === null || typeof resultProp !== 'object') return null;
+  const formattedAddress = obj['formattedAddress'];
+  if (typeof formattedAddress !== 'string') return null;
 
-  const result = resultProp as Record<string, unknown>;
-
-  // formatted_address
-  if (typeof result['formatted_address'] !== 'string') return null;
-  const formattedAddress = result['formatted_address'];
-
-  // geometry → location → lat / lng
-  const geometry = result['geometry'];
-  if (geometry === null || typeof geometry !== 'object') return null;
-
-  const geoObj = geometry as Record<string, unknown>;
-  const location = geoObj['location'];
+  const location = obj['location'];
   if (location === null || typeof location !== 'object') return null;
 
-  const locObj = location as Record<string, unknown>;
-
-  if (typeof locObj['lat'] !== 'number') return null;
-  if (typeof locObj['lng'] !== 'number') return null;
+  const loc = location as Record<string, unknown>;
+  if (typeof loc['latitude'] !== 'number') return null;
+  if (typeof loc['longitude'] !== 'number') return null;
 
   return {
     formattedAddress,
-    latitude: locObj['lat'] as number,
-    longitude: locObj['lng'] as number,
+    latitude: loc['latitude'] as number,
+    longitude: loc['longitude'] as number,
   };
 }
 

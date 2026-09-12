@@ -142,8 +142,20 @@ export default function AddressScreen() {
   /** Show "Save this address" prompt only for NEW (non-saved) addresses. */
   const showSavePrompt = address.trim().length > 0 && !fromSaved;
 
+  /** Visible, safe Back (Phase 6G finding). Address can be the FIRST route of the nested booking
+   *  stack, so the native header shows no arrow. Pop when there is a real previous screen —
+   *  Service Details in the normal flow — otherwise fall back to a safe destination rather than
+   *  leaving the customer with no way out. Native/iOS swipe-back is unaffected. */
+  function handleBack() {
+    if (router.canGoBack()) router.back();
+    else router.replace('/home');
+  }
+
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
+      <View style={styles.headerRow}>
+        <Button label="← Back" variant="ghost" onPress={handleBack} testID="booking-address-back" />
+      </View>
       <ScrollView
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
@@ -151,7 +163,7 @@ export default function AddressScreen() {
       >
         {/* Step indicator */}
         <Text variant="caption" color="textSecondary" style={styles.step}>
-          Step 1 of 4
+          Step 2 of 5
         </Text>
 
         <Text variant="title" style={styles.title}>
@@ -287,6 +299,8 @@ export default function AddressScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  // Fixed header row keeps the Back control visible as the form scrolls (Dynamic Island-safe).
+  headerRow: { paddingHorizontal: Spacing.two, paddingTop: Spacing.two, alignItems: 'flex-start' },
   scroll: {
     flexGrow: 1,
     padding: Spacing.four,

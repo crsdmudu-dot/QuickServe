@@ -151,6 +151,8 @@ export default function AnalyticsDetailedScreen() {
     quickserve_revenue: 0,
     wallet_used: 0,
     promo_used: 0,
+    provider_payouts_disbursed: 0,
+    provider_outstanding_liability: 0,
   });
   const [providers, setProviders] = useState<ProviderStat[]>([]);
   const [services, setServices] = useState<ServiceStat[]>([]);
@@ -438,9 +440,38 @@ export default function AnalyticsDetailedScreen() {
       <SectionHeading
         title="Financial analytics"
 
-        onDownload={() =>
-          void exportCsv('financial.csv', financialTs as unknown as Record<string, unknown>[])
-        }
+        onDownload={() => {
+          // ONE file per click (a second programmatic download from the same gesture can be
+          // blocked by the browser). Explicit headings: the legacy 0025 figure is gross
+          // entitlement, so it is never exported under a "payouts" name. Period rows carry
+          // per-bucket disbursements; a final `window_total` row carries the window totals and
+          // the CURRENT outstanding liability (a snapshot, so blank on period rows). All rows
+          // share one column set because toCsv takes headers from the first row.
+          const periodRows = financialTs.map((pt) => ({
+            row_type: 'period',
+            period: pt.period,
+            revenue: pt.revenue,
+            provider_entitlement_gross_legacy: pt.provider_payouts,
+            quickserve_revenue: pt.quickserve_revenue,
+            wallet_used: pt.wallet_used,
+            promo_used: pt.promo_used,
+            provider_payouts_disbursed: pt.provider_payouts_disbursed,
+            provider_outstanding_liability_current: '' as string | number,
+          }));
+          const totalRow = {
+            row_type: 'window_total',
+            period: `${from}..${to}`,
+            revenue: financialSummary.revenue,
+            provider_entitlement_gross_legacy: financialSummary.provider_payouts,
+            quickserve_revenue: financialSummary.quickserve_revenue,
+            wallet_used: financialSummary.wallet_used,
+            promo_used: financialSummary.promo_used,
+            provider_payouts_disbursed: financialSummary.provider_payouts_disbursed,
+            provider_outstanding_liability_current:
+              financialSummary.provider_outstanding_liability as string | number,
+          };
+          void exportCsv('financial.csv', [...periodRows, totalRow]);
+        }}
       />
       <LineChart
         series={financialLineSeries}
@@ -454,13 +485,22 @@ export default function AnalyticsDetailedScreen() {
           value={formatKes(financialSummary.revenue)}
           testID="kpi-fin-revenue"
         />
+        {/* 0052: real disbursements in the selected window (provider_payouts.paid_at), never the
+            legacy gross-entitlement figure in `provider_payouts`. */}
         <TrendCard
-          title="Provider Payouts"
-          value={formatKes(financialSummary.provider_payouts)}
+          title="Provider payouts (disbursed)"
+          value={formatKes(financialSummary.provider_payouts_disbursed)}
           testID="kpi-fin-payouts"
         />
+        {/* Balance-sheet snapshot from the canonical payout ledger — NOT date-filtered. */}
         <TrendCard
-          title="QuickServe Revenue"
+          title="Outstanding to providers"
+          value={formatKes(financialSummary.provider_outstanding_liability)}
+          subtitle="Current balance · not date-filtered"
+          testID="kpi-fin-outstanding"
+        />
+        <TrendCard
+          title="KwikServe Revenue"
           value={formatKes(financialSummary.quickserve_revenue)}
           testID="kpi-fin-qs-revenue"
         />
@@ -481,11 +521,20 @@ export default function AnalyticsDetailedScreen() {
         title="Provider analytics"
 
         onDownload={() =>
-          void exportCsv('providers.csv', providers as unknown as Record<string, unknown>[])
+          // total_earnings is sum(provider_earnings.amount) — GROSS entitlement, before
+          // deductions and regardless of disbursement. Export it under that explicit name.
+          void exportCsv(
+            'providers.csv',
+            providers.map(({ total_earnings, completion_rate, ...rest }) => ({
+              ...rest,
+              provider_entitlement_gross: total_earnings,
+              completion_rate,
+            })) as unknown as Record<string, unknown>[],
+          )
         }
       />
       <Text variant="label" color="textSecondary" style={{ marginBottom: Spacing.two }}>
-        Top providers by earnings (display-only)
+        Top providers by gross entitlement (display-only)
       </Text>
       <BarChart
         data={providerBarData}

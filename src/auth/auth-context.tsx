@@ -4,6 +4,7 @@ import type { Session } from '@supabase/supabase-js';
 import type { Role } from '@/constants/roles';
 import { supabase } from '@/lib/supabase';
 import { mapAuthError } from '@/lib/auth-errors';
+import { unregisterForPushNotifications } from '@/lib/push';
 
 type SignUpValues = { fullName: string; email: string; phone: string; password: string };
 
@@ -127,6 +128,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
+    // Remove this device's push token for the CURRENT user BEFORE signing out, so a
+    // logged-out account can no longer be push-targeted on this device. Guarded so
+    // push cleanup can NEVER block the actual sign-out.
+    try {
+      await unregisterForPushNotifications();
+    } catch {
+      // best-effort; proceed to sign out regardless
+    }
     await supabase.auth.signOut();
     setPendingRole(null);
   }

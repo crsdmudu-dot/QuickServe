@@ -1,4 +1,4 @@
-// content/site.ts — typed, extensible content for the QuickServe marketing website.
+// content/site.ts — typed, extensible content for the KwikServe marketing website.
 // No data fetching, no Supabase, no server-only code — pure static data.
 
 export type Cta = { label: string; href: string };
@@ -10,7 +10,7 @@ export type Cta = { label: string; href: string };
 export const NAV_LINKS: { label: string; href: string }[] = [
   { label: 'Services', href: '/services' },
   { label: 'How It Works', href: '/how-it-works' },
-  { label: 'Why QuickServe', href: '/why-quickserve' },
+  { label: 'Why KwikServe', href: '/why-quickserve' },
   { label: 'Become a Provider', href: '/become-a-provider' },
   { label: 'Pricing', href: '/pricing' },
   { label: 'FAQ', href: '/faq' },
@@ -25,7 +25,7 @@ export const FOOTER_GROUPS: { title: string; links: { label: string; href: strin
   {
     title: 'Company',
     links: [
-      { label: 'About / Why QuickServe', href: '/why-quickserve' },
+      { label: 'About / Why KwikServe', href: '/why-quickserve' },
       { label: 'How It Works', href: '/how-it-works' },
       { label: 'Become a Provider', href: '/become-a-provider' },
     ],
@@ -234,9 +234,9 @@ export const TRUST_BADGES: { icon: string; label: string; description: string }[
 
 export const FAQ_ITEMS: { question: string; answer: string }[] = [
   {
-    question: 'What is QuickServe?',
+    question: 'What is KwikServe?',
     answer:
-      'QuickServe is an on-demand services platform that connects customers in Nairobi with trusted, verified professionals for home, auto, delivery, and personal-care services.',
+      'KwikServe is an on-demand services platform that connects customers in Nairobi with trusted, verified professionals for home, auto, delivery, and personal-care services.',
   },
   {
     question: 'Which areas do you currently serve?',
@@ -266,7 +266,7 @@ export const FAQ_ITEMS: { question: string; answer: string }[] = [
   {
     question: 'Is there a mobile app?',
     answer:
-      'Yes — QuickServe is available for both Android and iOS. Download it from the App Store or Google Play Store.',
+      'Yes — KwikServe is available for both Android and iOS. Download it from the App Store or Google Play Store.',
   },
   {
     question: 'How do I get support?',
@@ -296,7 +296,7 @@ export const STAT_PLACEHOLDERS: { value: string; label: string }[] = [
 export const TESTIMONIAL_PLACEHOLDERS: { quote: string; author: string; role: string }[] = [
   {
     quote:
-      'QuickServe sent a plumber to my house in under 30 minutes. The work was clean and the pricing was exactly what I was quoted. I will not call anyone else.',
+      'KwikServe sent a plumber to my house in under 30 minutes. The work was clean and the pricing was exactly what I was quoted. I will not call anyone else.',
     author: 'Amina W.',
     role: 'Customer, Nairobi',
   },
@@ -308,7 +308,7 @@ export const TESTIMONIAL_PLACEHOLDERS: { quote: string; author: string; role: st
   },
   {
     quote:
-      'As a provider, QuickServe keeps my schedule full and pays me reliably. The app is simple and I love being able to set my own hours.',
+      'As a provider, KwikServe keeps my schedule full and pays me reliably. The app is simple and I love being able to set my own hours.',
     author: 'David K.',
     role: 'Service Provider, Nairobi',
   },

@@ -36,6 +36,7 @@ import { buildReceipt } from '@/lib/receipts';
 import { initiateMpesaPayment, getPaymentAttempts, type PaymentAttempt } from '@/lib/attempts';
 import { AttemptStatusBadge } from '@/components/ui/attempt-status-badge';
 import { BookingSummaryCard } from '@/components/ui/booking-summary-card';
+import { DestinationSummary } from '@/components/ui/destination-summary';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Card } from '@/components/ui/card';
 import { SectionHeader } from '@/components/ui/section-header';
@@ -49,6 +50,8 @@ import { ReviewCard } from '@/components/ui/review-card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { QuoteCard } from '@/components/ui/quote-card';
+import { ServiceDetailsSummary } from '@/components/booking/service-details-summary';
+import { hasServiceDetails } from '@/lib/service-details-view';
 import { BookingProgressTracker } from '@/components/customer/booking-progress-tracker';
 import { PaymentBreakdownCard } from '@/components/customer/payment-breakdown-card';
 import { ReviewEditForm } from '@/components/customer/review-edit-form';
@@ -230,9 +233,27 @@ export default function BookingDetailScreen() {
     }
   }
 
+  // Visible, safe Back control. Booking Detail can be the FIRST route in the stack (opened
+  // from My Bookings / Payments / a notification tap / duplicate-warning "View existing"),
+  // so there may be no in-navigator screen to pop and the native header shows no back arrow —
+  // hence we render our own. When a previous route exists we pop it (preserving the normal
+  // stack + iOS swipe-back); otherwise (cold-start/terminated push, deep link) we fall back
+  // to a deterministic customer-safe destination instead of a dead-end/black screen.
+  function handleBack() {
+    if (router.canGoBack()) router.back();
+    else router.replace('/bookings');
+  }
+
+  const backHeader = (
+    <View style={styles.headerRow}>
+      <Button label="← Back" variant="ghost" onPress={handleBack} testID="booking-detail-back" />
+    </View>
+  );
+
   if (!booking) {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
+        {backHeader}
         <View style={styles.loadingContainer}>
           <Text variant="body" color="textSecondary">
             Loading…
@@ -246,6 +267,7 @@ export default function BookingDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
+      {backHeader}
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -267,6 +289,11 @@ export default function BookingDetailScreen() {
           recurrence={booking.recurrence}
         />
 
+        {/* Structured destination breakdown — same component the provider/admin/review
+            screens use, so the customer sees the building/floor/door/landmark/access
+            details they entered. Fallback-aware for manual/old bookings. */}
+        <DestinationSummary input={booking} />
+
         {/* Current status */}
         <View style={styles.statusRow}>
           <StatusBadge status={booking.status} />
@@ -285,6 +312,21 @@ export default function BookingDetailScreen() {
             ) : null}
           </View>
         </View>
+
+        {/* Service Details V1.4 — what the customer originally requested, read back from the
+            immutable snapshot. Sits directly under the service summary and above Payment, so the
+            request reads before the money. Bookings taken before Service Details existed (and any
+            unreadable snapshot) simply have no section — nothing to apologise for. */}
+        {hasServiceDetails(booking.service_details) ? (
+          <>
+            <SectionHeader title="Service Details" />
+            <ServiceDetailsSummary
+              details={booking.service_details}
+              audience="customer"
+              emptyText={null}
+            />
+          </>
+        ) : null}
 
         {/* Payment section */}
         <SectionHeader title="Payment" />
@@ -568,7 +610,7 @@ export default function BookingDetailScreen() {
                 label="Private feedback to admin (optional)"
                 value={privateFeedback}
                 onChangeText={setPrivateFeedback}
-                placeholder="Only visible to QuickServe admin…"
+                placeholder="Only visible to KwikServe admin…"
                 multiline
               />
 
@@ -592,6 +634,13 @@ export default function BookingDetailScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  // Fixed header row: keeps the Back control visible even after the detail content scrolls,
+  // so the customer is never trapped. Sits below the safe-area top inset (Dynamic Island-safe).
+  headerRow: {
+    paddingHorizontal: Spacing.two,
+    paddingTop: Spacing.two,
+    alignItems: 'flex-start',
+  },
   loadingContainer: {
     flex: 1,
     alignItems: 'center',

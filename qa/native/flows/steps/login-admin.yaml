@@ -1,0 +1,36 @@
+# Reusable subflow — cold launch → ADMIN sign-in → native Admin screen.
+#
+# Mirrors steps/login-customer.yaml exactly, including both established iOS workarounds:
+#   - after a cold start the welcome screen can render before expo-router is interactive, so the
+#     login button is tapped repeatedly but ONLY while still on welcome;
+#   - hideKeyboard is unreliable on iOS, so the keyboard is dismissed by tapping a static heading.
+#
+# The landing assertion is the DIFFERENCE that matters. `roleHref('admin')` routes an admin to
+# /admin on sign-in, so reaching the Admin screen without any deep link is itself the proof that
+# role routing admitted them. "Providers" is asserted rather than "Payments" or "Bookings" because
+# the customer surface also carries Payments and My Bookings tabs — Providers is admin-only.
+#
+# Params via -e: ADMIN_EMAIL, ADMIN_PW.
+appId: ke.co.hiredcorp.kwikserve
+---
+- launchApp: { clearState: true }
+- extendedWaitUntil: { visible: "Get Started", timeout: 30000 }
+- repeat:
+    times: 8
+    commands:
+      - runFlow:
+          when: { visible: { id: "login-link" } }
+          commands:
+            - tapOn: { id: "login-link" }
+            - extendedWaitUntil: { visible: "Welcome back", timeout: 3000, optional: true }
+- extendedWaitUntil: { visible: "Welcome back", timeout: 10000 }
+- tapOn: "you@example.com"
+- inputText: "${ADMIN_EMAIL}"
+- tapOn: "Your password"
+- inputText: "${ADMIN_PW}"
+- tapOn: "Welcome back"
+- tapOn: "Continue"
+# iOS may prompt for notifications after sign-in; decline (never grant unrelated permissions).
+- runFlow: { when: { visible: "Don.t Allow" }, commands: [ { tapOn: "Don.t Allow" } ] }
+- extendedWaitUntil: { visible: "Providers", timeout: 25000 }
+- assertVisible: "Admin"

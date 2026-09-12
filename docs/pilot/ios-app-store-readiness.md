@@ -23,7 +23,7 @@ iOS builds are produced with EAS (`eas.json`). Production profile: `production` 
 - [ ] **Production profile** selected: `eas build --platform ios --profile production`.
 - [ ] **Version** (`app.json` → `expo.version`) is correct for this release. Current: `1.0.0`.
 - [ ] **Build number** (`app.json` → `expo.ios.buildNumber`, current `"1"`) — with `production.autoIncrement: true`, EAS auto-increments the build number per production build. Confirm it is higher than the last uploaded build.
-- [ ] **Bundle identifier** = `com.quickserve.app` (matches App Store Connect record). Do not change once registered.
+- [ ] **Bundle identifier** = `ke.co.hiredcorp.kwikserve` (Hired Corp Ltd; same string as the Android package — separate namespaces). Migrated in Phase 6E; the Apple App ID was registered in Phase 6B.2. Permanent — do not change.
 - [ ] **Apple credentials** configured: `eas credentials` (or EAS-managed). Apple ID / Team available.
 - [ ] **Distribution certificate** present and valid (EAS-managed or uploaded).
 - [ ] **Provisioning profile** (App Store distribution) present and matches the bundle id + entitlements (incl. Associated Domains once enabled — see §9).
@@ -33,9 +33,9 @@ iOS builds are produced with EAS (`eas.json`). Production profile: `production` 
 
 | Item | Current state | Where to get it | Where it goes |
 |---|---|---|---|
-| `eas.projectId` | **empty** (`app.json` → `extra.eas.projectId: ""`) | run `eas init` | `app.json` → `extra.eas.projectId` (also required for iOS push tokens — see §3) |
-| Apple Team ID | not stored in repo | developer.apple.com → Membership | EAS credentials / `eas.json` submit config |
-| APNs key (`.p8`) | not uploaded | developer.apple.com → Keys | `eas credentials` (see §3) |
+| `eas.projectId` | ✅ **set** — `587f8663-a722-4882-ab56-9007413003ee` *(was empty when this checklist was written)* | — | `app.json` → `extra.eas.projectId` |
+| Apple Team ID | ✅ **known** — Hired Corp Ltd, `8586HL9NBM` | developer.apple.com → Membership | EAS credentials / `eas.json` submit config |
+| APNs key (`.p8`) | ✅ **uploaded and assigned** — Push Key `BWZ64T2KH4`, reused for `ke.co.hiredcorp.kwikserve` (Phase 6D) *(was "not uploaded" when written)* | developer.apple.com → Keys | `eas credentials` (see §3) |
 | Sentry `organization` / `project` | **empty** (`app.json` `@sentry/react-native/expo` plugin) | sentry.io | `app.json` Sentry plugin config |
 
 ---
@@ -44,8 +44,8 @@ iOS builds are produced with EAS (`eas.json`). Production profile: `production` 
 
 - [ ] **APNs authentication key** (`.p8`) created in the Apple Developer portal and uploaded via `eas credentials` (recommended over per-app certificates).
 - [ ] **Environment**: development APNs for TestFlight/dev builds, production APNs for App Store — EAS manages this per build profile. Confirm the production build targets production APNs.
-- [ ] **`eas.projectId` is set** — `src/lib/push.ts` calls `getExpoPushTokenAsync({ projectId })` reading `Constants.expoConfig.extra.eas.projectId` (`push.ts:39–42`). It is currently **empty**, so iOS push-token registration cannot succeed until it is filled (see §2 TODO table).
-- [ ] **Verification**: on a physical iOS device (not simulator, not Expo Go), sign in → `registerForPushNotifications()` runs from `src/app/_layout.tsx` after sign-in → confirm a token is stored via the `register-device` Edge Function → send a test push → confirm receipt in foreground and background, and that tapping routes via the deep-link listener (`setupNotificationResponseListener`).
+- [x] **`eas.projectId` is set** — `src/lib/push.ts` calls `getExpoPushTokenAsync({ projectId })` reading `Constants.expoConfig.extra.eas.projectId`. ✅ Now populated (`587f8663-…`); the "currently empty" note in the original checklist no longer applies.
+- [x] **Verification** — ✅ **COMPLETED on a physical iPhone in [Phase 6H](../qa/PHASE-6H-IOS-KWIKSERVE-APNS-PUSH-CERTIFICATION.md)** (bundle `ke.co.hiredcorp.kwikserve`, build `e062e892`): token registered via `register-device`; foreground, background, terminated and cold-start delivery all confirmed; tap routing verified through `setupNotificationResponseListener`. **QA backend only — production APNs remains uncertified.**
 - [ ] **Existing pipeline preserved (Slice 23).** Slice 37 made **no** change to the push pipeline: `src/lib/push.ts` (token registration + tap→deep-link), the `register-device` / send-push Edge Functions, `device_tokens`, and the `emit_notification`/`broadcast_announcement` in-app path are all unchanged. **No new push pipeline was introduced.** Push respects the user's `push_enabled` preference downstream, as before.
 - [ ] Note: `push.ts` intentionally no-ops in Expo Go and on simulators (`Device.isDevice` / `isExpoGo()` guards) — test push only on a real device build.
 
@@ -66,7 +66,7 @@ iOS builds are produced with EAS (`eas.json`). Production profile: `production` 
 
 ## 5. App Store Submission Checklist
 
-- [ ] App Store Connect app record exists for `com.quickserve.app`.
+- [ ] App Store Connect app record exists for `ke.co.hiredcorp.kwikserve`.
 - [ ] App name, subtitle, primary/secondary category chosen.
 - [ ] Description, keywords, promotional text finalized (no placeholder — see §11).
 - [ ] Screenshots for all required device sizes uploaded (see §11).
@@ -124,7 +124,7 @@ Complete App Store Connect → App Privacy. Map each collected data type to its 
 - **Placeholder scaffold exists (inert).** `app.json` → `expo.ios.associatedDomains: ["applinks:REPLACE_ME.quickserve.app"]`. It is a non-functional placeholder and does not affect `quickserve://` behavior.
 - **Before enabling Universal Links (production AASA setup required):**
   - [ ] Replace `REPLACE_ME.quickserve.app` with the real domain.
-  - [ ] Host a valid `apple-app-site-association` (AASA) file at `https://<domain>/.well-known/apple-app-site-association` (JSON, no extension, correct `appID` = `<TeamID>.com.quickserve.app`, correct `paths`).
+  - [ ] Host a valid `apple-app-site-association` (AASA) file at `https://<domain>/.well-known/apple-app-site-association` (JSON, no extension, correct `appID` = `<TeamID>.ke.co.hiredcorp.kwikserve`, correct `paths`).
   - [ ] Enable the **Associated Domains** capability on the App ID / provisioning profile.
   - [ ] Rebuild via EAS and verify that tapping an `https://<domain>/...` link opens the app to the correct route.
 

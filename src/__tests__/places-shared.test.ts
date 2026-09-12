@@ -1,5 +1,5 @@
 /**
- * places-shared.test.ts — Jest tests for the pure Google Places helper functions.
+ * places-shared.test.ts — Jest tests for the pure Places API (New) helper functions.
  *
  * The module lives at supabase/functions/_shared/places.ts.
  * We import it via a relative path so Jest can resolve it without any
@@ -13,52 +13,74 @@ import {
   staticMapUrl,
 } from '../../supabase/functions/_shared/places';
 
+// Static Maps host (unchanged — Maps Static API is not legacy).
 const BASE = 'https://maps.googleapis.com/maps/api';
 
-// ─── buildAutocompleteRequest ─────────────────────────────────────────────────
+// ─── buildAutocompleteRequest (Places API New) ────────────────────────────────
 
-describe('buildAutocompleteRequest', () => {
-  const { url } = buildAutocompleteRequest(BASE, 'K', 'riverside dr');
+describe('buildAutocompleteRequest (Places API New)', () => {
+  const req = buildAutocompleteRequest('K', 'riverside dr');
 
-  it('url contains /place/autocomplete/json', () => {
-    expect(url).toContain('/place/autocomplete/json');
+  it('POSTs to the New autocomplete endpoint', () => {
+    expect(req.method).toBe('POST');
+    expect(req.url).toBe('https://places.googleapis.com/v1/places:autocomplete');
   });
 
-  it('url contains encoded query input=riverside%20dr', () => {
-    expect(url).toContain('input=riverside%20dr');
+  it('sends the key ONLY in the X-Goog-Api-Key header (never in the URL or body)', () => {
+    expect(req.headers['X-Goog-Api-Key']).toBe('K');
+    expect(req.url).not.toContain('K');
+    expect(req.url.toLowerCase()).not.toContain('key=');
+    expect(req.body ?? '').not.toContain('"K"');
   });
 
-  it('url contains key=K', () => {
-    expect(url).toContain('key=K');
+  it('sets Content-Type application/json', () => {
+    expect(req.headers['Content-Type']).toBe('application/json');
   });
 
-  it('url contains components=country:ke', () => {
-    expect(url).toContain('components=country:ke');
+  it('body carries the input text', () => {
+    expect(JSON.parse(req.body!).input).toBe('riverside dr');
+  });
+
+  it('restricts results to Kenya via includedRegionCodes:["ke"]', () => {
+    expect(JSON.parse(req.body!).includedRegionCodes).toEqual(['ke']);
+  });
+
+  it('field mask requests only placeId + structuredFormat', () => {
+    expect(req.headers['X-Goog-FieldMask']).toBe(
+      'suggestions.placePrediction.placeId,suggestions.placePrediction.structuredFormat',
+    );
+  });
+
+  it('omits sessionToken from the body when none is provided', () => {
+    expect('sessionToken' in JSON.parse(req.body!)).toBe(false);
+  });
+
+  it('includes sessionToken in the body when provided', () => {
+    const withTok = buildAutocompleteRequest('K', 'westlands', 'tok-123');
+    expect(JSON.parse(withTok.body!).sessionToken).toBe('tok-123');
   });
 });
 
-// ─── parseAutocomplete ────────────────────────────────────────────────────────
+// ─── parseAutocomplete (Places API New) ───────────────────────────────────────
 
-describe('parseAutocomplete', () => {
-  it('parses a valid predictions array into suggestions', () => {
+describe('parseAutocomplete (Places API New)', () => {
+  it('parses suggestions[].placePrediction into suggestions', () => {
     const json = {
-      predictions: [
+      suggestions: [
         {
-          place_id: 'p1',
-          structured_formatting: {
-            main_text: 'Riverside Dr',
-            secondary_text: 'Nairobi',
+          placePrediction: {
+            placeId: 'p1',
+            structuredFormat: {
+              mainText: { text: 'Riverside Dr' },
+              secondaryText: { text: 'Nairobi' },
+            },
           },
         },
       ],
     };
-    const result = parseAutocomplete(json);
-    expect(result).toHaveLength(1);
-    expect(result[0]).toEqual({
-      placeId: 'p1',
-      primaryText: 'Riverside Dr',
-      secondaryText: 'Nairobi',
-    });
+    expect(parseAutocomplete(json)).toEqual([
+      { placeId: 'p1', primaryText: 'Riverside Dr', secondaryText: 'Nairobi' },
+    ]);
   });
 
   it('returns [] for an empty object {}', () => {
@@ -69,21 +91,22 @@ describe('parseAutocomplete', () => {
     expect(parseAutocomplete(null)).toEqual([]);
   });
 
-  it('skips entries missing place_id (returns [])', () => {
-    const json = {
-      predictions: [{}],
-    };
+  it('skips entries missing placeId', () => {
+    expect(parseAutocomplete({ suggestions: [{ placePrediction: {} }] })).toEqual([]);
+  });
+
+  it('skips non-place rows (e.g. queryPrediction with no placePrediction)', () => {
+    const json = { suggestions: [{ queryPrediction: { text: { text: 'nairobi' } } }] };
     expect(parseAutocomplete(json)).toEqual([]);
   });
 
-  it('defaults secondaryText to empty string when missing', () => {
+  it('defaults secondaryText to "" when missing', () => {
     const json = {
-      predictions: [
+      suggestions: [
         {
-          place_id: 'p2',
-          structured_formatting: {
-            main_text: 'Westlands',
-            // no secondary_text
+          placePrediction: {
+            placeId: 'p2',
+            structuredFormat: { mainText: { text: 'Westlands' } }, // no secondaryText
           },
         },
       ],
@@ -93,50 +116,56 @@ describe('parseAutocomplete', () => {
     expect(result[0].secondaryText).toBe('');
   });
 
-  it('returns [] when predictions is not an array', () => {
-    expect(parseAutocomplete({ predictions: 'bad' })).toEqual([]);
+  it('returns [] when suggestions is not an array', () => {
+    expect(parseAutocomplete({ suggestions: 'bad' })).toEqual([]);
   });
 });
 
-// ─── buildDetailsRequest ──────────────────────────────────────────────────────
+// ─── buildDetailsRequest (Places API New) ─────────────────────────────────────
 
-describe('buildDetailsRequest', () => {
-  const { url } = buildDetailsRequest(BASE, 'K', 'p1');
+describe('buildDetailsRequest (Places API New)', () => {
+  const req = buildDetailsRequest('K', 'p1');
 
-  it('url contains /place/details/json', () => {
-    expect(url).toContain('/place/details/json');
+  it('GETs the New place-details endpoint with the placeId in the path', () => {
+    expect(req.method).toBe('GET');
+    expect(req.url).toBe('https://places.googleapis.com/v1/places/p1');
   });
 
-  it('url contains place_id=p1', () => {
-    expect(url).toContain('place_id=p1');
+  it('sends the key ONLY in the X-Goog-Api-Key header (never in the URL)', () => {
+    expect(req.headers['X-Goog-Api-Key']).toBe('K');
+    expect(req.url).not.toContain('K');
+    expect(req.url.toLowerCase()).not.toContain('key=');
   });
 
-  it('url contains key=K', () => {
-    expect(url).toContain('key=K');
+  it('pins the field mask to exactly formattedAddress,location (Essentials SKU)', () => {
+    expect(req.headers['X-Goog-FieldMask']).toBe('formattedAddress,location');
   });
 
-  it('url contains fields=formatted_address,geometry', () => {
-    expect(url).toContain('fields=formatted_address,geometry');
+  it('has no request body (GET)', () => {
+    expect(req.body).toBeUndefined();
+  });
+
+  it('appends the sessionToken as a query param when provided', () => {
+    const withTok = buildDetailsRequest('K', 'p1', 'tok-123');
+    expect(withTok.url).toBe(
+      'https://places.googleapis.com/v1/places/p1?sessionToken=tok-123',
+    );
+  });
+
+  it('omits the sessionToken query param when not provided', () => {
+    expect(req.url).not.toContain('sessionToken');
   });
 });
 
-// ─── parseDetails ─────────────────────────────────────────────────────────────
+// ─── parseDetails (Places API New) ────────────────────────────────────────────
 
-describe('parseDetails', () => {
-  it('parses a valid place details response', () => {
+describe('parseDetails (Places API New)', () => {
+  it('parses formattedAddress + location.latitude/longitude', () => {
     const json = {
-      result: {
-        formatted_address: '123 Riverside Dr, Nairobi',
-        geometry: {
-          location: {
-            lat: -1.29,
-            lng: 36.81,
-          },
-        },
-      },
+      formattedAddress: '123 Riverside Dr, Nairobi',
+      location: { latitude: -1.29, longitude: 36.81 },
     };
-    const result = parseDetails(json);
-    expect(result).toEqual({
+    expect(parseDetails(json)).toEqual({
       formattedAddress: '123 Riverside Dr, Nairobi',
       latitude: -1.29,
       longitude: 36.81,
@@ -151,47 +180,27 @@ describe('parseDetails', () => {
     expect(parseDetails(null)).toBeNull();
   });
 
-  it('returns null when geometry is missing', () => {
-    const json = {
-      result: {
-        formatted_address: '123 Riverside Dr, Nairobi',
-        // no geometry
-      },
-    };
+  it('returns null when location is missing', () => {
+    expect(parseDetails({ formattedAddress: '123 Riverside Dr, Nairobi' })).toBeNull();
+  });
+
+  it('returns null when latitude is missing', () => {
+    const json = { formattedAddress: 'x', location: { longitude: 36.81 } };
     expect(parseDetails(json)).toBeNull();
   });
 
-  it('returns null when geometry.location is missing', () => {
-    const json = {
-      result: {
-        formatted_address: '123 Riverside Dr, Nairobi',
-        geometry: {},
-      },
-    };
+  it('returns null when longitude is missing', () => {
+    const json = { formattedAddress: 'x', location: { latitude: -1.29 } };
     expect(parseDetails(json)).toBeNull();
   });
 
-  it('returns null when lat is missing', () => {
-    const json = {
-      result: {
-        formatted_address: '123 Riverside Dr, Nairobi',
-        geometry: { location: { lng: 36.81 } },
-      },
-    };
-    expect(parseDetails(json)).toBeNull();
-  });
-
-  it('returns null when formatted_address is missing', () => {
-    const json = {
-      result: {
-        geometry: { location: { lat: -1.29, lng: 36.81 } },
-      },
-    };
+  it('returns null when formattedAddress is missing', () => {
+    const json = { location: { latitude: -1.29, longitude: 36.81 } };
     expect(parseDetails(json)).toBeNull();
   });
 });
 
-// ─── staticMapUrl ─────────────────────────────────────────────────────────────
+// ─── staticMapUrl (UNCHANGED across the migration) ────────────────────────────
 
 describe('staticMapUrl', () => {
   const url = staticMapUrl({ baseUrl: BASE, key: 'K', lat: -1.29, lng: 36.81 });

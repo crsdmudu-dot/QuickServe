@@ -6,8 +6,15 @@
  * Security: JWT verification is ENABLED (verify_jwt = true in config.toml).
  * The caller must supply a valid Supabase user JWT in the Authorization header.
  *
- * The user-scoped client is used for all writes so RLS ensures a user can only
+ * The user-scoped client is used for the write so RLS ensures a user can only
  * upsert their OWN row in device_tokens (user_id = auth.uid()).
+ *
+ * Token-ownership invariant: a single physical push token belongs to at most ONE
+ * account at a time (push_token -> max one user; a user may still have many
+ * devices). To enforce it defensively — independent of client logout cleanup — a
+ * service-role client removes any rows for this exact push_token owned by OTHER
+ * users before the current user registers it (a "token claim"). The user_id is
+ * always derived from the verified JWT; the client can never choose it.
  */
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
@@ -72,7 +79,25 @@ Deno.serve(async (req: Request) => {
       return json({ ok: false, error: 'Unauthorized.' }, 401);
     }
 
-    // 5. Upsert the device token row.
+    // 5. Token claim (defensive): a service-role client removes this exact push
+    //    token from any OTHER account, so one physical token maps to one account.
+    //    Scoped to push_token = <this token> AND user_id != <caller> — it never
+    //    touches the caller's row, other tokens, or the caller's other devices.
+    //    Best-effort: a claim failure must not block the caller's own registration.
+    const admin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
+    const { error: claimError } = await admin
+      .from('device_tokens')
+      .delete()
+      .eq('push_token', push_token)
+      .neq('user_id', user.id);
+    if (claimError) {
+      console.error('[register-device] token claim failed:', claimError.message);
+    }
+
+    // 6. Upsert the device token row for the current user (user-scoped, RLS).
     //    onConflict: 'user_id,push_token' — updates last_seen_at on re-registration.
     const { error } = await client.from('device_tokens').upsert(
       {

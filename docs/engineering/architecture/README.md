@@ -232,10 +232,14 @@ sequenceDiagram
 - **In-app notifications** — **Implemented.** A `notifications` table (`0020`) is populated
   by triggers on booking/payment/assignment/chat/review events; RLS scopes rows to their
   recipient (`user_id = auth.uid()`). Verified recipient scoping in QA.
-- **Push delivery** — **Partially implemented / not certified.** Notification triggers hand
-  off to the `send-push` Edge Function (`0015`, `0020`) which delivers via **Expo Push**
-  (External). Row creation is certified; **actual device delivery is not** (QA treats push
-  delivery as a manual item).
+- **Push delivery** — **Implemented and physically certified on QA (both platforms).**
+  Notification triggers hand off to the `send-push` Edge Function (`0015`, `0020`) which
+  delivers via **Expo Push** (External) → FCM on Android, APNs on iOS. Real device delivery
+  is certified end-to-end on physical hardware: **Android** ([Phase 5E](../../qa/PHASE-5E-ANDROID-PACKAGE-MIGRATION-FCM-PUSH-CERTIFICATION.md),
+  Galaxy S24) and **iOS** ([Phase 6H](../../qa/PHASE-6H-IOS-KWIKSERVE-APNS-PUSH-CERTIFICATION.md),
+  iPhone) — foreground/background/terminated delivery, tap and cold-start routing, token
+  lifecycle, and cross-account isolation. **Scope: QA backend only — production push delivery
+  remains uncertified.**
 
 ## 10. QA and Certification Architecture
 
