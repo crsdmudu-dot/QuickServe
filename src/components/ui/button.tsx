@@ -9,7 +9,8 @@ export type ButtonProps = {
   label: string;
   onPress?: () => void;
   variant?: 'primary' | 'secondary' | 'ghost';
-  size?: 'md' | 'lg';
+  /** `sm` is a compact 36px control for dense admin tables/filters; `md` remains the default. */
+  size?: 'sm' | 'md' | 'lg';
   fullWidth?: boolean;
   disabled?: boolean;
   loading?: boolean;
@@ -36,8 +37,8 @@ export function Button({
     borderWidth: variant === 'secondary' ? 1 : 0,
     borderColor: variant === 'secondary' ? theme.border : undefined,
     borderRadius: Radii.pill,
-    height: size === 'lg' ? 56 : 52,
-    paddingHorizontal: Spacing.four,
+    height: size === 'lg' ? 56 : size === 'sm' ? 36 : 52,
+    paddingHorizontal: size === 'sm' ? 10 : Spacing.four,
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: fullWidth ? 'stretch' : 'flex-start',

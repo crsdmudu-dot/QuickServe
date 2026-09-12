@@ -330,14 +330,14 @@ export default function AdminServicesScreen() {
         <Button
           label="Edit"
           variant="ghost"
-          size="md"
+          size="sm"
           onPress={() => {
             setEditCat(row);
             setShowCatForm(true);
           }}
         />
       ),
-      width: 70,
+      width: 80,
     },
     {
       key: 'order',
@@ -347,20 +347,20 @@ export default function AdminServicesScreen() {
           <Button
             label="↑"
             variant="secondary"
-            size="md"
+            size="sm"
             onPress={() => void handleReorderCategory(row._index, -1)}
             disabled={row._index === 0}
           />
           <Button
             label="↓"
             variant="secondary"
-            size="md"
+            size="sm"
             onPress={() => void handleReorderCategory(row._index, 1)}
             disabled={row._index === categories.length - 1}
           />
         </View>
       ),
-      width: 120,
+      width: 80,
     },
   ];
 
@@ -376,23 +376,20 @@ export default function AdminServicesScreen() {
       render: (row) => (
         <Text style={styles.iconGlyph}>{iconGlyphByName(row.icon ?? '')}</Text>
       ),
-      width: 56,
+      width: 80,
     },
     {
+      // Name + slug share one cell (label over caption) so the desktop table fits its
+      // width budget without dropping the slug from view.
       key: 'name',
       header: 'Name',
       render: (row) => (
-        <Text variant="label" color="text" weight="semibold">{row.name}</Text>
+        <View style={styles.nameCell}>
+          <Text variant="label" color="text" weight="semibold" numberOfLines={1}>{row.name}</Text>
+          <Text variant="caption" color="textSecondary" numberOfLines={1}>{row.slug}</Text>
+        </View>
       ),
-      width: 160,
-    },
-    {
-      key: 'slug',
-      header: 'Slug',
-      render: (row) => (
-        <Text variant="caption" color="textSecondary">{row.slug}</Text>
-      ),
-      width: 160,
+      width: 190,
     },
     {
       key: 'category',
@@ -403,7 +400,7 @@ export default function AdminServicesScreen() {
           <Text variant="caption" color="textSecondary">{cat?.name ?? '—'}</Text>
         );
       },
-      width: 140,
+      width: 120,
     },
     {
       key: 'status',
@@ -425,17 +422,17 @@ export default function AdminServicesScreen() {
           ].filter(Boolean).join(' ') || '—'}
         </Text>
       ),
-      width: 100,
+      width: 90,
     },
     {
       key: 'actions',
       header: 'Actions',
       render: (row) => (
-        <View style={styles.actionGroup}>
+        <View style={styles.actionGroupNoWrap}>
           <Button
             label="Edit"
             variant="ghost"
-            size="md"
+            size="sm"
             onPress={() => {
               setEditSvc(row);
               setShowSvcForm(true);
@@ -444,26 +441,28 @@ export default function AdminServicesScreen() {
           <Button
             label="Dupe"
             variant="ghost"
-            size="md"
+            size="sm"
             onPress={() => void handleDuplicate(row)}
           />
         </View>
       ),
-      width: 130,
+      width: 128,
     },
     {
       key: 'status_action',
       header: 'Status action',
       render: (row) => (
+        // Wrapping stays enabled here as a safety valve: four compact controls fit on one
+        // line inside the 320px column, and a narrower rendering still shows every action.
         <View style={styles.actionGroup}>
-          {row.status !== 'active'   && <Button label="Activate" variant="secondary" size="md" onPress={() => void handleSetStatus(row, 'active')} />}
-          {row.status !== 'draft'    && <Button label="→Draft"   variant="ghost"     size="md" onPress={() => void handleSetStatus(row, 'draft')} />}
-          {row.status !== 'hidden'   && <Button label="Hide"     variant="ghost"     size="md" onPress={() => void handleSetStatus(row, 'hidden')} />}
-          {row.status !== 'disabled' && <Button label="Disable"  variant="ghost"     size="md" onPress={() => void handleSetStatus(row, 'disabled')} />}
-          {row.status !== 'archived' && <Button label="Archive"  variant="ghost"     size="md" onPress={() => void handleSetStatus(row, 'archived')} />}
+          {row.status !== 'active'   && <Button label="Activate" variant="secondary" size="sm" onPress={() => void handleSetStatus(row, 'active')} />}
+          {row.status !== 'draft'    && <Button label="→Draft"   variant="ghost"     size="sm" onPress={() => void handleSetStatus(row, 'draft')} />}
+          {row.status !== 'hidden'   && <Button label="Hide"     variant="ghost"     size="sm" onPress={() => void handleSetStatus(row, 'hidden')} />}
+          {row.status !== 'disabled' && <Button label="Disable"  variant="ghost"     size="sm" onPress={() => void handleSetStatus(row, 'disabled')} />}
+          {row.status !== 'archived' && <Button label="Archive"  variant="ghost"     size="sm" onPress={() => void handleSetStatus(row, 'archived')} />}
         </View>
       ),
-      width: 260,
+      width: 320,
     },
     {
       key: 'order',
@@ -476,21 +475,21 @@ export default function AdminServicesScreen() {
             <Button
               label="↑"
               variant="secondary"
-              size="md"
+              size="sm"
               onPress={() => void handleReorderService(row, row._svcIndex, -1)}
               disabled={localIdx === 0}
             />
             <Button
               label="↓"
               variant="secondary"
-              size="md"
+              size="sm"
               onPress={() => void handleReorderService(row, row._svcIndex, 1)}
               disabled={localIdx === sameCat.length - 1}
             />
           </View>
         );
       },
-      width: 120,
+      width: 80,
     },
   ];
 
@@ -603,7 +602,7 @@ export default function AdminServicesScreen() {
           <Button
             label="All"
             variant={filterCategory === '' ? 'primary' : 'secondary'}
-            size="md"
+            size="sm"
             onPress={() => setFilterCategory('')}
           />
           {categories.map((cat) => (
@@ -611,7 +610,7 @@ export default function AdminServicesScreen() {
               key={cat.id}
               label={cat.name}
               variant={filterCategory === cat.id ? 'primary' : 'secondary'}
-              size="md"
+              size="sm"
               onPress={() => setFilterCategory(cat.id)}
             />
           ))}
@@ -623,7 +622,7 @@ export default function AdminServicesScreen() {
           <Button
             label="All"
             variant={filterStatus === '' ? 'primary' : 'secondary'}
-            size="md"
+            size="sm"
             onPress={() => setFilterStatus('')}
           />
           {ALL_STATUSES.map((s) => (
@@ -631,7 +630,7 @@ export default function AdminServicesScreen() {
               key={s}
               label={s}
               variant={filterStatus === s ? 'primary' : 'secondary'}
-              size="md"
+              size="sm"
               onPress={() => setFilterStatus(s)}
             />
           ))}
@@ -729,14 +728,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: Spacing.four,
+    // AdminShell owns horizontal page padding; only vertical spacing lives here.
+    paddingHorizontal: 0,
+    paddingTop: 0,
     gap: Spacing.three,
     paddingBottom: Spacing.six,
   },
   sectionHeader: {
     paddingBottom: Spacing.two,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    marginTop: Spacing.four,
+    marginTop: Spacing.three,
     marginBottom: Spacing.two,
   },
   formCard: {
@@ -776,6 +777,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.one,
+  },
+  /** Two-button Edit/Dupe group: sized to fit its 128px column, so never wraps. */
+  actionGroupNoWrap: {
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    gap: Spacing.one,
+  },
+  nameCell: {
+    gap: 2,
   },
   iconGlyph: {
     fontSize: 20,
