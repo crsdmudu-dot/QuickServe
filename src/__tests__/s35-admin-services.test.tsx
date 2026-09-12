@@ -993,3 +993,101 @@ describe('AdminSidebar — Services entry', () => {
     expect(screen.getByText('Analytics')).toBeOnTheScreen();
   });
 });
+
+// ── Desktop density (admin services table layout fix) ─────────────────────────
+//
+// The Production admin web at a 1536×864 CSS viewport (DPR 1.25) clipped the category
+// Edit control, wrapped md buttons into 100px+ rows and hid the right-hand columns behind a
+// horizontal scroll. These tests pin the corrected layout: compact (36px) in-table controls,
+// a merged name/slug cell, and a services-table width budget that fits the desktop content
+// area (1,248px available; 1,136px table incl. DataTable's 32px row padding).
+
+/** Walk up from a host element until a flattened style declares `width`. */
+function declaredWidthOf(el: ReturnType<typeof screen.getByText>): number | undefined {
+  let node: any = el;
+  for (let i = 0; i < 6 && node; i++) {
+    const style = node.props?.style;
+    if (style) {
+      const flat = Array.isArray(style) ? Object.assign({}, ...style.flat(Infinity).filter(Boolean)) : style;
+      if (typeof flat.width === 'number') return flat.width;
+    }
+    node = node.parent;
+  }
+  return undefined;
+}
+
+describe('AdminServicesScreen — desktop density', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockListAdminServiceCategories.mockResolvedValue([CAT_HOME, CAT_AUTO]);
+    mockListAdminServices.mockResolvedValue([SVC_CLEANING, SVC_TOWING]);
+  });
+
+  it('renders every in-table control at the compact 36px size', async () => {
+    render(<AdminServicesScreen />);
+    await screen.findAllByText('Home Services');
+    const labels = ['Edit', 'Dupe', 'Activate', '→Draft', 'Hide', 'Disable', 'Archive', '↑', '↓'];
+    let checked = 0;
+    for (const label of labels) {
+      for (const btn of screen.queryAllByRole('button', { name: label })) {
+        expect(btn).toHaveStyle({ height: 36, paddingHorizontal: 10 });
+        checked++;
+      }
+    }
+    expect(checked).toBeGreaterThanOrEqual(8);
+    // the page's primary actions keep the standard size
+    expect(screen.getByRole('button', { name: '+ New service' })).toHaveStyle({ height: 52 });
+  });
+
+  it('renders category and status filter chips at the compact size', async () => {
+    render(<AdminServicesScreen />);
+    await screen.findAllByText('Home Services');
+    for (const btn of screen.getAllByRole('button', { name: 'All' })) {
+      expect(btn).toHaveStyle({ height: 36 });
+    }
+    expect(screen.getByRole('button', { name: 'draft' })).toHaveStyle({ height: 36 });
+  });
+
+  it('shows the slug inside the merged name/slug cell (no separate Slug column)', async () => {
+    render(<AdminServicesScreen />);
+    await screen.findAllByText('House Cleaning');
+    expect(screen.getByText('house-cleaning')).toBeOnTheScreen();
+    expect(screen.getByText('car-towing')).toBeOnTheScreen();
+    // Only the categories table keeps a dedicated Slug column.
+    expect(screen.getAllByText('Slug')).toHaveLength(1);
+  });
+
+  it('keeps the services table inside the desktop width budget with complete controls', async () => {
+    render(<AdminServicesScreen />);
+    await screen.findAllByText('House Cleaning');
+    const headers = ['Icon', 'Name', 'Category', 'Status', 'Flags', 'Actions', 'Status action', 'Order'];
+    // Icon/Name/Order headers also exist in the categories table rendered above; the services
+    // table is the last table on the page, so its header is the last match.
+    const widths = headers.map((h) => declaredWidthOf(screen.getAllByText(h).at(-1)!));
+    for (const w of widths) expect(typeof w).toBe('number');
+    const expected: Record<string, number> = { Icon: 80, Name: 190, Category: 120, Status: 96, Flags: 90, Actions: 128, 'Status action': 320, Order: 80 };
+    headers.forEach((h, i) => expect(widths[i]).toBe(expected[h]));
+    const total = (widths as number[]).reduce((a, b) => a + b, 0) + 32; // + DataTable row padding
+    expect(total).toBe(1136);
+    expect(total).toBeLessThanOrEqual(1248);
+  });
+
+  it('keeps the category Edit column wide enough for its label', async () => {
+    render(<AdminServicesScreen />);
+    await screen.findByText('Service Categories');
+    const editHeader = screen.getAllByText('Edit').find((t) => declaredWidthOf(t) !== undefined);
+    expect(editHeader).toBeDefined();
+    expect(declaredWidthOf(editHeader!)).toBeGreaterThanOrEqual(80);
+  });
+
+  it('never calls a mutation wrapper merely by rendering', async () => {
+    render(<AdminServicesScreen />);
+    await screen.findAllByText('House Cleaning');
+    expect(mockAdminSetServiceStatus).not.toHaveBeenCalled();
+    expect(mockAdminDuplicateService).not.toHaveBeenCalled();
+    expect(mockAdminReorderServices).not.toHaveBeenCalled();
+    expect(mockAdminUpdateService).not.toHaveBeenCalled();
+    expect(mockAdminSetCategoryActive).not.toHaveBeenCalled();
+    expect(mockAdminReorderCategories).not.toHaveBeenCalled();
+  });
+});

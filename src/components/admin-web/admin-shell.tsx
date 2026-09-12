@@ -32,8 +32,8 @@ import { router, type Href } from 'expo-router';
 import { AdminSidebar } from '@/components/admin-web/admin-sidebar';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { Text } from '@/components/ui/text';
-import { AdminBreakpoints } from '@/constants/admin-web';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { AdminBreakpoints, AdminMaxContentWidth } from '@/constants/admin-web';
+import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getUnreadNotificationCount } from '@/lib/notifications';
 
@@ -109,14 +109,15 @@ export function AdminShell({ title, rightSlot, children, showChrome = true }: Ad
           </View>
         )}
 
-        {/* Scrollable page body constrained to MaxContentWidth. Kept at a stable index
-            (last child of the content column) regardless of `showChrome` so the navigator
-            subtree it contains is never destroyed/recreated by an auth-state change. */}
+        {/* Scrollable page body constrained to AdminMaxContentWidth (desktop admin tables need
+            more than the mobile MaxContentWidth). Kept at a stable index (last child of the
+            content column) regardless of `showChrome` so the navigator subtree it contains is
+            never destroyed/recreated by an auth-state change. */}
         <ScrollView
           style={styles.scrollArea}
           contentContainerStyle={[
             styles.scrollContent,
-            { maxWidth: MaxContentWidth },
+            { maxWidth: AdminMaxContentWidth },
           ]}
           showsVerticalScrollIndicator={false}>
           {children}
