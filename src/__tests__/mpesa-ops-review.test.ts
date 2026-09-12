@@ -39,9 +39,10 @@ function fn(name: string): string {
 }
 
 describe('0053 — placement', () => {
-  it('is the only migration after 0052 and leaves 0051/0052 in place', () => {
+  it('sits immediately after 0052 and leaves 0051/0052 in place', () => {
     const files = fs.readdirSync(dir).filter((f) => /^\d{4}_.*\.sql$/.test(f)).sort();
-    expect(files[files.length - 1]).toBe(MIGRATION);
+    const idx0052 = files.findIndex((f) => f.startsWith('0052_'));
+    expect(files[idx0052 + 1]).toBe(MIGRATION);
     expect(files.filter((f) => f.startsWith('0051'))).toHaveLength(1);
     expect(files.filter((f) => f.startsWith('0052'))).toHaveLength(1);
     expect(files.filter((f) => f.startsWith('0053'))).toHaveLength(1);

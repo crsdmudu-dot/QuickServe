@@ -120,6 +120,69 @@ export function noCollectionEvidenceIsSufficient(
   return reference.trim().length > 0 || portalChecked;
 }
 
+// ── Unmatched (orphan) callback evidence — migration 0054 ────────────────────
+
+export type MpesaCallbackEventRow = {
+  event_id: string;
+  classification:
+    | 'unknown_checkout_request_id'
+    | 'missing_checkout_request_id'
+    | 'malformed_authenticated_callback';
+  first_seen_at: string;
+  last_seen_at: string;
+  age_seconds: number;
+  seen_count: number;
+  merchant_request_id: string | null;
+  checkout_request_id: string | null;
+  result_code: number | null;
+  result_desc: string | null;
+  amount: number | null;
+  receipt: string | null;
+  transaction_date: string | null;
+  /** '***' + last three digits, or null. The MSISDN is never stored or returned. */
+  phone_masked: string | null;
+  /** Exact CheckoutRequestID match evaluated at read time — never phone or amount. */
+  matched_attempt_id: string | null;
+  matched_attempt_status: string | null;
+  matched_payment_id: string | null;
+  /** 'high' when an unmatched ResultCode 0 carries an amount or receipt: money may have moved. */
+  urgency: 'high' | 'normal';
+  needs_review: boolean;
+  reviewed_at: string | null;
+  reviewed_by_present: boolean;
+  review_note: string | null;
+};
+
+export const CALLBACK_EVENT_LABELS: Record<MpesaCallbackEventRow['classification'], string> = {
+  unknown_checkout_request_id: 'Unknown CheckoutRequestID',
+  missing_checkout_request_id: 'No CheckoutRequestID in callback',
+  malformed_authenticated_callback: 'Malformed authenticated callback',
+};
+
+/** Admin: authenticated callbacks that matched no attempt, unreviewed and high-urgency first. */
+export async function adminGetMpesaCallbackEvents(): Promise<MpesaCallbackEventRow[]> {
+  const { data, error } = await supabase.rpc('admin_mpesa_callback_events');
+  if (error) return [];
+  return (data as MpesaCallbackEventRow[] | null) ?? [];
+}
+
+/**
+ * Admin: record that orphan evidence was reviewed (who/when/why). Evidence is never deleted and
+ * no payment, attempt or settlement state changes. A new conflicting callback is a new row and
+ * re-raises attention on its own.
+ */
+export async function adminReviewMpesaCallbackEvent(
+  eventId: string,
+  reviewNote: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await supabase.rpc('review_mpesa_callback_event', {
+    p_event_id: eventId,
+    p_review_note: reviewNote,
+  });
+  if (error) return { ok: false, error: 'Could not record the review. Please try again.' };
+  return { ok: true };
+}
+
 /** Human-readable age, e.g. "40 sec", "25 min", "3 h 10 min". */
 export function formatAge(ageSeconds: number): string {
   if (ageSeconds < 60) return `${ageSeconds} sec`;

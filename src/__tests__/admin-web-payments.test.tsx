@@ -100,7 +100,12 @@ const mockAdminGetMpesaAttemptReview = jest.fn().mockResolvedValue([MOCK_REVIEW_
 jest.mock('@/lib/supabase', () => ({ supabase: { rpc: jest.fn() } }));
 jest.mock('@/lib/mpesa-ops', () => {
   const actual = jest.requireActual('@/lib/mpesa-ops');
-  return { ...actual, adminGetMpesaAttemptReview: (...a: unknown[]) => mockAdminGetMpesaAttemptReview(...a) };
+  return {
+    ...actual,
+    adminGetMpesaAttemptReview: (...a: unknown[]) => mockAdminGetMpesaAttemptReview(...a),
+    adminGetMpesaCallbackEvents: jest.fn().mockResolvedValue([]),
+    adminReviewMpesaCallbackEvent: jest.fn().mockResolvedValue({ ok: true }),
+  };
 });
 
 // ── Earnings mocks ──────────────────────────────────────────────────────────

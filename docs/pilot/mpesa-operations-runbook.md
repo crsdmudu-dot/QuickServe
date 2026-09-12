@@ -119,10 +119,56 @@ Set `MPESA_MODE=mock` on the Production Edge secrets to stop initiating live STK
 Callbacks for already-sent requests are still processed (the callback function does not read
 `MPESA_MODE`).
 
-## 6. Not yet available
+## 6. Unmatched / orphan callback procedure (migration 0054)
+
+Since 0054, every callback that passes the callback-token check but cannot be applied to an
+attempt is stored as **evidence** in `mpesa_callback_events` and shown on the Payment attempts
+page under **Unmatched M-PESA callback evidence**, with one admin alert per new piece of
+evidence (`admin_mpesa_orphan_callback`). Classifications: `unknown_checkout_request_id`
+(no attempt carries that id — including a callback that arrived before the attempt's id was
+saved), `missing_checkout_request_id`, `malformed_authenticated_callback` (valid JSON that is
+not a Daraja callback, **or** bytes that are not JSON at all — those are kept only as a SHA-256
+of the raw bytes, with no fields). Identical redeliveries only increase the delivery count; a
+callback with the same CheckoutRequestID but different content is a second row and its own
+alert. "Identical" means the same JSON value: object-key order and whitespace do not matter;
+a different number, a different string, or a re-ordered array counts as different evidence (a
+conservative second row, never a lost one). The raw body and full phone are never stored; the
+phone shows as its last three digits. Unauthenticated traffic creates nothing. The callback is
+acknowledged to Safaricom only after the evidence row is written; if the alert itself fails
+(for example the push fan-out), the evidence row still stands and simply appears in the queue
+without a notification — so check the page, not only your notifications.
+
+**These records never settle anything.** There is no confirm/settle control on an orphan.
+
+- **Never retry** an STK request because of an orphan, and never match an orphan to a payment
+  from phone or amount alone. The only acceptable link is an exact CheckoutRequestID.
+- **Unknown success (ResultCode 0 with amount/receipt, shown as High urgency):** money may have
+  moved. Search the attempts (Show all) for that exact CheckoutRequestID; the page also shows
+  "Exact attempt match" automatically when one exists. Check the Safaricom business portal for
+  the receipt. If an attempt matches and the portal confirms the receipt and the exact attempt
+  amount, resolve it through that attempt's **Confirm collected** workflow with the receipt. If no
+  attempt matches, do not create one and do not confirm anything; escalate with the portal
+  evidence.
+- **Unknown failure (non-zero code):** no money moved for that request. Record the review with
+  the portal result. If an exact attempt match appears later, that attempt is handled by its own
+  callback/reconciliation rules; the orphan record stays as history.
+- **Missing / malformed:** record what the portal shows for the time window; escalate if a
+  transaction exists that QuickServe cannot correlate.
+- **`reconcile_payment_attempt_no_collection`** applies to an *attempt*, never to an orphan, and
+  only when the portal shows no transaction for that attempt's request.
+- **Mark evidence reviewed** (mandatory note) records who examined it and what was concluded; it
+  changes no payment, attempt or evidence. A new conflicting callback re-raises attention on its
+  own.
+- **Receipt number.** The page shows only whether a receipt was recorded. The number itself is
+  retained as financial evidence and is available to an admin through the
+  `admin_mpesa_callback_events()` read model (admin session only; it is never in notifications
+  or logs). Prefer the Safaricom business portal — search by the CheckoutRequestID or the time
+  window — as the authoritative source; use the stored number only to cross-check the portal.
+- **Escalate rather than act** whenever portal evidence and callback evidence disagree, or when a
+  success-like callback has no exact attempt match.
+
+## 7. Not yet available
 
 - STK Push **Query** (`/mpesa/stkpushquery/v1/query`) is not implemented. Operators must use
   the Safaricom business portal for disambiguation. If added later it must feed the same
   evidence checks as the callback path and never settle on its own.
-- Callbacks whose CheckoutRequestID matches no attempt are acknowledged and ignored by
-  `apply_mpesa_callback`; they are not recorded. Recording them requires an Edge function change.

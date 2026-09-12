@@ -15,6 +15,8 @@ const mockReview = jest.fn();
 const mockConfirm = jest.fn();
 const mockReconcile = jest.fn();
 const mockReviewDiscrepancy = jest.fn();
+const mockOrphans = jest.fn();
+const mockReviewOrphan = jest.fn();
 
 // The real mpesa-ops module imports the Supabase client; stub it so requireActual is env-free.
 jest.mock('@/lib/supabase', () => ({ supabase: { rpc: jest.fn() } }));
@@ -28,6 +30,8 @@ jest.mock('@/lib/mpesa-ops', () => {
     ...actual,
     adminGetMpesaAttemptReview: (...a: unknown[]) => mockReview(...a),
     adminReviewAttemptDiscrepancy: (...a: unknown[]) => mockReviewDiscrepancy(...a),
+    adminGetMpesaCallbackEvents: (...a: unknown[]) => mockOrphans(...a),
+    adminReviewMpesaCallbackEvent: (...a: unknown[]) => mockReviewOrphan(...a),
   };
 });
 
@@ -123,12 +127,98 @@ const SETTLED_WITH_CONFLICT = {
   urgency: 'due' as const,
 };
 
+/** 0054: authenticated callbacks that matched no attempt — evidence, never payments. */
+const ORPHAN_SUCCESS = {
+  event_id: 'ev-orphan-success-0001',
+  classification: 'unknown_checkout_request_id' as const,
+  first_seen_at: '2026-09-12T00:10:00Z',
+  last_seen_at: '2026-09-12T00:12:00Z',
+  age_seconds: 600,
+  seen_count: 2,
+  merchant_request_id: 'mr-orphan-1',
+  checkout_request_id: 'ws_CO_orphan_1',
+  result_code: 0,
+  result_desc: 'The service request is processed successfully.',
+  amount: 1500,
+  receipt: 'SYNTHRCPT01',
+  transaction_date: '20260912001000',
+  phone_masked: '***399',
+  matched_attempt_id: null,
+  matched_attempt_status: null,
+  matched_payment_id: null,
+  urgency: 'high' as const,
+  needs_review: true,
+  reviewed_at: null,
+  reviewed_by_present: false,
+  review_note: null,
+};
+const ORPHAN_MATCHED_LATER = {
+  ...ORPHAN_SUCCESS,
+  event_id: 'ev-orphan-matched-0002',
+  checkout_request_id: 'ws_CO_1',
+  result_code: 1032,
+  result_desc: 'Request Cancelled by user.',
+  amount: null,
+  receipt: null,
+  matched_attempt_id: 'att-timedout-0001',
+  matched_attempt_status: 'timed_out',
+  matched_payment_id: 'pay-11111111-aaaa',
+  urgency: 'normal' as const,
+  seen_count: 1,
+};
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockReview.mockResolvedValue([TIMED_OUT, WAITING, SETTLED, INVESTIGATE, SETTLED_WITH_CONFLICT]);
+  mockOrphans.mockResolvedValue([ORPHAN_SUCCESS, ORPHAN_MATCHED_LATER]);
   mockConfirm.mockResolvedValue({ ok: true });
   mockReconcile.mockResolvedValue({ ok: true });
   mockReviewDiscrepancy.mockResolvedValue({ ok: true });
+  mockReviewOrphan.mockResolvedValue({ ok: true });
+});
+
+describe('unmatched M-PESA callback evidence (0054)', () => {
+  it('renders orphan evidence in its own clearly labelled section, distinct from attempts', async () => {
+    render(<AdminWebPaymentAttemptsScreen />);
+    expect(await screen.findByText('Unmatched M-PESA callback evidence')).toBeOnTheScreen();
+    const row = within(screen.getByTestId('orphan-row-ev-orphan-success-0001'));
+    expect(row.getByText(/unknown_checkout_request_id/)).toBeOnTheScreen();
+    expect(row.getByText(/ws_CO_orphan_1/)).toBeOnTheScreen();
+    expect(row.getByText(/ResultCode 0/)).toBeOnTheScreen();
+    expect(row.getByText(/KES 1,500/)).toBeOnTheScreen();
+    expect(row.getByText(/delivered 2×/)).toBeOnTheScreen();
+    expect(row.getByText(/\*\*\*399/)).toBeOnTheScreen();
+    expect(row.getByText(/High urgency/)).toBeOnTheScreen();
+    expect(screen.queryByText(/254\d{9}/)).toBeNull();
+  });
+
+  it('offers no settle/confirm/mark-paid control on an orphan and guides to the matching attempt when one exists', async () => {
+    render(<AdminWebPaymentAttemptsScreen />);
+    await screen.findByText('Unmatched M-PESA callback evidence');
+    const success = within(screen.getByTestId('orphan-row-ev-orphan-success-0001'));
+    expect(success.queryByText(/confirm|settle|mark paid/i)).toBeNull();
+    expect(success.getByText(/No attempt matches this CheckoutRequestID/)).toBeOnTheScreen();
+    const matched = within(screen.getByTestId('orphan-row-ev-orphan-matched-0002'));
+    expect(matched.getByText(/Exact attempt match: att-time/)).toBeOnTheScreen();
+    expect(matched.getByText(/use the attempt's reconciliation workflow/i)).toBeOnTheScreen();
+    expect(matched.queryByText(/confirm|settle|mark paid/i)).toBeNull();
+  });
+
+  it('records an orphan review through its own RPC with a mandatory note, and never a money-moving call', async () => {
+    render(<AdminWebPaymentAttemptsScreen />);
+    await screen.findByText('Unmatched M-PESA callback evidence');
+    fireEvent.press(screen.getByTestId('review-orphan-ev-orphan-success-0001'));
+    fireEvent.press(screen.getByText('Submit orphan review'));
+    expect(await screen.findByText('Review note is required.')).toBeOnTheScreen();
+    expect(mockReviewOrphan).not.toHaveBeenCalled();
+    fireEvent.changeText(screen.getByTestId('orphan-review-note'), 'Portal shows no transaction for this CheckoutRequestID; treated as spurious');
+    fireEvent.press(screen.getByText('Submit orphan review'));
+    await waitFor(() =>
+      expect(mockReviewOrphan).toHaveBeenCalledWith('ev-orphan-success-0001', 'Portal shows no transaction for this CheckoutRequestID; treated as spurious'),
+    );
+    expect(mockConfirm).not.toHaveBeenCalled();
+    expect(mockReconcile).not.toHaveBeenCalled();
+  });
 });
 
 describe('contradictory evidence on a settled attempt', () => {

@@ -30,12 +30,16 @@ import { formatKes } from '@/lib/currency';
 import { adminConfirmAttempt, adminReconcileAttemptNoCollection } from '@/lib/attempts';
 import {
   adminGetMpesaAttemptReview,
+  adminGetMpesaCallbackEvents,
   adminReviewAttemptDiscrepancy,
+  adminReviewMpesaCallbackEvent,
+  CALLBACK_EVENT_LABELS,
   formatAge,
   noCollectionEvidenceIsSufficient,
   REVIEW_CATEGORY_LABELS,
   REVIEW_URGENCY_LABELS,
   type MpesaAttemptReviewRow,
+  type MpesaCallbackEventRow,
 } from '@/lib/mpesa-ops';
 
 /** Statuses the two 0045 RPCs accept. Mirrors their guards; the server stays authoritative. */
@@ -200,17 +204,46 @@ export default function AdminWebPaymentAttemptsScreen() {
   const [reviewing, setReviewing] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  // 0054: authenticated callbacks that matched no attempt. Evidence only — never payments.
+  const [orphans, setOrphans] = useState<MpesaCallbackEventRow[]>([]);
+  const [orphanTarget, setOrphanTarget] = useState<MpesaCallbackEventRow | null>(null);
+  const [orphanNote, setOrphanNote] = useState('');
+
   const load = useCallback(async () => {
     setLoadError(false);
     setLoading(true);
     try {
-      setRows(await adminGetMpesaAttemptReview());
+      const [review, events] = await Promise.all([
+        adminGetMpesaAttemptReview(),
+        adminGetMpesaCallbackEvents(),
+      ]);
+      setRows(review);
+      setOrphans(events);
     } catch {
       setLoadError(true);
     } finally {
       setLoading(false);
     }
   }, []);
+
+  async function submitOrphanReview() {
+    if (!orphanTarget) return;
+    setActionError('');
+    if (!orphanNote.trim()) {
+      setActionError('Review note is required.');
+      return;
+    }
+    setBusy(true);
+    const r = await adminReviewMpesaCallbackEvent(orphanTarget.event_id, orphanNote.trim());
+    setBusy(false);
+    if (r.ok) {
+      setOrphanTarget(null);
+      setOrphanNote('');
+      setOrphans(await adminGetMpesaCallbackEvents());
+    } else {
+      setActionError(r.error ?? 'Could not record the review.');
+    }
+  }
 
   useEffect(() => {
     load();
@@ -512,6 +545,82 @@ export default function AdminWebPaymentAttemptsScreen() {
         onRetry={load}
         emptyLabel={showAll ? 'No M-PESA attempts yet.' : 'Nothing needs an operator right now.'}
       />
+
+      {/* ── 0054: Unmatched callback evidence (never payments, never settle here) ────── */}
+      <View style={{ marginTop: 24, gap: 8 }} testID="orphan-section">
+        <Text variant="label" color="text">
+          Unmatched M-PESA callback evidence
+        </Text>
+        <Text variant="caption" color="textSecondary">
+          Authenticated callbacks that matched no attempt. This is evidence for investigation only:
+          match by exact CheckoutRequestID, check the Safaricom portal, and never settle from phone or
+          amount. Where an attempt now matches, use that attempt&apos;s reconciliation workflow.
+        </Text>
+        {orphanTarget ? (
+          <View style={{ gap: 8 }} testID="orphan-review">
+            <Text variant="label" color="text">
+              {`Review callback evidence #${orphanTarget.event_id.slice(0, 8)}`}
+            </Text>
+            <Input
+              label="Review note"
+              value={orphanNote}
+              onChangeText={setOrphanNote}
+              multiline
+              helperText="What did the Safaricom portal / statement show for this CheckoutRequestID, and what was concluded? This records the review only."
+              testID="orphan-review-note"
+            />
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Button label="Submit orphan review" onPress={submitOrphanReview} disabled={busy} />
+              <Button label="Cancel" variant="ghost" onPress={() => setOrphanTarget(null)} disabled={busy} />
+            </View>
+          </View>
+        ) : null}
+        {orphans.length === 0 ? (
+          <Text variant="caption" color="textSecondary">
+            No unmatched callbacks recorded.
+          </Text>
+        ) : (
+          orphans.map((e) => (
+            <View
+              key={e.event_id}
+              style={{ gap: 2, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#e5e7eb' }}
+              testID={`orphan-row-${e.event_id}`}>
+              <Text variant="label" color={e.urgency === 'high' ? 'error' : 'text'}>
+                {`${CALLBACK_EVENT_LABELS[e.classification]} (${e.classification}) · ${e.urgency === 'high' ? 'High urgency: collection evidence present' : 'Normal urgency'}${e.needs_review ? ' · needs review' : ' · reviewed'}`}
+              </Text>
+              <Text variant="caption" color="textSecondary">
+                {`Checkout: ${e.checkout_request_id ?? '—'} · Merchant: ${e.merchant_request_id ?? '—'} · ResultCode ${e.result_code ?? '—'} · ${e.result_desc ?? ''}`}
+              </Text>
+              <Text variant="caption" color="textSecondary">
+                {`Amount: ${e.amount != null ? formatKes(e.amount) : '—'} · receipt recorded: ${e.receipt ? 'yes' : 'no'} · phone ${e.phone_masked ?? '—'} · first seen ${formatAge(e.age_seconds)} ago · delivered ${e.seen_count}×`}
+              </Text>
+              <Text variant="caption" color={e.matched_attempt_id ? 'warning' : 'textSecondary'}>
+                {e.matched_attempt_id
+                  ? `Exact attempt match: ${e.matched_attempt_id.slice(0, 8)} (${e.matched_attempt_status}, payment ${e.matched_payment_id?.slice(0, 8)}) — use the attempt's reconciliation workflow above; this record moves no money.`
+                  : 'No attempt matches this CheckoutRequestID. Do not match by phone or amount.'}
+              </Text>
+              {e.reviewed_at ? (
+                <Text variant="caption" color="textSecondary">
+                  {`Reviewed ${new Date(e.reviewed_at).toLocaleString()} · ${e.review_note ?? ''}`}
+                </Text>
+              ) : (
+                <View style={{ flexDirection: 'row' }}>
+                  <Button
+                    label="Mark evidence reviewed"
+                    variant="ghost"
+                    onPress={() => {
+                      setActionError('');
+                      setOrphanTarget(e);
+                      setOrphanNote('');
+                    }}
+                    testID={`review-orphan-${e.event_id}`}
+                  />
+                </View>
+              )}
+            </View>
+          ))
+        )}
+      </View>
     </>
   );
 }
