@@ -335,10 +335,12 @@ security and cross-device reliability requirement for public release.
 ### 15.7 Deferred configuration (per Supabase project; dashboard only; not in this repository)
 
 QA project — **requires separate authorisation before it is applied**:
-0. Hosting prerequisite: a dedicated QA HTTPS origin serving this web export's `/auth/recovery` and
-   `/auth/confirm` documents (a separate QA Cloudflare Worker; Production keeps its own). Prefer a
-   bridge-only export or an origin where the other QA routes stay guarded; the bridge pages themselves
-   contain no data and make no requests.
+0. Hosting prerequisite: the dedicated QA bridge origin — a separate Cloudflare Worker,
+   `quickserve-auth-qa`, built and configured by `infra/qa-auth-bridge/` (see its README for the
+   request policy, the build, the local certification matrix and the deployment and rollback
+   commands). It serves ONLY the two bridge documents and the generated assets they reference, from
+   a placeholder-configured export, so the origin holds no project credential; Production keeps its
+   own Worker (`quickserve`) and is unaffected. Deploying it is a separate authorisation.
 1. Authentication → URL Configuration → Site URL: the QA bridge origin, **without a trailing slash**
    (a trailing slash renders `//auth/recovery`). Redirect URLs: add `kwikserve://auth/recovery` and
    `kwikserve://auth/confirm` (exact entries, no wildcard) so the app's `redirectTo` is carried as
