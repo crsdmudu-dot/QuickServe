@@ -110,12 +110,13 @@ function buildColumns(
               key={s}
               label={s.charAt(0).toUpperCase() + s.slice(1)}
               variant={row.status === s ? 'secondary' : 'ghost'}
+              size="sm"
               onPress={() => onOverride(row.id, s)}
             />
           ))}
         </View>
       ),
-      width: 280,
+      width: 250,
     },
     {
       key: 'operations',
@@ -124,6 +125,7 @@ function buildColumns(
         <Button
           label="Create case"
           variant="ghost"
+          size="sm"
           onPress={() =>
             router.push(
               `/(admin-web)/operations/new?payment_id=${row.id}` as Href,
@@ -131,7 +133,7 @@ function buildColumns(
           }
         />
       ),
-      width: 110,
+      width: 120,
     },
   ];
 }

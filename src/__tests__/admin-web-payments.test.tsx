@@ -430,3 +430,26 @@ describe('AdminWebEarningsScreen', () => {
     expect(await screen.findByText('No earnings yet.')).toBeOnTheScreen();
   });
 });
+
+// ── Desktop layout polish ─────────────────────────────────────────────────────
+// Flattens nested style arrays without touching StyleSheet (keeps this suite free of require())
+const flatStyle = (s: unknown): Record<string, unknown> =>
+  Array.isArray(s) ? Object.assign({}, ...s.map(flatStyle)) : s && typeof s === 'object' ? (s as Record<string, unknown>) : {};
+describe('admin payments / attempts / earnings — desktop layout', () => {
+  it('payments: in-row status actions and Create case use the compact size', async () => {
+    render(<AdminWebPaymentsScreen />);
+    await screen.findByText('KES 3,000');
+    const inRow = screen.queryAllByRole('button', { name: /^(Pending|Paid|Cancelled|Failed|Refunded|Create case)$/ });
+    expect(inRow.length).toBeGreaterThan(0);
+    for (const b of inRow) expect(b).toHaveStyle({ height: 36 });
+  });
+  it('earnings: the row action is compact and its column fits it', async () => {
+    render(<AdminWebEarningsScreen />);
+    const btn = (await screen.findAllByRole('button', { name: /^(Record payout|View ledger)$/ }))[0];
+    expect(btn).toHaveStyle({ height: 36 });
+    let node: any = screen.getByText('Actions');
+    let width: unknown;
+    for (let i = 0; i < 6 && node && width === undefined; i++) { width = flatStyle(node.props?.style).width; node = node.parent; }
+    expect(width).toBe(140);
+  });
+});

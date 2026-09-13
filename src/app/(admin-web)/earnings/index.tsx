@@ -165,10 +165,11 @@ function buildColumns(
           label={
             row.outstanding_provider_liability > 0 ? 'Record payout' : 'View ledger'
           }
+          size="sm"
           onPress={() => onSelect(row.earning_id)}
         />
       ),
-      width: 150,
+      width: 140,
     },
   ];
 }

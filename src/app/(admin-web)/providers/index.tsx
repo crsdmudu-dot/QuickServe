@@ -104,6 +104,7 @@ function buildColumns(
             <Button
               label="Approve"
               variant="primary"
+              size="sm"
               onPress={async () => {
                 const result = await setProviderApproval(row.id, 'approved');
                 if (result.ok) {
@@ -118,6 +119,7 @@ function buildColumns(
             <Button
               label="Reject"
               variant="ghost"
+              size="sm"
               onPress={async () => {
                 const result = await setProviderApproval(row.id, 'rejected');
                 if (result.ok) {
