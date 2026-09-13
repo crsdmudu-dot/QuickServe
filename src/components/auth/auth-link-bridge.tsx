@@ -1,53 +1,63 @@
+import { router } from 'expo-router';
 import Head from 'expo-router/head';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { Spacing } from '@/constants/theme';
-import { buildMobileHandoffUrl, parseAuthBridgeFragment, type BridgeLink } from '@/lib/auth-bridge';
+import { buildMobileHandoffUrl } from '@/lib/auth-bridge';
+import { captureAuthBridgeIntake, claimFragmentRemoval, type BridgeWindow } from '@/lib/auth-bridge-intake';
 import type { AuthLinkType } from '@/lib/auth-links';
 
 /**
  * AuthLinkBridge — the web page an emailed auth link lands on (`/auth/recovery`, `/auth/confirm`).
  *
- * Lifecycle: read the URL fragment ONCE on first render, validate it (src/lib/auth-bridge.ts),
- * replace the browser history entry with the clean route so the one-time token hash leaves the
- * address bar and history, and keep the validated values in component memory only. Nothing is
- * stored, logged or sent anywhere: this component never imports the Supabase client and makes no
- * network request. The app is opened only when the user presses "Open QuickServe"; the
- * "Continue in browser" path is intentionally absent until the admin-web reset slice exists.
+ * Lifecycle: read the URL fragment ONCE (src/lib/auth-bridge-intake.ts), validate it
+ * (src/lib/auth-bridge.ts), take it out of the address bar and out of session history, and keep the
+ * validated values in memory only. Nothing is stored, logged or sent anywhere: this component never
+ * imports the Supabase client and makes no network request. The app is opened only when the user
+ * presses "Open QuickServe"; the "Continue in browser" path is intentionally absent until the
+ * admin-web reset slice exists.
+ *
+ * Removing the fragment goes through Expo Router's own navigation (`router.replace(pathname)`), not
+ * through `history.replaceState` alone. A raw history write does not hold: Expo Router rewrites the
+ * URL afterwards from the boot URL it remembers as `route.path`, and re-appends `location.hash`
+ * while the focused route key is unchanged, so the token hash reappears in the address bar.
+ * Replacing the route gives the router a new key and a remembered path with no fragment, so there
+ * is nothing left for it to restore. The URL is cleared first so the router cannot re-append a live
+ * hash, and checked again afterwards. See src/__tests__/auth-link-bridge-history.test.tsx.
  */
 
-/** Minimal browser surface, injectable for tests; defaults to `window`. */
-export type BridgeBrowser = {
-  readonly hash: string;
-  readonly search: string;
-  readonly pathname: string;
-  replaceHistory(path: string): void;
-  navigate(url: string): void;
-};
+export type { BridgeWindow };
 
-function defaultBrowser(): BridgeBrowser | null {
+/** Memoised so the intake (a `WeakMap` keyed by this object) survives the remount. */
+let sharedWindow: BridgeWindow | null = null;
+
+function defaultBridgeWindow(): BridgeWindow | null {
   if (typeof window === 'undefined' || !window.location || !window.history) return null;
-  return {
-    get hash() {
-      return window.location.hash;
-    },
-    get search() {
-      return window.location.search;
-    },
-    get pathname() {
-      return window.location.pathname;
-    },
-    replaceHistory(path: string) {
-      // same-origin path only; drops both the fragment and any query string
-      window.history.replaceState(null, '', path);
-    },
-    navigate(url: string) {
-      window.location.assign(url);
-    },
-  };
+  if (!sharedWindow) {
+    sharedWindow = {
+      get hash() {
+        return window.location.hash;
+      },
+      get pathname() {
+        return window.location.pathname;
+      },
+      replaceRoute(path: string) {
+        // Expo Router owns the URL: replacing the route replaces what it remembers about it.
+        router.replace(path as Parameters<typeof router.replace>[0]);
+      },
+      clearFragment(path: string) {
+        // same-origin path only; drops both the fragment and any query string
+        window.history.replaceState(null, '', path);
+      },
+      navigate(url: string) {
+        window.location.assign(url);
+      },
+    };
+  }
+  return sharedWindow;
 }
 
 const COPY: Record<AuthLinkType, { title: string; prompt: string }> = {
@@ -55,29 +65,35 @@ const COPY: Record<AuthLinkType, { title: string; prompt: string }> = {
   signup: { title: 'Confirm your email', prompt: 'Open QuickServe to confirm your email' },
 };
 
-export function AuthLinkBridge({ type, browser }: { type: AuthLinkType; browser?: BridgeBrowser }) {
-  // First-render snapshot of the fragment: parsed once, never re-read.
-  const [intake] = useState<{ link: BridgeLink; hadFragment: boolean }>(() => {
-    const b = browser ?? defaultBrowser();
-    const hash = b?.hash ?? '';
-    return { link: parseAuthBridgeFragment(hash, type), hadFragment: hash.length > 0 };
-  });
+export function AuthLinkBridge({ type, browser }: { type: AuthLinkType; browser?: BridgeWindow }) {
+  // First-render snapshot of the fragment: read once per page load, kept in memory only.
+  const [win] = useState<BridgeWindow | null>(() => browser ?? defaultBridgeWindow());
+  const [intake] = useState(() => captureAuthBridgeIntake(type, win));
   const [handoff, setHandoff] = useState<'idle' | 'attempted'>('idle');
-  const stripped = useRef(false);
 
-  // Remove the fragment (and any query string) from the address bar and history promptly.
   useEffect(() => {
-    if (stripped.current || !intake.hadFragment) return;
-    stripped.current = true;
-    const b = browser ?? defaultBrowser();
-    if (b) b.replaceHistory(b.pathname);
-  }, [browser, intake.hadFragment]);
+    if (!win || !intake.hadFragment) return;
+    const assertClean = () => {
+      if (win.hash.length > 0) win.clearFragment(win.pathname);
+    };
+    // 1. Take it out of the live URL, so the router has no `location.hash` left to re-append and
+    //    never writes a history entry that carries the token, not even for one frame.
+    assertClean();
+    // The claim is held in the intake module, so the remount the navigation causes cannot start a
+    // second navigation.
+    if (claimFragmentRemoval(intake)) {
+      // 2. Make the router forget the URL it booted with: a replaced route has a new key and a
+      //    remembered path without a fragment, so there is nothing left for it to restore.
+      win.replaceRoute(win.pathname);
+      // 3. Closing assertion: whatever the router just wrote must not carry the fragment either.
+      assertClean();
+    }
+  }, [intake, win]);
 
   function openApp() {
     if (handoff === 'attempted' || !intake.link.ok) return;
     setHandoff('attempted');
-    const b = browser ?? defaultBrowser();
-    if (b) b.navigate(buildMobileHandoffUrl(intake.link));
+    if (win) win.navigate(buildMobileHandoffUrl(intake.link));
   }
 
   const copy = COPY[type];

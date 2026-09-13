@@ -1,11 +1,14 @@
 /**
- * auth-link-bridge.test.tsx — the web HTTPS bridge component: reads the fragment once, strips it
- * from history, keeps values in memory, and hands off to the app only on an explicit action.
+ * auth-link-bridge.test.tsx — the web HTTPS bridge component: reads the fragment once, takes it out
+ * of the URL, keeps the values in memory, and hands off to the app only on an explicit action.
  * It never touches Supabase or the network and never renders or logs the token hash.
+ *
+ * The removal itself (Expo Router navigation, history entries, back/forward, refresh) is specified
+ * in auth-link-bridge-history.test.tsx.
  */
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
-import { AuthLinkBridge, type BridgeBrowser } from '@/components/auth/auth-link-bridge';
+import { AuthLinkBridge, type BridgeWindow } from '@/components/auth/auth-link-bridge';
 
 jest.mock('expo-router/head', () => ({ __esModule: true, default: ({ children }: { children: React.ReactNode }) => children }));
 jest.mock('@/lib/supabase', () => {
@@ -17,25 +20,43 @@ const REC = 'kwikserve://auth/recovery';
 const CONF = 'kwikserve://auth/confirm';
 const frag = (parts: Record<string, string>) => '#' + Object.entries(parts).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
 
-function fakeBrowser(hash: string, search = '', pathname = '/auth/recovery'): BridgeBrowser & { replaced: string[]; navigated: string[] } {
-  const b = {
+type FakeBrowser = Omit<BridgeWindow, 'hash'> & {
+  hash: string; // mutable here: `clearFragment` models the browser dropping the fragment
+  search: string;
+  replacedRoutes: string[];
+  cleared: string[];
+  navigated: string[];
+};
+
+function fakeBrowser(hash: string, search = '', pathname = '/auth/recovery'): FakeBrowser {
+  const b: FakeBrowser = {
     hash,
     search,
     pathname,
-    replaced: [] as string[],
-    navigated: [] as string[],
-    replaceHistory(path: string) { b.replaced.push(path); b.hash = ''; },
-    navigate(url: string) { b.navigated.push(url); },
+    replacedRoutes: [],
+    cleared: [],
+    navigated: [],
+    replaceRoute(path: string) {
+      b.replacedRoutes.push(path);
+    },
+    clearFragment(path: string) {
+      b.cleared.push(path);
+      b.hash = '';
+    },
+    navigate(url: string) {
+      b.navigated.push(url);
+    },
   };
   return b;
 }
 
 describe('AuthLinkBridge — lifecycle', () => {
-  it('captures a valid recovery fragment once, strips it from history, and offers only the explicit app action', () => {
+  it('captures a valid recovery fragment once, takes it out of the URL, and offers only the explicit app action', () => {
     const browser = fakeBrowser(frag({ token_hash: HASH, type: 'recovery', redirect_to: REC }));
     render(<AuthLinkBridge type="recovery" browser={browser} />);
     expect(screen.getByText('Open QuickServe to reset your password')).toBeOnTheScreen();
-    expect(browser.replaced).toEqual(['/auth/recovery']);
+    expect(browser.cleared).toEqual(['/auth/recovery']);
+    expect(browser.replacedRoutes).toEqual(['/auth/recovery']); // removal goes through the router
     expect(browser.navigated).toEqual([]); // no automatic navigation
     expect(screen.getByRole('button', { name: 'Open QuickServe' })).toBeOnTheScreen();
     expect(screen.queryByText(/Continue in browser/i)).toBeNull();
@@ -57,14 +78,14 @@ describe('AuthLinkBridge — lifecycle', () => {
     expect(screen.getByText('Open QuickServe to confirm your email')).toBeOnTheScreen();
     fireEvent.press(screen.getByText('Open QuickServe'));
     expect(browser.navigated).toEqual([`${CONF}?token_hash=${HASH}&type=signup`]);
-    expect(browser.replaced).toEqual(['/auth/confirm']);
+    expect(browser.cleared).toEqual(['/auth/confirm']);
+    expect(browser.replacedRoutes).toEqual(['/auth/confirm']);
   });
 
-  it('after stripping, a re-render or refresh without the fragment shows the invalid state (nothing persisted)', () => {
-    const browser = fakeBrowser(frag({ token_hash: HASH, type: 'recovery', redirect_to: REC }));
-    const first = render(<AuthLinkBridge type="recovery" browser={browser} />);
-    first.unmount();
-    render(<AuthLinkBridge type="recovery" browser={browser} />); // hash is now empty
+  it('a refresh loads a new document with no fragment and shows the invalid state (nothing persisted)', () => {
+    const first = fakeBrowser(frag({ token_hash: HASH, type: 'recovery', redirect_to: REC }));
+    render(<AuthLinkBridge type="recovery" browser={first} />).unmount();
+    render(<AuthLinkBridge type="recovery" browser={fakeBrowser('')} />); // a refresh is a new window
     expect(screen.getByText('This link is invalid or has expired.')).toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: 'Open QuickServe' })).toBeNull();
   });
@@ -90,10 +111,11 @@ describe('AuthLinkBridge — fail closed', () => {
     expect(screen.getByText(/Request a new link/)).toBeOnTheScreen();
   });
 
-  it('strips even an invalid fragment from history without persisting anything', () => {
+  it('takes even an invalid fragment out of the URL without persisting anything', () => {
     const browser = fakeBrowser('#access_token=eyJa.b.c&type=recovery');
     render(<AuthLinkBridge type="recovery" browser={browser} />);
-    expect(browser.replaced).toEqual(['/auth/recovery']);
+    expect(browser.cleared).toEqual(['/auth/recovery']);
+    expect(browser.replacedRoutes).toEqual(['/auth/recovery']);
   });
 });
 

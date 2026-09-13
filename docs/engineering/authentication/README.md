@@ -316,9 +316,16 @@ request), `/auth/recovery` and `/auth/confirm` (the bridge). The bridge:
   a missing, malformed, foreign, encoded, aliased (`quickserve://`), suffixed or browser destination
   fails closed with one neutral "invalid or expired" state and no actions (an absent destination is
   never treated as "mobile by default");
-- strips the fragment and any query string from the address bar and history on first render
-  (`history.replaceState` to the same-origin path); a refresh afterwards shows the invalid state
-  because nothing was persisted;
+- removes the fragment and any query string from the address bar and from the current history entry
+  on first render, through **Expo Router's own navigation** (`router.replace(pathname)`), preceded
+  and followed by a `history.replaceState` check. A raw history write alone does not hold: Expo
+  Router rewrites the URL afterwards from the boot URL it keeps as `route.path`, and re-appends the
+  live `location.hash` while the focused route key is unchanged, so the token hash comes back into
+  the address bar. Replacing the route gives the router a new key and a fragment-free remembered
+  path, so it has nothing left to restore; because that navigation remounts the screen, the captured
+  link lives in module memory (`src/lib/auth-bridge-intake.ts`), never in storage. No history entry
+  is added and none retains the token, so back and forward cannot reach it; a refresh reloads the
+  cleaned URL and therefore shows the invalid state, because nothing was persisted;
 - never imports the Supabase client, makes no network request, and never logs or renders the token;
 - opens the app only on the explicit **Open QuickServe** action (no automatic navigation, duplicate
   presses guarded), then shows non-sensitive no-app guidance;
