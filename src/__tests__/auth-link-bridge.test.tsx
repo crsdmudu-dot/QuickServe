@@ -1,0 +1,113 @@
+/**
+ * auth-link-bridge.test.tsx — the web HTTPS bridge component: reads the fragment once, strips it
+ * from history, keeps values in memory, and hands off to the app only on an explicit action.
+ * It never touches Supabase or the network and never renders or logs the token hash.
+ */
+import { fireEvent, render, screen } from '@testing-library/react-native';
+
+import { AuthLinkBridge, type BridgeBrowser } from '@/components/auth/auth-link-bridge';
+
+jest.mock('expo-router/head', () => ({ __esModule: true, default: ({ children }: { children: React.ReactNode }) => children }));
+jest.mock('@/lib/supabase', () => {
+  throw new Error('the web bridge must never import the Supabase client');
+});
+
+const HASH = 'f'.repeat(64);
+const REC = 'kwikserve://auth/recovery';
+const CONF = 'kwikserve://auth/confirm';
+const frag = (parts: Record<string, string>) => '#' + Object.entries(parts).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+
+function fakeBrowser(hash: string, search = '', pathname = '/auth/recovery'): BridgeBrowser & { replaced: string[]; navigated: string[] } {
+  const b = {
+    hash,
+    search,
+    pathname,
+    replaced: [] as string[],
+    navigated: [] as string[],
+    replaceHistory(path: string) { b.replaced.push(path); b.hash = ''; },
+    navigate(url: string) { b.navigated.push(url); },
+  };
+  return b;
+}
+
+describe('AuthLinkBridge — lifecycle', () => {
+  it('captures a valid recovery fragment once, strips it from history, and offers only the explicit app action', () => {
+    const browser = fakeBrowser(frag({ token_hash: HASH, type: 'recovery', redirect_to: REC }));
+    render(<AuthLinkBridge type="recovery" browser={browser} />);
+    expect(screen.getByText('Open QuickServe to reset your password')).toBeOnTheScreen();
+    expect(browser.replaced).toEqual(['/auth/recovery']);
+    expect(browser.navigated).toEqual([]); // no automatic navigation
+    expect(screen.getByRole('button', { name: 'Open QuickServe' })).toBeOnTheScreen();
+    expect(screen.queryByText(/Continue in browser/i)).toBeNull();
+  });
+
+  it('opens the exact canonical app URL only when the user presses the button, and guards duplicate clicks', () => {
+    const browser = fakeBrowser(frag({ token_hash: HASH, type: 'recovery', redirect_to: REC }));
+    render(<AuthLinkBridge type="recovery" browser={browser} />);
+    fireEvent.press(screen.getByText('Open QuickServe'));
+    fireEvent.press(screen.getByText('Open QuickServe'));
+    expect(browser.navigated).toEqual([`${REC}?token_hash=${HASH}&type=recovery`]);
+    expect(screen.getByText(/If the app didn't open/)).toBeOnTheScreen();
+    expect(screen.getByText(/install the QuickServe app on this phone/)).toBeOnTheScreen();
+  });
+
+  it('confirmation variant uses the confirmation copy and destination', () => {
+    const browser = fakeBrowser(frag({ token_hash: HASH, type: 'signup', redirect_to: CONF }), '', '/auth/confirm');
+    render(<AuthLinkBridge type="signup" browser={browser} />);
+    expect(screen.getByText('Open QuickServe to confirm your email')).toBeOnTheScreen();
+    fireEvent.press(screen.getByText('Open QuickServe'));
+    expect(browser.navigated).toEqual([`${CONF}?token_hash=${HASH}&type=signup`]);
+    expect(browser.replaced).toEqual(['/auth/confirm']);
+  });
+
+  it('after stripping, a re-render or refresh without the fragment shows the invalid state (nothing persisted)', () => {
+    const browser = fakeBrowser(frag({ token_hash: HASH, type: 'recovery', redirect_to: REC }));
+    const first = render(<AuthLinkBridge type="recovery" browser={browser} />);
+    first.unmount();
+    render(<AuthLinkBridge type="recovery" browser={browser} />); // hash is now empty
+    expect(screen.getByText('This link is invalid or has expired.')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Open QuickServe' })).toBeNull();
+  });
+});
+
+describe('AuthLinkBridge — fail closed', () => {
+  it.each([
+    ['no fragment', ''],
+    ['query-string token is not a fallback', ''],
+    ['wrong type', frag({ token_hash: HASH, type: 'signup', redirect_to: REC })],
+    ['bad token', frag({ token_hash: 'nope', type: 'recovery', redirect_to: REC })],
+    ['missing destination', frag({ token_hash: HASH, type: 'recovery' })],
+    ['foreign destination', frag({ token_hash: HASH, type: 'recovery', redirect_to: 'https://evil.example/x' })],
+    ['browser reset destination (disabled this slice)', frag({ token_hash: HASH, type: 'recovery', redirect_to: 'https://admin.example/reset-password' })],
+    ['implicit tokens', '#access_token=eyJa.b.c&refresh_token=r&type=recovery'],
+  ])('%s → one neutral invalid state, no actions, no navigation', (label, hash) => {
+    const browser = fakeBrowser(hash, label.startsWith('query') ? `?token_hash=${HASH}&type=recovery&redirect_to=${encodeURIComponent(REC)}` : '');
+    render(<AuthLinkBridge type="recovery" browser={browser} />);
+    expect(screen.getByText('This link is invalid or has expired.')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Open QuickServe' })).toBeNull();
+    expect(screen.queryByText(/Continue in browser/i)).toBeNull();
+    expect(browser.navigated).toEqual([]);
+    expect(screen.getByText(/Request a new link/)).toBeOnTheScreen();
+  });
+
+  it('strips even an invalid fragment from history without persisting anything', () => {
+    const browser = fakeBrowser('#access_token=eyJa.b.c&type=recovery');
+    render(<AuthLinkBridge type="recovery" browser={browser} />);
+    expect(browser.replaced).toEqual(['/auth/recovery']);
+  });
+});
+
+describe('AuthLinkBridge — secrecy', () => {
+  it('never renders or logs the token hash or destination', () => {
+    const spies = [jest.spyOn(console, 'log'), jest.spyOn(console, 'error'), jest.spyOn(console, 'warn'), jest.spyOn(console, 'info')].map((s) => s.mockImplementation(() => {}));
+    const browser = fakeBrowser(frag({ token_hash: HASH, type: 'recovery', redirect_to: REC }));
+    const view = render(<AuthLinkBridge type="recovery" browser={browser} />);
+    fireEvent.press(screen.getByText('Open QuickServe'));
+    const rendered = JSON.stringify(view.toJSON());
+    expect(rendered).not.toContain(HASH);
+    expect(rendered).not.toContain('kwikserve://');
+    const all = spies.flatMap((s) => s.mock.calls.flat()).map((v) => (typeof v === 'string' ? v : JSON.stringify(v) ?? String(v)));
+    for (const line of all) expect(line).not.toContain(HASH);
+    spies.forEach((s) => s.mockRestore());
+  });
+});

@@ -16,3 +16,14 @@ describe('mapAuthError', () => {
     expect(mapAuthError(null)).toBe('Something went wrong. Please try again.');
   });
 });
+
+describe('mapAuthError — recovery and password-policy messages', () => {
+  it('maps expired / invalid link errors to the safe link message', () => {
+    expect(mapAuthError({ message: 'Token has expired or is invalid' })).toBe('This link is invalid or has expired.');
+    expect(mapAuthError({ message: 'Email link is invalid or has expired' })).toBe('This link is invalid or has expired.');
+  });
+  it('maps weak and unchanged password errors', () => {
+    expect(mapAuthError({ message: 'Password should be at least 8 characters.' })).toBe('Please choose a stronger password (at least 8 characters).');
+    expect(mapAuthError({ message: 'New password should be different from the old password.' })).toBe('Your new password must be different from your old password.');
+  });
+});

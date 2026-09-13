@@ -56,6 +56,11 @@ export default function LoginScreen() {
           error={errors.password}
         />
 
+        <View style={styles.forgotRow}>
+          <Text variant="label" color="primary" onPress={() => router.push('/forgot-password')}>
+            Forgot password?
+          </Text>
+        </View>
         <View style={styles.actions}>
           <Button label="Continue" fullWidth size="lg" onPress={submit} />
           {authError ? (
@@ -92,6 +97,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   form: { gap: Spacing.three },
+  forgotRow: { flexDirection: 'row', justifyContent: 'flex-end' },
   actions: { gap: Spacing.two, marginTop: Spacing.one },
   authError: { textAlign: 'center' },
   linkRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: Spacing.two },
