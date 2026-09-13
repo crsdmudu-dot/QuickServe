@@ -192,3 +192,25 @@ describe('AdminWebPromosScreen (promo codes + redemption history)', () => {
     expect(await screen.findByText('No redemptions yet.')).toBeOnTheScreen();
   });
 });
+
+// ── Desktop layout polish ─────────────────────────────────────────────────────
+// Flattens nested style arrays without touching StyleSheet (keeps this suite free of require())
+const flatStyle = (s: unknown): Record<string, unknown> =>
+  Array.isArray(s) ? Object.assign({}, ...s.map(flatStyle)) : s && typeof s === 'object' ? (s as Record<string, unknown>) : {};
+describe('AdminWebPromosScreen — desktop layout', () => {
+  beforeEach(() => {
+    mockAdminGetPromoCodes.mockResolvedValue([MOCK_PROMO_CODE]);
+    mockAdminGetPromoRedemptions.mockResolvedValue([MOCK_REDEMPTION]);
+  });
+  it('renders the in-row Disable/Enable control at the compact size and gives promo codes room', async () => {
+    render(<AdminWebPromosScreen />);
+    await screen.findByText('SAVE20');
+    for (const b of screen.queryAllByRole('button', { name: /^(Disable|Enable)$/ })) expect(b).toHaveStyle({ height: 36 });
+    // the code cell itself (the create form also labels its input 'Code')
+    let node: any = screen.getByText('SAVE20');
+    let width: unknown;
+    for (let i = 0; i < 6 && node && width === undefined; i++) { width = flatStyle(node.props?.style).width; node = node.parent; }
+    expect(typeof width).toBe('number');
+    expect(width as number).toBeGreaterThanOrEqual(150);
+  });
+});

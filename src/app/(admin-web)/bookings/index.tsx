@@ -125,7 +125,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: Spacing.one,
     paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.four,
   },
   scheduleCell: {
     gap: 2,
@@ -163,6 +162,7 @@ export default function AdminWebBookingsScreen() {
           <Button
             key={key}
             label={label}
+            size="sm"
             variant={bookingFilter === key ? 'secondary' : 'ghost'}
             onPress={() => setBookingFilter(key)}
           />

@@ -403,3 +403,14 @@ describe('evidence panel', () => {
     expect(panel.getByText(/Operator resolution: none/)).toBeOnTheScreen();
   });
 });
+
+// ── Desktop layout polish ─────────────────────────────────────────────────────
+describe('payment attempts queue — desktop layout', () => {
+  it('in-row Details control uses the compact size', async () => {
+    render(<AdminWebPaymentAttemptsScreen />);
+    await screen.findByText('Unmatched M-PESA callback evidence');
+    const details = screen.queryAllByRole('button', { name: 'Details' });
+    expect(details.length).toBeGreaterThan(0);
+    for (const b of details) expect(b).toHaveStyle({ height: 36 });
+  });
+});

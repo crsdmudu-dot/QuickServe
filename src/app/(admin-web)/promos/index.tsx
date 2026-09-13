@@ -58,7 +58,7 @@ function buildCodeColumns(
           {row.code}
         </Text>
       ),
-      width: 120,
+      width: 150,
     },
     {
       key: 'type',
@@ -130,12 +130,12 @@ function buildCodeColumns(
           <Button
             label={row.is_active ? 'Disable' : 'Enable'}
             variant="ghost"
-            size="md"
+            size="sm"
             onPress={() => onToggleActive(row)}
           />
         </View>
       ),
-      width: 90,
+      width: 100,
     },
   ];
 }

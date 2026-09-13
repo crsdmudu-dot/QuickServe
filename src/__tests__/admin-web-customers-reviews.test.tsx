@@ -380,3 +380,12 @@ describe('AdminWebReviewsScreen (moderation)', () => {
     );
   });
 });
+
+// ── Desktop layout polish ─────────────────────────────────────────────────────
+describe('AdminWebCustomersScreen — desktop layout', () => {
+  it('renders the in-row Create case control at the compact size', async () => {
+    render(<AdminWebCustomersScreen />);
+    await screen.findByText('Alice Wanjiku');
+    for (const b of screen.getAllByRole('button', { name: 'Create case' })) expect(b).toHaveStyle({ height: 36 });
+  });
+});

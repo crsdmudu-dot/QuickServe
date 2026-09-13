@@ -106,7 +106,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: Spacing.one,
     paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.four,
   },
   newCaseRow: {
     paddingHorizontal: Spacing.four,
@@ -163,6 +162,7 @@ export default function AdminWebOperationsScreen() {
           <Button
             key={key}
             label={label}
+            size="sm"
             variant={filter === key ? 'secondary' : 'ghost'}
             onPress={() => setFilter(key)}
           />

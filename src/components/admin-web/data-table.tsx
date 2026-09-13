@@ -153,8 +153,13 @@ export function DataTable<T>(props: DataTableProps<T>): JSX.Element {
   // ── Data rows ──────────────────────────────────────────────────────────
 
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scrollOuter}>
-      <View style={[styles.container, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={styles.scrollOuter}
+      contentContainerStyle={styles.scrollContent}
+    >
+      <View style={[styles.container, styles.containerFill, { borderColor: theme.border, backgroundColor: theme.surface }]}>
         {/* Header */}
         <View style={[styles.headerRow, { backgroundColor: theme.surfaceMuted, borderBottomColor: theme.border }]}>
           {columns.map((col) => (
@@ -232,6 +237,16 @@ export function DataTable<T>(props: DataTableProps<T>): JSX.Element {
 const styles = StyleSheet.create({
   scrollOuter: {
     // Allows horizontal scroll on narrow screens.
+  },
+  scrollContent: {
+    // The scroller's content is at least as wide as the page, so percentage column widths
+    // resolve against the page instead of collapsing to the table's intrinsic width. Fixed
+    // column sets wider than the page still overflow and scroll inside the table only.
+    flexGrow: 1,
+    minWidth: '100%',
+  },
+  containerFill: {
+    flexGrow: 1,
   },
   container: {
     borderRadius: Radii.md,

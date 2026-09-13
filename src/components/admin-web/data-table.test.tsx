@@ -20,7 +20,7 @@ jest.mock('@/constants/motion', () => ({
 }));
 
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import { DataTable, type Column } from '@/components/admin-web/data-table';
 import { Text } from '@/components/ui/text';
 
@@ -157,5 +157,16 @@ describe('DataTable', () => {
       return flat && (flat as Record<string, unknown>)['textAlign'] === 'right';
     });
     expect(hasRightAlign).toBe(true);
+  });
+});
+
+// ── Desktop width contract (admin-web layout polish) ────────────────────────
+describe('DataTable — desktop width contract', () => {
+  it('grows to the available width and keeps fixed columns from growing', () => {
+    render(<DataTable columns={COLUMNS} rows={ROWS} keyExtractor={(r) => r.id} />);
+    const sv = screen.UNSAFE_getByType(ScrollView);
+    const content = StyleSheet.flatten(sv.props.contentContainerStyle) as Record<string, unknown>;
+    expect(content.flexGrow).toBe(1);
+    expect(content.minWidth).toBe('100%');
   });
 });

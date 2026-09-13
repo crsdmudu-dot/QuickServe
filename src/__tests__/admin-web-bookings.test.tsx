@@ -554,3 +554,23 @@ describe('AdminWebBookingDetailScreen (detail)', () => {
     expect(mockAssignProvider).not.toHaveBeenCalled();
   });
 });
+
+// ── Desktop layout polish ─────────────────────────────────────────────────────
+// Flattens nested style arrays without touching StyleSheet (keeps this suite free of require())
+const flatStyle = (s: unknown): Record<string, unknown> =>
+  Array.isArray(s) ? Object.assign({}, ...s.map(flatStyle)) : s && typeof s === 'object' ? (s as Record<string, unknown>) : {};
+describe('AdminWebBookingsScreen — desktop layout', () => {
+  it('renders the filter chips at the compact size with no page-local horizontal padding', async () => {
+    render(<AdminWebBookingsScreen />);
+    await screen.findByText('House Cleaning');
+    const all = screen.getByRole('button', { name: 'All' });
+    expect(all).toHaveStyle({ height: 36 });
+    expect(screen.getByRole('button', { name: 'Scheduled' })).toHaveStyle({ height: 36 });
+    // the wrapping filter row (flexWrap) must not add page-local horizontal padding
+    let row: any = all.parent;
+    while (row && flatStyle(row.props?.style).flexWrap !== 'wrap') row = row.parent;
+    expect(row != null).toBe(true);
+    const style = flatStyle(row.props.style);
+    expect(style.paddingHorizontal ?? 0).toBe(0);
+  });
+});

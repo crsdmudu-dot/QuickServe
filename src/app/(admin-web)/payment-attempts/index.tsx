@@ -76,7 +76,7 @@ function buildColumns(
           ) : null}
         </View>
       ),
-      width: 210,
+      width: 200,
     },
     {
       key: 'amount',
@@ -132,7 +132,7 @@ function buildColumns(
           </Text>
         </View>
       ),
-      width: 240,
+      width: 230,
     },
     {
       key: 'ids',
@@ -142,7 +142,7 @@ function buildColumns(
           {`#${row.payment_id.slice(0, 8)} · bk ${row.booking_id.slice(0, 8)}`}
         </Text>
       ),
-      width: 170,
+      width: 150,
     },
     {
       key: 'actions',
@@ -152,6 +152,7 @@ function buildColumns(
           <Button
             label="Details"
             variant="ghost"
+            size="sm"
             onPress={() => onDetails(row)}
             testID={`details-${row.attempt_id}`}
           />
@@ -159,6 +160,7 @@ function buildColumns(
             <Button
               label="Mark discrepancy reviewed"
               variant="ghost"
+              size="sm"
               onPress={() => onReviewDiscrepancy(row)}
               testID={`review-discrepancy-${row.attempt_id}`}
             />
@@ -167,12 +169,14 @@ function buildColumns(
             <>
               <Button
                 label="Confirm collected"
+                size="sm"
                 onPress={() => onResolve(row, 'confirm')}
                 testID={`confirm-${row.attempt_id}`}
               />
               <Button
                 label="No collection"
                 variant="ghost"
+                size="sm"
                 onPress={() => onResolve(row, 'reconcile')}
                 testID={`nocollect-${row.attempt_id}`}
               />

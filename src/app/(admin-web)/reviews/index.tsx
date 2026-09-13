@@ -183,12 +183,12 @@ function buildColumns(
           <Button
             label={row.is_hidden ? 'Unhide' : 'Hide'}
             variant="ghost"
-            size="md"
+            size="sm"
             onPress={() => onToggleHidden(row.id, row.is_hidden)}
           />
         </View>
       ),
-      width: 90,
+      width: 100,
     },
   ];
 }

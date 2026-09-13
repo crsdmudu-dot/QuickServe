@@ -321,3 +321,15 @@ describe('AdminWebProviderDetailScreen (detail)', () => {
     expect(await screen.findByText('Create support case')).toBeOnTheScreen();
   });
 });
+
+// ── Desktop layout polish ─────────────────────────────────────────────────────
+describe('AdminWebProvidersScreen — desktop layout', () => {
+  it('renders the in-row Approve / Reject controls at the compact size', async () => {
+    render(<AdminWebProvidersScreen />);
+    await screen.findByText('Jane Doe');
+    // the in-row controls are the ones inside the table (the header filter chips share labels)
+    const rowButtons = screen.getAllByRole('button', { name: /^(Approve|Reject)$/ });
+    expect(rowButtons.length).toBeGreaterThanOrEqual(2);
+    for (const b of rowButtons.slice(-2)) expect(b).toHaveStyle({ height: 36 });
+  });
+});

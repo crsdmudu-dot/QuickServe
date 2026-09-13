@@ -75,6 +75,7 @@ function buildColumns(bookings: Booking[]): Column<CustomerProfile>[] {
         <Button
           label="Create case"
           variant="ghost"
+          size="sm"
           onPress={() =>
             router.push(
               `/(admin-web)/operations/new?customer_id=${row.id}` as Href,
@@ -82,7 +83,7 @@ function buildColumns(bookings: Booking[]): Column<CustomerProfile>[] {
           }
         />
       ),
-      width: 120,
+      width: 130,
     },
   ];
 }
