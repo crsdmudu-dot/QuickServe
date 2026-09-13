@@ -453,3 +453,23 @@ describe('admin payments / attempts / earnings — desktop layout', () => {
     expect(width).toBe(140);
   });
 });
+
+// ── Split column distribution (final admin UI pass) ───────────────────────────
+describe('AdminWebPaymentsScreen — Split column', () => {
+  it('lets Split absorb the free table width over a 220px floor while the other columns stay fixed', async () => {
+    render(<AdminWebPaymentsScreen />);
+    await screen.findByText('KES 3,000');
+    const cellStyleOf = (label: string): Record<string, unknown> => {
+      let node: any = screen.getAllByText(label).at(-1);
+      for (let i = 0; i < 6 && node; i++) { const st = flatStyle(node.props?.style); if (st.flexBasis !== undefined || st.width !== undefined) return st; node = node.parent; }
+      return {};
+    };
+    const split = cellStyleOf('Split');
+    expect(split.width).toBeUndefined();
+    expect(split.flexGrow).toBeGreaterThan(0);
+    expect(split.flexShrink).toBe(0);
+    expect(split.flexBasis).toBe(220);
+    expect(split.minWidth).toBe(220);
+    for (const h of ['Amount', 'Status', 'Method', 'Booking', 'Date', 'Override', 'Operations']) expect(typeof cellStyleOf(h).width).toBe('number');
+  });
+});

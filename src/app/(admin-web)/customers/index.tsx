@@ -33,7 +33,8 @@ function buildColumns(bookings: Booking[]): Column<CustomerProfile>[] {
           {row.full_name ?? '—'}
         </Text>
       ),
-      width: 180,
+      flex: 32,
+      minWidth: 160,
     },
     {
       key: 'phone',
@@ -43,7 +44,8 @@ function buildColumns(bookings: Booking[]): Column<CustomerProfile>[] {
           {row.phone ?? '—'}
         </Text>
       ),
-      width: 140,
+      flex: 20,
+      minWidth: 130,
     },
     {
       key: 'joined',
@@ -53,7 +55,8 @@ function buildColumns(bookings: Booking[]): Column<CustomerProfile>[] {
           {new Date(row.created_at).toLocaleDateString()}
         </Text>
       ),
-      width: 120,
+      flex: 18,
+      minWidth: 110,
     },
     {
       key: 'bookings',
@@ -66,7 +69,8 @@ function buildColumns(bookings: Booking[]): Column<CustomerProfile>[] {
           </Text>
         );
       },
-      width: 90,
+      flex: 12,
+      minWidth: 90,
     },
     {
       key: 'operations',
@@ -83,7 +87,8 @@ function buildColumns(bookings: Booking[]): Column<CustomerProfile>[] {
           }
         />
       ),
-      width: 130,
+      flex: 18,
+      minWidth: 130,
     },
   ];
 }
