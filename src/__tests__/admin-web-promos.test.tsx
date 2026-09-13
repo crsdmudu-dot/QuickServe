@@ -209,8 +209,45 @@ describe('AdminWebPromosScreen — desktop layout', () => {
     // the code cell itself (the create form also labels its input 'Code')
     let node: any = screen.getByText('SAVE20');
     let width: unknown;
-    for (let i = 0; i < 6 && node && width === undefined; i++) { width = flatStyle(node.props?.style).width; node = node.parent; }
-    expect(typeof width).toBe('number');
-    expect(width as number).toBeGreaterThanOrEqual(150);
+    for (let i = 0; i < 6 && node && width === undefined; i++) { const st = flatStyle(node.props?.style); if (st.flexBasis !== undefined) break; width = st.width; node = node.parent; }
+    // the Code column keeps a 150px floor and the largest share of the codes table (see column-distribution tests)
+    expect(width).toBeUndefined();
+    expect(floor('Code')).toBeGreaterThanOrEqual(150);
+  });
+});
+
+// Declared width of the table column that contains a header label (walks up to the cell style).
+// Style of the table cell that contains a header label (the first ancestor declaring a flex basis or width).
+const columnCellStyle = (label: string): Record<string, unknown> => {
+  let node: any = screen.getAllByText(label).at(-1);
+  for (let i = 0; i < 6 && node; i++) { const st = flatStyle(node.props?.style); if (st.flexBasis !== undefined || st.width !== undefined) return st; node = node.parent; }
+  return {};
+};
+// Share of the free width a column receives (flex columns), asserting the column is not fixed-width.
+const share = (label: string): number => { const st = columnCellStyle(label); expect(st.width).toBeUndefined(); expect(typeof st.flexGrow).toBe('number'); expect(st.flexShrink).toBe(0); return st.flexGrow as number; };
+const floor = (label: string): number => { const st = columnCellStyle(label); expect(st.flexBasis).toBe(st.minWidth); return st.minWidth as number; };
+
+describe('AdminWebPromosScreen — column distribution', () => {
+  beforeEach(() => {
+    mockAdminGetPromoCodes.mockResolvedValue([MOCK_PROMO_CODE]);
+    mockAdminGetPromoRedemptions.mockResolvedValue([MOCK_REDEMPTION]);
+  });
+  it('codes table declares flex shares summing to 100% over content floors', async () => {
+    render(<AdminWebPromosScreen />);
+    await screen.findByText('SAVE20');
+    const shares = ['Code', 'Type', 'Value', 'Limits', 'Window', 'Active', 'Action'].map(share);
+    expect(shares.reduce((a, b) => a + b, 0)).toBe(100);
+    expect(share('Action')).toBeLessThanOrEqual(15);
+    // content floors: real promo codes never break mid-word and the compact toggle keeps its room
+    expect(floor('Code')).toBeGreaterThanOrEqual(150);
+    expect(floor('Action')).toBeGreaterThanOrEqual(100);
+    expect(floor('Window')).toBeGreaterThanOrEqual(160);
+  });
+  it('redemptions table declares flex shares summing to 100%', async () => {
+    render(<AdminWebPromosScreen />);
+    await screen.findByText('KES 500');
+    const shares = ['Promo', 'Customer', 'Booking', 'Payment', 'Amount', 'Date'].map(share);
+    expect(shares.reduce((a, b) => a + b, 0)).toBe(100);
+    expect(mockAdminUpdatePromoCode).not.toHaveBeenCalled();
   });
 });

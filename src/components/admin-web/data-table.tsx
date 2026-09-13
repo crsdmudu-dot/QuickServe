@@ -14,7 +14,7 @@
  */
 
 import { type JSX, type ReactNode, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -30,9 +30,33 @@ export type Column<T> = {
   header: string;
   render: (row: T) => ReactNode;
   width?: number | `${number}%`;
+  /**
+   * Share of the table's free width (beyond every column's floor) this column receives, e.g. 32 for a
+   * 32% share. Flex columns fill the table on wide pages and fall back to their `minWidth` floor on
+   * narrow pages, so the table scrolls horizontally instead of squeezing content. Ignored when `width`
+   * is set.
+   */
+  flex?: number;
+  /** Content floor for the column (px). Used as the flex basis of a flex column. Defaults to 80. */
+  minWidth?: number;
   /** Optional text alignment for header + cells. Defaults to 'left'. */
   align?: 'left' | 'right';
 };
+
+const DEFAULT_MIN_WIDTH = 80;
+
+/**
+ * Column sizing style. Three contracts:
+ *  - `width` (px or %): fixed column, never grows.
+ *  - `flex`: grows by share from a `minWidth` floor and never shrinks below it.
+ *  - neither: equal-share flex column.
+ */
+function cellSizing<T>(col: Column<T>): ViewStyle {
+  const floor = col.minWidth ?? DEFAULT_MIN_WIDTH;
+  if (col.width != null) return { width: col.width, flexGrow: 0, minWidth: floor };
+  if (col.flex != null) return { flexGrow: col.flex, flexShrink: 0, flexBasis: floor, minWidth: floor };
+  return { flex: 1, minWidth: floor };
+}
 
 export type DataTableProps<T> = {
   columns: Column<T>[];
@@ -96,7 +120,7 @@ export function DataTable<T>(props: DataTableProps<T>): JSX.Element {
               key={col.key}
               style={[
                 styles.cell,
-                col.width != null ? { width: col.width, flexGrow: 0 } : { flex: 1 },
+                cellSizing(col),
                 col.align === 'right' && styles.cellRight,
               ]}>
               <Text
@@ -120,7 +144,7 @@ export function DataTable<T>(props: DataTableProps<T>): JSX.Element {
               i === SKELETON_ROW_COUNT - 1 && styles.lastRow,
             ]}>
             {columns.map((col) => (
-              <View key={col.key} style={[styles.cell, col.width != null ? { width: col.width, flexGrow: 0 } : { flex: 1 }]}>
+              <View key={col.key} style={[styles.cell, cellSizing(col)]}>
                 <Skeleton height={14} width="80%" />
               </View>
             ))}
@@ -167,7 +191,7 @@ export function DataTable<T>(props: DataTableProps<T>): JSX.Element {
               key={col.key}
               style={[
                 styles.cell,
-                col.width != null ? { width: col.width, flexGrow: 0 } : { flex: 1 },
+                cellSizing(col),
                 col.align === 'right' && styles.cellRight,
               ]}>
               <Text
@@ -201,7 +225,7 @@ export function DataTable<T>(props: DataTableProps<T>): JSX.Element {
                   key={col.key}
                   style={[
                     styles.cell,
-                    col.width != null ? { width: col.width, flexGrow: 0 } : { flex: 1 },
+                    cellSizing(col),
                     col.align === 'right' && styles.cellRight,
                   ]}>
                   {col.render(row)}

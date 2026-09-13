@@ -280,7 +280,8 @@ export default function AdminServicesScreen() {
       render: (row) => (
         <Text variant="label" color="text" weight="semibold">{row.name}</Text>
       ),
-      width: 160,
+      flex: 40,
+      minWidth: 160,
     },
     {
       key: 'slug',
@@ -288,7 +289,8 @@ export default function AdminServicesScreen() {
       render: (row) => (
         <Text variant="caption" color="textSecondary">{row.slug}</Text>
       ),
-      width: 160,
+      flex: 34,
+      minWidth: 160,
     },
     {
       key: 'color',
@@ -299,7 +301,8 @@ export default function AdminServicesScreen() {
         ) : (
           <Text variant="caption" color="textTertiary">—</Text>
         ),
-      width: 64,
+      flex: 13,
+      minWidth: 80,
     },
     {
       key: 'services',
@@ -309,7 +312,8 @@ export default function AdminServicesScreen() {
           {svcCountByCat[row.id] ?? 0}
         </Text>
       ),
-      width: 80,
+      flex: 13,
+      minWidth: 80,
     },
     {
       key: 'active',

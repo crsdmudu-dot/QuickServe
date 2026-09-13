@@ -389,3 +389,51 @@ describe('AdminWebCustomersScreen — desktop layout', () => {
     for (const b of screen.getAllByRole('button', { name: 'Create case' })) expect(b).toHaveStyle({ height: 36 });
   });
 });
+
+// ── Column distribution (admin-web column-distribution fix) ──────────────────
+const flatStyle = (s: unknown): Record<string, unknown> =>
+  Array.isArray(s) ? Object.assign({}, ...s.map(flatStyle)) : s && typeof s === 'object' ? (s as Record<string, unknown>) : {};
+
+// Declared width of the table column that contains a header label (walks up to the cell style).
+// Style of the table cell that contains a header label (the first ancestor declaring a flex basis or width).
+const columnCellStyle = (label: string): Record<string, unknown> => {
+  let node: any = screen.getAllByText(label).at(-1);
+  for (let i = 0; i < 6 && node; i++) { const st = flatStyle(node.props?.style); if (st.flexBasis !== undefined || st.width !== undefined) return st; node = node.parent; }
+  return {};
+};
+// Share of the free width a column receives (flex columns), asserting the column is not fixed-width.
+const share = (label: string): number => { const st = columnCellStyle(label); expect(st.width).toBeUndefined(); expect(typeof st.flexGrow).toBe('number'); expect(st.flexShrink).toBe(0); return st.flexGrow as number; };
+const floor = (label: string): number => { const st = columnCellStyle(label); expect(st.flexBasis).toBe(st.minWidth); return st.minWidth as number; };
+
+describe('AdminWebCustomersScreen — column distribution', () => {
+  it('declares a balanced flex-share column model that accounts for the full table width', async () => {
+    render(<AdminWebCustomersScreen />);
+    await screen.findByText('Alice Wanjiku');
+    const shares = ['Name', 'Phone', 'Joined', 'Bookings', 'Operations'].map(share);
+    expect(shares.reduce((a, b) => a + b, 0)).toBe(100);
+    for (const s of shares) expect(s).toBeGreaterThanOrEqual(10);
+  });
+  it('does not turn Operations into an oversized residual column', async () => {
+    render(<AdminWebCustomersScreen />);
+    await screen.findByText('Alice Wanjiku');
+    expect(share('Operations')).toBeLessThanOrEqual(20);
+    expect(share('Name')).toBeGreaterThanOrEqual(share('Operations'));
+  });
+  it('keeps content floors so narrow layouts scroll the table instead of squeezing Create case', async () => {
+    render(<AdminWebCustomersScreen />);
+    await screen.findByText('Alice Wanjiku');
+    expect(floor('Operations')).toBeGreaterThanOrEqual(130);
+    expect(floor('Name')).toBeGreaterThanOrEqual(160);
+    expect(floor('Phone')).toBeGreaterThanOrEqual(130);
+  });
+  it('keeps Create case fully rendered at the compact size and performs no mutation on render', async () => {
+    mockSetReviewHidden.mockClear();
+    render(<AdminWebCustomersScreen />);
+    await screen.findByText('Alice Wanjiku');
+    const buttons = screen.getAllByRole('button', { name: 'Create case' });
+    expect(buttons.length).toBeGreaterThan(0);
+    for (const b of buttons) expect(b).toHaveStyle({ height: 36 });
+    expect(mockAdminGetAllCustomers).toHaveBeenCalled();
+    expect(mockSetReviewHidden).not.toHaveBeenCalled();
+  });
+});

@@ -170,3 +170,43 @@ describe('DataTable — desktop width contract', () => {
     expect(content.minWidth).toBe('100%');
   });
 });
+
+describe('DataTable — fixed-width tables keep table-only overflow', () => {
+  it('fixed columns keep flexGrow 0 inside a horizontal scroller so a wide table scrolls within itself', () => {
+    const wide: Column<Row>[] = [
+      { key: 'a', header: 'Alpha', render: (r) => <Text>{r.name}</Text>, width: 700 },
+      { key: 'b', header: 'Beta', render: (r) => <Text>{r.status}</Text>, width: 700 },
+    ];
+    render(<DataTable columns={wide} rows={ROWS} keyExtractor={(r) => r.id} />);
+    const sv = screen.UNSAFE_getByType(ScrollView);
+    expect(sv.props.horizontal).toBe(true);
+    let node: any = screen.getByText('Alpha');
+    let cell: Record<string, unknown> = {};
+    for (let i = 0; i < 6 && node; i++) { const st = StyleSheet.flatten(node.props?.style) as Record<string, unknown>; if (st && st.width !== undefined) { cell = st; break; } node = node.parent; }
+    expect(cell.width).toBe(700);
+    expect(cell.flexGrow).toBe(0);
+  });
+});
+
+describe('DataTable — flex-share columns over a content floor', () => {
+  it('distributes free width by share on wide pages and falls back to the floors (table-only scrolling) on narrow pages', () => {
+    const cols: Column<Row>[] = [
+      { key: 'a', header: 'Alpha', render: (r) => <Text>{r.name}</Text>, flex: 60, minWidth: 160 },
+      { key: 'b', header: 'Beta', render: (r) => <Text>{r.status}</Text>, width: '40%' },
+    ];
+    render(<DataTable columns={cols} rows={ROWS} keyExtractor={(r) => r.id} />);
+    const cellStyle = (label: string): Record<string, unknown> => {
+      let node: any = screen.getByText(label);
+      for (let i = 0; i < 6 && node; i++) { const st = StyleSheet.flatten(node.props?.style) as Record<string, unknown>; if (st && (st.width !== undefined || st.flexBasis !== undefined)) return st; node = node.parent; }
+      return {};
+    };
+    const alpha = cellStyle('Alpha');
+    expect(alpha.width).toBeUndefined();
+    expect(alpha.flexGrow).toBe(60);
+    expect(alpha.flexShrink).toBe(0);
+    expect(alpha.flexBasis).toBe(160);
+    expect(alpha.minWidth).toBe(160);
+    expect(cellStyle('Beta').width).toBe('40%');
+    expect(cellStyle('Beta').minWidth).toBe(80); // default floor unchanged
+  });
+});

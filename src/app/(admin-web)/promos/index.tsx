@@ -58,7 +58,8 @@ function buildCodeColumns(
           {row.code}
         </Text>
       ),
-      width: 150,
+      flex: 20,
+      minWidth: 150,
     },
     {
       key: 'type',
@@ -68,7 +69,8 @@ function buildCodeColumns(
           {row.discount_type}
         </Text>
       ),
-      width: 110,
+      flex: 13,
+      minWidth: 100,
     },
     {
       key: 'value',
@@ -80,7 +82,8 @@ function buildCodeColumns(
             : formatKes(row.discount_value)}
         </Text>
       ),
-      width: 100,
+      flex: 12,
+      minWidth: 90,
     },
     {
       key: 'limits',
@@ -90,7 +93,8 @@ function buildCodeColumns(
           {`${row.max_redemptions ?? '∞'} / ${row.per_user_limit}`}
         </Text>
       ),
-      width: 90,
+      flex: 11,
+      minWidth: 90,
     },
     {
       key: 'window',
@@ -108,7 +112,8 @@ function buildCodeColumns(
           </Text>
         );
       },
-      width: 160,
+      flex: 21,
+      minWidth: 160,
     },
     {
       key: 'active',
@@ -120,7 +125,7 @@ function buildCodeColumns(
           {row.is_active ? 'Yes' : 'No'}
         </Text>
       ),
-      width: 70,
+      flex: 9,
     },
     {
       key: 'action',
@@ -135,7 +140,8 @@ function buildCodeColumns(
           />
         </View>
       ),
-      width: 100,
+      flex: 14,
+      minWidth: 100,
     },
   ];
 }
@@ -152,7 +158,8 @@ function buildRedemptionColumns(): Column<PromoRedemption>[] {
           {`#${row.promo_code_id.slice(0, 8)}`}
         </Text>
       ),
-      width: 100,
+      flex: 18,
+      minWidth: 100,
     },
     {
       key: 'customer',
@@ -162,7 +169,8 @@ function buildRedemptionColumns(): Column<PromoRedemption>[] {
           {`#${row.customer_id.slice(0, 8)}`}
         </Text>
       ),
-      width: 100,
+      flex: 17,
+      minWidth: 100,
     },
     {
       key: 'booking',
@@ -172,7 +180,8 @@ function buildRedemptionColumns(): Column<PromoRedemption>[] {
           {row.booking_id ? `#${row.booking_id.slice(0, 8)}` : '—'}
         </Text>
       ),
-      width: 100,
+      flex: 17,
+      minWidth: 100,
     },
     {
       key: 'payment',
@@ -182,7 +191,8 @@ function buildRedemptionColumns(): Column<PromoRedemption>[] {
           {row.payment_id ? `#${row.payment_id.slice(0, 8)}` : '—'}
         </Text>
       ),
-      width: 100,
+      flex: 17,
+      minWidth: 100,
     },
     {
       key: 'amount',
@@ -192,7 +202,8 @@ function buildRedemptionColumns(): Column<PromoRedemption>[] {
           {formatKes(row.discount_amount)}
         </Text>
       ),
-      width: 110,
+      flex: 15,
+      minWidth: 110,
     },
     {
       key: 'date',
@@ -202,7 +213,8 @@ function buildRedemptionColumns(): Column<PromoRedemption>[] {
           {new Date(row.created_at).toLocaleDateString()}
         </Text>
       ),
-      width: 110,
+      flex: 16,
+      minWidth: 110,
     },
   ];
 }

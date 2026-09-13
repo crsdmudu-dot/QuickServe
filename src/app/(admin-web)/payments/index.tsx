@@ -68,7 +68,8 @@ function buildColumns(
           {`Provider ${formatKes(row.provider_share)} · KwikServe ${formatKes(row.quickserve_share)}`}
         </Text>
       ),
-      width: 220,
+      flex: 100,
+      minWidth: 220,
     },
     {
       key: 'method',

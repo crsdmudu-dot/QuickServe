@@ -1091,3 +1091,52 @@ describe('AdminServicesScreen — desktop density', () => {
     expect(mockAdminReorderCategories).not.toHaveBeenCalled();
   });
 });
+
+// ── Categories table column distribution (final admin UI pass) ───────────────
+const flatStyle = (s: unknown): Record<string, unknown> =>
+  Array.isArray(s) ? Object.assign({}, ...s.map(flatStyle)) : s && typeof s === 'object' ? (s as Record<string, unknown>) : {};
+// Style of the table cell containing a header label (first ancestor declaring a flex basis or width).
+const cellStyleOf = (el: ReturnType<typeof screen.getByText>): Record<string, unknown> => {
+  let node: any = el;
+  for (let i = 0; i < 6 && node; i++) { const st = flatStyle(node.props?.style); if (st.flexBasis !== undefined || st.width !== undefined) return st; node = node.parent; }
+  return {};
+};
+// The categories table renders above the services table, so its header is the first match.
+const categoryCell = (h: string) => cellStyleOf(screen.getAllByText(h).at(0)!);
+
+describe('AdminServicesScreen — categories column distribution', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockListAdminServiceCategories.mockResolvedValue([CAT_HOME, CAT_AUTO]);
+    mockListAdminServices.mockResolvedValue([SVC_CLEANING, SVC_TOWING]);
+  });
+
+  it('gives Name, Slug, Color and Services flex shares over content floors that sum to 100', async () => {
+    render(<AdminServicesScreen />);
+    await screen.findByText('Service Categories');
+    const shares = ['Name', 'Slug', 'Color', 'Services'].map((h) => {
+      const st = categoryCell(h);
+      expect(st.width).toBeUndefined();
+      expect(st.flexShrink).toBe(0);
+      expect(st.flexBasis).toBe(st.minWidth);
+      return st.flexGrow as number;
+    });
+    expect(shares.reduce((a, b) => a + b, 0)).toBe(100);
+    expect(categoryCell('Name').minWidth).toBeGreaterThanOrEqual(160);
+    expect(categoryCell('Slug').minWidth).toBeGreaterThanOrEqual(160);
+    // text columns get the larger shares; counters stay modest
+    expect(categoryCell('Name').flexGrow).toBeGreaterThan(categoryCell('Color').flexGrow as number);
+    expect(categoryCell('Slug').flexGrow).toBeGreaterThan(categoryCell('Services').flexGrow as number);
+  });
+
+  it('keeps Active, Edit and Order as compact fixed columns that fit the desktop table with the floors', async () => {
+    render(<AdminServicesScreen />);
+    await screen.findByText('Service Categories');
+    const fixed = ['Icon', 'Active', 'Edit', 'Order'].map((h) => categoryCell(h));
+    for (const st of fixed) { expect(typeof st.width).toBe('number'); expect(st.width as number).toBeLessThanOrEqual(96); }
+    const floors = ['Name', 'Slug', 'Color', 'Services'].map((h) => categoryCell(h).minWidth as number);
+    const declared = fixed.reduce((a, st) => a + Math.max(st.width as number, 80), 0) + floors.reduce((a, b) => a + b, 0) + 32;
+    expect(declared).toBeLessThanOrEqual(1248); // no overflow at 1536×864; flex columns absorb the rest
+    for (const label of ['Edit', '↑', '↓']) for (const b of screen.getAllByRole('button', { name: label })) expect(b).toHaveStyle({ height: 36 });
+  });
+});
