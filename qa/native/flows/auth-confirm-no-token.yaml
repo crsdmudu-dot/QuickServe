@@ -13,7 +13,17 @@
 # Deliberately read-only: nothing typed, no credential, no auth action tapped, no QA data created.
 appId: ke.co.hiredcorp.kwikserve
 ---
-# The route must already be showing the single neutral state.
+# iOS asks "Open in "KwikServe"?" before handing a custom-scheme URL to an app, whatever delivered
+# it (runs 34838315160 and 34867318992 both hit the same alert). Confirming it is part of the real
+# journey; conditional so the flow skips it if a future iOS stops asking. This is the ONLY tap in
+# the flow, and it confirms a link open, nothing else.
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+
+# The route must now be showing the single neutral state.
 - extendedWaitUntil:
     visible: "This link is invalid or has expired."
     timeout: 30000

@@ -306,6 +306,35 @@ describe('the Maestro flows assert the neutral invalid-link state', () => {
     expect(text).not.toMatch(/tapOn:\s*"?(Log in|Sign in|Request a new link|Go to sign in)/);
   });
 
+  it.each(cases)('$url confirms the iOS system dialog, conditionally, before asserting', ({ file }) => {
+    const text = read(file);
+    // iOS asks "Open in “KwikServe”?" for a custom-scheme open no matter how the URL is delivered
+    // — Maestro's openLink (run 34838315160) and xcrun simctl openurl (run 34867318992) both hit
+    // it. Nobody tapped it, so both runs timed out on the welcome screen. The confirmation is part
+    // of the real journey: a user tapping an emailed link sees exactly this prompt.
+    expect(text).toMatch(
+      /- runFlow:\n\s+when:\n\s+visible: "Open"\n\s+commands:\n\s+- tapOn: "Open"\n/,
+    );
+  });
+
+  it.each(cases)('$url makes that tap the only tap, and never an unconditional one', ({ file }) => {
+    const text = read(file);
+    const taps = text.match(/^\s*- tapOn:/gm) ?? [];
+    expect(taps).toHaveLength(1);
+    // the single tap must sit inside the conditional, not at the top level of the command list
+    expect(text).not.toMatch(/^- tapOn:/m);
+    expect(text).toMatch(/^\s{6,}- tapOn: "Open"$/m);
+  });
+
+  it.each(cases)('$url confirms before it waits for the invalid-link state', ({ file }) => {
+    const text = read(file);
+    const confirm = text.indexOf('- runFlow:');
+    const firstWait = text.indexOf('This link is invalid or has expired.');
+    expect(confirm).toBeGreaterThan(-1);
+    expect(firstWait).toBeGreaterThan(-1);
+    expect(confirm).toBeLessThan(firstWait);
+  });
+
   it.each(cases)('$url asserts only, and asserts the negatives too', ({ file }) => {
     const text = read(file);
     expect(text).toMatch(/extendedWaitUntil:/);
