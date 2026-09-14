@@ -220,35 +220,65 @@ jobs:
       # The reinstall before each route is what makes the starting point deterministic: a freshly
       # installed build has no storage, so the app can only launch signed out. The two routes are
       # prepared separately so neither can inherit the other's navigation.
-      - name: Recovery route — reinstall, cold-launch signed out, deliver the link
+      #
+      # The app is deliberately left TERMINATED: `simctl openurl` is what starts it, so the URL
+      # arrives as the app's initial URL rather than at an already-foreground process. That is also
+      # how an emailed link usually arrives, with the app closed.
+      #
+      # HYPOTHESIS, not yet proven. Run 34870512650 launched the app first, approved the system
+      # prompt successfully, and still sat on the welcome screen — the URL never reached the router.
+      # Cold-launch delivery is the next thing to test; only a remote dispatch can confirm it. The
+      # process checks below are what will tell us: the app must NOT be running before delivery and
+      # MUST be running after the prompt is approved.
+      - name: Recovery route — reinstall, leave terminated, let the URL start the app
         run: |
           set -euo pipefail
           xcrun simctl terminate "$DEVICE_ID" "$EXPECTED_BUNDLE_ID" || true
           xcrun simctl uninstall "$DEVICE_ID" "$EXPECTED_BUNDLE_ID" || true
           xcrun simctl install "$DEVICE_ID" "$APP_PATH"
-          xcrun simctl launch "$DEVICE_ID" "$EXPECTED_BUNDLE_ID"
-          sleep 12
+          # Prove the starting point rather than assuming it. `launchctl list` names running
+          # processes only; the bundle id is not sensitive and no URL is printed.
+          RUNNING=$(xcrun simctl spawn "$DEVICE_ID" launchctl list 2>/dev/null | grep -c "$EXPECTED_BUNDLE_ID" || true)
+          [ "$RUNNING" = "0" ] || { echo "FAIL: the app is already running before delivery"; exit 1; }
+          echo "App installed and not running before delivery."
           xcrun simctl openurl "$DEVICE_ID" "kwikserve://auth/recovery"
-          sleep 4
-          echo "Recovery link delivered."
+          sleep 6
+          echo "Recovery link delivered to a terminated app."
 
       - name: Recovery route refuses a link with no parameters
         run: maestro test qa/native/flows/auth-recovery-no-token.yaml
 
-      - name: Confirmation route — reinstall, cold-launch signed out, deliver the link
+      - name: Recovery route — prove the URL is what started the app
+        run: |
+          set -euo pipefail
+          RUNNING=$(xcrun simctl spawn "$DEVICE_ID" launchctl list 2>/dev/null | grep -c "$EXPECTED_BUNDLE_ID" || true)
+          [ "$RUNNING" != "0" ] || { echo "FAIL: the app is not running after the prompt was approved"; exit 1; }
+          echo "App was started by the URL (not running before delivery, running after)."
+
+      - name: Confirmation route — reinstall, leave terminated, let the URL start the app
         run: |
           set -euo pipefail
           xcrun simctl terminate "$DEVICE_ID" "$EXPECTED_BUNDLE_ID" || true
           xcrun simctl uninstall "$DEVICE_ID" "$EXPECTED_BUNDLE_ID" || true
           xcrun simctl install "$DEVICE_ID" "$APP_PATH"
-          xcrun simctl launch "$DEVICE_ID" "$EXPECTED_BUNDLE_ID"
-          sleep 12
+          # Prove the starting point rather than assuming it. `launchctl list` names running
+          # processes only; the bundle id is not sensitive and no URL is printed.
+          RUNNING=$(xcrun simctl spawn "$DEVICE_ID" launchctl list 2>/dev/null | grep -c "$EXPECTED_BUNDLE_ID" || true)
+          [ "$RUNNING" = "0" ] || { echo "FAIL: the app is already running before delivery"; exit 1; }
+          echo "App installed and not running before delivery."
           xcrun simctl openurl "$DEVICE_ID" "kwikserve://auth/confirm"
-          sleep 4
-          echo "Confirmation link delivered."
+          sleep 6
+          echo "Confirmation link delivered to a terminated app."
 
       - name: Confirmation route refuses a link with no parameters
         run: maestro test qa/native/flows/auth-confirm-no-token.yaml
+
+      - name: Confirmation route — prove the URL is what started the app
+        run: |
+          set -euo pipefail
+          RUNNING=$(xcrun simctl spawn "$DEVICE_ID" launchctl list 2>/dev/null | grep -c "$EXPECTED_BUNDLE_ID" || true)
+          [ "$RUNNING" != "0" ] || { echo "FAIL: the app is not running after the prompt was approved"; exit 1; }
+          echo "App was started by the URL (not running before delivery, running after)."
 
       - name: Prove no crash, no session and no auth request occurred
         if: always()

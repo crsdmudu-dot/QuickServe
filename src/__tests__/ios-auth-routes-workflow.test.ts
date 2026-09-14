@@ -150,8 +150,15 @@ describe('simulator selection and launch', () => {
     expect(yml).toContain('simctl boot');
   });
 
-  it('cold-launches the app and runs both no-token flows', () => {
-    expect(yml).toContain('simctl launch');
+  it('never launches the app itself — the URL must be what starts it', () => {
+    // HYPOTHESIS under test (unproven until a remote dispatch): run 34870512650 launched the app
+    // first and then fired the URL at an already-foreground app; the prompt was approved but the
+    // app stayed on the welcome screen. Leaving it terminated should make iOS cold-launch it with
+    // the URL as its initial URL, which is also how an emailed link usually arrives.
+    expect(yml).not.toMatch(/^\s+xcrun simctl launch\b/m);
+  });
+
+  it('runs both no-token flows', () => {
     // The URLs live in the flows (asserted below), so the workflow cannot drift from them; what
     // the workflow must prove is that it runs exactly those two and smuggles no parameter of
     // its own.
@@ -207,13 +214,36 @@ describe('the workflow delivers each link itself, per route', () => {
     }
   });
 
-  it.each(routes)('$name is prepared independently from a known signed-out launch', ({ url }) => {
+  it.each(routes)('$name is prepared independently: terminate, uninstall, reinstall, no launch', ({ url }) => {
     const before = yml.slice(0, yml.indexOf(`openurl "$DEVICE_ID" "${url}"`));
     const step = before.slice(before.lastIndexOf('      - name:'));
-    // each route reinstalls and cold-launches before its own link is delivered
+    expect(step).toContain('simctl terminate');
     expect(step).toContain('simctl uninstall');
     expect(step).toContain('simctl install');
-    expect(step).toContain('simctl launch');
+    // the app is left terminated: delivery is what starts it
+    expect(step).not.toMatch(/^\s+xcrun simctl launch\b/m);
+    // and the order is terminate, then uninstall, then install, then deliver
+    expect(step.indexOf('simctl terminate')).toBeLessThan(step.indexOf('simctl uninstall'));
+    expect(step.indexOf('simctl uninstall')).toBeLessThan(step.indexOf('simctl install'));
+  });
+
+  it.each(routes)('$name proves the app is not running before the link is delivered', ({ url }) => {
+    const before = yml.slice(0, yml.indexOf(`openurl "$DEVICE_ID" "${url}"`));
+    const step = before.slice(before.lastIndexOf('      - name:'));
+    // The GUARD, not the echo beside it: deleting the check while leaving a reassuring message
+    // must fail this test.
+    expect(step).toContain('launchctl list');
+    expect(step).toMatch(/\[ "\$RUNNING" = "0" \][^\n]*exit 1/);
+  });
+
+  it.each(routes)('$name proves the app is running after the prompt is approved', ({ flow }) => {
+    const after = yml.slice(yml.indexOf(`maestro test ${flow}`));
+    const nextStep = after.slice(0, after.indexOf('      - name:', 10) + 1) || after;
+    const following = after.slice(after.indexOf('      - name:', 10));
+    // Again the guard rather than the message beside it.
+    expect(following).toContain('launchctl list');
+    expect(following).toMatch(/\[ "\$RUNNING" != "0" \][^\n]*exit 1/);
+    expect(nextStep.length).toBeGreaterThan(0);
   });
 
   it.each(routes)('$name opens the URL before running its assertion flow', ({ url, flow }) => {
