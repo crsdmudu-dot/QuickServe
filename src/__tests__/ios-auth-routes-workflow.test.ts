@@ -114,6 +114,34 @@ describe('artifact identity is proved before anything is installed', () => {
   });
 });
 
+describe('the runner can actually run eas', () => {
+  // Run 34836144016 failed here: `eas build:view` evaluates the project config, which loads
+  // app.config.js and resolves the expo-router plugin, and that needs node_modules. The gate
+  // installed eas-cli and Maestro but never installed the app's dependencies, so the very first
+  // EAS call exited 1 and every meaningful step was skipped. The ordering assertion below is the
+  // one that would have caught it before a dispatch.
+  it('installs the app dependencies', () => {
+    expect(yml).toMatch(/^ {8}run: npm ci$/m);
+  });
+
+  it('installs them before the first EAS command', () => {
+    const npmCi = yml.search(/^ {8}run: npm ci$/m);
+    // A real command line, not a mention in prose: comments start with `#` after the indent, so
+    // this only matches a line that actually invokes the CLI.
+    const firstEas = yml.search(/^\s+eas [a-z]/m);
+    expect(npmCi).toBeGreaterThan(-1);
+    expect(firstEas).toBeGreaterThan(-1);
+    expect(npmCi).toBeLessThan(firstEas);
+  });
+
+  it('installs them after the tool install, so eas-cli exists first', () => {
+    const tools = yml.indexOf('npm install -g eas-cli');
+    const npmCi = yml.search(/^ {8}run: npm ci$/m);
+    expect(tools).toBeGreaterThan(-1);
+    expect(npmCi).toBeGreaterThan(tools);
+  });
+});
+
 describe('simulator selection and launch', () => {
   it('chooses and records a compatible runtime, failing clearly when none exists', () => {
     expect(yml).toContain('simctl list');

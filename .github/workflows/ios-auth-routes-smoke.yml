@@ -98,6 +98,12 @@ jobs:
           curl -fsSL "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
 
+      # `eas build:view` evaluates the project config, which loads app.config.js and resolves the
+      # expo-router plugin — that needs the app's dependencies, not just the CLI. Without this the
+      # first EAS call exits 1 and every meaningful step is skipped (run 34836144016).
+      - name: Install app dependencies (eas needs node_modules to resolve the config plugin)
+        run: npm ci
+
       - name: Refuse any build other than the pinned one
         run: |
           set -euo pipefail
