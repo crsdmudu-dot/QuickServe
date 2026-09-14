@@ -43,6 +43,34 @@ on:
         required: true
         default: "6c5bfa9f3e8299ce429e4a924844c04d89ff891c075932a545f2b34693d0af7d"
 
+  # Callable as a LOCAL reusable workflow. This exists for one reason: GitHub only lists a
+  # workflow_dispatch workflow that is present on the DEFAULT branch, so until this file lands on
+  # main it cannot be dispatched on its own. `ios-item-m-scheme.yml` is already registered there and
+  # can call this from a feature-branch ref. The manual contract above is unchanged and becomes the
+  # normal entry point once this is on main.
+  #
+  # The secret is declared explicitly: a caller must hand over EXPO_TOKEN by name. There is no
+  # `secrets: inherit` path into this workflow, so a caller holding fixture identities or a
+  # service-role key cannot leak them in here by accident.
+  workflow_call:
+    inputs:
+      build_id:
+        description: "EAS iOS simulator build ID to certify (must equal the pinned id)"
+        required: true
+        type: string
+      expected_commit:
+        description: "Commit the artifact must have been built from"
+        required: true
+        type: string
+      expected_sha256:
+        description: "SHA-256 the downloaded artifact must have"
+        required: true
+        type: string
+    secrets:
+      EXPO_TOKEN:
+        description: "Expo access token, used only to read the pinned build's metadata and artifact"
+        required: true
+
 permissions:
   contents: read
 
@@ -73,7 +101,7 @@ jobs:
       - name: Refuse any build other than the pinned one
         run: |
           set -euo pipefail
-          BUILD_ID="${{ github.event.inputs.build_id }}"
+          BUILD_ID="${{ inputs.build_id }}"
           if [ "$BUILD_ID" != "$PINNED_BUILD_ID" ]; then
             echo "refusing: this gate certifies $PINNED_BUILD_ID only, got $BUILD_ID"
             exit 1
@@ -97,8 +125,8 @@ jobs:
           [ "$PLATFORM" = "IOS" ]               || { echo "FAIL: platform is $PLATFORM, expected IOS"; exit 1; }
           [ "$PROFILE" = "ios-simulator" ]      || { echo "FAIL: profile is $PROFILE, expected ios-simulator"; exit 1; }
           [ "$SIMULATOR" = "true" ]             || { echo "FAIL: not a simulator artifact"; exit 1; }
-          [ "$COMMIT" = "${{ github.event.inputs.expected_commit }}" ] || {
-            echo "FAIL: artifact was built from $COMMIT, expected ${{ github.event.inputs.expected_commit }}"; exit 1; }
+          [ "$COMMIT" = "${{ inputs.expected_commit }}" ] || {
+            echo "FAIL: artifact was built from $COMMIT, expected ${{ inputs.expected_commit }}"; exit 1; }
           echo "Artifact identity verified."
 
       - name: Download from expo.dev and verify SHA-256 before touching a simulator
@@ -113,7 +141,7 @@ jobs:
           echo "Downloading the pinned artifact (URL redacted)…"
           curl -fSL "$URL" -o app.tar.gz
           ACTUAL=$(shasum -a 256 app.tar.gz | awk '{print $1}')
-          EXPECTED="${{ github.event.inputs.expected_sha256 }}"
+          EXPECTED="${{ inputs.expected_sha256 }}"
           echo "sha256 actual=$ACTUAL"
           [ "$ACTUAL" = "$EXPECTED" ] || { echo "FAIL: sha256 mismatch, expected $EXPECTED"; exit 1; }
           mkdir -p app && tar -xzf app.tar.gz -C app

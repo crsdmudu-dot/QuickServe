@@ -39,11 +39,16 @@ function scalarAt(text: string, key: string, indent: number): string | undefined
 }
 
 describe('trigger and permissions are pinned', () => {
-  it('is manually dispatched only — never on push, pull request or a schedule', () => {
+  it('never starts on its own — no push, pull request, schedule or repository dispatch', () => {
     expect(yml).toMatch(/^on:\n {2}workflow_dispatch:/m);
-    for (const trigger of ['push:', 'pull_request:', 'schedule:', 'workflow_call:', 'repository_dispatch:']) {
-      expect(yml).not.toMatch(new RegExp(`^ {0,2}${trigger.replace(':', ':')}`, 'm'));
+    for (const trigger of ['push:', 'pull_request:', 'schedule:', 'repository_dispatch:']) {
+      expect(yml).not.toMatch(new RegExp(`^ {0,2}${trigger}`, 'm'));
     }
+    // `workflow_call` is allowed and is NOT an automatic trigger: it only runs when a caller that
+    // was itself manually dispatched invokes it, and it must name the one secret it accepts.
+    // (The caller side is pinned in ios-item-m-auth-mode.test.ts.)
+    expect(yml).toMatch(/^ {2}workflow_call:$/m);
+    expect(yml).toMatch(/^ {4}secrets:\n {6}EXPO_TOKEN:$/m);
   });
 
   it('runs with least privilege', () => {
