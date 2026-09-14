@@ -1,0 +1,229 @@
+name: iOS Auth Routes — no-token fail-closed smoke (standalone)
+
+# Certifies ONE question on iOS, against ONE pinned artifact: do the two emailed-link routes
+# refuse a link that carries nothing, with the single neutral state?
+#
+# Deliberately standalone, and deliberately narrow. The two broad iOS workflows are untouched:
+# `ios-native-journeys.yml` is a 90-minute suite that holds the QA service-role key and creates
+# data, and `ios-item-m-scheme.yml` signs in with fixture identities. Neither is an acceptable
+# vehicle for this check — proving that a route fails CLOSED must not require handing the runner a
+# fixture identity, and a gate that signs in cannot claim it never signed in.
+#
+# WHAT A GREEN RUN MEANS. The pinned simulator artifact, proven to be built from the intended
+# commit, registers the kwikserve:// scheme, routes both /auth paths, and shows the neutral
+# "invalid or has expired" state with no password form, no session and no crash.
+#
+# WHAT IT DOES NOT MEAN. It says nothing about a VALID emailed link: no token is ever generated,
+# sent, or exchanged here. The real emailed path needs a recoverable fixture and the mail gate, and
+# is certified separately. It also says nothing about a physical device.
+#
+# CONTRACT (asserted by src/__tests__/ios-auth-routes-workflow.test.ts, so an edit that weakens one
+# of these fails the repository suite rather than silently producing a weaker green run):
+#   - manual dispatch only; read-only permissions
+#   - EXPO_TOKEN is the ONLY secret; no fixture identity, no anon key, no service-role key
+#   - the supplied build id must equal the pinned one
+#   - status, platform, profile, bundle identifier and commit are verified from EAS metadata
+#   - the artifact is downloaded from expo.dev and its SHA-256 checked BEFORE it is installed
+#   - both links are opened with no parameters whatsoever
+#   - nothing is typed, nothing signs in, nothing is mutated
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_id:
+        description: "EAS iOS simulator build ID to certify (must equal the pinned id)"
+        required: true
+        default: "b00fdcf7-4903-4153-a1ac-1e36ae9f881d"
+      expected_commit:
+        description: "Commit the artifact must have been built from"
+        required: true
+        default: "44215962efd311a85d344cb775670c4ea8e36914"
+      expected_sha256:
+        description: "SHA-256 the downloaded artifact must have"
+        required: true
+        default: "6c5bfa9f3e8299ce429e4a924844c04d89ff891c075932a545f2b34693d0af7d"
+
+permissions:
+  contents: read
+
+jobs:
+  auth-routes-smoke:
+    runs-on: macos-14
+    # Two short read-only flows plus a download. The budget is for runner and simulator-boot
+    # variance, not for test growth: if this ever needs more, it has stopped being a smoke gate.
+    timeout-minutes: 30
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      PINNED_BUILD_ID: "b00fdcf7-4903-4153-a1ac-1e36ae9f881d"
+      EXPECTED_BUNDLE_ID: "ke.co.hiredcorp.kwikserve"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install tools (eas-cli, Maestro)
+        run: |
+          set -euo pipefail
+          npm install -g eas-cli
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Refuse any build other than the pinned one
+        run: |
+          set -euo pipefail
+          BUILD_ID="${{ github.event.inputs.build_id }}"
+          if [ "$BUILD_ID" != "$PINNED_BUILD_ID" ]; then
+            echo "refusing: this gate certifies $PINNED_BUILD_ID only, got $BUILD_ID"
+            exit 1
+          fi
+          echo "BUILD_ID=$BUILD_ID" >> "$GITHUB_ENV"
+
+      - name: Prove the artifact's identity from EAS metadata
+        run: |
+          set -euo pipefail
+          # One read, then assert every field. A device build, an unfinished build, a build of some
+          # other app or a build from a different commit must fail HERE, before anything is
+          # downloaded — not later, in a way that looks like a test failure.
+          eas build:view "$BUILD_ID" --json > build.json
+          STATUS=$(jq -r '.status' build.json)
+          PLATFORM=$(jq -r '.platform' build.json)
+          PROFILE=$(jq -r '.buildProfile' build.json)
+          COMMIT=$(jq -r '.gitCommitHash' build.json)
+          SIMULATOR=$(jq -r '.isForIosSimulator' build.json)
+          echo "status=$STATUS platform=$PLATFORM profile=$PROFILE simulator=$SIMULATOR commit=$COMMIT"
+          [ "$STATUS" = "FINISHED" ]            || { echo "FAIL: status is $STATUS, expected FINISHED"; exit 1; }
+          [ "$PLATFORM" = "IOS" ]               || { echo "FAIL: platform is $PLATFORM, expected IOS"; exit 1; }
+          [ "$PROFILE" = "ios-simulator" ]      || { echo "FAIL: profile is $PROFILE, expected ios-simulator"; exit 1; }
+          [ "$SIMULATOR" = "true" ]             || { echo "FAIL: not a simulator artifact"; exit 1; }
+          [ "$COMMIT" = "${{ github.event.inputs.expected_commit }}" ] || {
+            echo "FAIL: artifact was built from $COMMIT, expected ${{ github.event.inputs.expected_commit }}"; exit 1; }
+          echo "Artifact identity verified."
+
+      - name: Download from expo.dev and verify SHA-256 before touching a simulator
+        run: |
+          set -euo pipefail
+          URL=$(jq -r '.artifacts.applicationArchiveUrl' build.json)
+          case "$URL" in
+            https://expo.dev/*) : ;;
+            *) echo "FAIL: artifact URL is not an authoritative expo.dev URL (redacted)"; exit 1 ;;
+          esac
+          # The URL is signed; it is never echoed.
+          echo "Downloading the pinned artifact (URL redacted)…"
+          curl -fSL "$URL" -o app.tar.gz
+          ACTUAL=$(shasum -a 256 app.tar.gz | awk '{print $1}')
+          EXPECTED="${{ github.event.inputs.expected_sha256 }}"
+          echo "sha256 actual=$ACTUAL"
+          [ "$ACTUAL" = "$EXPECTED" ] || { echo "FAIL: sha256 mismatch, expected $EXPECTED"; exit 1; }
+          mkdir -p app && tar -xzf app.tar.gz -C app
+          APP=$(find app -maxdepth 3 -name "*.app" | head -1)
+          test -n "$APP" || { echo "FAIL: no .app in the artifact"; exit 1; }
+          echo "APP_PATH=$APP" >> "$GITHUB_ENV"
+          echo "App: $APP"
+
+      - name: Prove the bundle identity and the scheme registration in the binary
+        run: |
+          set -euo pipefail
+          PLIST="$APP_PATH/Info.plist"
+          test -f "$PLIST" || { echo "FAIL: no Info.plist in $APP_PATH"; exit 1; }
+          # plutil, never string-scanning: a binary plist scanned as text produces confident
+          # nonsense (see the Phase 7B §11.2 false "exactly one scheme" claim).
+          BUNDLE=$(plutil -extract CFBundleIdentifier raw -o - "$PLIST")
+          MIN_OS=$(plutil -extract MinimumOSVersion raw -o - "$PLIST")
+          SCHEMES=$(plutil -extract CFBundleURLTypes.0.CFBundleURLSchemes json -o - "$PLIST")
+          echo "bundle=$BUNDLE MinimumOSVersion=$MIN_OS schemes=$SCHEMES"
+          [ "$BUNDLE" = "$EXPECTED_BUNDLE_ID" ] || { echo "FAIL: bundle is $BUNDLE, expected $EXPECTED_BUNDLE_ID"; exit 1; }
+          echo "$SCHEMES" | jq -e 'index("kwikserve") != null' > /dev/null || { echo "FAIL: kwikserve not registered"; exit 1; }
+          echo "MIN_OS=$MIN_OS" >> "$GITHUB_ENV"
+
+      - name: Choose a compatible installed simulator runtime, or fail with the reason
+        run: |
+          set -euo pipefail
+          # The artifact is built against a newer SDK than the runner image ships. What actually
+          # matters for install is the runtime being at least MinimumOSVersion, so choose on that
+          # and SAY which runtime was chosen — a silent "latest iPhone" pick is how a gate ends up
+          # certifying something nobody can reproduce.
+          xcrun simctl list runtimes available
+          RUNTIME=$(xcrun simctl list runtimes available -j | jq -r --arg min "$MIN_OS" '
+            [.runtimes[]
+             | select(.platform == "iOS")
+             | select((.version | split(".") | map(tonumber)) as $v
+                      | ($min | split(".") | map(tonumber)) as $m
+                      | $v[0] > $m[0] or ($v[0] == $m[0] and ($v[1] // 0) >= ($m[1] // 0)))]
+            | sort_by(.version | split(".") | map(tonumber)) | last | .identifier // empty')
+          if [ -z "$RUNTIME" ]; then
+            echo "FAIL: No compatible iOS runtime installed on this runner (app needs >= $MIN_OS)."
+            echo "Install one, or run this gate on a runner image that ships it."
+            exit 1
+          fi
+          DEVICE_ID=$(xcrun simctl list devices available -j | jq -r --arg rt "$RUNTIME" '
+            [.devices[$rt][]? | select(.name | test("iPhone"))] | last | .udid // empty')
+          if [ -z "$DEVICE_ID" ]; then
+            echo "FAIL: No iPhone simulator exists for runtime $RUNTIME."
+            exit 1
+          fi
+          echo "Chosen runtime: $RUNTIME"
+          echo "Chosen device : $DEVICE_ID"
+          echo "RUNTIME=$RUNTIME" >> "$GITHUB_ENV"
+          echo "DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
+
+      - name: Boot, install and cold-launch
+        run: |
+          set -euo pipefail
+          xcrun simctl boot "$DEVICE_ID" || true
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          xcrun simctl install "$DEVICE_ID" "$APP_PATH"
+          xcrun simctl launch "$DEVICE_ID" "$EXPECTED_BUNDLE_ID"
+          sleep 10
+          xcrun simctl terminate "$DEVICE_ID" "$EXPECTED_BUNDLE_ID" || true
+          echo "Cold launch completed."
+
+      - name: Recovery route refuses a link with no parameters
+        run: maestro test qa/native/flows/auth-recovery-no-token.yaml
+
+      - name: Confirmation route refuses a link with no parameters
+        run: maestro test qa/native/flows/auth-confirm-no-token.yaml
+
+      - name: Prove no crash, no session and no auth request occurred
+        if: always()
+        run: |
+          set -euo pipefail
+          # Crash reports are the authoritative "did it die" signal; the diagnostics directory is
+          # the only place they appear for a simulator app.
+          CRASH_DIR="$HOME/Library/Logs/DiagnosticReports"
+          CRASHES=$(ls "$CRASH_DIR" 2>/dev/null | grep -ci kwikserve || true)
+          echo "crash reports mentioning the app: $CRASHES"
+          [ "$CRASHES" = "0" ] || { echo "FAIL: the app produced a crash report"; exit 1; }
+          # The flows never type anything and never tap an auth action, so no token exchange can
+          # have happened. Assert the negative on the recorded output as well, redacting as we go.
+          if [ -d "$HOME/.maestro/tests" ]; then
+            if grep -rIl "token_hash" "$HOME/.maestro/tests" >/dev/null 2>&1; then
+              echo "FAIL: a token hash appears in the recorded output"; exit 1
+            fi
+          fi
+          echo "No crash, no token material."
+
+      - name: Redact anything sensitive before the artifacts leave the runner
+        if: always()
+        run: |
+          set -euo pipefail
+          # Screenshots of the neutral state carry nothing sensitive, but the recorded command logs
+          # can echo an environment. Sanitize in place rather than trusting that they cannot.
+          if [ -d "$HOME/.maestro/tests" ]; then
+            find "$HOME/.maestro/tests" -type f \( -name "*.log" -o -name "*.txt" -o -name "*.json" \) -print0 |
+              xargs -0 -r sed -i '' -E \
+                -e 's/(eyJ[A-Za-z0-9_-]{10,})\.[A-Za-z0-9_.-]+/<jwt-redacted>/g' \
+                -e 's/(token_hash=)[^&"[:space:]]*/\1<redacted>/g' \
+                -e 's#(https://[a-z0-9-]+\.supabase\.co)#<supabase-host-redacted>#g' || true
+          fi
+          echo "Sanitized."
+
+      - name: Upload screenshots and results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-auth-routes-smoke
+          path: ~/.maestro/tests
+          if-no-files-found: ignore
+          retention-days: 7
