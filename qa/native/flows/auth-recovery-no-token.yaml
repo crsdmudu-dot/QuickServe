@@ -1,36 +1,30 @@
-# Auth recovery route — fail-closed check, NO token.
+# Auth recovery route — fail-closed check, NO token. ASSERTIONS ONLY.
 #
-# Opens the canonical recovery deep link with NO parameters at all and asserts the app refuses it
-# with the single neutral state. This is the whole point of the flow: a link that carries nothing
-# must look exactly like a link that carried something expired, so the screen can never be used to
-# tell a real token from a fake one.
+# The workflow prepares the app and delivers the link before this flow runs: it reinstalls the
+# build, cold-launches it signed out, then fires
+#   xcrun simctl openurl "$DEVICE_ID" "kwikserve://auth/recovery"
 #
-# Deliberately read-only. Nothing is typed, no credential is used, no button that would start an
-# auth request is tapped, and the run starts from a cleared state so no session can exist. There is
-# no marker and no cleanup trap because there is no QA data to clean up. If a future edit adds a
-# sign-in or a request here, it must add scoping and cleanup — do not let this stay trap-less by
-# accident.
+# Delivery is NOT done here. Maestro's `openLink` raises the iOS system alert "Open in
+# "KwikServe"?" with Cancel/Open, and nothing taps it, so the link never reaches the app and the
+# flow times out on a screen it never left (run 34838315160). Firing the URL with simctl delivers
+# it directly, the way the emailed link would arrive.
 #
-# Run: maestro test qa/native/flows/auth-recovery-no-token.yaml
+# For the same reason there is no launchApp, no clearState and no navigation here: relaunching
+# would discard the very routing this flow exists to observe.
+#
+# Deliberately read-only. Nothing is typed, no credential is used, and no button that would start
+# an auth request is tapped, so there is no QA data to clean up and no cleanup trap. If a future
+# edit adds a sign-in or a request here, it must add marker scoping and cleanup.
 appId: ke.co.hiredcorp.kwikserve
 ---
-# Cold, signed-out start.
-- launchApp:
-    clearState: true
-- extendedWaitUntil:
-    visible: "Get Started"
-    timeout: 30000
-- takeScreenshot: 01-auth-recovery-cold-start
-
-# The emailed link, stripped of everything. No token_hash, no type, no redirect.
-- openLink: kwikserve://auth/recovery
+# The route must already be showing the single neutral state.
 - extendedWaitUntil:
     visible: "This link is invalid or has expired."
-    timeout: 20000
+    timeout: 30000
 - assertVisible: "Reset your password"
 - assertVisible: "Reset links can only be used once and expire after a short time."
 - assertVisible: "Request a new link"
-- takeScreenshot: 02-auth-recovery-no-token-invalid
+- takeScreenshot: 01-auth-recovery-no-token-invalid
 
 # It must fail CLOSED: no password form, no success path, no session.
 - assertNotVisible: "New password"
@@ -38,8 +32,8 @@ appId: ke.co.hiredcorp.kwikserve
 - assertNotVisible: "Password updated"
 - assertNotVisible: "Welcome back"
 
-# Still alive and still on the neutral state after settling (no late redirect, no crash).
+# Still on the neutral state after settling (no late redirect, no crash).
 - extendedWaitUntil:
     visible: "This link is invalid or has expired."
     timeout: 5000
-- takeScreenshot: 03-auth-recovery-still-closed
+- takeScreenshot: 02-auth-recovery-still-closed

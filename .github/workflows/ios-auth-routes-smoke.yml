@@ -202,19 +202,50 @@ jobs:
           echo "RUNTIME=$RUNTIME" >> "$GITHUB_ENV"
           echo "DEVICE_ID=$DEVICE_ID" >> "$GITHUB_ENV"
 
-      - name: Boot, install and cold-launch
+      - name: Boot the simulator
         run: |
           set -euo pipefail
           xcrun simctl boot "$DEVICE_ID" || true
           xcrun simctl bootstatus "$DEVICE_ID" -b
+          echo "Simulator booted."
+
+      # Each route is prepared and delivered HERE, not in the Maestro flow.
+      #
+      # Maestro's `openLink` raises the iOS system alert "Open in “KwikServe”?" with
+      # Cancel/Open, and nothing taps it, so the link never reaches the app and the flow times out
+      # on a screen it never left (run 34838315160). `xcrun simctl openurl` delivers the URL
+      # directly, the way an emailed link arrives, and it is also what ios-item-m-scheme.yml
+      # documents as the fallback for exactly this problem.
+      #
+      # The reinstall before each route is what makes the starting point deterministic: a freshly
+      # installed build has no storage, so the app can only launch signed out. The two routes are
+      # prepared separately so neither can inherit the other's navigation.
+      - name: Recovery route — reinstall, cold-launch signed out, deliver the link
+        run: |
+          set -euo pipefail
+          xcrun simctl terminate "$DEVICE_ID" "$EXPECTED_BUNDLE_ID" || true
+          xcrun simctl uninstall "$DEVICE_ID" "$EXPECTED_BUNDLE_ID" || true
           xcrun simctl install "$DEVICE_ID" "$APP_PATH"
           xcrun simctl launch "$DEVICE_ID" "$EXPECTED_BUNDLE_ID"
-          sleep 10
-          xcrun simctl terminate "$DEVICE_ID" "$EXPECTED_BUNDLE_ID" || true
-          echo "Cold launch completed."
+          sleep 12
+          xcrun simctl openurl "$DEVICE_ID" "kwikserve://auth/recovery"
+          sleep 4
+          echo "Recovery link delivered."
 
       - name: Recovery route refuses a link with no parameters
         run: maestro test qa/native/flows/auth-recovery-no-token.yaml
+
+      - name: Confirmation route — reinstall, cold-launch signed out, deliver the link
+        run: |
+          set -euo pipefail
+          xcrun simctl terminate "$DEVICE_ID" "$EXPECTED_BUNDLE_ID" || true
+          xcrun simctl uninstall "$DEVICE_ID" "$EXPECTED_BUNDLE_ID" || true
+          xcrun simctl install "$DEVICE_ID" "$APP_PATH"
+          xcrun simctl launch "$DEVICE_ID" "$EXPECTED_BUNDLE_ID"
+          sleep 12
+          xcrun simctl openurl "$DEVICE_ID" "kwikserve://auth/confirm"
+          sleep 4
+          echo "Confirmation link delivered."
 
       - name: Confirmation route refuses a link with no parameters
         run: maestro test qa/native/flows/auth-confirm-no-token.yaml

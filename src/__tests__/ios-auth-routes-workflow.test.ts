@@ -184,6 +184,66 @@ describe('no sign-in, no mutation, no leakage', () => {
   });
 });
 
+describe('the workflow delivers each link itself, per route', () => {
+  const routes = [
+    { name: 'recovery', url: 'kwikserve://auth/recovery', flow: 'qa/native/flows/auth-recovery-no-token.yaml' },
+    { name: 'confirm', url: 'kwikserve://auth/confirm', flow: 'qa/native/flows/auth-confirm-no-token.yaml' },
+  ];
+
+  it.each(routes)('$url is opened with xcrun simctl openurl against the selected device', ({ url }) => {
+    expect(yml).toContain(`xcrun simctl openurl "$DEVICE_ID" "${url}"`);
+  });
+
+  it.each(routes)('$url carries no token and no query or fragment', ({ url }) => {
+    const call = new RegExp(`xcrun simctl openurl "\\$DEVICE_ID" "${url.replace(/\//g, '\\/')}([^"]*)"`);
+    const m = call.exec(yml);
+    expect(m).not.toBeNull();
+    expect(m?.[1]).toBe(''); // nothing after the route — no query, no fragment, no token
+    // The workflow legitimately names `token_hash` in its scan and redaction rules, so the check
+    // is that no simctl openurl command carries one, not that the string never appears.
+    for (const [, opened] of yml.matchAll(/simctl openurl "\$DEVICE_ID" "([^"]*)"/g)) {
+      expect(opened).not.toContain('token_hash');
+      expect(opened).not.toMatch(/[?#]/);
+    }
+  });
+
+  it.each(routes)('$name is prepared independently from a known signed-out launch', ({ url }) => {
+    const before = yml.slice(0, yml.indexOf(`openurl "$DEVICE_ID" "${url}"`));
+    const step = before.slice(before.lastIndexOf('      - name:'));
+    // each route reinstalls and cold-launches before its own link is delivered
+    expect(step).toContain('simctl uninstall');
+    expect(step).toContain('simctl install');
+    expect(step).toContain('simctl launch');
+  });
+
+  it.each(routes)('$name opens the URL before running its assertion flow', ({ url, flow }) => {
+    const opened = yml.indexOf(`openurl "$DEVICE_ID" "${url}"`);
+    const asserted = yml.indexOf(`maestro test ${flow}`);
+    expect(opened).toBeGreaterThan(-1);
+    expect(asserted).toBeGreaterThan(-1);
+    expect(opened).toBeLessThan(asserted);
+  });
+
+  it('keeps the two routes in separate steps rather than one combined step', () => {
+    const rec = yml.indexOf('openurl "$DEVICE_ID" "kwikserve://auth/recovery"');
+    const con = yml.indexOf('openurl "$DEVICE_ID" "kwikserve://auth/confirm"');
+    const recFlow = yml.indexOf('maestro test qa/native/flows/auth-recovery-no-token.yaml');
+    expect(rec).toBeLessThan(recFlow);
+    expect(recFlow).toBeLessThan(con); // recovery is fully asserted before confirmation begins
+  });
+
+  it('preserves every safeguard that came before', () => {
+    for (const kept of [
+      'PINNED_BUILD_ID', 'gitCommitHash', 'shasum', 'plutil -extract CFBundleIdentifier',
+      'MinimumOSVersion', 'No compatible', 'DiagnosticReports', 'upload-artifact',
+    ]) {
+      expect(yml).toContain(kept);
+    }
+    const hashAt = yml.indexOf('shasum');
+    expect(yml.indexOf('simctl install')).toBeGreaterThan(hashAt);
+  });
+});
+
 describe('the Maestro flows assert the neutral invalid-link state', () => {
   const cases = [
     {
@@ -202,18 +262,38 @@ describe('the Maestro flows assert the neutral invalid-link state', () => {
     },
   ];
 
-  it.each(cases)('$url fails closed with the neutral state', ({ file, url, heading, detail, action }) => {
+  it.each(cases)('$url fails closed with the neutral state', ({ file, heading, detail, action }) => {
     const text = read(file);
     expect(text).toMatch(/^---$/m); // Maestro's header/commands separator
     expect(text).toContain(`appId: ${BUNDLE_ID}`);
-    expect(text).toContain(`openLink`);
-    expect(text).toContain(url);
-    expect(text).not.toMatch(new RegExp(`${url}[?#]`));
     expect(text).toContain('This link is invalid or has expired.');
     expect(text).toContain(heading);
     expect(text).toContain(detail);
     expect(text).toContain(action);
     expect(text).toContain('takeScreenshot');
+  });
+
+  it.each(cases)('$url is never delivered by Maestro itself', ({ file }) => {
+    // Maestro's openLink raises the iOS system alert "Open in KwikServe?" and nothing taps it, so
+    // the link is never delivered and the flow times out on a screen it never reached (run
+    // 34838315160). Delivery belongs to the workflow, with xcrun simctl openurl.
+    // As a Maestro COMMAND: the comment above the flow legitimately names it to explain why it is
+    // not used.
+    expect(read(file)).not.toMatch(/^\s*-\s+openLink\b/m);
+  });
+
+  it.each(cases)('$url does not relaunch, clear or navigate away from the route', ({ file }) => {
+    const text = read(file);
+    // The workflow prepares the app and delivers the link; relaunching here would discard the very
+    // navigation under test.
+    // Each matched as a command or a key, never as a substring: the explanatory comments name
+    // these constructs precisely in order to forbid them.
+    // Backslashes are doubled on purpose: inside a template literal `\s` collapses to `s` and `\b`
+    // becomes a backspace character, which silently produces a regex that can never match.
+    for (const forbidden of ['launchApp', 'stopApp', 'openLink', 'back']) {
+      expect(text).not.toMatch(new RegExp(`^\\s*-\\s+${forbidden}\\b`, 'm'));
+    }
+    expect(text).not.toMatch(/^\s*clearState:/m);
   });
 
   it.each(cases)('$url never types credentials or signs in', ({ file }) => {
@@ -226,7 +306,11 @@ describe('the Maestro flows assert the neutral invalid-link state', () => {
     expect(text).not.toMatch(/tapOn:\s*"?(Log in|Sign in|Request a new link|Go to sign in)/);
   });
 
-  it.each(cases)('$url starts from a cleared state so no session can exist', ({ file }) => {
-    expect(read(file)).toMatch(/clearState:\s*true/);
+  it.each(cases)('$url asserts only, and asserts the negatives too', ({ file }) => {
+    const text = read(file);
+    expect(text).toMatch(/extendedWaitUntil:/);
+    expect(text).toMatch(/assertVisible:/);
+    expect(text).toMatch(/assertNotVisible:/);
+    expect(text).toContain('Welcome back'); // the signed-in surface must never appear
   });
 });
