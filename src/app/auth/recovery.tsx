@@ -19,7 +19,7 @@ import { validateSetPassword } from '@/lib/validation';
  * Lifecycle:
  *   1. The route opens with `?token_hash=…&type=recovery` (cold start or warm app).
  *   2. The parameters are read ONCE, validated, and immediately stripped from the visible route
- *      (`router.replace('/auth/recovery')`) so the one-time secret does not linger in history.
+ *      (`router.setParams`, which keeps the route key) so the one-time secret does not linger in history.
  *   3. The auth context verifies the hash (`verifyOtp`), which creates the recovery session.
  *      A replayed link during an active recovery is ignored. Invalid, expired or reused links
  *      leave any existing session untouched and show one safe error state.
@@ -52,7 +52,12 @@ export default function RecoveryScreen() {
   useEffect(() => {
     if (isWeb || handled.current || !hadLinkParams) return;
     handled.current = true;
-    router.replace('/auth/recovery'); // strip the one-time secret from the visible route
+    // Strip the one-time secret from the route WITHOUT navigating, for the reason recorded in
+    // `auth/confirm.tsx`: `router.replace` gives the route a new key and remounts the screen.
+    // Recovery happens to survive that remount because its progress lives in the auth context
+    // rather than in component state, but the hazard is the same and the two routes stay
+    // symmetric. `setParams` keeps the current route key, so no remount occurs.
+    router.setParams({ token_hash: undefined, type: undefined });
     if (!parsed.ok) return;
     if (stage === 'verifying' || stage === 'ready' || stage === 'updating') return; // replayed delivery
     void verifyAuthLink({ tokenHash: parsed.tokenHash, type: 'recovery' });

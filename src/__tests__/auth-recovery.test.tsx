@@ -15,11 +15,17 @@ const mockVerifyAuthLink = jest.fn();
 const mockCompletePasswordReset = jest.fn();
 const mockAbandonRecovery = jest.fn();
 const mockReplace = jest.fn();
+const mockSetParams = jest.fn();
 let mockParams: Record<string, unknown> = {};
 let mockAuth: Record<string, unknown> = {};
 
 jest.mock('expo-router', () => ({
-  router: { push: jest.fn(), replace: (...a: unknown[]) => mockReplace(...a), back: jest.fn() },
+  router: {
+    push: jest.fn(),
+    replace: (...a: unknown[]) => mockReplace(...a),
+    setParams: (...a: unknown[]) => mockSetParams(...a),
+    back: jest.fn(),
+  },
   useLocalSearchParams: () => mockParams,
 }));
 jest.mock('expo-router/head', () => ({ __esModule: true, default: ({ children }: { children: React.ReactNode }) => children }));
@@ -52,7 +58,9 @@ describe('RecoveryScreen — link intake', () => {
     render(<RecoveryScreen />);
     await waitFor(() => expect(mockVerifyAuthLink).toHaveBeenCalledWith({ tokenHash: HASH, type: 'recovery' }));
     expect(mockVerifyAuthLink).toHaveBeenCalledTimes(1);
-    expect(mockReplace).toHaveBeenCalledWith('/auth/recovery');
+    // Stripped with setParams so the route key, and therefore this screen instance, survives.
+    expect(mockSetParams).toHaveBeenCalledWith({ token_hash: undefined, type: undefined });
+    expect(mockReplace).not.toHaveBeenCalledWith('/auth/recovery');
   });
 
   it('performs no auth request for missing or malformed parameters and shows the safe error state', async () => {

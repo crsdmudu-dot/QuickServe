@@ -31,22 +31,38 @@ export default function ConfirmScreen() {
   const parsed = useMemo(() => parseAuthLinkParams(initialParams, 'signup'), [initialParams]);
   const [result, setResult] = useState<'pending' | 'invalid' | 'confirmed'>('pending');
   const handled = useRef(false);
+  const alive = useRef(true);
   const isWeb = Platform.OS === 'web';
+
+  // Unmount-only liveness flag (see the verification callback below).
+  useEffect(
+    () => () => {
+      alive.current = false;
+    },
+    [],
+  );
 
   useEffect(() => {
     if (isWeb || handled.current) return;
     handled.current = true;
-    if (hadLinkParams) router.replace('/auth/confirm'); // strip the one-time secret from the visible route
+    // Strip the one-time secret from the route WITHOUT navigating. `router.replace` gives the
+    // route a new key, which remounts this screen with its parameters already gone: the fresh
+    // instance then derives `invalid` from the absent parameters while the in-flight verification
+    // is discarded by the `active` guard below. That is exactly how a server-side success
+    // (POST /auth/v1/verify -> 200) surfaced as "This link is invalid or has expired." on a
+    // physical iPhone. `setParams` dispatches SET_PARAMS, which the router applies to the CURRENT
+    // route (see the vendored react-navigation BaseRouter: it spreads `{ ...r, params }`, so the
+    // key is preserved), so this component instance survives to act on the result.
+    if (hadLinkParams) router.setParams({ token_hash: undefined, type: undefined });
     if (!parsed.ok) return;
-    let active = true;
     void verifyAuthLink({ tokenHash: parsed.tokenHash, type: 'signup' }).then((ok) => {
-      if (!active) return;
+      // Guard on real unmount only. An effect-scoped flag cleared by this effect's own cleanup
+      // would also fire whenever a dependency changes — `verifyAuthLink` is a fresh closure on
+      // every provider render — and would silently discard a completed verification.
+      if (!alive.current) return;
       setResult(ok ? 'confirmed' : 'invalid');
       if (ok) router.replace('/');
     });
-    return () => {
-      active = false;
-    };
   }, [isWeb, hadLinkParams, parsed, verifyAuthLink]);
 
   const state: 'checking' | 'invalid' | 'confirmed' = !parsed.ok || result === 'invalid' ? 'invalid' : result === 'confirmed' ? 'confirmed' : 'checking';

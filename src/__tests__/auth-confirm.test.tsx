@@ -9,10 +9,16 @@ import ConfirmScreen from '@/app/auth/confirm';
 const HASH = 'd'.repeat(64);
 const mockVerifyAuthLink = jest.fn();
 const mockReplace = jest.fn();
+const mockSetParams = jest.fn();
 let mockParams: Record<string, unknown> = {};
 
 jest.mock('expo-router', () => ({
-  router: { push: jest.fn(), replace: (...a: unknown[]) => mockReplace(...a), back: jest.fn() },
+  router: {
+    push: jest.fn(),
+    replace: (...a: unknown[]) => mockReplace(...a),
+    setParams: (...a: unknown[]) => mockSetParams(...a),
+    back: jest.fn(),
+  },
   useLocalSearchParams: () => mockParams,
 }));
 jest.mock('expo-router/head', () => ({ __esModule: true, default: ({ children }: { children: React.ReactNode }) => children }));
@@ -33,7 +39,10 @@ describe('ConfirmScreen', () => {
     render(<ConfirmScreen />);
     await waitFor(() => expect(mockVerifyAuthLink).toHaveBeenCalledWith({ tokenHash: HASH, type: 'signup' }));
     expect(mockVerifyAuthLink).toHaveBeenCalledTimes(1);
-    expect(mockReplace).toHaveBeenCalledWith('/auth/confirm');
+    // The secret is stripped with setParams, which keeps the route key so this screen is not
+    // remounted mid-verification. See src/__tests__/auth-link-remount.test.tsx.
+    expect(mockSetParams).toHaveBeenCalledWith({ token_hash: undefined, type: undefined });
+    expect(mockReplace).not.toHaveBeenCalledWith('/auth/confirm');
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'));
   });
 
