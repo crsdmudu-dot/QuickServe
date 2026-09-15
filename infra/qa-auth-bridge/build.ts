@@ -11,9 +11,11 @@
  *      project configuration at all, and therefore carries no credential.
  *   2. Reads the two bridge documents, collects every same-origin file they reference, and refuses
  *      to continue if a reference is not a path the Worker would serve, or is missing.
- *   3. Copies ONLY the documents, those references and `public/_headers` into `dist-qa-auth/`.
- *      Every other route of the export (admin, customer, sitemap, index) is left behind, so it
- *      cannot be served even if the Worker's allow-list were bypassed.
+ *   3. Copies ONLY the documents and those references into `dist-qa-auth/`. Every other route of
+ *      the export (admin, customer, sitemap, index) is left behind, so it cannot be served even if
+ *      the Worker's allow-list were bypassed. `public/_headers` is validated against the export but
+ *      deliberately NOT copied: it names the Production Supabase host, and this origin builds all
+ *      of its headers from policy.json instead.
  *   4. Scans every kept file for project credentials, foreign Supabase hosts and credential-shaped
  *      tokens, and aborts on any finding. Findings name the file, the rule and the offset — never
  *      the matched value.
@@ -274,15 +276,19 @@ function main(argv: string[]): void {
     if (/\.(html|js|css)$/.test(source)) scanned.push({ path: served, text: bytes.toString('utf8') });
   }
 
-  // `_headers` is consumed by the assets system, never served; the Worker sets the critical
-  // headers itself, so this only keeps the QA origin's defaults aligned with the export.
+  // `public/_headers` stays an INPUT ONLY. It is the production web app's header file, and one of
+  // its connect-src entries names the Production Supabase host. Copying it into this origin
+  // published a Production project reference on a QA host for no benefit: the Worker builds every
+  // security header itself from policy.json, the assets system does not apply `_headers` when
+  // `run_worker_first` is set, and the Worker's allow-list refuses `/_headers` regardless.
+  // The parity check is KEPT: it is what proves the export was produced from the expected
+  // repository state, and it would still catch an export built against a different headers file.
   const headersSource = join(REPO_ROOT, ...POLICY.build.headersSource.split('/'));
   const exportedHeaders = join(EXPORT_DIR, '_headers');
   if (!existsSync(headersSource)) fail(`${POLICY.build.headersSource} not found`);
   if (!existsSync(exportedHeaders) || !readFileSync(exportedHeaders).equals(readFileSync(headersSource))) {
     fail('the exported _headers does not match the repository copy');
   }
-  cpSync(headersSource, join(OUTPUT_DIR, '_headers'));
 
   const findings = scanForForbidden(scanned);
   if (findings.length > 0) {
@@ -296,7 +302,7 @@ function main(argv: string[]): void {
   const total = manifest.files.reduce((sum, file) => sum + file.bytes, 0);
   process.stdout.write(`\nQA bridge origin built: ${POLICY.outputDir}\n`);
   process.stdout.write(`  worker        ${POLICY.workerName}\n`);
-  process.stdout.write(`  served files  ${manifest.files.length} (${total} bytes) + _headers\n`);
+  process.stdout.write(`  served files  ${manifest.files.length} (${total} bytes)\n`);
   for (const file of manifest.files) {
     process.stdout.write(`  ${file.sha256.slice(0, 16)}  ${String(file.bytes).padStart(8)}  ${file.path}\n`);
   }

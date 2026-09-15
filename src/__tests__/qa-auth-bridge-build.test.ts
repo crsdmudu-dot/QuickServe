@@ -17,6 +17,8 @@ import {
   unpinnedInlineScripts,
 } from '../../infra/qa-auth-bridge/build';
 import policy from '../../infra/qa-auth-bridge/policy.json';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 const ENTRY = '/_expo/static/js/web/entry-70ebbdee2397a147eeda60ad6772152a.js';
 const CSS = '/_expo/static/css/global-87fd0564cfa78f37afcb8d7603e15d75.css';
@@ -197,5 +199,79 @@ describe('scanForForbidden', () => {
     expect(findings).toHaveLength(2);
     expect(findings.join(' ')).toMatch(/offset \d+/);
     expect(findings.join(' ')).not.toContain('zzzzzzzzzzzzzzzz');
+  });
+});
+
+describe('_headers is validated as an input but never deployed', () => {
+  // The QA bridge origin must carry nothing that names another project. `public/_headers` is the
+  // Production site's CSP file and line 29 references the Production Supabase host, so copying it
+  // into the bridge output published a Production project reference on a QA origin. It is
+  // unreachable there (the Worker allow-list excludes it and Cloudflare treats it as configuration)
+  // but it has no reason to be uploaded at all: the Worker builds every security header from
+  // policy.json. The parity check against the export is kept, because it is what proves the export
+  // was produced from the expected repository state.
+  const source = readFileSync(join(process.cwd(), 'infra/qa-auth-bridge/build.ts'), 'utf8');
+
+  it('still requires the repository copy to exist', () => {
+    expect(source).toMatch(/if \(!existsSync\(headersSource\)\) fail\(/);
+  });
+
+  it('still refuses when the exported _headers differs from the repository copy', () => {
+    expect(source).toMatch(/exportedHeaders/);
+    expect(source).toMatch(/readFileSync\(exportedHeaders\)\.equals\(readFileSync\(headersSource\)\)/);
+    expect(source).toMatch(/the exported _headers does not match the repository copy/);
+  });
+
+  it('never copies _headers into the deployable output directory', () => {
+    expect(source).not.toMatch(/cpSync\(\s*headersSource\s*,/);
+    expect(source).not.toMatch(/join\(\s*OUTPUT_DIR\s*,\s*'_headers'\s*\)/);
+  });
+
+  it('does not advertise _headers as part of the served set', () => {
+    expect(source).not.toMatch(/\+ _headers/);
+  });
+
+  it('policy.json still declares the headers source, because it remains a validated input', () => {
+    expect(policy.build.headersSource).toBe('public/_headers');
+  });
+
+  it('the worker allow-list has never included _headers', () => {
+    expect(policy.documentPaths).not.toContain('/_headers');
+    expect(policy.extraPaths).not.toContain('/_headers');
+    expect(new RegExp(policy.assetPathPattern).test('/_headers')).toBe(false);
+  });
+
+  it('the seven permitted logical assets are exactly the documents, favicon and generated bundles', () => {
+    const permitted = [
+      '/auth/confirm',
+      '/auth/recovery',
+      '/favicon.ico',
+      '/_expo/static/css/global-87fd0564cfa78f37afcb8d7603e15d75.css',
+      '/_expo/static/css/native-tabs.module-77089ab91535ff8bca7a786d80f6a64f.css',
+      '/_expo/static/js/web/entry-8d0bb52da47184c66f267d5910165c7d.js',
+      '/_expo/static/js/web/index-f4559b8893eb6b574582210c00867ccd.js',
+    ];
+    const asset = new RegExp(policy.assetPathPattern);
+    for (const path of permitted) {
+      const allowed = policy.documentPaths.includes(path) || policy.extraPaths.includes(path) || asset.test(path);
+      expect(allowed).toBe(true);
+    }
+    expect(permitted).toHaveLength(7);
+  });
+
+  it('the security headers the worker applies still come from policy.json', () => {
+    expect(policy.contentSecurityPolicy).toContain("connect-src 'none'");
+    expect(policy.contentSecurityPolicy).toContain("default-src 'none'");
+    expect(policy.contentSecurityPolicy).toContain("frame-ancestors 'none'");
+  });
+
+  it('a real project reference in a kept file is still a hard failure, and is never echoed', () => {
+    // Assembled from parts so the literal reference is not written into this file verbatim.
+    const ref = ['lkigkltvstlxfd', 'ztffds'].join('');
+    const host = `https://${ref}.supabase.co`;
+    const findings = scanForForbidden([{ path: '/auth/confirm', text: `connect-src ${host}` }]);
+    expect(findings.length).toBeGreaterThan(0);
+    expect(findings.join(' ')).toContain('unexpected supabase host');
+    expect(findings.join(' ')).not.toContain(ref);
   });
 });
