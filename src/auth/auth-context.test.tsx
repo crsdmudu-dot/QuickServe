@@ -79,7 +79,9 @@ it('signUp passes role metadata and signOut calls supabase', async () => {
   fireEvent.press(screen.getByText('select'));
   fireEvent.press(screen.getByText('signup'));
   await waitFor(() => expect(mockSignUp).toHaveBeenCalledWith(
-    expect.objectContaining({ options: { data: { full_name: 'A', phone: '07', role: 'provider' } } }),
+    expect.objectContaining({
+      options: expect.objectContaining({ data: { full_name: 'A', phone: '07', role: 'provider' } }),
+    }),
   ));
   fireEvent.press(screen.getByText('signout'));
   await waitFor(() => expect(mockSignOut).toHaveBeenCalled());

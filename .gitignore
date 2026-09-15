@@ -9,6 +9,10 @@ dist/
 web-build/
 # Cloudflare Wrangler local dev state (created by `wrangler dev`)
 .wrangler/
+# Isolated QA authentication-bridge origin (built by infra/qa-auth-bridge/build.ts)
+dist-qa-auth/
+dist-qa-auth.export/
+.qa-auth-bridge-manifest.json
 expo-env.d.ts
 
 # Native

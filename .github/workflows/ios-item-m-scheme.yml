@@ -25,15 +25,49 @@ name: iOS Item M — kwikserve:// scheme gate (focused)
 #   EXPO_TOKEN, QA_CUSTOMER_EMAIL / QA_CUSTOMER_PASSWORD, QA_ADMIN_EMAIL / QA_ADMIN_PASSWORD
 # (No product secrets are embedded; simulator builds need no Apple credentials.)
 
+# SECOND ROLE, ADDED LATER — dispatcher for the auth-route smoke gate.
+#
+# GitHub only lists a workflow_dispatch workflow that exists on the DEFAULT branch, but it runs the
+# file at the ref you select. `ios-auth-routes-smoke.yml` lives only on the feature branch, so it
+# cannot be dispatched on its own yet. This workflow is already registered on the default branch,
+# so selecting mode `auth-routes` with the feature-branch ref calls that gate as a LOCAL reusable
+# workflow, which resolves from the same ref.
+#
+# The two modes share nothing. The Item M job below is gated on the default mode and keeps its own
+# fixture credentials; the auth-routes job has no steps, no credentials and receives EXPO_TOKEN by
+# name. There is deliberately no `secrets: inherit` anywhere in this file — it would hand the
+# auth-route gate the QA identities and the admin password it must never hold.
+#
+# This dispatcher role is temporary. Once the gate is on the default branch it can be dispatched
+# directly and the auth-routes job here should be removed.
+
 on:
   workflow_dispatch:
     inputs:
+      mode:
+        description: "Which gate to run"
+        required: true
+        type: choice
+        default: item-m
+        options:
+          - item-m
+          - auth-routes
       build_id:
         description: "EAS iOS simulator build ID to certify (REQUIRED — no latest-build fallback)"
         required: true
+      expected_commit:
+        description: "auth-routes mode only: commit the artifact must have been built from"
+        required: false
+        default: "44215962efd311a85d344cb775670c4ea8e36914"
+      expected_sha256:
+        description: "auth-routes mode only: SHA-256 the downloaded artifact must have"
+        required: false
+        default: "6c5bfa9f3e8299ce429e4a924844c04d89ff891c075932a545f2b34693d0af7d"
 
 jobs:
+  # The original gate, unchanged apart from the mode guard.
   item-m-scheme:
+    if: ${{ inputs.mode == 'item-m' }}
     runs-on: macos-14
     # Three read-only flows, each a cold launch + sign-in + one deep link. Well inside 30; the
     # budget is for runner and simulator-boot variance, not for test growth.
@@ -128,3 +162,15 @@ jobs:
           name: maestro-item-m-artifacts
           path: ~/.maestro/tests
           if-no-files-found: ignore
+
+  # No steps, no runner of its own, no credentials: it hands three values and one named secret to
+  # the gate and nothing else. Everything it certifies is asserted inside that workflow.
+  auth-routes:
+    if: ${{ inputs.mode == 'auth-routes' }}
+    uses: ./.github/workflows/ios-auth-routes-smoke.yml
+    with:
+      build_id: ${{ inputs.build_id }}
+      expected_commit: ${{ inputs.expected_commit }}
+      expected_sha256: ${{ inputs.expected_sha256 }}
+    secrets:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}

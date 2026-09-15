@@ -200,9 +200,10 @@ Verified limitations:
   (`supabase/migrations/0001_profiles.sql`).
 - **Provider approval gating** — providers start `pending` and depend on admin approval
   (`approval_status`); the approval workflow is admin-driven.
-- **Email confirmation / password reset** — the app maps email-confirmation and rate-limit auth
-  errors (`src/lib/auth-errors.ts`), but these flows depend on the Supabase project's auth
-  settings and are not certified in this repository; no in-app password-reset flow is documented.
+- **Email confirmation / password reset** — the mobile app implements both with the token-hash
+  flow (§15). They depend on per-project Supabase auth settings (redirect allow-list, email
+  templates) that are configured outside the repository; QA integration certification is a
+  separate, separately-authorised phase. The admin web has **no** recovery surface yet (Slice B).
 - **Client role is advisory** — UI routing trusts the fetched role, but security is enforced by
   RLS, not the client.
 
@@ -220,7 +221,165 @@ Repository workflow for authentication/authorization changes:
   weaken assertions — then re-run migration alignment + certification + health.
 - **Service-role and secrets never appear in client code** (server/QA only).
 
-## 15. Related Documentation
+## 15. Password Recovery and Email Confirmation (Mobile — Slice A)
+
+### 15.1 Architecture: the token-hash flow
+
+- **Request.** The shared customer/provider screen `src/app/(onboarding)/forgot-password.tsx`
+  calls `requestPasswordReset(email)` (`src/auth/auth-context.tsx`), which invokes
+  `supabase.auth.resetPasswordForEmail(email, { redirectTo: mobileAuthRedirectUrl('recovery') })`.
+  Registration (`signUp`) passes `emailRedirectTo: mobileAuthRedirectUrl('signup')`; an explicit
+  "Resend email" action calls `supabase.auth.resend({ type: 'signup', … })` with the same redirect.
+- **Redirect targets** are fixed internal routes on the app's first configured scheme
+  (`app.json` → `expo.scheme[0]` = `kwikserve`), built by `src/lib/auth-links.ts`:
+  `kwikserve://auth/recovery` and `kwikserve://auth/confirm`. Nothing in a link can steer
+  navigation: `next`, `redirect_to` and similar parameters are ignored; post-success navigation
+  always goes through the root dispatcher (`/`), which routes by the verified profile role.
+- **Link handling (HTTPS bridge).** Supabase renders email templates with Go `html/template`, which
+  rewrites a custom-scheme value at the start of an `href` to `#ZgotmplZ`, so the emailed link must
+  start with the HTTPS Site URL. The templates (§15.7) link
+  `{{ .SiteURL }}/auth/recovery#token_hash={{ .TokenHash }}&type=recovery&redirect_to={{ .RedirectTo | urlquery }}`
+  and `{{ .SiteURL }}/auth/confirm#token_hash={{ .TokenHash }}&type=signup&redirect_to={{ .RedirectTo | urlquery }}`.
+  The values ride in the URL **fragment**, which browsers never send in the HTTP request, so the
+  static host does not receive the token hash. On the web export the routes `src/app/auth/recovery.tsx`
+  and `src/app/auth/confirm.tsx` render `AuthLinkBridge` (`src/components/auth/auth-link-bridge.tsx`),
+  which reads the fragment once, validates it (`src/lib/auth-bridge.ts`), replaces the history entry
+  with the clean route, keeps the values in memory, and opens
+  `kwikserve://auth/<route>?token_hash=…&type=…` only when the user presses **Open QuickServe**. The
+  native routes then read those parameters once, strip them with `router.replace('/auth/…')`, and ask
+  the auth context to verify via `supabase.auth.verifyOtp({ token_hash, type })`.
+- **Client options are unchanged**: default implicit flow, `detectSessionInUrl: false`, no PKCE.
+  Access and refresh tokens are never carried in links and URL fragments are never read.
+
+### 15.2 Token hash vs. access/refresh tokens
+
+The link carries a **one-time, short-lived token hash**, not a session. It is still an
+authentication secret while valid: it is captured once, kept in memory only, never logged,
+persisted, displayed, sent to analytics or copied into an error, and stripped from the route as
+soon as it is read. Exchanging it (`verifyOtp`) creates the session server-side; a second use
+fails as "invalid or expired". Access/refresh tokens exist only inside auth-js session storage.
+
+### 15.3 Shared identity-level behaviour
+
+Customers and providers use the same request screen, routes and context functions. Role and
+provider `approval_status` routing stay in the existing session/profile logic; the recovery
+flow never branches on role.
+
+### 15.4 Recovery lifecycle, guards and existing sessions
+
+`recovery.stage`: `idle → verifying → ready → updating → done`, or `invalid`.
+`sessionFromLink` records that the current session was created by a recovery link.
+
+- Cold start and warm app both land on `/auth/recovery` through Expo Router's link handling;
+  the screen snapshot of the opening parameters makes intake identical in both cases.
+- A duplicated/replayed delivery while a recovery is active is ignored (idempotent).
+- The root navigator (`src/auth/root-redirect.ts`) never redirects away from `auth/*` routes and
+  holds ordinary role routing while a recovery is active, so the user reaches the set-password
+  step; `(admin-web)` keeps its own guard.
+- The set-password form renders only in `ready`; `completePasswordReset` refuses to call
+  `updateUser` in any other stage. On success the new session is kept and the screen hands off
+  to `/`. **Cancel** (`abandonRecovery`) signs out **locally and only if the session came from
+  the link**, then returns to sign in. Requesting a new link from the error state also abandons.
+- **Invalid, expired, malformed or reused links** show one safe state ("This link is invalid or
+  has expired.") and perform no session change: an already signed-in user stays signed in.
+
+### 15.5 Password policy and neutral responses
+
+One validator (`validatePassword` in `src/lib/validation.ts`) serves registration and recovery:
+at least 8 characters and not equal to the normalised email; confirmation must match.
+
+Request outcomes (`resetPasswordForEmail`, `resend`) are classified by
+`src/lib/auth-link-request.ts` from the installed auth-js error shape (`AuthApiError.code`
+first, HTTP status only as secondary evidence; no status class is neutralised wholesale):
+
+| Installed evidence | Outcome | User sees |
+|---|---|---|
+| no error | `sent` | "If an account exists for that email, we've sent a … link." |
+| code `user_not_found` | `sent` | same neutral confirmation (no enumeration) |
+| code `over_email_send_rate_limit` | `sent-rate-limited` | neutral confirmation + "wait a minute before trying again" |
+| code `validation_failed` / `email_address_invalid` (not redirect-related) | `invalid-request` | "Please check the email address and try again." |
+| message mentions the redirect URL, code `email_address_not_authorized`, `unexpected_failure`, unknown 4xx/code, non-object errors | `delivery-failed` | "We couldn't send the email. Please try again later or contact support." |
+| `AuthRetryableFetchError` (status 0 / 5xx), `request_timeout`, `over_request_rate_limit`, network `TypeError`, uncoded 5xx | `retry` | "We couldn't send the email right now. Please try again." |
+
+Raw messages, status values, codes, redirect URLs and the submitted address are never rendered
+or logged on these paths; screens receive outcomes only.
+
+### 15.6 Platform gating and the bridge's threat model
+
+The web export (the admin surface on Cloudflare) emits `/forgot-password` (mobile-app notice, no
+request), `/auth/recovery` and `/auth/confirm` (the bridge). The bridge:
+
+- reads **only** the fragment; a token hash in the query string is never accepted, and
+  `access_token` / `refresh_token` (implicit-flow fragments) are rejected;
+- admits exactly one destination per route — `kwikserve://auth/recovery` for recovery,
+  `kwikserve://auth/confirm` for confirmation — compared byte for byte after a single percent-decode;
+  a missing, malformed, foreign, encoded, aliased (`quickserve://`), suffixed or browser destination
+  fails closed with one neutral "invalid or expired" state and no actions (an absent destination is
+  never treated as "mobile by default");
+- removes the fragment and any query string from the address bar and from the current history entry
+  on first render, through **Expo Router's own navigation** (`router.replace(pathname)`), preceded
+  and followed by a `history.replaceState` check. A raw history write alone does not hold: Expo
+  Router rewrites the URL afterwards from the boot URL it keeps as `route.path`, and re-appends the
+  live `location.hash` while the focused route key is unchanged, so the token hash comes back into
+  the address bar. Replacing the route gives the router a new key and a fragment-free remembered
+  path, so it has nothing left to restore; because that navigation remounts the screen, the captured
+  link lives in module memory (`src/lib/auth-bridge-intake.ts`), never in storage. No history entry
+  is added and none retains the token, so back and forward cannot reach it; a refresh reloads the
+  cleaned URL and therefore shows the invalid state, because nothing was persisted;
+- never imports the Supabase client, makes no network request, and never logs or renders the token;
+- opens the app only on the explicit **Open QuickServe** action (no automatic navigation, duplicate
+  presses guarded), then shows non-sensitive no-app guidance;
+- has **no "Continue in browser" action**: the admin-web reset route is Slice B.
+
+`public/_headers` adds `/auth/*`-scoped `Cache-Control: no-store`, `Referrer-Policy: no-referrer`
+and `X-Robots-Tag: noindex` (only those two global values are replaced; CSP, frame, MIME and
+permissions headers still apply), and the bridge sets page-level `referrer`/`robots` meta tags.
+The fragment design keeps the token out of server request logs; if a future change moved the token
+into the query string, the static host would receive it and infrastructure-log redaction would be
+required. Universal Links / Android App Links are not required for this flow; they remain a
+security and cross-device reliability requirement for public release.
+
+### 15.7 Deferred configuration (per Supabase project; dashboard only; not in this repository)
+
+QA project — **requires separate authorisation before it is applied**:
+0. Hosting prerequisite: the dedicated QA bridge origin — a separate Cloudflare Worker,
+   `quickserve-auth-qa`, built and configured by `infra/qa-auth-bridge/` (see its README for the
+   request policy, the build, the local certification matrix and the deployment and rollback
+   commands). It serves ONLY the two bridge documents and the generated assets they reference, from
+   a placeholder-configured export, so the origin holds no project credential; Production keeps its
+   own Worker (`quickserve`) and is unaffected. Deploying it is a separate authorisation.
+1. Authentication → URL Configuration → Site URL: the QA bridge origin, **without a trailing slash**
+   (a trailing slash renders `//auth/recovery`). Redirect URLs: add `kwikserve://auth/recovery` and
+   `kwikserve://auth/confirm` (exact entries, no wildcard) so the app's `redirectTo` is carried as
+   `{{ .RedirectTo }}` instead of falling back to Site URL.
+2. Authentication → Email Templates → "Reset password":
+   `<a href="{{ .SiteURL }}/auth/recovery#token_hash={{ .TokenHash }}&type=recovery&redirect_to={{ .RedirectTo | urlquery }}">Reset password</a>`.
+   "Confirm signup":
+   `<a href="{{ .SiteURL }}/auth/confirm#token_hash={{ .TokenHash }}&type=signup&redirect_to={{ .RedirectTo | urlquery }}">Confirm email</a>`.
+   Validated against Go html/template: the href starts with Site URL, the token hash is unchanged,
+   `redirect_to` is percent-encoded once and decoded once by the bridge.
+3. Keep "Secure password change" off (otherwise `updateUser` needs a re-authentication nonce);
+   set minimum password length to 8 (optional; the app already enforces 8); keep the default
+   one-hour OTP expiry or shorter.
+4. The built-in Supabase email service delivers only to project team members and 2 emails/hour;
+   use a team-member fixture address or custom SMTP for QA.
+
+Production project — **NOT AUTHORISED; do not apply**: the same steps with the Production bridge
+origin as Site URL, executed only after QA certification and an explicit Production change approval.
+Editing a project's templates affects every client of that project, so the admin-web slice (B)
+must be in place before the Production templates change.
+
+### 15.8 QA fixtures for integration certification (separately authorised)
+
+- Create one dedicated QA auth user (e.g. `qa.recovery@<qa-domain>`) with a recorded password;
+  never reuse the certification customer/provider/admin fixtures.
+- Certification generates links through the emailed flow only (no Admin API `generate_link`
+  in the app); read the token hash from the QA mailbox, open it on the test device, complete the
+  reset with a new password, then restore the recorded password through the same recovery flow.
+- Restoration check: sign in with the recorded password; `auth.users.updated_at` is the only
+  expected change. Record the fixture id and timestamps in the certification evidence.
+
+## 16. Related Documentation
 
 - [Architecture](../architecture/README.md) · [Backend](../backend/README.md) ·
   [Database](../database/README.md) · [API](../api/README.md) ·

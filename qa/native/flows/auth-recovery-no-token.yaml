@@ -1,0 +1,52 @@
+# Auth recovery route — fail-closed check, NO token. ASSERTIONS ONLY.
+#
+# The workflow prepares the app and delivers the link before this flow runs: it reinstalls the
+# build, cold-launches it signed out, then fires
+#   xcrun simctl openurl "$DEVICE_ID" "kwikserve://auth/recovery"
+#
+# Delivery is NOT done here. Maestro's `openLink` raises the iOS system alert "Open in
+# "KwikServe"?" with Cancel/Open, and nothing taps it, so the link never reaches the app and the
+# flow times out on a screen it never left (run 34838315160). Firing the URL with simctl delivers
+# it directly, the way the emailed link would arrive.
+#
+# For the same reason there is no launchApp, no clearState and no navigation here: relaunching
+# would discard the very routing this flow exists to observe.
+#
+# Deliberately read-only. Nothing is typed, no credential is used, and no button that would start
+# an auth request is tapped, so there is no QA data to clean up and no cleanup trap. If a future
+# edit adds a sign-in or a request here, it must add marker scoping and cleanup.
+appId: ke.co.hiredcorp.kwikserve
+---
+# iOS asks "Open in "KwikServe"?" before handing a custom-scheme URL to an app, whatever delivered
+# it: Maestro's openLink (run 34838315160) and xcrun simctl openurl (run 34867318992) both raised
+# the same alert, and with nobody tapping it both runs timed out on the welcome screen. Confirming
+# it is part of the real journey — a user tapping an emailed link sees exactly this prompt.
+#
+# Conditional on purpose: if a future iOS or runner image stops asking, the flow skips this and
+# carries straight on. This is the ONLY tap in the flow, and it confirms a link open, nothing else.
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+
+# The route must now be showing the single neutral state.
+- extendedWaitUntil:
+    visible: "This link is invalid or has expired."
+    timeout: 30000
+- assertVisible: "Reset your password"
+- assertVisible: "Reset links can only be used once and expire after a short time."
+- assertVisible: "Request a new link"
+- takeScreenshot: 01-auth-recovery-no-token-invalid
+
+# It must fail CLOSED: no password form, no success path, no session.
+- assertNotVisible: "New password"
+- assertNotVisible: "Save new password"
+- assertNotVisible: "Password updated"
+- assertNotVisible: "Welcome back"
+
+# Still on the neutral state after settling (no late redirect, no crash).
+- extendedWaitUntil:
+    visible: "This link is invalid or has expired."
+    timeout: 5000
+- takeScreenshot: 02-auth-recovery-still-closed

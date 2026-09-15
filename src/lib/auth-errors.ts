@@ -4,6 +4,15 @@ export function mapAuthError(error: { message?: string } | null | undefined): st
   if (m.includes('already registered') || m.includes('already exists')) {
     return 'An account with this email already exists.';
   }
+  if (m.includes('link is invalid') || m.includes('token has expired') || m.includes('otp expired') || m.includes('otp_expired')) {
+    return 'This link is invalid or has expired.';
+  }
+  if (m.includes('should be different from the old password') || m.includes('same_password')) {
+    return 'Your new password must be different from your old password.';
+  }
+  if (m.includes('password should be at least') || m.includes('weak_password') || m.includes('password is too weak')) {
+    return 'Please choose a stronger password (at least 8 characters).';
+  }
   if (m.includes('email not confirmed')) {
     return 'Please confirm your email first — check your inbox for the verification link.';
   }

@@ -40,12 +40,12 @@ describe('validateRegister', () => {
   });
   it('flags mismatch + bad email', () => {
     expect(
-      validateRegister({ name: 'A', email: 'bad', phone: '0700', password: 'a', confirm: 'b' }),
+      validateRegister({ name: 'A', email: 'bad', phone: '0700', password: 'longenough', confirm: 'different' }),
     ).toEqual({ email: 'Enter a valid email', confirm: 'Passwords do not match' });
   });
   it('passes for valid input', () => {
     expect(
-      validateRegister({ name: 'A', email: 'a@b', phone: '0700', password: 'pw', confirm: 'pw' }),
+      validateRegister({ name: 'A', email: 'a@b', phone: '0700', password: 'longenough', confirm: 'longenough' }),
     ).toEqual({});
   });
 });
