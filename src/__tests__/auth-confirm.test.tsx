@@ -20,6 +20,9 @@ jest.mock('expo-router', () => ({
     back: jest.fn(),
   },
   useLocalSearchParams: () => mockParams,
+  // The root navigator is ready in these suites; cold-launch readiness is covered in
+  // src/__tests__/auth-link-cold-launch.test.tsx.
+  useNavigationContainerRef: () => ({ isReady: () => true, addListener: () => () => {} }),
 }));
 jest.mock('expo-router/head', () => ({ __esModule: true, default: ({ children }: { children: React.ReactNode }) => children }));
 jest.mock('@/auth/auth-context', () => ({

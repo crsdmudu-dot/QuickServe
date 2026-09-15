@@ -10,6 +10,7 @@ import { Text } from '@/components/ui/text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { parseAuthLinkParams } from '@/lib/auth-links';
+import { useRootNavigationReady } from '@/hooks/use-root-navigation-ready';
 
 /**
  * `/auth/confirm` — mobile email-confirmation link handler (`type=signup`).
@@ -33,6 +34,7 @@ export default function ConfirmScreen() {
   const handled = useRef(false);
   const alive = useRef(true);
   const isWeb = Platform.OS === 'web';
+  const navigationReady = useRootNavigationReady();
 
   // Unmount-only liveness flag (see the verification callback below).
   useEffect(
@@ -43,17 +45,29 @@ export default function ConfirmScreen() {
   );
 
   useEffect(() => {
-    if (isWeb || handled.current) return;
+    if (isWeb || handled.current || !hadLinkParams) return;
+    // The strip must not run before the root navigator is ready: `router.setParams` asserts
+    // readiness and throws on a deep-link cold launch, which took down the whole screen through
+    // the global error boundary before any verification could happen. Wait, without marking the
+    // attempt handled, so the effect can run again once readiness arrives.
+    if (!navigationReady) return;
     handled.current = true;
     // Strip the one-time secret from the route WITHOUT navigating. `router.replace` gives the
     // route a new key, which remounts this screen with its parameters already gone: the fresh
     // instance then derives `invalid` from the absent parameters while the in-flight verification
-    // is discarded by the `active` guard below. That is exactly how a server-side success
-    // (POST /auth/v1/verify -> 200) surfaced as "This link is invalid or has expired." on a
-    // physical iPhone. `setParams` dispatches SET_PARAMS, which the router applies to the CURRENT
-    // route (see the vendored react-navigation BaseRouter: it spreads `{ ...r, params }`, so the
-    // key is preserved), so this component instance survives to act on the result.
-    if (hadLinkParams) router.setParams({ token_hash: undefined, type: undefined });
+    // is discarded. `setParams` dispatches SET_PARAMS, which the router applies to the CURRENT
+    // route (the vendored react-navigation BaseRouter spreads `{ ...r, params }`, so the key is
+    // preserved), and this component instance survives to act on the result.
+    try {
+      router.setParams({ token_hash: undefined, type: undefined });
+    } catch {
+      // Fail closed. The token is never submitted while it may still be in router-visible state,
+      // so no verification happens here. `router.replace` is queue-safe (it goes through `linkTo`
+      // and `routingQueue`, with no readiness assertion), so it removes the parameters without
+      // risking a second throw; the remounted screen has none and renders the neutral state.
+      router.replace('/auth/confirm');
+      return;
+    }
     if (!parsed.ok) return;
     void verifyAuthLink({ tokenHash: parsed.tokenHash, type: 'signup' }).then((ok) => {
       // Guard on real unmount only. An effect-scoped flag cleared by this effect's own cleanup
@@ -63,7 +77,7 @@ export default function ConfirmScreen() {
       setResult(ok ? 'confirmed' : 'invalid');
       if (ok) router.replace('/');
     });
-  }, [isWeb, hadLinkParams, parsed, verifyAuthLink]);
+  }, [isWeb, hadLinkParams, navigationReady, parsed, verifyAuthLink]);
 
   const state: 'checking' | 'invalid' | 'confirmed' = !parsed.ok || result === 'invalid' ? 'invalid' : result === 'confirmed' ? 'confirmed' : 'checking';
 

@@ -11,6 +11,7 @@ import { Text } from '@/components/ui/text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { parseAuthLinkParams } from '@/lib/auth-links';
+import { useRootNavigationReady } from '@/hooks/use-root-navigation-ready';
 import { validateSetPassword } from '@/lib/validation';
 
 /**
@@ -46,22 +47,34 @@ export default function RecoveryScreen() {
   const [submitting, setSubmitting] = useState(false);
   const handled = useRef(false);
   const isWeb = Platform.OS === 'web';
+  const navigationReady = useRootNavigationReady();
   const stage = recovery.stage;
 
   // Link intake — runs once per screen instance; side effects only (no state writes here).
   useEffect(() => {
     if (isWeb || handled.current || !hadLinkParams) return;
+    // Wait for the root navigator before touching the route. `router.setParams` asserts readiness
+    // and throws on a deep-link cold launch; doing that here would take the screen down through
+    // the global error boundary before anything could be verified. The attempt is deliberately not
+    // marked handled yet, so this effect runs again when readiness arrives.
+    if (!navigationReady) return;
     handled.current = true;
     // Strip the one-time secret from the route WITHOUT navigating, for the reason recorded in
     // `auth/confirm.tsx`: `router.replace` gives the route a new key and remounts the screen.
-    // Recovery happens to survive that remount because its progress lives in the auth context
-    // rather than in component state, but the hazard is the same and the two routes stay
-    // symmetric. `setParams` keeps the current route key, so no remount occurs.
-    router.setParams({ token_hash: undefined, type: undefined });
+    // `setParams` keeps the current route key, so no remount occurs.
+    try {
+      router.setParams({ token_hash: undefined, type: undefined });
+    } catch {
+      // Fail closed: never verify while the token may still be in router-visible state.
+      // `router.replace` is queue-safe, so it removes the parameters without a second throw and
+      // the remounted screen shows the neutral state.
+      router.replace('/auth/recovery');
+      return;
+    }
     if (!parsed.ok) return;
     if (stage === 'verifying' || stage === 'ready' || stage === 'updating') return; // replayed delivery
     void verifyAuthLink({ tokenHash: parsed.tokenHash, type: 'recovery' });
-  }, [isWeb, hadLinkParams, parsed, stage, verifyAuthLink]);
+  }, [isWeb, hadLinkParams, navigationReady, parsed, stage, verifyAuthLink]);
 
   // Arrived with a bad link, or with no link while nothing is in progress → nothing to verify.
   const linkInvalid = hadLinkParams ? !parsed.ok : stage === 'idle';

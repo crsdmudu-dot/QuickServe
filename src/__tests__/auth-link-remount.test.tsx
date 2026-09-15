@@ -89,6 +89,9 @@ jest.mock('expo-router', () => ({
     back: () => mockRouterHarness.back(),
   },
   useLocalSearchParams: () => mockRouteParams,
+  // The root navigator is ready in these suites; cold-launch readiness is covered in
+  // src/__tests__/auth-link-cold-launch.test.tsx.
+  useNavigationContainerRef: () => ({ isReady: () => true, addListener: () => () => {} }),
 }));
 jest.mock('expo-router/head', () => ({
   __esModule: true,
@@ -262,10 +265,18 @@ describe('source guards that keep the defect from returning', () => {
   const CONFIRM = 'src/app/auth/confirm.tsx';
   const RECOVERY = 'src/app/auth/recovery.tsx';
 
-  it('neither route replaces its own route before verifying', () => {
+  it('neither route uses a self-replace as its primary strip', () => {
+    // A self-replace remounts the screen, which is the defect this suite exists for. It survives
+    // in ONE place only: the catch that handles a setParams failure, where the screen is being
+    // failed closed on purpose and nothing is verified afterwards. See
+    // src/__tests__/auth-link-cold-launch.test.tsx for that path.
     for (const file of [CONFIRM, RECOVERY]) {
       const text = read(file);
-      expect(text).not.toMatch(/router\s*\.\s*replace\(\s*['"]\/auth\/(confirm|recovery)['"]\s*\)/);
+      for (const match of text.matchAll(/router\s*\.\s*replace\(\s*['"]\/auth\/(?:confirm|recovery)['"]\s*\)/g)) {
+        const before = text.slice(Math.max(0, match.index - 900), match.index);
+        expect(before).toMatch(/catch\s*\{/);
+      }
+      expect(text).toMatch(/router\s*\.\s*setParams\(/);
     }
   });
 
@@ -293,9 +304,9 @@ describe('source guards that keep the defect from returning', () => {
     const text = read(RECOVERY);
     // A hand-off to "/" is legitimate once the reset completes, and only then.
     expect(text).toMatch(/stage === 'done'[\s\S]{0,60}router\s*\.\s*replace\(\s*['"]\/['"]\s*\)/);
-    // It must not appear in the link-intake effect.
+    // The intake effect must never hand off to the root dispatcher itself.
     const intake = text.slice(text.indexOf('Link intake'), text.indexOf('linkInvalid'));
-    expect(intake).not.toMatch(/router\s*\.\s*replace\(/);
+    expect(intake).not.toMatch(/router\s*\.\s*replace\(\s*['"]\/['"]\s*\)/);
   });
 
   it('no real token material is embedded in these routes', () => {
