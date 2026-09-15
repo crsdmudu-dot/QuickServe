@@ -17,7 +17,7 @@ import type { AuthLinkType } from '@/lib/auth-links';
  * (src/lib/auth-bridge.ts), take it out of the address bar and out of session history, and keep the
  * validated values in memory only. Nothing is stored, logged or sent anywhere: this component never
  * imports the Supabase client and makes no network request. The app is opened only when the user
- * presses "Open QuickServe"; the "Continue in browser" path is intentionally absent until the
+ * presses "Open KwikServe"; the "Continue in browser" path is intentionally absent until the
  * admin-web reset slice exists.
  *
  * Removing the fragment goes through Expo Router's own navigation (`router.replace(pathname)`), not
@@ -61,8 +61,8 @@ function defaultBridgeWindow(): BridgeWindow | null {
 }
 
 const COPY: Record<AuthLinkType, { title: string; prompt: string }> = {
-  recovery: { title: 'Reset your password', prompt: 'Open QuickServe to reset your password' },
-  signup: { title: 'Confirm your email', prompt: 'Open QuickServe to confirm your email' },
+  recovery: { title: 'Reset your password', prompt: 'Open KwikServe to reset your password' },
+  signup: { title: 'Confirm your email', prompt: 'Open KwikServe to confirm your email' },
 };
 
 export function AuthLinkBridge({ type, browser }: { type: AuthLinkType; browser?: BridgeWindow }) {
@@ -114,10 +114,10 @@ export function AuthLinkBridge({ type, browser }: { type: AuthLinkType; browser?
           <Text variant="caption" color="textSecondary">
             This link works on the phone where the app is installed. It can be used once and expires after a short time.
           </Text>
-          <Button label="Open QuickServe" fullWidth size="lg" onPress={openApp} disabled={handoff === 'attempted'} />
+          <Button label="Open KwikServe" fullWidth size="lg" onPress={openApp} disabled={handoff === 'attempted'} />
           {handoff === 'attempted' ? (
             <Text variant="caption" color="textSecondary" accessibilityRole="alert">
-              If the app didn&apos;t open, install the QuickServe app on this phone and open the link from your email
+              If the app didn&apos;t open, install the KwikServe app on this phone and open the link from your email
               again, or request a new link from the app&apos;s sign-in screen.
             </Text>
           ) : null}

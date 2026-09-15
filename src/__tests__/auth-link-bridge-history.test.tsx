@@ -132,7 +132,7 @@ describe('fragment removal survives the router', () => {
     view.unmount();
     render(<AuthLinkBridge type="recovery" browser={model} />);
     model.sync();
-    expect(screen.getByText('Open QuickServe to reset your password')).toBeOnTheScreen();
+    expect(screen.getByText('Open KwikServe to reset your password')).toBeOnTheScreen();
     expect(model.routerReplacements).toEqual(['/auth/recovery']); // no loop
     expect(model.current).toBe('/auth/recovery');
   });
@@ -191,7 +191,7 @@ describe('fragment removal for every link shape', () => {
     const model = new RouterModel(`/auth/confirm${frag({ token_hash: HASH, type: 'signup', redirect_to: CONF })}`);
     render(<AuthLinkBridge type="signup" browser={model} />);
     model.sync();
-    fireEvent.press(screen.getByText('Open QuickServe'));
+    fireEvent.press(screen.getByText('Open KwikServe'));
     expect(model.navigations).toEqual([`${CONF}?token_hash=${HASH}&type=signup`]);
     expect(model.current).toBe('/auth/confirm');
   });
@@ -215,7 +215,7 @@ describe('the token stays in memory only', () => {
     const model = new RouterModel(`/auth/recovery${validRecovery}`);
     const view = render(<AuthLinkBridge type="recovery" browser={model} />);
     model.sync();
-    fireEvent.press(screen.getByText('Open QuickServe'));
+    fireEvent.press(screen.getByText('Open KwikServe'));
 
     expect(storage.local).toEqual([]);
     expect(storage.session).toEqual([]);
