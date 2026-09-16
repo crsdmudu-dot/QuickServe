@@ -2,6 +2,9 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    // The infra/ build scripts are executed directly by Node 24, whose ES module loader requires
+    // an explicit file extension; `tsc --noEmit` must accept the same specifiers.
+    "allowImportingTsExtensions": true,
     "types": ["jest", "node"],
     "paths": {
       "@/*": [

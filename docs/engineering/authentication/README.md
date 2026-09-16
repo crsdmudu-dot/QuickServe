@@ -348,6 +348,15 @@ QA project — **requires separate authorisation before it is applied**:
    commands). It serves ONLY the two bridge documents and the generated assets they reference, from
    a placeholder-configured export, so the origin holds no project credential; Production keeps its
    own Worker (`quickserve`) and is unaffected. Deploying it is a separate authorisation.
+
+   A **second, equivalent target** for the same bridge exists for Cloudflare **Pages**
+   (`infra/qa-auth-bridge/pages-build.ts` + `pages-wrangler.jsonc`), because Pages can attach a
+   custom domain whose DNS zone is managed outside Cloudflare while Workers cannot. It deploys the
+   same `worker.ts` and the same certified bytes, and a parity test suite fails if the two targets
+   ever answer a request differently. The proposed QA hostname is
+   `links.auth-qa.hiredcorp.co.ke` — **proposal only: no DNS record exists and no Pages project has
+   been created.** The Workers origin remains the live origin and the rollback. Deploying the Pages
+   target is again a separate authorisation.
 1. Authentication → URL Configuration → Site URL: the QA bridge origin, **without a trailing slash**
    (a trailing slash renders `//auth/recovery`). Redirect URLs: add `kwikserve://auth/recovery` and
    `kwikserve://auth/confirm` (exact entries, no wildcard) so the app's `redirectTo` is carried as

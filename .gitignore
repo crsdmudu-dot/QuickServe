@@ -13,6 +13,9 @@ web-build/
 dist-qa-auth/
 dist-qa-auth.export/
 .qa-auth-bridge-manifest.json
+# Cloudflare Pages target of the same bridge (built by infra/qa-auth-bridge/pages-build.ts)
+dist-qa-auth-pages/
+.qa-auth-bridge-pages-manifest.json
 expo-env.d.ts
 
 # Native
