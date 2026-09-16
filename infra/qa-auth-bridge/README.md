@@ -3,6 +3,14 @@
 `quickserve-auth-qa` is a **separate Cloudflare Worker** that exists so Supabase QA has an HTTPS
 `Site URL` to put in recovery and confirmation emails, without exposing the rest of the application.
 
+> **Status (2026-09-16).** The same bridge is also deployed to Cloudflare **Pages** as
+> `kwikserve-auth-qa-bridge` and is live on the branded hostname
+> `https://links.auth-qa.hiredcorp.co.ke`, which QA `site_url` now uses. The QA **recovery** journey
+> is certified end to end against it; branded **confirmation** E2E is still outstanding. This
+> Worker **remains deployed as the rollback** — reverting means changing `site_url` back to
+> `https://quickserve-auth-qa.zaka-crsd.workers.dev` and nothing else. See
+> [the certification record](../../docs/engineering/authentication/2026-09-16-qa-branded-auth-bridge-certification.md).
+
 It serves exactly two documents — `/auth/recovery` and `/auth/confirm` — plus the generated assets
 they need. Everything else 404s. It is **not** the Production Worker (`quickserve`, configured by
 `wrangler.jsonc` and deployed automatically by Workers Builds from `main`), and it is never
@@ -178,16 +186,20 @@ other method 405 with `Allow: GET, HEAD`; each sensitive query key 400; a harmle
 `/_sitemap.html` all 404; a generated-asset path that does not exist 404 rather than falling back to
 a document; and with `BRIDGE_MODE=deny`, every route 404.
 
-### Proposed QA custom hostname — NOT YET CREATED
+### QA custom hostname — LIVE since 2026-09-16
 
 ```
-links.auth-qa.hiredcorp.co.ke        →  CNAME  →  <project>.pages.dev
+links.auth-qa.hiredcorp.co.ke        →  CNAME  →  kwikserve-auth-qa-bridge.pages.dev   (TTL 300)
 ```
 
-**No DNS record exists for this name, no Pages project has been created, and nothing has been
-requested from the DNS provider.** It is a proposal only. `hiredcorp.co.ke` is served by external
-nameservers (`cs21`/`cs22.rcnoc.com`), so the record would be created there, and only *after* the
-custom domain has been added in the Pages project.
+The record exists on the external nameservers (`cs21`/`cs22.rcnoc.com`) that serve
+`hiredcorp.co.ke`, the Pages custom domain is **active** with a valid Google Trust Services
+certificate, and QA `site_url` points at `https://links.auth-qa.hiredcorp.co.ke`. It was created in
+the required order: the custom domain was added in the Pages project **first**, then the CNAME —
+the reverse order yields a `522`.
+
+Full record:
+[docs/engineering/authentication/2026-09-16-qa-branded-auth-bridge-certification.md](../../docs/engineering/authentication/2026-09-16-qa-branded-auth-bridge-certification.md).
 
 #### Correction to the earlier DNS record
 
@@ -206,8 +218,10 @@ withdrawn without touching mail delivery, and neither change can collide with th
 
 ## Deployment of the Pages target (separate authorisation required)
 
-Not authorised. When it is, the gate is the same shape as the Workers one, and the **Workers origin
-stays deployed throughout** as the rollback:
+**Done once, on 2026-09-16** — deployment `cd3d30b9-9e18-429b-8ffb-d0d5df8b7fff`, built from
+`a7d747d`, one deployment, direct upload, no Git integration. The steps below are the gate that was
+followed and the one to follow again for any future deployment; each is a separate authorisation.
+The **Workers origin stayed deployed throughout** and remains the rollback:
 
 1. Build fresh: `node infra/qa-auth-bridge/build.ts`, then
    `node infra/qa-auth-bridge/pages-build.ts --out <outside-the-repo>`. Keep both manifests.
