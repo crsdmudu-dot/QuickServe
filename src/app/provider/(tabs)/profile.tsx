@@ -47,6 +47,7 @@ import { ReviewCard } from '@/components/ui/review-card';
 import { RatingBreakdown } from '@/components/ui/rating-breakdown';
 import { Card } from '@/components/ui/card';
 import { SectionHeader } from '@/components/ui/section-header';
+import { SupportLink } from '@/components/ui/support-link';
 
 // Combined state: read-only profile metadata + editable form fields in one object.
 // A single setState call avoids multiple act() warnings in tests.
@@ -322,6 +323,7 @@ export default function ProviderProfileScreen() {
             />
 
             <Button label="Sign out" variant="ghost" onPress={signOut} />
+            <SupportLink />
           </View>
         </View>
       </ScrollView>

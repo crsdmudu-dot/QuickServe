@@ -24,6 +24,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { Skeleton } from '@/components/ui/skeleton';
+import { SupportLink } from '@/components/ui/support-link';
 import { ProfileCompletionCard } from '@/components/customer/profile-completion-card';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -137,6 +138,7 @@ export default function ProfileScreen() {
             onPress={() => router.push('/trust')}
           />
           <Button label="Sign out / Switch role" onPress={signOut} />
+          <SupportLink />
         </View>
       </SafeAreaView>
     </ScrollView>

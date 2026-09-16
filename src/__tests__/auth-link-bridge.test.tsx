@@ -6,7 +6,8 @@
  * The removal itself (Expo Router navigation, history entries, back/forward, refresh) is specified
  * in auth-link-bridge-history.test.tsx.
  */
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { Linking } from 'react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { AuthLinkBridge, type BridgeWindow } from '@/components/auth/auth-link-bridge';
 
@@ -193,6 +194,66 @@ describe('AuthLinkBridge — product branding', () => {
       expect(JSON.stringify(view.toJSON())).not.toContain('QuickServe');
       expect(browser.navigated).toEqual([]);
       view.unmount();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Support access
+//
+// The invalid branch was a dead end: it explained the problem and offered no action at all. The
+// handoff-failure text told the user to install the app or request a new link, with no way to ask
+// for help. Both now carry the support address.
+//
+// This component renders on the deployed QA bridge origin, whose enforced CSP is
+// `default-src 'none' … connect-src 'none' … form-action 'none'`. A `mailto:` is a top-level
+// navigation governed by none of those directives, and it makes no network request — but the
+// assertions below also require the URL to be a constant, so the page can never hand a token,
+// fragment or route to a mail client.
+// ---------------------------------------------------------------------------
+describe('AuthLinkBridge — support access', () => {
+  const SUPPORT = 'support@hiredcorp.co.ke';
+
+  it('offers the support address on the invalid / expired branch', () => {
+    render(<AuthLinkBridge type="recovery" browser={fakeBrowser(frag({ token_hash: 'short', type: 'recovery', redirect_to: REC }))} />);
+    expect(screen.getAllByText('This link is invalid or has expired.').length).toBeGreaterThan(0);
+    expect(screen.getByText(SUPPORT)).toBeOnTheScreen();
+  });
+
+  it('offers the support address after a failed handoff, not before', () => {
+    const browser = fakeBrowser(frag({ token_hash: HASH, type: 'recovery', redirect_to: REC }));
+    render(<AuthLinkBridge type="recovery" browser={browser} />);
+    expect(screen.queryByText(SUPPORT)).toBeNull();
+
+    fireEvent.press(screen.getByRole('button', { name: 'Open KwikServe' }));
+    expect(screen.getByText(SUPPORT)).toBeOnTheScreen();
+  });
+
+  it('opens a bare support mailto carrying no token, fragment or route', async () => {
+    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined as never);
+    try {
+      render(<AuthLinkBridge type="recovery" browser={fakeBrowser(frag({ token_hash: 'short', type: 'recovery', redirect_to: REC }))} />);
+      fireEvent.press(screen.getByRole('link'));
+      await waitFor(() => expect(openURL).toHaveBeenCalledTimes(1));
+      const url = openURL.mock.calls[0][0] as string;
+      expect(url).toBe('mailto:support@hiredcorp.co.ke');
+      expect(url).not.toContain(HASH);
+      expect(url).not.toMatch(/token|recovery|redirect|[?#&]/i);
+    } finally {
+      openURL.mockRestore();
+    }
+  });
+
+  it('does not navigate the page itself when the support link is used', async () => {
+    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined as never);
+    const browser = fakeBrowser(frag({ token_hash: 'short', type: 'recovery', redirect_to: REC }));
+    try {
+      render(<AuthLinkBridge type="recovery" browser={browser} />);
+      fireEvent.press(screen.getByRole('link'));
+      await waitFor(() => expect(openURL).toHaveBeenCalledTimes(1));
+      expect(browser.navigated).toEqual([]);
+    } finally {
+      openURL.mockRestore();
     }
   });
 });

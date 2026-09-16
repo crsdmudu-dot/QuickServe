@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/auth/auth-context';
 import { AuthLinkBridge } from '@/components/auth/auth-link-bridge';
 import { Button } from '@/components/ui/button';
+import { SupportLink } from '@/components/ui/support-link';
 import { Text } from '@/components/ui/text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -100,6 +101,7 @@ export default function ConfirmScreen() {
           Sign in to request a new confirmation email.
         </Text>
         <Button label="Go to sign in" fullWidth size="lg" onPress={() => router.replace('/signin')} />
+        <SupportLink />
       </View>
     );
   } else if (state === 'confirmed') {
