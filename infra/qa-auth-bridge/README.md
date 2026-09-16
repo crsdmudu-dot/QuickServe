@@ -14,7 +14,7 @@ deployed automatically.
 | `worker.ts` | The fail-closed request policy (runs before the assets system) — used by **both** targets |
 | `build.ts` | Placeholder-configured export → pruned `dist-qa-auth/` + `.qa-auth-bridge-manifest.json` |
 | `pages-build.ts` | Packaging of the same worker and the same bytes for Cloudflare **Pages** |
-| `pages-wrangler.jsonc` | The **Pages** project configuration, as a template copied into the build workspace |
+| `pages-wrangler.jsonc` | The **Pages** project configuration (`kwikserve-auth-qa-bridge`), as a template copied into the build workspace |
 | `../../wrangler.qa-auth.jsonc` | **Workers** target (separate Worker, `run_worker_first`, no secrets) — live, and the rollback |
 
 Tests: `src/__tests__/qa-auth-bridge-worker.test.ts`, `qa-auth-bridge-build.test.ts`,
@@ -211,8 +211,12 @@ stays deployed throughout** as the rollback:
 
 1. Build fresh: `node infra/qa-auth-bridge/build.ts`, then
    `node infra/qa-auth-bridge/pages-build.ts --out <outside-the-repo>`. Keep both manifests.
-2. Create the Pages project by hand (direct upload, no Git integration, no build command), then
-   deploy **from the workspace**, never from the repository root:
+2. Create the Pages project by hand, named **exactly `kwikserve-auth-qa-bridge`** (direct upload,
+   no Git integration, no build command). The name is not a free choice: `wrangler pages deploy`
+   takes it from the `name` in the workspace `wrangler.jsonc`, which is copied verbatim from
+   `pages-wrangler.jsonc`, which `pages-build.ts` refuses to copy unless it matches
+   `policy.json` → `pages.projectName`. Create any other name and the deploy will not find it.
+   Then deploy **from the workspace**, never from the repository root:
 
    ```bash
    cd <outside-the-repo>

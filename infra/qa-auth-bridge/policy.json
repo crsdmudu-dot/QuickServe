@@ -24,7 +24,7 @@
   ],
   "contentSecurityPolicy": "default-src 'none'; script-src 'self' 'sha256-67fhrP0+BkBqmgGGXTtgiVO/9EQs3QruYNU/7fnRkI8='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
   "pages": {
-    "projectName": "quickserve-auth-qa-pages",
+    "projectName": "kwikserve-auth-qa-bridge",
     "outputDir": "dist-qa-auth-pages",
     "nonServedFiles": ["_worker.js", "_redirects", "_headers", "_routes.json", "functions"]
   },

@@ -35,15 +35,49 @@ const WORKER_ENTRY = join(__dirname, '..', '..', 'infra', 'qa-auth-bridge', 'wor
 
 describe('policy declares the Pages target without naming a host or an account', () => {
   it('names the project and the output directory, separate from the Workers target', () => {
-    expect(policy.pages.projectName).toBe('quickserve-auth-qa-pages');
+    expect(policy.pages.projectName).toBe('kwikserve-auth-qa-bridge');
     expect(policy.pages.outputDir).toBe('dist-qa-auth-pages');
     expect(policy.pages.outputDir).not.toBe(policy.outputDir);
+  });
+
+  it('does not reuse the Workers name: the two targets are separate deployments', () => {
+    expect(policy.pages.projectName).not.toBe(policy.workerName);
+    expect(policy.workerName).toBe('quickserve-auth-qa');
   });
 
   it('carries no hostname, account identifier, credential or DNS value', () => {
     const text = JSON.stringify(policy.pages);
     expect(text).not.toMatch(/hiredcorp|pages\.dev|workers\.dev|supabase\.co/i);
     expect(text).not.toMatch(/[0-9a-f]{32}/i);
+  });
+});
+
+describe('the retired Pages project name cannot come back', () => {
+  // This target carried a QuickServe-era name before the KwikServe rename. A deploy is driven
+  // entirely by the `name` in the workspace config, so a single stale occurrence in either
+  // committed file would silently create or update the WRONG Pages project.
+  //
+  // The retired name is assembled from parts rather than written out, so that a repository-wide
+  // search for it returns nothing at all — this guard cannot be the thing that keeps it alive.
+  const RETIRED_PAGES_PROJECT = ['quickserve', 'auth', 'qa', 'pages'].join('-');
+
+  it.each([
+    ['infra/qa-auth-bridge/policy.json', join(__dirname, '..', '..', 'infra', 'qa-auth-bridge', 'policy.json')],
+    ['infra/qa-auth-bridge/pages-wrangler.jsonc', PAGES_CONFIG_TEMPLATE],
+  ])('%s carries no occurrence of it', (_label, path) => {
+    expect(readFileSync(path, 'utf8')).not.toContain(RETIRED_PAGES_PROJECT);
+  });
+
+  it('the live Workers name is left alone — only the Pages project was renamed', () => {
+    const workersConfig = readFileSync(join(__dirname, '..', '..', 'wrangler.qa-auth.jsonc'), 'utf8');
+    expect(workersConfig).toContain('"name": "quickserve-auth-qa"');
+    expect(workersConfig).not.toContain(RETIRED_PAGES_PROJECT);
+    expect(workersConfig).not.toContain('kwikserve-auth-qa-bridge');
+  });
+
+  it('a config still naming the retired project is refused by the build', () => {
+    const stale = `{"name":"${RETIRED_PAGES_PROJECT}","pages_build_output_dir":"./${PAGES_SERVED_SUBDIR}"}`;
+    expect(pagesConfigErrors(stale)).toContain(`name must be ${policy.pages.projectName}`);
   });
 });
 
