@@ -4,51 +4,40 @@
  *
  * Covered here: the terminal and blocking mobile surfaces (Auth invalid states, the root not-found
  * screen) and the two profile screens that are the discoverable entry point. The global error
- * boundary is covered in src/components/error-boundary.test.tsx and the web Auth bridge in
- * src/__tests__/auth-link-bridge.test.tsx, next to their existing suites.
+ * boundary is covered in src/components/error-boundary.test.tsx, the web Auth bridge in
+ * src/__tests__/auth-link-bridge.test.tsx, and the web anchor semantics in
+ * src/components/ui/support-link-web.test.tsx, next to their existing suites.
  *
  * The Auth screens are the security-critical ones: they render on a route that arrived carrying a
  * one-time token, so the assertions below require the support URL to be the SAME constant string
  * everywhere. A link that interpolated the route, the params or an error description would fail.
+ *
+ * Every `jest.mock` factory below is self-contained — none closes over a local — so Babel hoists
+ * the registrations above these imports with no temporal-dead-zone hazard, and the imports can stay
+ * where imports belong. Per-test behaviour is driven through the imported mock functions instead.
  */
+import { Linking } from 'react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { router, useLocalSearchParams } from 'expo-router';
 
-// ── Mocks ───────────────────────────────────────────────────────────────────
-const mockReplace = jest.fn();
-const mockPush = jest.fn();
-let mockParams: Record<string, unknown> = {};
+import { useAuth } from '@/auth/auth-context';
+import ConfirmScreen from '@/app/auth/confirm';
+import RecoveryScreen from '@/app/auth/recovery';
+import NotFoundScreen from '@/app/+not-found';
+import CustomerProfileScreen from '@/app/(customer)/profile';
+import ProviderProfileScreen from '@/app/provider/(tabs)/profile';
+import { SUPPORT_EMAIL, buildSupportMailtoUrl } from '@/lib/support';
 
 jest.mock('expo-router', () => ({
-  router: {
-    push: (...a: unknown[]) => mockPush(...a),
-    replace: (...a: unknown[]) => mockReplace(...a),
-    setParams: jest.fn(),
-    back: jest.fn(),
-  },
-  useLocalSearchParams: () => mockParams,
+  router: { push: jest.fn(), replace: jest.fn(), setParams: jest.fn(), back: jest.fn() },
+  useLocalSearchParams: jest.fn(),
   useNavigationContainerRef: () => ({ isReady: () => true, addListener: () => () => {} }),
-  Link: ({ children }: { children: React.ReactNode }) => children,
 }));
 jest.mock('expo-router/head', () => ({
   __esModule: true,
   default: ({ children }: { children: React.ReactNode }) => children,
 }));
-
-const mockVerifyAuthLink = jest.fn();
-const mockSignOut = jest.fn();
-let mockRecoveryStage = 'idle';
-jest.mock('@/auth/auth-context', () => ({
-  useAuth: () => ({
-    verifyAuthLink: (...a: unknown[]) => mockVerifyAuthLink(...a),
-    requestPasswordReset: jest.fn().mockResolvedValue({ ok: true }),
-    completePasswordReset: jest.fn(),
-    abandonRecovery: jest.fn(),
-    signOut: (...a: unknown[]) => mockSignOut(...a),
-    authError: null,
-    session: { user: { id: 'u-1', email: 'someone@example.com' } },
-    recovery: { stage: mockRecoveryStage, sessionFromLink: false },
-  }),
-}));
-
+jest.mock('@/auth/auth-context', () => ({ useAuth: jest.fn() }));
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     from: () => ({
@@ -62,36 +51,40 @@ jest.mock('@/lib/providers', () => ({
   updateMyProviderProfile: jest.fn(),
 }));
 jest.mock('@/lib/reviews', () => ({
-  getProviderRatingSummary: jest.fn().mockResolvedValue(null),
   getProviderReviews: jest.fn().mockResolvedValue([]),
-  getProviderQualityFlags: jest.fn().mockResolvedValue(null),
-  getProviderReviewStats: jest.fn().mockResolvedValue(null),
+  getProviderRatingBreakdown: jest.fn().mockResolvedValue(null),
 }));
 jest.mock('@/lib/earnings', () => ({
+  getMyPayoutLedger: jest.fn().mockResolvedValue([]),
   getProviderEarningsSummary: jest.fn().mockResolvedValue(null),
-  getProviderPayouts: jest.fn().mockResolvedValue([]),
-  getProviderEarnings: jest.fn().mockResolvedValue(null),
-  getMyPayoutAccount: jest.fn().mockResolvedValue(null),
 }));
-
-// ── Imports ─────────────────────────────────────────────────────────────────
-import { Linking } from 'react-native';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-
-import ConfirmScreen from '@/app/auth/confirm';
-import RecoveryScreen from '@/app/auth/recovery';
-import NotFoundScreen from '@/app/+not-found';
-import CustomerProfileScreen from '@/app/(customer)/profile';
-import ProviderProfileScreen from '@/app/provider/(tabs)/profile';
-import { SUPPORT_EMAIL, buildSupportMailtoUrl } from '@/lib/support';
 
 const HASH = 'a'.repeat(64);
 const SUPPORT_URL = 'mailto:support@hiredcorp.co.ke';
 
+const useAuthMock = useAuth as jest.Mock;
+const useParamsMock = useLocalSearchParams as unknown as jest.Mock;
+const verifyAuthLink = jest.fn();
+
+/** Shape the auth context the screens read, with the recovery stage under test control. */
+function setAuth(stage: string) {
+  useAuthMock.mockReturnValue({
+    verifyAuthLink,
+    requestPasswordReset: jest.fn().mockResolvedValue({ ok: true }),
+    completePasswordReset: jest.fn(),
+    abandonRecovery: jest.fn(),
+    signOut: jest.fn(),
+    authError: null,
+    session: { user: { id: 'u-1', email: 'someone@example.com' } },
+    recovery: { stage, sessionFromLink: false },
+  });
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
-  mockParams = {};
-  mockRecoveryStage = 'idle';
+  verifyAuthLink.mockReset();
+  useParamsMock.mockReturnValue({});
+  setAuth('idle');
 });
 
 /** Press the support link and return the single URL it opened. */
@@ -109,23 +102,22 @@ async function pressSupportAndCaptureUrl(): Promise<string> {
 // ---------------------------------------------------------------------------
 
 describe('/auth/confirm invalid state', () => {
+  beforeEach(() => {
+    useParamsMock.mockReturnValue({ token_hash: HASH, type: 'signup' });
+    verifyAuthLink.mockResolvedValue(false);
+  });
+
   it('offers the support address', async () => {
-    mockParams = { token_hash: HASH, type: 'signup' };
-    mockVerifyAuthLink.mockResolvedValue(false);
     render(<ConfirmScreen />);
     await waitFor(() => expect(screen.getByText(SUPPORT_EMAIL)).toBeOnTheScreen());
   });
 
   it('keeps its existing sign-in action', async () => {
-    mockParams = { token_hash: HASH, type: 'signup' };
-    mockVerifyAuthLink.mockResolvedValue(false);
     render(<ConfirmScreen />);
     await waitFor(() => expect(screen.getByText('Go to sign in')).toBeOnTheScreen());
   });
 
   it('opens the constant support URL, carrying no token, route or param', async () => {
-    mockParams = { token_hash: HASH, type: 'signup' };
-    mockVerifyAuthLink.mockResolvedValue(false);
     render(<ConfirmScreen />);
     await waitFor(() => expect(screen.getByText(SUPPORT_EMAIL)).toBeOnTheScreen());
 
@@ -142,20 +134,19 @@ describe('/auth/confirm invalid state', () => {
 // ---------------------------------------------------------------------------
 
 describe('/auth/recovery invalid state', () => {
+  beforeEach(() => setAuth('invalid'));
+
   it('offers the support address', async () => {
-    mockRecoveryStage = 'invalid';
     render(<RecoveryScreen />);
     await waitFor(() => expect(screen.getByText(SUPPORT_EMAIL)).toBeOnTheScreen());
   });
 
   it('keeps its existing request-a-new-link action', async () => {
-    mockRecoveryStage = 'invalid';
     render(<RecoveryScreen />);
     await waitFor(() => expect(screen.getByText('Request a new link')).toBeOnTheScreen());
   });
 
   it('opens the constant support URL, carrying no token, route or param', async () => {
-    mockRecoveryStage = 'invalid';
     render(<RecoveryScreen />);
     await waitFor(() => expect(screen.getByText(SUPPORT_EMAIL)).toBeOnTheScreen());
 
@@ -178,7 +169,8 @@ describe('root not-found screen', () => {
 
   it('offers a way back into the app', () => {
     render(<NotFoundScreen />);
-    expect(screen.getByText('Go to home')).toBeOnTheScreen();
+    fireEvent.press(screen.getByText('Go to home'));
+    expect(router.replace).toHaveBeenCalledWith('/');
   });
 
   it('opens the constant support URL', async () => {

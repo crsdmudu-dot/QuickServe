@@ -28,6 +28,7 @@ import {
 } from '@/lib/earnings';
 
 import { resolvePayoutStatus } from '@/lib/payout-status';
+import { SupportLink } from '@/components/ui/support-link';
 
 /** Provider view is READ-ONLY: there is no payout action anywhere on this screen. */
 const PROVIDER_PAYOUT_LABELS: Record<string, string> = {
@@ -47,7 +48,6 @@ import { ReviewCard } from '@/components/ui/review-card';
 import { RatingBreakdown } from '@/components/ui/rating-breakdown';
 import { Card } from '@/components/ui/card';
 import { SectionHeader } from '@/components/ui/section-header';
-import { SupportLink } from '@/components/ui/support-link';
 
 // Combined state: read-only profile metadata + editable form fields in one object.
 // A single setState call avoids multiple act() warnings in tests.
