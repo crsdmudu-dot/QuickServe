@@ -5,9 +5,10 @@
 
 > **Status (2026-09-16).** The same bridge is also deployed to Cloudflare **Pages** as
 > `kwikserve-auth-qa-bridge` and is live on the branded hostname
-> `https://links.auth-qa.hiredcorp.co.ke`, which QA `site_url` now uses. The QA **recovery** journey
-> is certified end to end against it; branded **confirmation** E2E is still outstanding. This
-> Worker **remains deployed as the rollback** — reverting means changing `site_url` back to
+> `https://links.auth-qa.hiredcorp.co.ke`, which QA `site_url` now uses. The QA **recovery** and
+> **signup-confirmation** journeys are both certified end to end against it, **on iPhone**; Android
+> physical-device Auth certification remains outstanding. This Worker **remains deployed as the
+> rollback** — reverting means changing `site_url` back to
 > `https://quickserve-auth-qa.zaka-crsd.workers.dev` and nothing else. See
 > [the certification record](../../docs/engineering/authentication/2026-09-16-qa-branded-auth-bridge-certification.md).
 

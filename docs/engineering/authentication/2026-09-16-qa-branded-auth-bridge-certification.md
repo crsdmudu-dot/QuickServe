@@ -1,9 +1,10 @@
 # Branded QA authentication bridge — certification record (2026-09-16)
 
-> **Status:** the QA authentication bridge is live on a branded hostname and the **recovery**
-> journey is certified end to end against it. The **confirmation** journey is deployed and
-> runtime-certified on that hostname but has **not** yet been run end to end with a real signup
-> token — see [Qualifications](#qualifications). Production is unaffected and unauthorised.
+> **Status:** the QA authentication bridge is live on a branded hostname and **both** the
+> **recovery** and **signup-confirmation** journeys are certified end to end against it, **on
+> iPhone**. Clean Yahoo Inbox placement is a separate measurement and it **FAILED** — see
+> [Qualifications](#qualifications). Android physical-device Auth certification remains outstanding.
+> Production is unaffected and unauthorised.
 
 Everything below describes the **QA** project only. No project reference, API key, SMTP password or
 other credential is recorded here; the values that do appear (public hostnames, the public commit
@@ -139,23 +140,73 @@ Confirmed from the API gateway and GoTrue logs for a single narrow window:
     password remained unchanged.
 11. The tester cancelled and signed out; the device returned to Welcome/Login.
 
-### Confirmation journey — deployed and runtime-certified, E2E outstanding
+### Signup-confirmation journey — FULLY CERTIFIED end to end, on iPhone
 
-The `/auth/confirm` route is deployed on the branded hostname and passes the same runtime and
-security matrix as `/auth/recovery`. Confirmation previously passed end to end through the **Workers**
-hostname. **A new real signup-confirmation token has not yet been run end to end through the branded
-hostname**, so branded confirmation E2E is **not** certified. Do not describe it as certified until
-that run exists.
+Run with a **fresh** QA fixture against a Yahoo mailbox with no prior KwikServe engagement:
+
+1. One QA signup returned **HTTP 200**.
+2. A **genuinely new identity** was created (`identities` non-empty — not the anti-enumeration
+   response for an existing address).
+3. **No session** was returned before confirmation, and no access or refresh token was issued.
+4. The delivered confirmation email used the **branded** hostname and `/auth/confirm` path.
+5. The confirmation link was tapped **on iPhone**.
+6. The branded bridge handed off to the **installed iPhone app**.
+7. Exactly one `POST /auth/v1/verify` — **200**.
+8. An **OTP** login/session was established, associated with the fixture user.
+9. `GET /auth/v1/user` returned **200**.
+10. The customer-home reads all succeeded.
+11. The **iPhone displayed Home with all services**.
+12. No duplicate verification.
+13. No non-2xx Auth response, no error-level Auth event, no retry and no crash.
+14. The tester then **signed out on iPhone** and the device returned to Welcome/Login.
+
+Backend sequence, as logged (UTC):
+
+| Time | Request | Status |
+| --- | --- | --- |
+| 17:31:14 | `POST /auth/v1/signup` | 200 |
+| 17:38:36 | `POST /auth/v1/verify` | 200 |
+| 17:38:38 | `GET /auth/v1/user` | 200 |
+
+Login method **OTP**; the fixture UUID association was confirmed in the GoTrue logs; every expected
+customer-home read (`profiles`, `services`, `service_categories`, `bookings`, `customer_addresses`,
+`notifications`, `payments`, device-token registration) succeeded; no duplicate, non-2xx or
+error-level Auth event.
+
+### Platform attribution — read this before citing the result
+
+**Android was used only to inspect the fresh Yahoo mailbox** and observe which folder the message
+landed in. **The confirmation link was not used to certify the Android app.** The link was opened,
+and the app journey completed, **on iPhone**.
+
+This distinction matters because the analytics logs **cannot** identify which physical device
+displayed the app — they record only the request sequence. Platform attribution therefore comes from
+the tester's direct observation, which is authoritative. An earlier draft of this record attributed
+the app journey to Android; that attribution was wrong and is superseded here. **The backend
+timestamps, paths, statuses, UUID association and request counts are unchanged** — only the platform
+label was corrected.
+
+**Android physical-device Auth confirmation remains outstanding** unless and until it is separately
+certified.
 
 ## Qualifications
 
 These are recorded deliberately so the record is not read as stronger than the evidence.
 
-**Email placement.** The latest recovery email arrived in the **Yahoo Inbox**. That is operationally
-encouraging but is **not an uncontaminated deliverability measurement**: that mailbox has previously
-moved KwikServe messages out of Spam, which may have trained recipient-specific filtering. Do not
-claim the hostname and template changes conclusively solved Yahoo placement. A clean measurement
-requires a Yahoo mailbox with **no prior KwikServe engagement**.
+**Email placement — clean Yahoo Inbox test: FAIL.** The signup-confirmation email was sent to a
+Yahoo mailbox with **no previous KwikServe engagement**, and it landed in **Spam**. Folder placement
+was observed from the message list **before** the message was opened, moved or marked Not Spam, so
+this *is* the uncontaminated measurement. The message was opened afterwards only to complete the
+independently scoped iPhone Auth test above.
+
+**Do not claim that branded links or the revised templates solved Yahoo placement — they did not.**
+An earlier recovery email did reach the Inbox, but that was a mailbox which had previously moved
+KwikServe mail out of Spam, so that observation reflects recipient-specific training rather than a
+fix.
+
+Placement and authentication are **independent results**: delivery and link functionality **passed**
+despite Spam placement. A message in Spam is still delivered and its link still works, which is
+exactly what the logs show. Yahoo deliverability remediation remains an open work item.
 
 **Support route.** The live email templates include a `mailto:` link to `support@hiredcorp.co.ke`.
 The broader standing requirement remains: **app and website help and error surfaces must offer a
@@ -173,10 +224,18 @@ Recorded, not fixed in this commit.
    `a7d747d1b3e0fcd3dbca07b14e15e97aafdd42c3`.
 2. **`applinks:REPLACE_ME.quickserve.app`** — the associated-domain placeholder remains a
    store-release blocker.
-3. **Branded confirmation E2E** test remains outstanding (see above).
-4. **Clean-mailbox Yahoo placement measurement** remains outstanding.
-5. **PR #20** still requires one approving review.
-6. **Production migration is completely separate and unauthorised.** Nothing in this record
+3. ~~Branded confirmation E2E~~ — **DONE: certified on iPhone** (see above). No longer outstanding.
+4. **Android physical-device Auth certification** remains outstanding. Android was used only to
+   observe the Yahoo mailbox folder; the confirmation link was not used to certify the Android app.
+5. **Yahoo deliverability remediation** remains outstanding. The clean-mailbox measurement has now
+   been taken and it **FAILED** (Spam); the remaining work is the remediation itself, not the
+   measurement.
+6. **Support access across app and website surfaces** remains outstanding. Only the email templates
+   are confirmed to offer a route to `support@hiredcorp.co.ke`.
+7. **Store-release configuration** items remain outstanding alongside the associated-domain
+   placeholder in item 2.
+8. **PR #20** still requires one approving review.
+9. **Production migration is completely separate and unauthorised.** Nothing in this record
    authorises a Production change.
 
 ## 8. Related documentation

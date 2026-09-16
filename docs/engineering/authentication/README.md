@@ -355,12 +355,17 @@ QA project — **requires separate authorisation before it is applied**:
    same `worker.ts` and the same certified bytes, and a parity test suite fails if the two targets
    ever answer a request differently.
 
-   **Status (2026-09-16): LIVE and certified for QA recovery.** The Pages target is deployed
-   (`kwikserve-auth-qa-bridge`, deployment `cd3d30b9-9e18-429b-8ffb-d0d5df8b7fff`, built from
-   `a7d747d`) and the branded hostname `https://links.auth-qa.hiredcorp.co.ke` is active with valid
-   TLS. QA `site_url` now points at it. The **Workers origin remains deployed as the rollback** —
-   reverting means changing `site_url` back and nothing else. Branded **confirmation** E2E is still
-   outstanding. Full record:
+   **Status (2026-09-16): LIVE and certified on iPhone for QA recovery AND signup confirmation.**
+   The Pages target is deployed (`kwikserve-auth-qa-bridge`, deployment
+   `cd3d30b9-9e18-429b-8ffb-d0d5df8b7fff`, built from `a7d747d`) and the branded hostname
+   `https://links.auth-qa.hiredcorp.co.ke` is active with valid TLS. QA `site_url` now points at it.
+   The **Workers origin remains deployed as the rollback** — reverting means changing `site_url`
+   back and nothing else.
+
+   Still outstanding: **Android physical-device Auth certification** (Android was used only to
+   observe the Yahoo mailbox folder, never to certify the app), and **Yahoo deliverability
+   remediation** — the clean-mailbox placement test **FAILED**, landing in Spam. Delivery and link
+   function passed regardless. Full record:
    [2026-09-16 branded QA auth bridge certification](2026-09-16-qa-branded-auth-bridge-certification.md).
 1. Authentication → URL Configuration → Site URL: the QA bridge origin, **without a trailing slash**
    (a trailing slash renders `//auth/recovery`). Redirect URLs: add `kwikserve://auth/recovery` and
@@ -396,8 +401,9 @@ must be in place before the Production templates change.
 ## 16. Related Documentation
 
 - [2026-09-16 branded QA auth bridge certification](2026-09-16-qa-branded-auth-bridge-certification.md)
-  — the branded QA origin, the frozen deployment, the certified security matrix, the recovery E2E
-  result and the outstanding items.
+  — the branded QA origin, the frozen deployment, the certified security matrix, the recovery and
+  signup-confirmation E2E results (both on iPhone), the failed clean-mailbox Yahoo placement test
+  and the outstanding items.
 - [Architecture](../architecture/README.md) · [Backend](../backend/README.md) ·
   [Database](../database/README.md) · [API](../api/README.md) ·
   [Security](../security/README.md) · [QA](../qa/README.md) ·
