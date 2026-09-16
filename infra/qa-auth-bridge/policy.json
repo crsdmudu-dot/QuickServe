@@ -1,0 +1,45 @@
+{
+  "workerName": "quickserve-auth-qa",
+  "outputDir": "dist-qa-auth",
+  "documentPaths": ["/auth/recovery", "/auth/confirm"],
+  "extraPaths": ["/favicon.ico"],
+  "assetPathPattern": "^/_expo/static/(?:js/web|css)/[A-Za-z0-9._-]+\\.(?:js|css)$",
+  "sensitiveQueryKeys": [
+    "token_hash",
+    "token",
+    "access_token",
+    "refresh_token",
+    "provider_token",
+    "provider_refresh_token",
+    "id_token",
+    "code",
+    "code_verifier",
+    "otp",
+    "secret",
+    "password",
+    "confirmation_token",
+    "recovery_token",
+    "email_change_token",
+    "apikey"
+  ],
+  "contentSecurityPolicy": "default-src 'none'; script-src 'self' 'sha256-67fhrP0+BkBqmgGGXTtgiVO/9EQs3QruYNU/7fnRkI8='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+  "pages": {
+    "projectName": "kwikserve-auth-qa-bridge",
+    "outputDir": "dist-qa-auth-pages",
+    "nonServedFiles": ["_worker.js", "_redirects", "_headers", "_routes.json", "functions"]
+  },
+  "build": {
+    "supabaseUrl": "https://placeholder.supabase.co",
+    "supabaseAnonKey": "placeholder-anon-key-not-a-secret",
+    "headersSource": "public/_headers",
+    "forbiddenPatterns": [
+      "service_role",
+      "sb_secret_",
+      "sbp_",
+      "SUPABASE_SERVICE_ROLE",
+      "SUPABASE_DB_PASSWORD",
+      "MPESA_(?:CONSUMER_KEY|CONSUMER_SECRET|PASSKEY|CALLBACK_SECRET|INITIATOR_PASSWORD|SECURITY_CREDENTIAL)",
+      "BEGIN [A-Z ]*PRIVATE KEY"
+    ]
+  }
+}

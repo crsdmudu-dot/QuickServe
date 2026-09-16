@@ -4,11 +4,29 @@ import type { Session } from '@supabase/supabase-js';
 import type { Role } from '@/constants/roles';
 import { supabase } from '@/lib/supabase';
 import { mapAuthError } from '@/lib/auth-errors';
+import { classifyAuthLinkRequest, type AuthLinkRequestOutcome } from '@/lib/auth-link-request';
+import { mobileAuthRedirectUrl, type AuthLinkType } from '@/lib/auth-links';
 import { unregisterForPushNotifications } from '@/lib/push';
+import { normalizeEmail } from '@/lib/validation';
 
 type SignUpValues = { fullName: string; email: string; phone: string; password: string };
 
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+
+/**
+ * Password-recovery lifecycle (token-hash flow, see src/lib/auth-links.ts):
+ *   idle → verifying → ready (recovery session established) → updating → done
+ *                    ↘ invalid (link expired / used / malformed; existing session untouched)
+ * `sessionFromLink` records that the current session was created by a recovery link, so
+ * abandoning the recovery signs out that session locally without touching any other.
+ */
+export type RecoveryStage = 'idle' | 'verifying' | 'ready' | 'updating' | 'invalid' | 'done';
+export type RecoveryState = { stage: RecoveryStage; sessionFromLink: boolean };
+/** Outcome of an email-link request (see src/lib/auth-link-request.ts); never reveals account existence. */
+export type AuthLinkRequestResult = AuthLinkRequestOutcome;
+export type AuthLink = { tokenHash: string; type: AuthLinkType };
+
+const IDLE_RECOVERY: RecoveryState = { stage: 'idle', sessionFromLink: false };
 
 type AuthState = {
   session: Session | null;
@@ -19,10 +37,19 @@ type AuthState = {
   signedIn: boolean;
   authError: string | null;
   profileError: string | null;
+  recovery: RecoveryState;
+  /** Email awaiting confirmation after a sign-up that returned no session (confirmations enabled). */
+  pendingConfirmationEmail: string | null;
   selectRole: (role: Role) => void;
   signUp: (v: SignUpValues) => Promise<boolean>;
   signIn: (email: string, password: string) => Promise<boolean>;
   signOut: () => Promise<void>;
+  requestPasswordReset: (email: string) => Promise<AuthLinkRequestResult>;
+  verifyAuthLink: (link: AuthLink) => Promise<boolean>;
+  completePasswordReset: (password: string) => Promise<boolean>;
+  abandonRecovery: () => Promise<void>;
+  resendConfirmation: (email: string) => Promise<AuthLinkRequestResult>;
+  clearPendingConfirmation: () => void;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -50,6 +77,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [pendingRole, setPendingRole] = useState<Role | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
+  const [recovery, setRecoveryState] = useState<RecoveryState>(IDLE_RECOVERY);
+  const [pendingConfirmationEmail, setPendingConfirmationEmail] = useState<string | null>(null);
+  // Synchronous mirror of the recovery state for guards inside async functions.
+  const recoveryRef = useRef<RecoveryState>(IDLE_RECOVERY);
+  function setRecovery(next: RecoveryState) {
+    recoveryRef.current = next;
+    setRecoveryState(next);
+  }
 
   // The user id whose role/profile is currently resolved. Used so a session change for
   // a NEW user re-enters the loading state while the role is fetched (making "role
@@ -88,7 +123,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (active) setIsLoading(false);
     }
     supabase.auth.getSession().then(({ data }) => applySession(data.session));
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      // A recovery link verified anywhere in the app establishes the recovery session.
+      if (event === 'PASSWORD_RECOVERY') {
+        recoveryRef.current = { stage: 'ready', sessionFromLink: true };
+        setRecoveryState(recoveryRef.current);
+      }
       applySession(s);
     });
     return () => {
@@ -103,17 +143,116 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signUp(v: SignUpValues): Promise<boolean> {
     setAuthError(null);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: v.email,
       password: v.password,
-      options: { data: { full_name: v.fullName, phone: v.phone, role: pendingRole } },
+      options: {
+        data: { full_name: v.fullName, phone: v.phone, role: pendingRole },
+        emailRedirectTo: mobileAuthRedirectUrl('signup'),
+      },
     });
     if (error) {
       if (__DEV__) console.error('[auth] sign-up error:', error);
       setAuthError(mapAuthError(error));
       return false;
     }
+    // No session ⇒ the project requires email confirmation: surface the "check your email" state.
+    if (!data?.session) setPendingConfirmationEmail(v.email);
     return true;
+  }
+
+  async function requestPasswordReset(email: string): Promise<AuthLinkRequestResult> {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(normalizeEmail(email), {
+        redirectTo: mobileAuthRedirectUrl('recovery'),
+      });
+      // Error objects are never logged: their messages can echo the submitted address.
+      return classifyAuthLinkRequest(error);
+    } catch (thrown) {
+      return classifyAuthLinkRequest(thrown);
+    }
+  }
+
+  async function verifyAuthLink(link: AuthLink): Promise<boolean> {
+    const isRecovery = link.type === 'recovery';
+    if (isRecovery) {
+      const cur = recoveryRef.current;
+      // Replayed / duplicate delivery while a recovery is already active: nothing to do.
+      if (cur.stage === 'verifying' || cur.stage === 'ready' || cur.stage === 'updating') return true;
+      setRecovery({ stage: 'verifying', sessionFromLink: false });
+    }
+    try {
+      // verifyOtp consumes the one-time token hash; on success auth-js stores the session and
+      // emits PASSWORD_RECOVERY (recovery) or SIGNED_IN (signup). On failure nothing changes —
+      // an existing session is never signed out because of a bad link.
+      const { error } = await supabase.auth.verifyOtp({ token_hash: link.tokenHash, type: link.type });
+      if (error) {
+        if (isRecovery) setRecovery({ stage: 'invalid', sessionFromLink: false });
+        return false;
+      }
+      if (isRecovery) setRecovery({ stage: 'ready', sessionFromLink: true });
+      return true;
+    } catch {
+      if (isRecovery) setRecovery({ stage: 'invalid', sessionFromLink: false });
+      return false;
+    }
+  }
+
+  async function completePasswordReset(password: string): Promise<boolean> {
+    // Only a verified recovery session may set a password.
+    if (recoveryRef.current.stage !== 'ready') return false;
+    setAuthError(null);
+    setRecovery({ stage: 'updating', sessionFromLink: true });
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) {
+        setAuthError(mapAuthError(error));
+        setRecovery({ stage: 'ready', sessionFromLink: true });
+        return false;
+      }
+      setRecovery({ stage: 'done', sessionFromLink: true });
+      return true;
+    } catch {
+      setAuthError(mapAuthError(null));
+      setRecovery({ stage: 'ready', sessionFromLink: true });
+      return false;
+    }
+  }
+
+  async function abandonRecovery(): Promise<void> {
+    const cur = recoveryRef.current;
+    if (cur.sessionFromLink && (cur.stage === 'ready' || cur.stage === 'updating')) {
+      // The session exists only because of the link: drop it on this device, nowhere else.
+      try {
+        await unregisterForPushNotifications();
+      } catch {
+        // best-effort
+      }
+      try {
+        await supabase.auth.signOut({ scope: 'local' });
+      } catch {
+        // best-effort; state is reset regardless
+      }
+    }
+    setAuthError(null);
+    setRecovery(IDLE_RECOVERY);
+  }
+
+  async function resendConfirmation(email: string): Promise<AuthLinkRequestResult> {
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: normalizeEmail(email),
+        options: { emailRedirectTo: mobileAuthRedirectUrl('signup') },
+      });
+      return classifyAuthLinkRequest(error);
+    } catch (thrown) {
+      return classifyAuthLinkRequest(thrown);
+    }
+  }
+
+  function clearPendingConfirmation() {
+    setPendingConfirmationEmail(null);
   }
 
   async function signIn(email: string, password: string): Promise<boolean> {
@@ -151,10 +290,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signedIn: session != null,
         authError,
         profileError,
+        recovery,
+        pendingConfirmationEmail,
         selectRole,
         signUp,
         signIn,
         signOut,
+        requestPasswordReset,
+        verifyAuthLink,
+        completePasswordReset,
+        abandonRecovery,
+        resendConfirmation,
+        clearPendingConfirmation,
       }}>
       {children}
     </AuthContext.Provider>

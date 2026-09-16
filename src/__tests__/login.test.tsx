@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { router } from 'expo-router';
 
 const mockSignIn = jest.fn().mockResolvedValue(true);
 jest.mock('expo-router', () => ({ router: { push: jest.fn(), replace: jest.fn() } }));
@@ -32,5 +33,13 @@ describe('LoginScreen', () => {
     fireEvent.press(screen.getByText('Register'));
     const { router } = require('expo-router');
     expect(router.push).toHaveBeenCalledWith('/register');
+  });
+});
+
+describe('LoginScreen — password recovery entry', () => {
+  it('links to the shared forgot-password screen', () => {
+    render(<LoginScreen />);
+    fireEvent.press(screen.getByText('Forgot password?'));
+    expect(router.push).toHaveBeenCalledWith('/forgot-password');
   });
 });

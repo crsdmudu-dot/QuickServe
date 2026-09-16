@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/auth/auth-context';
+import { AUTH_LINK_REQUEST_COPY, authLinkFailureCopy, isNeutralSuccess, type AuthLinkRequestOutcome } from '@/lib/auth-link-request';
 import { validateRegister } from '@/lib/validation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +14,9 @@ import { Text } from '@/components/ui/text';
 
 export default function RegisterScreen() {
   const theme = useTheme();
-  const { signUp, authError, profileError } = useAuth();
+  const { signUp, authError, profileError, pendingConfirmationEmail, resendConfirmation, clearPendingConfirmation } =
+    useAuth();
+  const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | AuthLinkRequestOutcome>('idle');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -26,6 +29,55 @@ export default function RegisterScreen() {
     setErrors(e);
     if (Object.keys(e).length > 0) return;
     await signUp({ fullName: name, email, phone, password }); // gating routes on success
+  }
+
+  async function resend() {
+    if (!pendingConfirmationEmail) return;
+    setResendStatus('sending');
+    setResendStatus(await resendConfirmation(pendingConfirmationEmail));
+  }
+
+  function backToSignIn() {
+    clearPendingConfirmation();
+    router.replace('/signin');
+  }
+
+  // Sign-up succeeded but the project requires email confirmation: no session yet.
+  if (pendingConfirmationEmail) {
+    return (
+      <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
+        <View style={styles.content}>
+          <View style={styles.header}>
+            <Text variant="display" style={styles.heading}>
+              Check your email
+            </Text>
+            <Text variant="body" color="textSecondary">
+              We sent a confirmation link to {pendingConfirmationEmail}. Open it on this phone to finish creating
+              your account.
+            </Text>
+          </View>
+          <View style={styles.form}>
+            <Button label="Resend email" fullWidth size="lg" variant="secondary" onPress={resend} loading={resendStatus === 'sending'} />
+            {resendStatus !== 'idle' && resendStatus !== 'sending' && isNeutralSuccess(resendStatus) ? (
+              <Text variant="caption" color="textSecondary" style={styles.authError} accessibilityRole="alert">
+                {AUTH_LINK_REQUEST_COPY.confirmationSent}
+                {resendStatus === 'sent-rate-limited' ? ` ${AUTH_LINK_REQUEST_COPY.rateLimitHint}` : ''}
+              </Text>
+            ) : null}
+            {resendStatus !== 'idle' && resendStatus !== 'sending' && !isNeutralSuccess(resendStatus) ? (
+              <Text variant="caption" color="error" style={styles.authError} accessibilityRole="alert">
+                {authLinkFailureCopy(resendStatus)}
+              </Text>
+            ) : null}
+            <View style={styles.linkRow}>
+              <Text variant="label" color="primary" onPress={backToSignIn}>
+                Back to sign in
+              </Text>
+            </View>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (

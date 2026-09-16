@@ -29,6 +29,17 @@
   Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'sha256-67fhrP0+BkBqmgGGXTtgiVO/9EQs3QruYNU/7fnRkI8='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://lkigkltvstlxfdztffds.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
   Cache-Control: public, max-age=0, must-revalidate
 
+# Auth link bridge documents (/auth/recovery, /auth/confirm). The emailed one-time token hash rides in
+# the URL FRAGMENT, which browsers never send to the server; these rules additionally keep the
+# documents out of caches, referrers and search indexes. `! Name` removes only the named global
+# header before the stricter value is set; every other global header above still applies here.
+/auth/*
+  ! Cache-Control
+  Cache-Control: no-store
+  ! Referrer-Policy
+  Referrer-Policy: no-referrer
+  X-Robots-Tag: noindex
+
 # Keep the workers.dev certification hostname out of search indexes. A future custom domain does
 # not match this rule and stays indexable.
 https://quickserve.:subdomain.workers.dev/*

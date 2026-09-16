@@ -1,0 +1,41 @@
+// wrangler.qa-auth.jsonc — ISOLATED QA authentication-bridge Worker.
+//
+// This configuration is deliberately NOT an environment of wrangler.jsonc. The Production Worker
+// (`quickserve`) is assets-only and is deployed automatically by Workers Builds from `main`; this
+// one is a separate Worker, deployed only by hand, under a separate authorisation, from a local
+// build. Nothing here is ever used by Workers Builds.
+//
+// It serves ONLY the two emailed-link landing documents of the web export (/auth/recovery and
+// /auth/confirm) and the exact generated assets they reference, from the pruned directory built by
+// `node infra/qa-auth-bridge/build.ts`. The Worker (infra/qa-auth-bridge/worker.ts) runs first for
+// every request and refuses everything else; `not_found_handling: "none"` means the assets system
+// has no SPA fallback to reveal other routes either.
+//
+// The build uses the CI PLACEHOLDER Supabase configuration, so this origin holds no project
+// credential: the bridge pages make no network request at all. No secrets, no bindings other than
+// the assets binding, no custom routes, no account_id (supply CLOUDFLARE_ACCOUNT_ID at deploy
+// time so the target account is never committed here).
+//
+// BRIDGE_MODE is the rollback switch: any value other than "serve" makes every route 404 without
+// deleting the Worker or its version history.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "quickserve-auth-qa",
+  "main": "infra/qa-auth-bridge/worker.ts",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./dist-qa-auth",
+    "binding": "ASSETS",
+    "not_found_handling": "none",
+    "html_handling": "drop-trailing-slash",
+    "run_worker_first": true
+  },
+  "vars": {
+    "BRIDGE_MODE": "serve"
+  },
+  "observability": {
+    "enabled": false
+  },
+  "workers_dev": true,
+  "preview_urls": false
+}
