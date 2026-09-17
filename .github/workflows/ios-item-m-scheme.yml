@@ -53,16 +53,14 @@ on:
           - item-m
           - auth-routes
       build_id:
-        description: "EAS iOS simulator build ID to certify (REQUIRED — no latest-build fallback)"
+        description: "EAS iOS simulator build ID to certify (UUID; REQUIRED — no latest-build fallback)"
         required: true
       expected_commit:
-        description: "auth-routes mode only: commit the artifact must have been built from"
-        required: false
-        default: "44215962efd311a85d344cb775670c4ea8e36914"
+        description: "Full 40-character commit the artifact must have been built from (no default)"
+        required: true
       expected_sha256:
-        description: "auth-routes mode only: SHA-256 the downloaded artifact must have"
-        required: false
-        default: "6c5bfa9f3e8299ce429e4a924844c04d89ff891c075932a545f2b34693d0af7d"
+        description: "64-character SHA-256 the downloaded artifact must have (no default)"
+        required: true
 
 jobs:
   # The original gate, unchanged apart from the mode guard.
@@ -163,10 +161,26 @@ jobs:
           path: ~/.maestro/tests
           if-no-files-found: ignore
 
+  # Refuse an incomplete identity at the caller boundary, before the gate is entered and long
+  # before a simulator is booted. There is no default to fall back to, by design.
+  auth-routes-inputs:
+    if: ${{ inputs.mode == 'auth-routes' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require all three identity values
+        run: |
+          set -euo pipefail
+          [ -n "${{ inputs.build_id }}" ]        || { echo "FAIL: build_id is required"; exit 1; }
+          [ -n "${{ inputs.expected_commit }}" ] || { echo "FAIL: expected_commit is required"; exit 1; }
+          [ -n "${{ inputs.expected_sha256 }}" ] || { echo "FAIL: expected_sha256 is required"; exit 1; }
+          echo "All three identity values supplied by the caller."
+
   # No steps, no runner of its own, no credentials: it hands three values and one named secret to
   # the gate and nothing else. Everything it certifies is asserted inside that workflow.
   auth-routes:
     if: ${{ inputs.mode == 'auth-routes' }}
+    needs: auth-routes-inputs
     uses: ./.github/workflows/ios-auth-routes-smoke.yml
     with:
       build_id: ${{ inputs.build_id }}

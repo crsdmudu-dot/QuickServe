@@ -5,10 +5,16 @@
  *
  * Why a test and not just a reviewed YAML file: this gate is the only automated proof that the two
  * emailed-link routes fail closed on iOS, and its value depends entirely on properties that are
- * easy to weaken by accident — that it certifies ONE pinned artifact, verifies that artifact's
- * identity and hash before installing it, holds no fixture identity or service-role key, and never
- * signs in or mutates anything. Each of those is asserted here so a future edit that removes one
- * fails the suite instead of silently producing a green run that proves less.
+ * easy to weaken by accident — that the caller must state which artifact it means, that the
+ * artifact's identity and hash are verified BEFORE it is installed, that it holds no fixture
+ * identity or service-role key, and that it never signs in or mutates anything. Each of those is
+ * asserted here so a future edit that removes one fails the suite instead of silently producing a
+ * green run that proves less.
+ *
+ * The gate used to certify one historical build by pinning its UUID, which made it unusable for
+ * every later commit. The pin is gone. What replaces it is stricter, not looser: three mandatory
+ * identity inputs with no defaults, format-checked before any network call, then checked against
+ * EAS metadata and against the bytes actually downloaded.
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -19,10 +25,12 @@ const FLOW_DIR = path.join(ROOT, 'qa/native/flows');
 const RECOVERY_FLOW = path.join(FLOW_DIR, 'auth-recovery-no-token.yaml');
 const CONFIRM_FLOW = path.join(FLOW_DIR, 'auth-confirm-no-token.yaml');
 
-const BUILD_ID = 'b00fdcf7-4903-4153-a1ac-1e36ae9f881d';
-const COMMIT = '44215962efd311a85d344cb775670c4ea8e36914';
-const SHA256 = '6c5bfa9f3e8299ce429e4a924844c04d89ff891c075932a545f2b34693d0af7d';
 const BUNDLE_ID = 'ke.co.hiredcorp.kwikserve';
+
+/** The artifact this gate was once hard-wired to. It must not reappear in any form. */
+const HISTORICAL_BUILD_ID = 'b00fdcf7-4903-4153-a1ac-1e36ae9f881d';
+const HISTORICAL_COMMIT = '44215962efd311a85d344cb775670c4ea8e36914';
+const HISTORICAL_SHA256 = '6c5bfa9f3e8299ce429e4a924844c04d89ff891c075932a545f2b34693d0af7d';
 
 const read = (p: string) => fs.readFileSync(p, 'utf8');
 let yml: string;
@@ -56,16 +64,38 @@ describe('trigger and permissions are pinned', () => {
     expect(yml).not.toMatch(/^\s+\w+: write$/m);
   });
 
-  it('takes the three identity inputs, all required, defaulted to the certified artifact', () => {
+  it('takes the three identity inputs and requires every one of them', () => {
     const inputs = yml.split('inputs:')[1] ?? '';
     for (const name of ['build_id', 'expected_commit', 'expected_sha256']) {
       expect(inputs).toMatch(new RegExp(`^ {6}${name}:$`, 'm'));
     }
     expect((inputs.match(/^ {8}required: true$/gm) ?? []).length).toBe(3);
-    const block = (name: string) => inputs.split(new RegExp(`^ {6}${name}:$`, 'm'))[1]?.split(/^ {6}\w+:$/m)[0] ?? '';
-    expect(scalarAt(block('build_id'), 'default', 8)).toBe(BUILD_ID);
-    expect(scalarAt(block('expected_commit'), 'default', 8)).toBe(COMMIT);
-    expect(scalarAt(block('expected_sha256'), 'default', 8)).toBe(SHA256);
+  });
+
+  // A default is how the gate silently certified a stale artifact: omit a value and the run still
+  // went green, against yesterday's build. There must be nothing to fall back to.
+  it('supplies no default for any identity input, on either trigger', () => {
+    const all = yml.split('inputs:').slice(1).join('inputs:');
+    const block = (name: string) =>
+      all.split(new RegExp(`^ {6}${name}:$`, 'm')).slice(1).map((s) => s.split(/^ {6}\w+:$/m)[0] ?? '');
+    for (const name of ['build_id', 'expected_commit', 'expected_sha256']) {
+      for (const b of block(name)) {
+        expect(scalarAt(b, 'default', 8)).toBeUndefined();
+      }
+    }
+    expect(yml).not.toMatch(/^\s*default:/m);
+  });
+
+  it('carries no trace of the historical artifact it used to be pinned to', () => {
+    expect(yml).not.toContain('PINNED_BUILD_ID');
+    expect(yml).not.toContain(HISTORICAL_BUILD_ID);
+    expect(yml).not.toContain(HISTORICAL_COMMIT);
+    expect(yml).not.toContain(HISTORICAL_SHA256);
+  });
+
+  it('hard-codes no simulator build UUID at all, historical or otherwise', () => {
+    const uuids = yml.match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi) ?? [];
+    expect(uuids).toEqual([]);
   });
 });
 
@@ -86,31 +116,77 @@ describe('secret allow-list', () => {
 });
 
 describe('artifact identity is proved before anything is installed', () => {
-  it('pins the one build this gate certifies and refuses any other', () => {
-    expect(yml).toContain(BUILD_ID);
-    expect(yml).toMatch(/PINNED_BUILD_ID|refus|exit 1/);
-    // the run must compare the supplied build id against the pinned one
-    expect(yml).toMatch(new RegExp(`"\\$\\{?BUILD_ID\\}?"\\s*=\\s*"\\$\\{?PINNED_BUILD_ID\\}?"|BUILD_ID.*!=.*PINNED`));
+  it('rejects an empty or malformed identity input before any network call', () => {
+    // Empty-value guards.
+    expect(yml).toMatch(/-n "\$BUILD_ID"/);
+    expect(yml).toMatch(/-n "\$EXPECTED_COMMIT"/);
+    expect(yml).toMatch(/-n "\$EXPECTED_SHA256"/);
+    // Shape guards: a UUID, a full git SHA, a 64-hex digest.
+    expect(yml).toMatch(/\{8\}-\[0-9a-fA-F\]\{4\}/);
+    expect(yml).toMatch(/\[0-9a-fA-F\]\{40\}/);
+    expect(yml).toMatch(/\[0-9a-fA-F\]\{64\}/);
+    // and it happens before the first EAS call, the download and the install
+    const validateAt = yml.indexOf('build_id is not a UUID');
+    expect(validateAt).toBeGreaterThan(-1);
+    expect(yml.search(/^\s+eas build:view/m)).toBeGreaterThan(validateAt);
+    expect(yml.indexOf('curl -fSL')).toBeGreaterThan(validateAt);
+    expect(yml.indexOf('simctl install')).toBeGreaterThan(validateAt);
   });
 
-  it('verifies status, platform, profile, bundle identifier and commit from EAS metadata', () => {
+  it('reads EAS metadata for exactly the build the caller supplied', () => {
+    expect(yml).toMatch(/eas build:view "\$BUILD_ID"/);
+    expect(yml).toMatch(/BUILD_ID="\$\{\{ inputs\.build_id \}\}"/);
+  });
+
+  it('verifies status, platform, simulator-only, bundle identifier and the caller commit', () => {
     expect(yml).toContain('.status');
     expect(yml).toContain('FINISHED');
     expect(yml).toContain('IOS');
-    expect(yml).toContain('ios-simulator');
+    expect(yml).toContain('isForIosSimulator');
+    expect(yml).toMatch(/\[ "\$SIMULATOR" = "true" \]/);
     expect(yml).toContain(BUNDLE_ID);
     expect(yml).toContain('gitCommitHash');
-    expect(yml).toContain(COMMIT);
+    // the commit is compared against the caller's value, not a constant in this file
+    expect(yml).toMatch(/\[ "\$COMMIT" = "\$\{\{ inputs\.expected_commit \}\}" \]/);
   });
 
-  it('downloads only the authoritative Expo artifact host and checks the hash before install', () => {
+  it('downloads only the authoritative Expo host and checks the caller digest before install', () => {
     expect(yml).toMatch(/https:\/\/expo\.dev\//);
     expect(yml).toContain('shasum');
-    expect(yml).toContain(SHA256);
+    // the digest is compared against the caller's value, case-normalised
+    expect(yml).toMatch(/EXPECTED=\$\(printf '%s' "\$\{\{ inputs\.expected_sha256 \}\}" \| tr 'A-Z' 'a-z'\)/);
+    expect(yml).toMatch(/\[ "\$ACTUAL" = "\$EXPECTED" \]/);
     const hashAt = yml.indexOf('shasum');
     const installAt = yml.indexOf('simctl install');
     expect(hashAt).toBeGreaterThan(-1);
     expect(installAt).toBeGreaterThan(hashAt); // hash first, install second
+  });
+
+  it('never decides anything from the GitHub run that dispatched it', () => {
+    // The ref a run was dispatched on says nothing about which artifact was built. Identity must
+    // come from EAS metadata and the downloaded bytes only.
+    expect(yml).not.toMatch(/github\.sha/);
+    expect(yml).not.toMatch(/github\.ref/);
+    expect(yml).not.toMatch(/head_sha/);
+  });
+
+  it('installs nothing that has not been through every identity check', () => {
+    const installAt = yml.indexOf('simctl install');
+    for (const gate of ['build_id is not a UUID', 'gitCommitHash', 'shasum', 'CFBundleIdentifier']) {
+      expect(yml.indexOf(gate)).toBeGreaterThan(-1);
+      expect(installAt).toBeGreaterThan(yml.indexOf(gate));
+    }
+  });
+
+  // Ordering "before install" is not enough on its own: a gate that downloads first and checks the
+  // metadata afterwards has already fetched an artifact it never vouched for. The EAS metadata
+  // check must come before the download as well.
+  it('proves the EAS metadata identity before it downloads anything', () => {
+    const metadataAt = yml.indexOf('gitCommitHash');
+    const downloadAt = yml.indexOf('curl -fSL');
+    expect(metadataAt).toBeGreaterThan(-1);
+    expect(downloadAt).toBeGreaterThan(-1);
+    expect(downloadAt).toBeGreaterThan(metadataAt);
   });
 });
 
@@ -264,7 +340,7 @@ describe('the workflow delivers each link itself, per route', () => {
 
   it('preserves every safeguard that came before', () => {
     for (const kept of [
-      'PINNED_BUILD_ID', 'gitCommitHash', 'shasum', 'plutil -extract CFBundleIdentifier',
+      'isForIosSimulator', 'gitCommitHash', 'shasum', 'plutil -extract CFBundleIdentifier',
       'MinimumOSVersion', 'No compatible', 'DiagnosticReports', 'upload-artifact',
     ]) {
       expect(yml).toContain(kept);
