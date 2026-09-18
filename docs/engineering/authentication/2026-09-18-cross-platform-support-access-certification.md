@@ -181,14 +181,29 @@ No password (old or new), fixture email or secret value is recorded here.
 
 ## 9. Outstanding issues
 
-Recorded, not fixed here. None of these is resolved by this record.
+Recorded, not fixed here. Apart from the corrected item 3, none of these is resolved by this record.
 
 1. **Yahoo clean-mailbox placement remains Spam.** Deliverability remediation is separate from Auth
    functionality and remains open.
 2. **Recovery links were perceived to expire quickly.** The actual configured lifetime, token
    supersession and security-scanner prefetch behaviour still require investigation.
-3. **`QA_SERVICE_ROLE_KEY` in `qa/.env` is stale and returns 401.** Native and backend workflows
-   that rely on it are currently impaired.
+3. **QA service credential — verified active; not a blocker (correction, 2026-09-18).** An earlier
+   version of this record said `QA_SERVICE_ROLE_KEY` in `qa/.env` was stale. That was wrong: the
+   value, parsed through dotenv, is the active QA legacy `service_role` key. Read-only verification
+   returned HTTP 200 from the Auth admin users endpoint (page size 1), from REST `services`
+   (limit 1) and from a request that reproduces the `qa/native/backend.mjs` loading and header
+   construction. No local rewrite was needed. The GitHub Actions secret `QA_SERVICE_ROLE_KEY` was
+   refreshed through standard input to the same verified value. Existing consumers pass the key
+   unchanged in the `apikey` and `Authorization: Bearer` headers and are compatible with the
+   legacy format. **No native journey was run** during this verification; future QA native
+   journeys are no longer blocked by this credential.
+   - The earlier authentication failure was **most likely** caused by reading `qa/.env` without
+     dotenv, so an inline comment or carriage return was sent with the value. This is an
+     inference about the parsing method, not a finding about the key. Consumers must load
+     `qa/.env` through dotenv, as the established harness does, and must never source it or parse
+     it as shell text.
+   - Migrating to the newer `sb_secret_…` format is a separate, optional hardening task that
+     requires consumer changes. It is not a current launch blocker.
 4. **Production Workers Builds** triggers automatically from `main`, but its selected build token is
    invalid, deleted or rolled. **PR #21 must not merge until the Production release mechanism is
    controlled.**
