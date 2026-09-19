@@ -8,6 +8,7 @@ import { SupportLink } from '@/components/ui/support-link';
 import { Text } from '@/components/ui/text';
 import { Spacing } from '@/constants/theme';
 import { buildMobileHandoffUrl } from '@/lib/auth-bridge';
+import { AUTH_BRIDGE_DOCUMENT_TITLE } from '@/lib/auth-bridge-title';
 import { captureAuthBridgeIntake, claimFragmentRemoval, type BridgeWindow } from '@/lib/auth-bridge-intake';
 import type { AuthLinkType } from '@/lib/auth-links';
 
@@ -101,6 +102,9 @@ export function AuthLinkBridge({ type, browser }: { type: AuthLinkType; browser?
   return (
     <View style={styles.wrap}>
       <Head>
+        {/* Fixed and neutral: an empty title makes browsers label the tab with the full URL,
+            token fragment included. Never derive this from the URL, link state or errors. */}
+        <title>{AUTH_BRIDGE_DOCUMENT_TITLE}</title>
         <meta name="referrer" content="no-referrer" />
         <meta name="robots" content="noindex" />
       </Head>

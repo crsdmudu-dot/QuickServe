@@ -30,6 +30,8 @@ import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, posix, relative, resolve, sep } from 'node:path';
 
+import { AUTH_BRIDGE_DOCUMENT_TITLE } from '../../src/lib/auth-bridge-title.ts';
+
 type Policy = {
   workerName: string;
   outputDir: string;
@@ -122,6 +124,37 @@ export function planPrune({ exported, references }: { exported: Set<string>; ref
   }
   if (errors.length > 0) return { keep: [], errors };
   return { keep: [...new Set([...POLICY.documentPaths, ...references])].sort(), errors: [] };
+}
+
+/**
+ * Ways a prerendered bridge document's <title> could expose the emailed link. An empty or missing
+ * title makes browsers label the tab with the full URL — token fragment included — so the document
+ * must carry exactly one <title> whose text is exactly AUTH_BRIDGE_DOCUMENT_TITLE, and that whole
+ * element — closing tag included — must come before the first <script> element (inline or src), so
+ * the tab is labelled before any script can load or run. A document with no <script> at all has
+ * nothing to order against, so only the title rules apply. Any "<script" text before the closing
+ * </title> counts as a script, even inside the title: the check fails closed rather than parse HTML.
+ * Messages never echo the offending title text.
+ */
+export function documentTitleErrors(html: string): string[] {
+  const titles = [...html.matchAll(/<title\b[^>]*>([\s\S]*?)<\/title\s*>/gi)];
+  if (titles.length === 0) return ['has no <title> element: browsers would label the tab with the full URL'];
+  const errors: string[] = [];
+  if (titles.length > 1) errors.push(`has ${titles.length} <title> elements; exactly one is allowed`);
+  titles.forEach(([, text], index) => {
+    if (text.trim() === '') errors.push(`<title> #${index + 1} is empty: browsers would label the tab with the full URL`);
+    else if (text !== AUTH_BRIDGE_DOCUMENT_TITLE) {
+      errors.push(`<title> #${index + 1} is not exactly the fixed bridge title (${text.length} characters)`);
+    }
+  });
+  if (titles.length === 1) {
+    const titleEnd = titles[0].index + titles[0][0].length;
+    const firstScript = html.search(/<script\b/i);
+    if (firstScript !== -1 && firstScript < titleEnd) {
+      errors.push('<title> does not close before the first <script>: the tab could show the full URL while scripts load');
+    }
+  }
+  return errors;
 }
 
 /** Credential findings for the kept files. Messages carry the rule and offset, never the value. */
@@ -228,6 +261,10 @@ function main(argv: string[]): void {
     const unpinned = unpinnedInlineScripts(html, POLICY.contentSecurityPolicy);
     if (unpinned.length > 0) {
       fail(`${document} has an inline script the enforced CSP does not pin`, unpinned);
+    }
+    const titleProblems = documentTitleErrors(html);
+    if (titleProblems.length > 0) {
+      fail(`${document} does not carry the fixed bridge title`, titleProblems);
     }
     for (const reference of collectDocumentReferences(html)) references.add(reference);
   }
