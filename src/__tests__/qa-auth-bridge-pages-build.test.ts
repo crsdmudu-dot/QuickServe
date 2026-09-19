@@ -13,19 +13,24 @@ import { join } from 'node:path';
 
 import policy from '../../infra/qa-auth-bridge/policy.json';
 import {
-  PAGES_CONFIG_TEMPLATE,
   PAGES_NON_SERVED_FILES,
   PAGES_SERVED_SUBDIR,
   RUNTIME_POLICY_KEYS,
+  type PagesTarget,
   bundleStructureErrors,
   bundleWorkerForPages,
   pagesConfigErrors,
   pagesOutputName,
   planPagesOutput,
   publicPathForOutputFile,
+  resolvePagesTarget,
   runtimePolicy,
   spaFallbackErrors,
 } from '../../infra/qa-auth-bridge/pages-build';
+
+const QA = resolvePagesTarget('qa').target as PagesTarget;
+const PRODUCTION = resolvePagesTarget('production').target as PagesTarget;
+const PAGES_CONFIG_TEMPLATE = QA.configTemplatePath;
 
 const ENTRY_JS = '/_expo/static/js/web/entry-70ebbdee2397a147eeda60ad6772152a.js';
 const GLOBAL_CSS = '/_expo/static/css/global-87fd0564cfa78f37afcb8d7603e15d75.css';
@@ -34,14 +39,15 @@ const CERTIFIED = ['/auth/confirm', '/auth/recovery', ENTRY_JS, GLOBAL_CSS, '/fa
 const WORKER_ENTRY = join(__dirname, '..', '..', 'infra', 'qa-auth-bridge', 'worker.ts');
 
 describe('policy declares the Pages target without naming a host or an account', () => {
-  it('names the project and the output directory, separate from the Workers target', () => {
-    expect(policy.pages.projectName).toBe('kwikserve-auth-qa-bridge');
-    expect(policy.pages.outputDir).toBe('dist-qa-auth-pages');
-    expect(policy.pages.outputDir).not.toBe(policy.outputDir);
+  it('names the QA project and output directory exactly as before, separate from the Workers target', () => {
+    expect(policy.pages.targets.qa.projectName).toBe('kwikserve-auth-qa-bridge');
+    expect(policy.pages.targets.qa.outputDir).toBe('dist-qa-auth-pages');
+    expect(policy.pages.targets.qa.outputDir).not.toBe(policy.outputDir);
   });
 
   it('does not reuse the Workers name: the two targets are separate deployments', () => {
-    expect(policy.pages.projectName).not.toBe(policy.workerName);
+    expect(policy.pages.targets.qa.projectName).not.toBe(policy.workerName);
+    expect(policy.pages.targets.production.projectName).not.toBe(policy.workerName);
     expect(policy.workerName).toBe('quickserve-auth-qa');
   });
 
@@ -64,6 +70,7 @@ describe('the retired Pages project name cannot come back', () => {
   it.each([
     ['infra/qa-auth-bridge/policy.json', join(__dirname, '..', '..', 'infra', 'qa-auth-bridge', 'policy.json')],
     ['infra/qa-auth-bridge/pages-wrangler.jsonc', PAGES_CONFIG_TEMPLATE],
+    ['infra/qa-auth-bridge/pages-wrangler.production.jsonc', PRODUCTION.configTemplatePath],
   ])('%s carries no occurrence of it', (_label, path) => {
     expect(readFileSync(path, 'utf8')).not.toContain(RETIRED_PAGES_PROJECT);
   });
@@ -77,7 +84,8 @@ describe('the retired Pages project name cannot come back', () => {
 
   it('a config still naming the retired project is refused by the build', () => {
     const stale = `{"name":"${RETIRED_PAGES_PROJECT}","pages_build_output_dir":"./${PAGES_SERVED_SUBDIR}"}`;
-    expect(pagesConfigErrors(stale)).toContain(`name must be ${policy.pages.projectName}`);
+    expect(pagesConfigErrors(stale, QA)).toContain(`name must be ${QA.projectName}`);
+    expect(pagesConfigErrors(stale, PRODUCTION)).toContain(`name must be ${PRODUCTION.projectName}`);
   });
 });
 
@@ -92,49 +100,57 @@ describe('the deployment workspace works around Pages rejecting a custom config 
     expect(publicPathForOutputFile('../wrangler.jsonc')).toBeNull();
   });
 
-  it('commits the project configuration as a template, outside the repository root', () => {
-    expect(PAGES_CONFIG_TEMPLATE).toMatch(/infra[\\/]qa-auth-bridge[\\/]pages-wrangler\.jsonc$/);
-    expect(existsSync(PAGES_CONFIG_TEMPLATE)).toBe(true);
+  it('commits each project configuration as a template, outside the repository root', () => {
+    expect(QA.configTemplatePath).toMatch(/infra[\\/]qa-auth-bridge[\\/]pages-wrangler\.jsonc$/);
+    expect(PRODUCTION.configTemplatePath).toMatch(/infra[\\/]qa-auth-bridge[\\/]pages-wrangler\.production\.jsonc$/);
+    expect(existsSync(QA.configTemplatePath)).toBe(true);
+    expect(existsSync(PRODUCTION.configTemplatePath)).toBe(true);
   });
 });
 
-describe('pagesConfigErrors', () => {
-  const template = () => readFileSync(PAGES_CONFIG_TEMPLATE, 'utf8');
+describe.each([
+  ['qa', QA],
+  ['production', PRODUCTION],
+])('pagesConfigErrors for the %s target', (_label, target) => {
+  const template = () => readFileSync(target.configTemplatePath, 'utf8');
 
   it('accepts the committed template', () => {
-    expect(pagesConfigErrors(template())).toEqual([]);
+    expect(pagesConfigErrors(template(), target)).toEqual([]);
   });
 
   it('the committed template names the project and uploads only the served subdirectory', () => {
     const parsed = JSON.parse(template().replace(/^\s*\/\/.*$/gm, '')) as Record<string, unknown>;
-    expect(parsed.name).toBe(policy.pages.projectName);
+    expect(parsed.name).toBe(target.projectName);
     expect(parsed.pages_build_output_dir).toBe(`./${PAGES_SERVED_SUBDIR}`);
   });
 
   it('refuses a configuration that names the wrong project', () => {
-    expect(pagesConfigErrors('{"name":"something-else","pages_build_output_dir":"./origin"}')).toContain(
-      `name must be ${policy.pages.projectName}`,
+    expect(pagesConfigErrors('{"name":"something-else","pages_build_output_dir":"./origin"}', target)).toContain(
+      `name must be ${target.projectName}`,
     );
   });
 
   it('refuses a configuration that uploads the workspace root', () => {
-    expect(pagesConfigErrors(`{"name":"${policy.pages.projectName}","pages_build_output_dir":"."}`)).toContain(
+    expect(pagesConfigErrors(`{"name":"${target.projectName}","pages_build_output_dir":"."}`, target)).toContain(
       `pages_build_output_dir must be ./${PAGES_SERVED_SUBDIR}`,
     );
   });
 
   it.each(['account_id', 'vars', 'routes', 'route', 'send_metrics'])('refuses a configuration carrying %s', (key) => {
-    const text = `{"name":"${policy.pages.projectName}","pages_build_output_dir":"./origin","${key}":"x"}`;
-    expect(pagesConfigErrors(text)).toContain(`${key} must not be set`);
+    const text = `{"name":"${target.projectName}","pages_build_output_dir":"./origin","${key}":"x"}`;
+    expect(pagesConfigErrors(text, target)).toContain(`${key} must not be set`);
   });
 
-  it('refuses a configuration that hard-codes a hostname', () => {
-    const text = `{"name":"${policy.pages.projectName}","pages_build_output_dir":"./origin","x":"links.auth-qa.hiredcorp.co.ke"}`;
-    expect(pagesConfigErrors(text)).toContain('a hostname must not be committed to the configuration');
-  });
+  it.each(['links.auth-qa.hiredcorp.co.ke', 'links.auth.hiredcorp.co.ke'])(
+    'refuses a configuration that hard-codes the hostname %s',
+    (hostname) => {
+      const text = `{"name":"${target.projectName}","pages_build_output_dir":"./origin","x":"${hostname}"}`;
+      expect(pagesConfigErrors(text, target)).toContain('a hostname must not be committed to the configuration');
+    },
+  );
 
   it('refuses a configuration that is not valid JSONC', () => {
-    expect(pagesConfigErrors('{ not json')).toEqual(['the configuration is not valid JSONC']);
+    expect(pagesConfigErrors('{ not json', target)).toEqual(['the configuration is not valid JSONC']);
   });
 });
 

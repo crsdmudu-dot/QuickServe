@@ -1,11 +1,19 @@
 /**
- * pages-build.ts — package the QA authentication bridge for Cloudflare Pages (advanced mode).
+ * pages-build.ts — package the authentication bridge for Cloudflare Pages (advanced mode).
  *
  * Run from the repository root with Node 24+ (native TypeScript execution), AFTER the ordinary
  * bridge build has produced the certified asset set:
  *
- *     node infra/qa-auth-bridge/build.ts                           # Workers target: dist-qa-auth/
- *     node infra/qa-auth-bridge/pages-build.ts --out <outside-repo>  # Pages deployment workspace
+ *     node infra/qa-auth-bridge/build.ts                                      # dist-qa-auth/
+ *     node infra/qa-auth-bridge/pages-build.ts --target qa --out <outside-repo>
+ *     node infra/qa-auth-bridge/pages-build.ts --target production --out <outside-repo>
+ *
+ * `--target` is REQUIRED and must be exactly `qa` or `production` (PAGES_TARGET_NAMES). It selects
+ * the Pages project, the committed config template and the manifest file; nothing else. The two
+ * targets upload byte-identical files — the bridge is environment-neutral and holds no credential —
+ * so the target only decides WHICH Pages project a later, separately authorised deploy reaches.
+ * An optional `--project <name>` must then name that exact project: a second, independent
+ * statement of intent, so a mistyped target cannot silently reach the other environment.
  *
  * This is PACKAGING ONLY. It adds no request policy of its own: the Pages origin runs the very same
  * module as the live Workers origin (`./worker.ts`, whose single source of truth is `./policy.json`)
@@ -75,6 +83,14 @@ const REPO_ROOT = process.cwd();
  * executed directly by Node (`node infra/qa-auth-bridge/pages-build.ts`), and Node's ES module
  * loader would need an import attribute for a JSON module.
  */
+type PagesTargetPolicy = {
+  projectName: string;
+  outputDir: string;
+  configTemplate: string;
+  manifest: string;
+  requireFreshExport: boolean;
+};
+
 type Policy = {
   outputDir: string;
   documentPaths: string[];
@@ -82,7 +98,7 @@ type Policy = {
   assetPathPattern: string;
   sensitiveQueryKeys: string[];
   contentSecurityPolicy: string;
-  pages: { projectName: string; outputDir: string; nonServedFiles: string[] };
+  pages: { targets: Record<string, PagesTargetPolicy>; nonServedFiles: string[] };
   build: { forbiddenPatterns: string[] };
 };
 
@@ -90,9 +106,76 @@ const policy: Policy = JSON.parse(
   readFileSync(join(REPO_ROOT, 'infra', 'qa-auth-bridge', 'policy.json'), 'utf8'),
 ) as Policy;
 
+const BRIDGE_DIR = join(REPO_ROOT, 'infra', 'qa-auth-bridge');
 const WORKERS_MANIFEST_PATH = join(REPO_ROOT, '.qa-auth-bridge-manifest.json');
-const PAGES_MANIFEST_PATH = join(REPO_ROOT, '.qa-auth-bridge-pages-manifest.json');
-const WORKER_ENTRY_PATH = join(REPO_ROOT, 'infra', 'qa-auth-bridge', 'worker.ts');
+const WORKER_ENTRY_PATH = join(BRIDGE_DIR, 'worker.ts');
+
+// ── Deployment targets ────────────────────────────────────────────────────────────────────────
+
+/**
+ * The only two Pages targets. There is deliberately no Development target and no legacy
+ * QuickServe target: a name that is not one of these keys is refused, never mapped to a default.
+ */
+export const PAGES_TARGET_NAMES = ['qa', 'production'] as const;
+export type PagesTargetName = (typeof PAGES_TARGET_NAMES)[number];
+
+export type PagesTarget = PagesTargetPolicy & {
+  name: PagesTargetName;
+  /** The committed Pages config template for this target. */
+  configTemplatePath: string;
+  /** Where this target's Pages manifest is written. */
+  manifestPath: string;
+};
+
+/**
+ * Resolve an exact target name to its policy, or refuse. Case-sensitive, no trimming, no aliases,
+ * and only own keys of the policy — `constructor` or `__proto__` cannot resolve to anything.
+ */
+export function resolvePagesTarget(name: string | undefined): { target?: PagesTarget; error?: string } {
+  const allowed = PAGES_TARGET_NAMES as readonly string[];
+  if (name === undefined || name === '') {
+    return { error: `--target is required: one of ${PAGES_TARGET_NAMES.join(', ')}` };
+  }
+  if (!allowed.includes(name) || !Object.prototype.hasOwnProperty.call(policy.pages.targets, name)) {
+    return { error: `unknown target "${name}": must be exactly one of ${PAGES_TARGET_NAMES.join(', ')}` };
+  }
+  const entry = policy.pages.targets[name];
+  return {
+    target: {
+      ...entry,
+      name: name as PagesTargetName,
+      configTemplatePath: join(BRIDGE_DIR, entry.configTemplate),
+      manifestPath: join(REPO_ROOT, entry.manifest),
+    },
+  };
+}
+
+/** Every configured target, resolved. Used by the build's self-checks and by the tests. */
+export function allPagesTargets(): PagesTarget[] {
+  return PAGES_TARGET_NAMES.map((name) => resolvePagesTarget(name).target as PagesTarget);
+}
+
+/**
+ * Ways the target table itself could let one environment be mistaken for the other. The build
+ * refuses to run while any of these hold, whichever target was asked for.
+ */
+export function targetTableErrors(): string[] {
+  const errors: string[] = [];
+  const keys = Object.keys(policy.pages.targets).sort();
+  if (JSON.stringify(keys) !== JSON.stringify([...PAGES_TARGET_NAMES].sort())) {
+    errors.push(`policy.json must declare exactly the targets ${PAGES_TARGET_NAMES.join(', ')}`);
+    return errors;
+  }
+  const targets = allPagesTargets();
+  for (const field of ['projectName', 'outputDir', 'configTemplate', 'manifest'] as const) {
+    const values = targets.map((target) => target[field]);
+    if (new Set(values).size !== values.length) errors.push(`targets must not share a ${field}`);
+  }
+  for (const target of targets) {
+    if (target.outputDir === policy.outputDir) errors.push(`${target.name} must not reuse the Workers output directory`);
+  }
+  return errors;
+}
 const ASSET_PATH = new RegExp(policy.assetPathPattern);
 
 /** Files Cloudflare Pages accepts in the build output but never serves as public assets. */
@@ -109,9 +192,6 @@ export const PAGES_NON_SERVED_FILES: readonly string[] = policy.pages.nonServedF
  * become an asset.
  */
 export const PAGES_SERVED_SUBDIR = 'origin';
-
-/** The committed Pages project configuration, copied verbatim into the workspace root. */
-export const PAGES_CONFIG_TEMPLATE = join(REPO_ROOT, 'infra', 'qa-auth-bridge', 'pages-wrangler.jsonc');
 
 /** Keys that must never appear in the committed Pages configuration. */
 const FORBIDDEN_CONFIG_KEYS = ['account_id', 'vars', 'routes', 'route', 'send_metrics'];
@@ -170,8 +250,12 @@ export function publicPathForOutputFile(outputRelativePath: string): string | nu
   return normalised.endsWith('.html') ? `/${normalised.slice(0, -'.html'.length)}` : `/${normalised}`;
 }
 
-/** Ways the committed Pages project configuration would be wrong, or would leak something. */
-export function pagesConfigErrors(text: string): string[] {
+/**
+ * Ways a committed Pages project configuration would be wrong for `target`, or would leak
+ * something. A template that names the OTHER target's project — or mentions it anywhere — is
+ * refused, so neither environment's config can be packaged for the other.
+ */
+export function pagesConfigErrors(text: string, target: PagesTarget): string[] {
   let parsed: Record<string, unknown>;
   try {
     parsed = JSON.parse(text.replace(/^\s*\/\/.*$/gm, '')) as Record<string, unknown>;
@@ -179,7 +263,12 @@ export function pagesConfigErrors(text: string): string[] {
     return ['the configuration is not valid JSONC'];
   }
   const errors: string[] = [];
-  if (parsed.name !== policy.pages.projectName) errors.push(`name must be ${policy.pages.projectName}`);
+  if (parsed.name !== target.projectName) errors.push(`name must be ${target.projectName}`);
+  for (const other of allPagesTargets().filter((candidate) => candidate.name !== target.name)) {
+    if (text.includes(other.projectName)) {
+      errors.push(`the ${target.name} configuration must not mention the ${other.name} project ${other.projectName}`);
+    }
+  }
   if (parsed.pages_build_output_dir !== `./${PAGES_SERVED_SUBDIR}`) {
     errors.push(`pages_build_output_dir must be ./${PAGES_SERVED_SUBDIR}`);
   }
@@ -269,11 +358,39 @@ export async function bundleWorkerForPages(entryPath: string): Promise<string> {
   return result.outputFiles[0].text;
 }
 
-/** Command-line options. The default output directory is the one policy.json declares. */
-export function parsePagesArgs(argv: string[]): { outputDir: string } {
-  const index = argv.indexOf('--out');
-  const given = index === -1 ? undefined : argv[index + 1];
-  return { outputDir: given ?? policy.pages.outputDir };
+/**
+ * Command-line options, or the reasons they are refused. `--target` is required; `--project`, when
+ * given, must name exactly that target's project; each flag may appear once and must carry a
+ * value; nothing else is accepted. The default output directory is the target's own.
+ */
+export function parsePagesArgs(argv: string[]): { target?: PagesTarget; outputDir?: string; errors: string[] } {
+  const known = new Set(['--target', '--project', '--out']);
+  const values = new Map<string, string>();
+  const errors: string[] = [];
+  for (let i = 0; i < argv.length; i += 1) {
+    const flag = argv[i];
+    if (!known.has(flag)) {
+      errors.push(`unknown argument "${flag}"`);
+      continue;
+    }
+    const value = argv[i + 1];
+    if (value === undefined || value.startsWith('--')) {
+      errors.push(`${flag} needs a value`);
+      continue;
+    }
+    if (values.has(flag)) errors.push(`${flag} may be given only once`);
+    values.set(flag, value);
+    i += 1;
+  }
+  const resolved = resolvePagesTarget(values.get('--target'));
+  if (resolved.error) errors.push(resolved.error);
+  const target = resolved.target;
+  const project = values.get('--project');
+  if (target && project !== undefined && project !== target.projectName) {
+    errors.push(`--project "${project}" does not match the ${target.name} target's project ${target.projectName}`);
+  }
+  if (errors.length > 0 || !target) return { errors };
+  return { target, outputDir: values.get('--out') ?? target.outputDir, errors: [] };
 }
 
 // ── IO (only when this file is executed directly) ─────────────────────────────────────────────
@@ -298,13 +415,18 @@ function walk(root: string, current = root, out: string[] = []): string[] {
 }
 
 function fail(message: string, details: string[] = []): never {
-  process.stderr.write(`\nQA bridge Pages build FAILED: ${message}\n`);
+  process.stderr.write(`\nAuth bridge Pages build FAILED: ${message}\n`);
   for (const detail of details) process.stderr.write(`  - ${detail}\n`);
   process.exit(1);
 }
 
 async function main(argv: string[]): Promise<void> {
-  const { outputDir } = parsePagesArgs(argv);
+  const tableProblems = targetTableErrors();
+  if (tableProblems.length > 0) fail('policy.json does not keep the Pages targets apart', tableProblems);
+  const args = parsePagesArgs(argv);
+  if (args.errors.length > 0 || !args.target || !args.outputDir) fail('refused the command line', args.errors);
+  const target = args.target as PagesTarget;
+  const outputDir = args.outputDir as string;
   const workspacePath = resolve(REPO_ROOT, outputDir);
   const outputPath = join(workspacePath, PAGES_SERVED_SUBDIR);
   const assetsDir = join(REPO_ROOT, policy.outputDir);
@@ -314,6 +436,9 @@ async function main(argv: string[]): Promise<void> {
 
   const manifest: WorkersManifest = JSON.parse(readFileSync(WORKERS_MANIFEST_PATH, 'utf8')) as WorkersManifest;
   if (!manifest.freshExport) {
+    if (target.requireFreshExport) {
+      fail(`the ${target.name} target requires a fresh export; the certified manifest records a reused one`);
+    }
     process.stdout.write('\nWARNING: the certified manifest records a reused export. A deployment requires a fresh build.\n');
   }
 
@@ -335,10 +460,11 @@ async function main(argv: string[]): Promise<void> {
   if (errors.length > 0) fail('the certified manifest does not match the Pages packaging policy', errors);
 
   // The workspace configuration is copied, never generated, and is validated before it is used.
-  if (!existsSync(PAGES_CONFIG_TEMPLATE)) fail('infra/qa-auth-bridge/pages-wrangler.jsonc not found');
-  const configText = readFileSync(PAGES_CONFIG_TEMPLATE, 'utf8');
-  const configProblems = pagesConfigErrors(configText);
-  if (configProblems.length > 0) fail('infra/qa-auth-bridge/pages-wrangler.jsonc is not a safe Pages config', configProblems);
+  const templateLabel = `infra/qa-auth-bridge/${target.configTemplate}`;
+  if (!existsSync(target.configTemplatePath)) fail(`${templateLabel} not found`);
+  const configText = readFileSync(target.configTemplatePath, 'utf8');
+  const configProblems = pagesConfigErrors(configText, target);
+  if (configProblems.length > 0) fail(`${templateLabel} is not a safe ${target.name} Pages config`, configProblems);
 
   rmSync(workspacePath, { recursive: true, force: true });
   mkdirSync(outputPath, { recursive: true });
@@ -385,7 +511,8 @@ async function main(argv: string[]): Promise<void> {
     return { file: name, publicPath: publicPathForOutputFile(name), bytes: bytes.length, sha256: sha256(bytes) };
   });
   const pagesManifest = {
-    project: policy.pages.projectName,
+    target: target.name,
+    project: target.projectName,
     generated: new Date().toISOString(),
     deployed: false,
     source: { workersManifest: relative(REPO_ROOT, WORKERS_MANIFEST_PATH), assetsDir: policy.outputDir },
@@ -398,11 +525,11 @@ async function main(argv: string[]): Promise<void> {
     },
     files,
   };
-  writeFileSync(PAGES_MANIFEST_PATH, `${JSON.stringify(pagesManifest, null, 2)}\n`, 'utf8');
+  writeFileSync(target.manifestPath, `${JSON.stringify(pagesManifest, null, 2)}\n`, 'utf8');
 
   const total = files.reduce((sum, file) => sum + file.bytes, 0);
-  process.stdout.write(`\nQA bridge Pages workspace built: ${outputDir}\n`);
-  process.stdout.write(`  project       ${policy.pages.projectName} (NOT created, NOT deployed)\n`);
+  process.stdout.write(`\nAuth bridge Pages workspace built for the ${target.name.toUpperCase()} target: ${outputDir}\n`);
+  process.stdout.write(`  project       ${target.projectName} (NOT created, NOT deployed)\n`);
   process.stdout.write(`  config        ${outputDir}/wrangler.jsonc (copied; outside the uploaded directory)\n`);
   process.stdout.write(`  uploaded dir  ${outputDir}/${PAGES_SERVED_SUBDIR}\n`);
   process.stdout.write(`  files         ${files.length} (${total} bytes)\n`);
@@ -410,7 +537,7 @@ async function main(argv: string[]): Promise<void> {
     const publicPath = file.publicPath ?? '(not served publicly)';
     process.stdout.write(`  ${file.sha256.slice(0, 16)}  ${String(file.bytes).padStart(8)}  ${file.file}  →  ${publicPath}\n`);
   }
-  process.stdout.write(`  manifest      ${relative(REPO_ROOT, PAGES_MANIFEST_PATH)}\n`);
+  process.stdout.write(`  manifest      ${relative(REPO_ROOT, target.manifestPath)}\n`);
   process.stdout.write('  credential scan: clean (placeholder configuration only)\n');
   process.stdout.write(`  deploy from   cd ${outputDir} && npx wrangler pages deploy   (separate authorisation)\n\n`);
 }

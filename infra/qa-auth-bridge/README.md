@@ -34,12 +34,13 @@ deployed automatically.
 | `worker.ts` | The fail-closed request policy (runs before the assets system) — used by **both** targets |
 | `build.ts` | Placeholder-configured export → pruned `dist-qa-auth/` + `.qa-auth-bridge-manifest.json` |
 | `pages-build.ts` | Packaging of the same worker and the same bytes for Cloudflare **Pages** |
-| `pages-wrangler.jsonc` | The **Pages** project configuration (`kwikserve-auth-qa-bridge`), as a template copied into the build workspace |
+| `pages-wrangler.jsonc` | The **QA Pages** project configuration (`kwikserve-auth-qa-bridge`), as a template copied into the build workspace |
+| `pages-wrangler.production.jsonc` | The **Production Pages** project configuration (`kwikserve-auth-prod-bridge`) — identical to the QA template except `name`. **Not deployed.** |
 | `../../wrangler.qa-auth.jsonc` | **Workers** target (separate Worker, `run_worker_first`, no secrets) — live, and the rollback |
 
 Tests: `src/__tests__/qa-auth-bridge-worker.test.ts`, `qa-auth-bridge-build.test.ts`,
-`qa-auth-bridge-pages-build.test.ts` and `qa-auth-bridge-pages-parity.test.ts` all run in the
-ordinary `npm test` / PR CI path.
+`qa-auth-bridge-pages-build.test.ts`, `qa-auth-bridge-pages-parity.test.ts` and
+`auth-bridge-pages-targets.test.ts` all run in the ordinary `npm test` / PR CI path.
 
 ## Why the origin holds no credential
 
@@ -170,20 +171,57 @@ bindings at all**.
 
 ```bash
 node infra/qa-auth-bridge/build.ts                        # Workers target: dist-qa-auth/ + manifest
-node infra/qa-auth-bridge/pages-build.ts --out <outside-the-repo>
+node infra/qa-auth-bridge/pages-build.ts --target qa --out <outside-the-repo>
 cd <outside-the-repo>
 npx wrangler pages dev --port 8788 --ip 127.0.0.1                          # serve mode
 npx wrangler pages dev --binding BRIDGE_MODE=deny --port 8789 --ip 127.0.0.1   # deny-all rollback
 ```
 
 `pages-build.ts` refuses to run before `build.ts` has produced a certified manifest, aborts on any
-drift between `dist-qa-auth/` and that manifest, validates `pages-wrangler.jsonc` before copying it,
-and removes the whole workspace if the credential scan, the layout check or the bundle structure
-check fails. It writes `.qa-auth-bridge-pages-manifest.json` (SHA-256 per file, plus the public path
-Pages would serve each file at, or `null` where Pages serves none).
+drift between `dist-qa-auth/` and that manifest, validates the selected target's template before
+copying it, and removes the whole workspace if the credential scan, the layout check or the bundle
+structure check fails. It writes the target's manifest — `.qa-auth-bridge-pages-manifest.json` for
+QA — with the SHA-256 per file, plus the public path Pages would serve each file at, or `null` where
+Pages serves none.
 
-Omitting `--out` builds into `dist-qa-auth-pages/` (git-ignored) for inspection; that location is
-fine for reading the manifest, but not for running the Pages commands, for the reason above.
+Omitting `--out` builds into the target's own directory (`dist-qa-auth-pages/` for QA, git-ignored)
+for inspection; that location is fine for reading the manifest, but not for running the Pages
+commands, for the reason above.
+
+### Deployment targets: QA and Production
+
+`pages-build.ts` requires an explicit `--target`, and it must be **exactly** `qa` or `production`.
+There is no default target, no Development target, no legacy target and no way to name an arbitrary
+Pages project. An optional `--project <name>` must then match that target's project exactly, so a
+typo or a crossed pair is refused before anything is written.
+
+| Target | Pages project | Template | Workspace / manifest | Status |
+| --- | --- | --- | --- | --- |
+| `qa` | `kwikserve-auth-qa-bridge` | `pages-wrangler.jsonc` | `dist-qa-auth-pages/`, `.qa-auth-bridge-pages-manifest.json` | **Live** on `links.auth-qa.hiredcorp.co.ke` |
+| `production` | `kwikserve-auth-prod-bridge` | `pages-wrangler.production.jsonc` | `dist-prod-auth-pages/`, `.prod-auth-bridge-pages-manifest.json` | **Not deployed, not configured** |
+
+**Both targets upload byte-identical files.** The bridge is environment-neutral: one
+placeholder-configured export and one worker module, with **no secret, no Supabase URL, no project
+reference and no key**. It needs none of these, because it never makes a network request. The
+target decides only which Pages project a later, separately authorised deploy reaches. The two
+templates may differ **only** in `name`; each is refused for the other target. The Production
+target also refuses a reused export, so it can only be packaged from a fresh build.
+
+The intended Production custom hostname is **`links.auth.hiredcorp.co.ke`**. It is recorded here
+only, never in a committed configuration or a deployable file. The Production sending domain
+(`auth.hiredcorp.co.ke`) and sender belong to the later Supabase/Resend phase and are not used by the
+bridge.
+
+**Production does not work yet.** None of these exist yet, and each is a separate authorisation:
+
+- the `kwikserve-auth-prod-bridge` Pages project and its deployment;
+- the custom domain and its DNS CNAME;
+- the Resend sending domain and its DNS records;
+- the Production Supabase Site URL, redirect allowlist, SMTP and templates;
+- Production native builds that contain the `/auth` routes.
+
+Confirm email stays **off** for the first Production recovery rollout. Email confirmation is a
+separate, later rollout. Nothing here claims that Production password recovery works.
 
 ### Certified locally against the real Pages runtime
 
@@ -236,12 +274,12 @@ followed and the one to follow again for any future deployment; each is a separa
 The **Workers origin stayed deployed throughout** and remains the rollback:
 
 1. Build fresh: `node infra/qa-auth-bridge/build.ts`, then
-   `node infra/qa-auth-bridge/pages-build.ts --out <outside-the-repo>`. Keep both manifests.
+   `node infra/qa-auth-bridge/pages-build.ts --target qa --out <outside-the-repo>`. Keep both manifests.
 2. Create the Pages project by hand, named **exactly `kwikserve-auth-qa-bridge`** (direct upload,
    no Git integration, no build command). The name is not a free choice: `wrangler pages deploy`
    takes it from the `name` in the workspace `wrangler.jsonc`, which is copied verbatim from
    `pages-wrangler.jsonc`, which `pages-build.ts` refuses to copy unless it matches
-   `policy.json` → `pages.projectName`. Create any other name and the deploy will not find it.
+   `policy.json` → `pages.targets.qa.projectName`. Create any other name and the deploy will not find it.
    Then deploy **from the workspace**, never from the repository root:
 
    ```bash
