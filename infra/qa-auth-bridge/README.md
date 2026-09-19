@@ -11,6 +11,17 @@
 > rollback** — reverting means changing `site_url` back to
 > `https://quickserve-auth-qa.zaka-crsd.workers.dev` and nothing else. See
 > [the certification record](../../docs/engineering/authentication/2026-09-16-qa-branded-auth-bridge-certification.md).
+>
+> **Addendum (2026-09-18).** Both targets were redeployed with the support-enabled build of
+> `06e4ffe3` and recertified: Workers deployment `c34caadb-e700-43b5-a1b3-50b9a94fa436` (version
+> `92cca1a5-c6e1-4138-bf21-4a81c16eb59b`) and Pages deployment
+> `057675a8-561e-4680-952d-080476f63369`, aggregate manifest SHA-256
+> `905f5003bcbda3fcf1f9f79d1ab3ea53a3c9148802d86a2fa5f3a1872759b3e2`. All seven shared assets are
+> byte-identical across Workers, Pages and `links.auth-qa.hiredcorp.co.ke`; both documents carry a
+> static `mailto:` anchor to `support@hiredcorp.co.ke`; the full request-policy matrix below passed.
+> The invalid-link state is runtime-certified; the handoff-failure state is covered by component
+> tests only. The 2026-09-16 deployment history below is unchanged. See
+> [the 2026-09-18 record](../../docs/engineering/authentication/2026-09-18-cross-platform-support-access-certification.md).
 
 It serves exactly two documents — `/auth/recovery` and `/auth/confirm` — plus the generated assets
 they need. Everything else 404s. It is **not** the Production Worker (`quickserve`, configured by

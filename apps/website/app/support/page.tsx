@@ -136,8 +136,7 @@ export default function SupportPage() {
             title="When to Expect a Reply"
           />
           <p className="text-body text-textSecondary">
-            Our support team is available 24/7 for urgent issues via in-app chat. For email enquiries
-            sent to{' '}
+            For email enquiries sent to{' '}
             <a
               href={`mailto:${BRAND.email}`}
               className="text-primary underline underline-offset-2 hover:text-primaryDark"

@@ -271,7 +271,7 @@ export const FAQ_ITEMS: { question: string; answer: string }[] = [
   {
     question: 'How do I get support?',
     answer:
-      'You can reach our support team via the in-app chat, the Contact page on this website, or by emailing hello@quickserve.co.ke.',
+      'You can reach our support team through the Contact page on this website, or by emailing support@hiredcorp.co.ke.',
   },
 ];
 

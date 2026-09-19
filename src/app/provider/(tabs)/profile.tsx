@@ -28,6 +28,7 @@ import {
 } from '@/lib/earnings';
 
 import { resolvePayoutStatus } from '@/lib/payout-status';
+import { SupportLink } from '@/components/ui/support-link';
 
 /** Provider view is READ-ONLY: there is no payout action anywhere on this screen. */
 const PROVIDER_PAYOUT_LABELS: Record<string, string> = {
@@ -322,6 +323,7 @@ export default function ProviderProfileScreen() {
             />
 
             <Button label="Sign out" variant="ghost" onPress={signOut} />
+            <SupportLink />
           </View>
         </View>
       </ScrollView>

@@ -367,6 +367,19 @@ QA project — **requires separate authorisation before it is applied**:
    remediation** — the clean-mailbox placement test **FAILED**, landing in Spam. Delivery and link
    function passed regardless. Full record:
    [2026-09-16 branded QA auth bridge certification](2026-09-16-qa-branded-auth-bridge-certification.md).
+
+   **Addendum (2026-09-18): support-enabled bridge redeployed and certified.** Both targets now
+   serve the frozen support-enabled build of `06e4ffe3` (aggregate manifest SHA-256
+   `905f5003bcbda3fcf1f9f79d1ab3ea53a3c9148802d86a2fa5f3a1872759b3e2`; Workers deployment
+   `c34caadb-e700-43b5-a1b3-50b9a94fa436`, version `92cca1a5-c6e1-4138-bf21-4a81c16eb59b`; Pages
+   deployment `057675a8-561e-4680-952d-080476f63369`), byte-identical on the branded hostname. Both
+   bridge documents carry a static `mailto:` anchor to `support@hiredcorp.co.ke`, and the full
+   fail-closed matrix passed. Support access on invalid Auth links, not-found and Profile surfaces
+   is certified on a physical iPhone, a clean Android 16 emulator and a physical Galaxy S24; the
+   iOS Simulator gate failed for a pre-existing harness reason and did not certify simulator UI.
+   The Android results cover **invalid** links only — an emailed Auth link with a live token has
+   still not been certified on Android. Full record, coverage limits and open items:
+   [2026-09-18 cross-platform support access certification](2026-09-18-cross-platform-support-access-certification.md).
 1. Authentication → URL Configuration → Site URL: the QA bridge origin, **without a trailing slash**
    (a trailing slash renders `//auth/recovery`). Redirect URLs: add `kwikserve://auth/recovery` and
    `kwikserve://auth/confirm` (exact entries, no wildcard) so the app's `redirectTo` is carried as
@@ -400,6 +413,10 @@ must be in place before the Production templates change.
 
 ## 16. Related Documentation
 
+- [2026-09-18 cross-platform support access certification](2026-09-18-cross-platform-support-access-certification.md)
+  — the support-enabled bridge redeployment, the physical iPhone, Android emulator and Galaxy S24
+  support-access results, the failed iOS Simulator harness run, coverage limits, the sanitized QA
+  credential-rotation note and the outstanding blockers for PR #21.
 - [2026-09-16 branded QA auth bridge certification](2026-09-16-qa-branded-auth-bridge-certification.md)
   — the branded QA origin, the frozen deployment, the certified security matrix, the recovery and
   signup-confirmation E2E results (both on iPhone), the failed clean-mailbox Yahoo placement test

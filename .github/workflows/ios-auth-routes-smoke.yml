@@ -9,8 +9,9 @@ name: iOS Auth Routes — no-token fail-closed smoke (standalone)
 # vehicle for this check — proving that a route fails CLOSED must not require handing the runner a
 # fixture identity, and a gate that signs in cannot claim it never signed in.
 #
-# WHAT A GREEN RUN MEANS. The pinned simulator artifact, proven to be built from the intended
-# commit, registers the kwikserve:// scheme, routes both /auth paths, and shows the neutral
+# WHAT A GREEN RUN MEANS. The simulator artifact the CALLER named, proven from EAS metadata to be
+# an iOS simulator build of the commit the caller expects and to hash to the digest the caller
+# expects, registers the kwikserve:// scheme, routes both /auth paths, and shows the neutral
 # "invalid or has expired" state with no password form, no session and no crash.
 #
 # WHAT IT DOES NOT MEAN. It says nothing about a VALID emailed link: no token is ever generated,
@@ -21,8 +22,10 @@ name: iOS Auth Routes — no-token fail-closed smoke (standalone)
 # of these fails the repository suite rather than silently producing a weaker green run):
 #   - manual dispatch only; read-only permissions
 #   - EXPO_TOKEN is the ONLY secret; no fixture identity, no anon key, no service-role key
-#   - the supplied build id must equal the pinned one
-#   - status, platform, profile, bundle identifier and commit are verified from EAS metadata
+#   - all three identity inputs are REQUIRED, have no defaults, and are format-checked before any
+#     network call: build_id a UUID, expected_commit a full 40-hex git SHA, expected_sha256 64 hex
+#   - status, platform, profile, bundle identifier and commit are verified from EAS metadata,
+#     against the CALLER's expected_commit — there is no historical build, commit or hash here
 #   - the artifact is downloaded from expo.dev and its SHA-256 checked BEFORE it is installed
 #   - both links are opened with no parameters whatsoever
 #   - nothing is typed, nothing signs in, nothing is mutated
@@ -31,17 +34,14 @@ on:
   workflow_dispatch:
     inputs:
       build_id:
-        description: "EAS iOS simulator build ID to certify (must equal the pinned id)"
+        description: "EAS iOS simulator build ID to certify (UUID; no default, no fallback)"
         required: true
-        default: "b00fdcf7-4903-4153-a1ac-1e36ae9f881d"
       expected_commit:
-        description: "Commit the artifact must have been built from"
+        description: "Full 40-character commit the artifact must have been built from"
         required: true
-        default: "44215962efd311a85d344cb775670c4ea8e36914"
       expected_sha256:
-        description: "SHA-256 the downloaded artifact must have"
+        description: "64-character SHA-256 the downloaded artifact must have"
         required: true
-        default: "6c5bfa9f3e8299ce429e4a924844c04d89ff891c075932a545f2b34693d0af7d"
 
   # Callable as a LOCAL reusable workflow. This exists for one reason: GitHub only lists a
   # workflow_dispatch workflow that is present on the DEFAULT branch, so until this file lands on
@@ -55,7 +55,7 @@ on:
   workflow_call:
     inputs:
       build_id:
-        description: "EAS iOS simulator build ID to certify (must equal the pinned id)"
+        description: "EAS iOS simulator build ID to certify (UUID; no default, no fallback)"
         required: true
         type: string
       expected_commit:
@@ -82,7 +82,6 @@ jobs:
     timeout-minutes: 30
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-      PINNED_BUILD_ID: "b00fdcf7-4903-4153-a1ac-1e36ae9f881d"
       EXPECTED_BUNDLE_ID: "ke.co.hiredcorp.kwikserve"
     steps:
       - uses: actions/checkout@v4
@@ -104,15 +103,29 @@ jobs:
       - name: Install app dependencies (eas needs node_modules to resolve the config plugin)
         run: npm ci
 
-      - name: Refuse any build other than the pinned one
+      # The gate used to certify ONE historical artifact by pinning its id. That made it useless
+      # for every later commit: a new build could not be certified without editing this file. The
+      # pin is replaced by a stronger, reusable contract — the caller must state which build, which
+      # commit and which digest it expects, and all three are checked against EAS and against the
+      # downloaded bytes. Nothing is defaulted, so an omitted value fails here rather than silently
+      # certifying yesterday's artifact.
+      - name: Require and format-check the identity inputs before any network call
         run: |
           set -euo pipefail
           BUILD_ID="${{ inputs.build_id }}"
-          if [ "$BUILD_ID" != "$PINNED_BUILD_ID" ]; then
-            echo "refusing: this gate certifies $PINNED_BUILD_ID only, got $BUILD_ID"
-            exit 1
-          fi
+          EXPECTED_COMMIT="${{ inputs.expected_commit }}"
+          EXPECTED_SHA256="${{ inputs.expected_sha256 }}"
+          [ -n "$BUILD_ID" ]        || { echo "FAIL: build_id is empty"; exit 1; }
+          [ -n "$EXPECTED_COMMIT" ] || { echo "FAIL: expected_commit is empty"; exit 1; }
+          [ -n "$EXPECTED_SHA256" ] || { echo "FAIL: expected_sha256 is empty"; exit 1; }
+          printf '%s' "$BUILD_ID" | grep -Eq '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' \
+            || { echo "FAIL: build_id is not a UUID"; exit 1; }
+          printf '%s' "$EXPECTED_COMMIT" | grep -Eq '^[0-9a-fA-F]{40}$' \
+            || { echo "FAIL: expected_commit is not a full 40-character git SHA"; exit 1; }
+          printf '%s' "$EXPECTED_SHA256" | grep -Eq '^[0-9a-fA-F]{64}$' \
+            || { echo "FAIL: expected_sha256 is not 64 hexadecimal characters"; exit 1; }
           echo "BUILD_ID=$BUILD_ID" >> "$GITHUB_ENV"
+          echo "Identity inputs accepted: a UUID build id, a 40-hex commit and a 64-hex digest."
 
       - name: Prove the artifact's identity from EAS metadata
         run: |
@@ -146,8 +159,9 @@ jobs:
           # The URL is signed; it is never echoed.
           echo "Downloading the pinned artifact (URL redacted)…"
           curl -fSL "$URL" -o app.tar.gz
-          ACTUAL=$(shasum -a 256 app.tar.gz | awk '{print $1}')
-          EXPECTED="${{ inputs.expected_sha256 }}"
+          # Compare case-insensitively: a caller that pastes an upper-case digest is not a mismatch.
+          ACTUAL=$(shasum -a 256 app.tar.gz | awk '{print $1}' | tr 'A-Z' 'a-z')
+          EXPECTED=$(printf '%s' "${{ inputs.expected_sha256 }}" | tr 'A-Z' 'a-z')
           echo "sha256 actual=$ACTUAL"
           [ "$ACTUAL" = "$EXPECTED" ] || { echo "FAIL: sha256 mismatch, expected $EXPECTED"; exit 1; }
           mkdir -p app && tar -xzf app.tar.gz -C app

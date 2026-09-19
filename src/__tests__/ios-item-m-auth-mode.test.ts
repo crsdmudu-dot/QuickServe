@@ -98,8 +98,8 @@ describe('the auth-routes mode is isolated', () => {
     expect(block).toMatch(/build_id: \$\{\{ inputs\.build_id \}\}/);
     expect(block).toMatch(/expected_commit: \$\{\{ inputs\.expected_commit \}\}/);
     expect(block).toMatch(/expected_sha256: \$\{\{ inputs\.expected_sha256 \}\}/);
-    expect(yml).toContain(COMMIT);
-    expect(yml).toContain(SHA256);
+    expect(yml).not.toContain(COMMIT);
+    expect(yml).not.toContain(SHA256);
   });
 
   it('hands over EXPO_TOKEN and nothing else, never by inheritance', () => {
@@ -151,8 +151,41 @@ describe('the gate itself accepts being called, and still stands alone', () => {
     expect(smoke).toMatch(/\$\{\{ inputs\.expected_sha256 \}\}/);
   });
 
-  it('keeps refusing any build other than the pinned one', () => {
-    expect(smoke).toContain(BUILD_ID);
-    expect(smoke).toMatch(/!= "\$PINNED_BUILD_ID"/);
+  // The gate is reusable now: it certifies whichever artifact the caller names, and proves that
+  // artifact's identity dynamically. A reintroduced pin would make it useless for every future
+  // commit, so its absence is asserted rather than assumed.
+  it('carries no historical pin and hard-codes no build UUID', () => {
+    expect(smoke).not.toContain('PINNED_BUILD_ID');
+    expect(smoke).not.toContain(BUILD_ID);
+    expect(smoke).not.toContain(COMMIT);
+    expect(smoke).not.toContain(SHA256);
+    const uuids = smoke.match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi) ?? [];
+    expect(uuids).toEqual([]);
+  });
+
+  it('forwards all three identity values to the gate, unchanged and undefaulted', () => {
+    const block = yml.split(/^ {2}auth-routes:$/m)[1] ?? '';
+    expect(block).toMatch(/build_id: \$\{\{ inputs\.build_id \}\}/);
+    expect(block).toMatch(/expected_commit: \$\{\{ inputs\.expected_commit \}\}/);
+    expect(block).toMatch(/expected_sha256: \$\{\{ inputs\.expected_sha256 \}\}/);
+    // `mode` is a choice and legitimately defaults to item-m. The three IDENTITY inputs are the
+    // ones that must be required with nothing to fall back to.
+    const inputs = yml.split('inputs:')[1]?.split(/^jobs:$/m)[0] ?? '';
+    for (const name of ['build_id', 'expected_commit', 'expected_sha256']) {
+      const b = inputs.split(new RegExp(`^ {6}${name}:$`, 'm'))[1]?.split(/^ {6}\w+:$/m)[0] ?? '';
+      expect(b).toMatch(/^ {8}required: true$/m);
+      expect(b).not.toMatch(/^ {8}default:/m);
+    }
+  });
+
+  it('fails a missing identity value before any simulator work begins', () => {
+    const guard = yml.split(/^ {2}auth-routes-inputs:$/m)[1]?.split(/^ {2}auth-routes:$/m)[0] ?? '';
+    expect(guard).toMatch(/inputs\.build_id/);
+    expect(guard).toMatch(/inputs\.expected_commit/);
+    expect(guard).toMatch(/inputs\.expected_sha256/);
+    expect(guard).toMatch(/exit 1/);
+    // the gate may only run once that guard has passed
+    expect(yml).toMatch(/^ {4}needs: auth-routes-inputs$/m);
+    expect(yml.search(/^ {2}auth-routes-inputs:$/m)).toBeLessThan(yml.search(/^ {2}auth-routes:$/m));
   });
 });

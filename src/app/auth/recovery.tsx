@@ -7,6 +7,7 @@ import { useAuth } from '@/auth/auth-context';
 import { AuthLinkBridge } from '@/components/auth/auth-link-bridge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SupportLink } from '@/components/ui/support-link';
 import { Text } from '@/components/ui/text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -125,6 +126,7 @@ export default function RecoveryScreen() {
           Reset links can only be used once and expire after a short time.
         </Text>
         <Button label="Request a new link" fullWidth size="lg" onPress={requestNewLink} />
+        <SupportLink />
       </View>
     );
   } else if (stage === 'ready' || stage === 'updating') {

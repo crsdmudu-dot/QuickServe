@@ -6,6 +6,7 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
+import { SupportLink } from '@/components/ui/support-link';
 import { reportError } from '@/lib/monitoring';
 
 type Props = { children: ReactNode };
@@ -21,6 +22,7 @@ function ErrorFallback({ onRetry }: { onRetry: () => void }) {
           An unexpected error occurred. Please try again.
         </Text>
         <Button label="Try again" onPress={onRetry} />
+        <SupportLink prompt="Still not working?" />
       </View>
     </SafeAreaView>
   );

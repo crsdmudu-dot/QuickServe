@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
+import { SupportLink } from '@/components/ui/support-link';
 import { Text } from '@/components/ui/text';
 import { Spacing } from '@/constants/theme';
 import { buildMobileHandoffUrl } from '@/lib/auth-bridge';
@@ -121,6 +122,7 @@ export function AuthLinkBridge({ type, browser }: { type: AuthLinkType; browser?
               again, or request a new link from the app&apos;s sign-in screen.
             </Text>
           ) : null}
+          {handoff === 'attempted' ? <SupportLink /> : null}
         </View>
       ) : (
         <View style={styles.block}>
@@ -130,6 +132,7 @@ export function AuthLinkBridge({ type, browser }: { type: AuthLinkType; browser?
           <Text variant="caption" color="textSecondary">
             Request a new link from the app&apos;s sign-in screen. Links can only be used once and expire after a short time.
           </Text>
+          <SupportLink />
         </View>
       )}
     </View>
