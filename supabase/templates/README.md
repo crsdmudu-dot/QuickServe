@@ -52,5 +52,7 @@ improvement in placement as evidence the hostname issue is fixed.
 
 Related follow-on work, none of it done here: publishing an explicit DMARC record with a working
 `rua` for the sending subdomain, enrolling the DKIM `d=` domain in Yahoo's Complaint Feedback
-Loop, and publishing an explicit MX for the organisation domain, which currently accepts mail
-only through the RFC 5321 implicit-MX fallback to its A record.
+Loop. A third item — publishing an explicit MX for the organisation domain, which at the time
+accepted mail only through the RFC 5321 implicit-MX fallback to its A record — was **completed on
+2026-09-19**: `hiredcorp.co.ke` now has an explicit priority-10 MX pointing to
+`mail.hiredcorp.co.ke`.

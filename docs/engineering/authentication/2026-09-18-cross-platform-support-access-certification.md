@@ -6,6 +6,10 @@
 > **not** certify simulator UI. The **website** change is committed and tested but **not deployed**.
 > This is **not** a Production-readiness or launch claim, and PR #21 remains a **draft that must not
 > merge** — see [§9](#9-outstanding-issues).
+>
+> **Update (2026-09-19):** the Production deployment path is repaired and the support mailbox's
+> inbound routing is verified — see [§10](#10-operational-readiness-update-2026-09-19). PR #21 itself
+> is still **not merged and not deployed**.
 
 This record **supersedes, for support access only**, follow-up 6 of the
 [2026-09-16 branded QA auth bridge certification](2026-09-16-qa-branded-auth-bridge-certification.md)
@@ -181,10 +185,13 @@ No password (old or new), fixture email or secret value is recorded here.
 
 ## 9. Outstanding issues
 
-Recorded, not fixed here. Apart from the corrected item 3, none of these is resolved by this record.
+Recorded, not fixed here. Apart from the corrected item 3 and item 4 (resolved 2026-09-19), none of
+these is resolved by this record.
 
 1. **Yahoo clean-mailbox placement remains Spam.** Deliverability remediation is separate from Auth
-   functionality and remains open.
+   functionality and remains open. On 2026-09-19 a reply sent from the support mailbox to Yahoo was
+   also delivered to **Spam** (see [§10](#10-operational-readiness-update-2026-09-19)), so Yahoo
+   placement of outbound support mail is an open concern too.
 2. **Recovery links were perceived to expire quickly.** The actual configured lifetime, token
    supersession and security-scanner prefetch behaviour still require investigation.
 3. **QA service credential — verified active; not a blocker (correction, 2026-09-18).** An earlier
@@ -204,9 +211,12 @@ Recorded, not fixed here. Apart from the corrected item 3, none of these is reso
      it as shell text.
    - Migrating to the newer `sb_secret_…` format is a separate, optional hardening task that
      requires consumer changes. It is not a current launch blocker.
-4. **Production Workers Builds** triggers automatically from `main`, but its selected build token is
-   invalid, deleted or rolled. **PR #21 must not merge until the Production release mechanism is
-   controlled.**
+4. **Production Workers Builds token — RESOLVED 2026-09-19.** As of 2026-09-18, Production Workers
+   Builds triggered automatically from `main`, but its selected build token was invalid, deleted or
+   rolled, so the PR #20 merge never reached Production. On 2026-09-19 the token was replaced and
+   `main` was deployed once under control (see [§10](#10-operational-readiness-update-2026-09-19)).
+   **The auto-deploy path now works, so merging PR #21 would deploy it to Production immediately.**
+   PR #21 still requires the review in item 8 and a deliberate, validated release.
 5. **`applinks:REPLACE_ME.quickserve.app`** remains in the iOS associated-domains entitlement.
    **Universal Links are not certified.**
 6. **Website support changes are committed and tested but not deployed.**
@@ -217,7 +227,86 @@ Recorded, not fixed here. Apart from the corrected item 3, none of these is reso
 **Production readiness and launch completion are not claimed.** Nothing in this record authorises a
 Production change.
 
-## 10. Related documentation
+## 10. Operational-readiness update (2026-09-19)
+
+This section records infrastructure work done after the certification above. It does **not** change
+what PR #21 contains, and **PR #21 was neither merged nor deployed**.
+
+### Production deployment path — RESOLVED
+
+| Item | Value |
+| --- | --- |
+| Production Worker | `quickserve` |
+| Build token | replaced through the Workers Builds dashboard flow; selected token **Workers Builds - 2026-09-19 02:13** (no token value exposed or recorded) |
+| Deployed commit | `95053d163f2990a2824b2a6a6309c38eb327e292` — current `main`, the PR #20 merge commit |
+| Workers Builds runs on 2026-09-19 | exactly **one**: build `b719bec4` (a retry of the 2026-09-16 token-failed build for the same commit), **succeeded** |
+| New active version | `4d03f6ae`, 100% of traffic |
+| Previous active version | `052bd731` — rollback to it was proven available and **not used** |
+
+- Build and runtime validation **passed**.
+- The Production bundle references the **Production** Supabase project only, and contains the
+  public anon credential only. It has **zero** QA or Development project references and **zero**
+  privileged or server credentials.
+- The PR #21 support address is **absent** from the Production bundle. This confirms PR #21 was not
+  deployed.
+- PR #21 remained **open, draft and unmerged** throughout.
+
+This deploys PR #20 only. **Production does not contain the support-access change.** Production
+Auth email configuration was not touched: the Site URL, redirect, SMTP and template changes are
+still unauthorised and unapplied on Production (see the
+[2026-09-16 record](2026-09-16-qa-branded-auth-bridge-certification.md)). So Production Auth
+email is **not** configured.
+
+### Support mailbox inbound routing — PASS
+
+**Before the DNS change.** `hiredcorp.co.ke` had **no explicit MX record**; inbound mail relied on
+the RFC 5321 implicit-MX fallback to the domain's A record. cPanel Email Routing is set to **Local
+Mail Exchanger**. Manual tests of `support@hiredcorp.co.ke`:
+
+| Test | Result |
+| --- | --- |
+| Gmail → support | Inbox, about 30–40 seconds |
+| Yahoo → support | Inbox, about 30–40 seconds |
+| Support reply → Gmail | Inbox |
+| Support reply → Yahoo | **Spam** |
+
+**DNS change.** cPanel recommends `mail.hiredcorp.co.ke` for secure IMAP, POP3 and SMTP. Added:
+
+| Record | Name | Value | TTL |
+| --- | --- | --- | --- |
+| A | `mail.hiredcorp.co.ke` | `212.95.55.130` | 300 |
+| MX | `hiredcorp.co.ke` | `mail.hiredcorp.co.ke`, priority 10 | 300 |
+
+Both authoritative nameservers, `cs21.rcnoc.com` and `cs22.rcnoc.com`, returned identical answers:
+MX preference 10 with exchanger `mail.hiredcorp.co.ke`, and `mail.hiredcorp.co.ke` resolving to
+`212.95.55.130`.
+
+**After the DNS change.** Manual tests:
+
+| Test | Result |
+| --- | --- |
+| Gmail → support | Inbox, about 30 seconds |
+| Yahoo → support | Inbox |
+
+**Inbound support-mailbox routing: PASS.** No mailbox password, message contents or full headers are
+recorded here.
+
+**Still open:** delivery from the support mailbox to Yahoo succeeds, but the reply landed in
+**Spam**. That is a deliverability issue, tracked with the Yahoo item in
+[§9](#9-outstanding-issues).
+
+### Not changed by this update
+
+These remain open:
+- PR #21 is not merged.
+- Production Auth email is not configured.
+- The public website is not deployed.
+- The store-compliance blockers are open.
+- Yahoo deliverability is unresolved.
+
+**KwikServe is not launch-ready.**
+
+## 11. Related documentation
 
 - Previous record (historical, unchanged): [2026-09-16 branded QA auth bridge certification](2026-09-16-qa-branded-auth-bridge-certification.md)
 - Authentication architecture: [`README.md`](README.md)
