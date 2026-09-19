@@ -129,20 +129,31 @@ export function planPrune({ exported, references }: { exported: Set<string>; ref
 /**
  * Ways a prerendered bridge document's <title> could expose the emailed link. An empty or missing
  * title makes browsers label the tab with the full URL — token fragment included — so the document
- * must carry exactly one <title> whose text is exactly AUTH_BRIDGE_DOCUMENT_TITLE, before any
- * script runs. Messages never echo the offending title text.
+ * must carry exactly one <title> whose text is exactly AUTH_BRIDGE_DOCUMENT_TITLE, and that whole
+ * element — closing tag included — must come before the first <script> element (inline or src), so
+ * the tab is labelled before any script can load or run. A document with no <script> at all has
+ * nothing to order against, so only the title rules apply. Any "<script" text before the closing
+ * </title> counts as a script, even inside the title: the check fails closed rather than parse HTML.
+ * Messages never echo the offending title text.
  */
 export function documentTitleErrors(html: string): string[] {
-  const titles = [...html.matchAll(/<title\b[^>]*>([\s\S]*?)<\/title\s*>/gi)].map((match) => match[1]);
+  const titles = [...html.matchAll(/<title\b[^>]*>([\s\S]*?)<\/title\s*>/gi)];
   if (titles.length === 0) return ['has no <title> element: browsers would label the tab with the full URL'];
   const errors: string[] = [];
   if (titles.length > 1) errors.push(`has ${titles.length} <title> elements; exactly one is allowed`);
-  titles.forEach((text, index) => {
+  titles.forEach(([, text], index) => {
     if (text.trim() === '') errors.push(`<title> #${index + 1} is empty: browsers would label the tab with the full URL`);
     else if (text !== AUTH_BRIDGE_DOCUMENT_TITLE) {
       errors.push(`<title> #${index + 1} is not exactly the fixed bridge title (${text.length} characters)`);
     }
   });
+  if (titles.length === 1) {
+    const titleEnd = titles[0].index + titles[0][0].length;
+    const firstScript = html.search(/<script\b/i);
+    if (firstScript !== -1 && firstScript < titleEnd) {
+      errors.push('<title> does not close before the first <script>: the tab could show the full URL while scripts load');
+    }
+  }
   return errors;
 }
 

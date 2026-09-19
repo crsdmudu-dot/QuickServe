@@ -158,6 +158,49 @@ describe('documentTitleErrors — the bridge build refuses a document that could
   });
 });
 
+describe('documentTitleErrors — the complete title must come before the first script', () => {
+  const ORDERING = '<title> does not close before the first <script>: the tab could show the full URL while scripts load';
+  const HYDRATE = '<script>globalThis.__EXPO_ROUTER_HYDRATE__=true;</script>';
+  const ENTRY = '<script src="/_expo/static/js/web/entry-0000.js" defer></script>';
+  // Shaped like Expo's prerendered bridge documents; `titleFirst` controls the one thing under test.
+  const bridgeDoc = (path: string, titleFirst: boolean) => {
+    const title = '<title data-rh="true">KwikServe</title>';
+    const head = titleFirst ? `${title}${HYDRATE}` : `${HYDRATE}${title}`;
+    return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><link rel="canonical" href="${path}"/>${head}<meta name="referrer" content="no-referrer"/></head><body><div id="root"></div>${ENTRY}</body></html>`;
+  };
+
+  it.each(['/auth/recovery', '/auth/confirm'])('accepts %s output when the title closes before the first script', (path) => {
+    expect(documentTitleErrors(bridgeDoc(path, true))).toEqual([]);
+  });
+
+  it.each(['/auth/recovery', '/auth/confirm'])('refuses %s output whose title comes after the first script', (path) => {
+    expect(documentTitleErrors(bridgeDoc(path, false))).toEqual([ORDERING]);
+  });
+
+  it('refuses a valid title placed after the first script, inline or external', () => {
+    expect(documentTitleErrors(`<head>${HYDRATE}<title>KwikServe</title></head>`)).toEqual([ORDERING]);
+    expect(documentTitleErrors(`<head>${ENTRY}<title>KwikServe</title></head>`)).toEqual([ORDERING]);
+    expect(documentTitleErrors(`<head><SCRIPT type="module">1</SCRIPT><title>KwikServe</title></head>`)).toEqual([ORDERING]);
+  });
+
+  it('refuses a title that opens before a script but closes after it', () => {
+    const errors = documentTitleErrors(`<head><title>KwikServe${HYDRATE}</title></head>`);
+    expect(errors).toContain(ORDERING);
+    expect(errors.join('\n')).not.toContain('KwikServe');
+  });
+
+  it('accepts a correct title in a document with no script at all', () => {
+    expect(documentTitleErrors('<head><title>KwikServe</title></head><body></body>')).toEqual([]);
+  });
+
+  it('never echoes the title, URL, fragment or token in an ordering error', () => {
+    const leaky = `/auth/recovery#token_hash=${SYNTHETIC_HASH}`;
+    const errors = documentTitleErrors(`<head><link rel="canonical" href="${leaky}"/>${HYDRATE}<title>${leaky}</title></head>`);
+    expect(errors).toContain(ORDERING);
+    for (const secret of [SYNTHETIC_HASH, 'token_hash', '/auth/recovery', leaky]) expect(errors.join('\n')).not.toContain(secret);
+  });
+});
+
 describe('the fix is wired where it matters', () => {
   const root = join(__dirname, '..', '..');
 
