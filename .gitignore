@@ -16,6 +16,9 @@ dist-qa-auth.export/
 # Cloudflare Pages target of the same bridge (built by infra/qa-auth-bridge/pages-build.ts)
 dist-qa-auth-pages/
 .qa-auth-bridge-pages-manifest.json
+# Production Pages target of the same bridge (pages-build.ts --target production)
+dist-prod-auth-pages/
+.prod-auth-bridge-pages-manifest.json
 expo-env.d.ts
 
 # Native

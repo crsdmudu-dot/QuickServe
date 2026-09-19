@@ -1,0 +1,23 @@
+// pages-wrangler.production.jsonc — Cloudflare PAGES project configuration for the PRODUCTION
+// authentication bridge.
+//
+// A TEMPLATE, exactly like ./pages-wrangler.jsonc (the QA target), and read the same way:
+// `node infra/qa-auth-bridge/pages-build.ts --target production` copies it verbatim to
+// `dist-prod-auth-pages/wrangler.jsonc`, and the Pages commands are run from that directory. The
+// reasons it cannot live at the repository root are recorded in ./pages-wrangler.jsonc.
+//
+// It must differ from the QA template ONLY in `name` — the Pages project a deploy targets. The
+// bridge itself is environment-neutral: both targets upload byte-identical files, built once from
+// the placeholder-configured export. qa-auth-bridge-pages-build.test.ts fails if anything else
+// differs.
+//
+// Deliberately absent, as for QA: `account_id`, every secret, every route, the custom domain and
+// `BRIDGE_MODE`. The bridge needs no credential of any kind.
+//
+// NOT DEPLOYED. The Pages project does not exist yet. Creating it, deploying to it and attaching
+// its custom domain are separate, individually authorised gates. See ./README.md.
+{
+  "name": "kwikserve-auth-prod-bridge",
+  "pages_build_output_dir": "./origin",
+  "compatibility_date": "2026-09-01"
+}

@@ -24,8 +24,22 @@
   ],
   "contentSecurityPolicy": "default-src 'none'; script-src 'self' 'sha256-67fhrP0+BkBqmgGGXTtgiVO/9EQs3QruYNU/7fnRkI8='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
   "pages": {
-    "projectName": "kwikserve-auth-qa-bridge",
-    "outputDir": "dist-qa-auth-pages",
+    "targets": {
+      "qa": {
+        "projectName": "kwikserve-auth-qa-bridge",
+        "outputDir": "dist-qa-auth-pages",
+        "configTemplate": "pages-wrangler.jsonc",
+        "manifest": ".qa-auth-bridge-pages-manifest.json",
+        "requireFreshExport": false
+      },
+      "production": {
+        "projectName": "kwikserve-auth-prod-bridge",
+        "outputDir": "dist-prod-auth-pages",
+        "configTemplate": "pages-wrangler.production.jsonc",
+        "manifest": ".prod-auth-bridge-pages-manifest.json",
+        "requireFreshExport": true
+      }
+    },
     "nonServedFiles": ["_worker.js", "_redirects", "_headers", "_routes.json", "functions"]
   },
   "build": {
