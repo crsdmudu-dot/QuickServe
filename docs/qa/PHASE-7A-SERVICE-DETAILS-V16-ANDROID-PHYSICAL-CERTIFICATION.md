@@ -696,16 +696,39 @@ first. React Native Testing Library 13.3.3 resolves `waitFor`/`findBy*` from its
 Jest's `testTimeout` (`build/wait-for.js`). A Jest timeout increase therefore could not have
 addressed this failure at all.
 
-**Mitigation.** The release gate runs the consumer suite through a dedicated script that bounds
-concurrency:
+**Mitigation.** Both release suites run through dedicated scripts that bound concurrency:
 
 ```
-npm run test:release     ->  jest --maxWorkers=2
+npm run test:release        ->  jest --maxWorkers=2
+npm run test:admin:release  ->  jest --config apps/admin/jest.config.js --maxWorkers=2
 ```
 
-`qa:release` invokes `npm run test:release` for its consumer Jest stage. `npm test` is unchanged, so
-ordinary development behaviour is unaffected. No timeout was raised, no test quarantined, no retry
-added, and no assertion or production component changed.
+`qa:release` invokes `npm run test:release` for its consumer Jest stage and
+`npm run test:admin:release` for its admin Jest stage. `npm test` and `npm run test:admin` are
+unchanged, so ordinary development behaviour is unaffected. No timeout was raised, no test
+quarantined, no retry added, and no assertion changed.
+
+**Admin suite — a separate, real defect found underneath the contention.** The admin suite also
+emitted `A worker process has failed to exit gracefully`, and that warning persisted at two
+workers, so it was not contention. Bisecting the 39 admin suites isolated
+`admin-web-operations.test.tsx`, which on its own passed in 4 s and then printed `Jest did not exit
+one second after the test run has completed`. `--detectOpenHandles` reported nothing, because the
+handle was not created inside a test. Instrumenting `setTimeout` showed 30 uncleared 16 ms timers,
+all from `TimingAnimation.__startAnimationIfNative -> NativeAnimatedHelper.flushQueue`.
+
+The cause was a lifecycle defect in `src/components/ui/skeleton.tsx`: the effect captured the
+animation in a local `let` that the cleanup closed over while it was still `null`, so when the
+component unmounted before the asynchronous `prefersReducedMotion()` check resolved, the cleanup
+stopped nothing and the late callback then started an endless `Animated.loop` on an unmounted
+component that nothing could reach. `DataTable loading=true` renders `Skeleton` rows and the mocked
+fetch resolves immediately, so that suite hit the window on every render. This was a production
+defect, not a test artifact — each skeleton unmounted in that window left a permanently running
+animation driver on real devices.
+
+Fixed by tracking cancellation and holding the loop in a ref, with regression cover in
+`src/components/ui/skeleton-animation-lifecycle.test.tsx` (3 of its 5 tests fail against the
+previous implementation). The admin suite now passes 39/39 suites and 550/550 tests at two workers
+with no forced-worker-exit warning, no `Jest did not exit` warning and no open handles reported.
 
 **Evidence.** Full suite under two workers: 247 suites / 4,276 tests passed, 45.5 s wall clock
 (the same suite had recorded 309 s at 11 workers). The three files that failed the previous release
