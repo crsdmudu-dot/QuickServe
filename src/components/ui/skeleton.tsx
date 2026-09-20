@@ -36,36 +36,51 @@ export function Skeleton({
 }: SkeletonProps) {
   const theme = useTheme();
   const opacity = useRef(new Animated.Value(1)).current;
+  // Holds the running loop so cleanup can always reach it, including when the loop is
+  // started later from the asynchronous reduced-motion callback below.
+  const animationRef = useRef<Animated.CompositeAnimation | null>(null);
 
   useEffect(() => {
-    let animation: Animated.CompositeAnimation | null = null;
+    // The reduced-motion check is asynchronous, so this component can unmount before it
+    // settles. Without this flag the late callback would start an endless Animated.loop on
+    // an unmounted component that nothing can stop — it keeps driving frames forever.
+    let cancelled = false;
 
     // Check the OS "Reduce Motion" setting asynchronously.
     // If reduced motion is on, keep the block static (no loop).
-    prefersReducedMotion().then((reduced) => {
-      if (reduced) return;
+    prefersReducedMotion()
+      .then((reduced) => {
+        if (cancelled || reduced) return;
 
-      // Gentle ping-pong: 1.0 → 0.4 → 1.0, repeating forever.
-      animation = Animated.loop(
-        Animated.sequence([
-          Animated.timing(opacity, {
-            toValue: 0.4,
-            duration: Durations.slow,
-            useNativeDriver: true,
-          }),
-          Animated.timing(opacity, {
-            toValue: 1,
-            duration: Durations.slow,
-            useNativeDriver: true,
-          }),
-        ]),
-      );
+        // Gentle ping-pong: 1.0 → 0.4 → 1.0, repeating forever.
+        const animation = Animated.loop(
+          Animated.sequence([
+            Animated.timing(opacity, {
+              toValue: 0.4,
+              duration: Durations.slow,
+              useNativeDriver: true,
+            }),
+            Animated.timing(opacity, {
+              toValue: 1,
+              duration: Durations.slow,
+              useNativeDriver: true,
+            }),
+          ]),
+        );
 
-      animation.start();
-    });
+        // Publish before starting so cleanup can never observe a started-but-unreachable loop.
+        animationRef.current = animation;
+        animation.start();
+      })
+      .catch(() => {
+        // The accessibility lookup failed. Leave the block static; never animate or touch
+        // state from here, because this may resolve after unmount.
+      });
 
     return () => {
-      animation?.stop();
+      cancelled = true;
+      animationRef.current?.stop();
+      animationRef.current = null;
       opacity.setValue(1);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
