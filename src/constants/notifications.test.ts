@@ -319,20 +319,20 @@ describe('resolveNotificationDeepLink', () => {
     expect(resolveNotificationDeepLink(makeNotification({ type: 'conduct_reminder' }))).toBe('/provider/quality');
   });
 
-  it('new_support_case / new_dispute with meta.id → /(admin-web)/operations/:id', () => {
+  it('new_support_case / new_dispute with meta.id → /operations/:id', () => {
     const n1 = makeNotification({ type: 'new_support_case', metadata_json: { id: 'op1' } });
-    expect(resolveNotificationDeepLink(n1)).toBe('/(admin-web)/operations/op1');
+    expect(resolveNotificationDeepLink(n1)).toBe('/operations/op1');
     const n2 = makeNotification({ type: 'new_dispute', metadata_json: { id: 'op2' } });
-    expect(resolveNotificationDeepLink(n2)).toBe('/(admin-web)/operations/op2');
+    expect(resolveNotificationDeepLink(n2)).toBe('/operations/op2');
   });
 
   it('new_support_case without meta.id → null', () => {
     expect(resolveNotificationDeepLink(makeNotification({ type: 'new_support_case' }))).toBeNull();
   });
 
-  it('new_provider_signup with provider_id → /(admin-web)/provider-quality/:id', () => {
+  it('new_provider_signup with provider_id → /provider-quality/:id', () => {
     const n = makeNotification({ type: 'new_provider_signup', metadata_json: { provider_id: 'prov1' } });
-    expect(resolveNotificationDeepLink(n)).toBe('/(admin-web)/provider-quality/prov1');
+    expect(resolveNotificationDeepLink(n)).toBe('/provider-quality/prov1');
   });
 
   it('promotion_available → /promotions', () => {

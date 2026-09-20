@@ -363,17 +363,20 @@ export function resolveNotificationDeepLink(n: AppNotification): string | null {
       return '/provider/quality';
     }
 
-    // Admin operations: support cases and disputes
+    // Admin operations: support cases and disputes.
+    // These paths belong to the separated admin application (apps/admin), where the routes sit at
+    // the app root; the former (admin-web) group prefix no longer exists in either app. The
+    // consumer app never surfaces these notification types, so it never follows these links.
     if (['new_support_case', 'new_dispute'].includes(type)) {
       const opId = meta.id as string | undefined;
-      if (opId) return `/(admin-web)/operations/${opId}`;
+      if (opId) return `/operations/${opId}`;
       return null;
     }
 
     // Admin: new provider signup → admin provider-quality
     if (type === 'new_provider_signup') {
       const providerId = meta.provider_id as string | undefined;
-      if (providerId) return `/(admin-web)/provider-quality/${providerId}`;
+      if (providerId) return `/provider-quality/${providerId}`;
       return null;
     }
 

@@ -141,25 +141,6 @@ export async function getMyPayoutLedger(): Promise<ProviderPayoutLedgerRow[]> {
   return (data as ProviderPayoutLedgerRow[] | null) ?? [];
 }
 
-/** Admin: the whole payout ledger (admin RLS sees all rows). */
-export async function adminGetPayoutLedger(): Promise<ProviderPayoutLedgerRow[]> {
-  const { data, error } = await supabase.from('provider_payout_ledger').select('*');
-  if (error) return [];
-  return (data as ProviderPayoutLedgerRow[] | null) ?? [];
-}
-
-/** Admin: payout ledger for one provider. */
-export async function adminGetProviderPayoutLedger(
-  providerId: string,
-): Promise<ProviderPayoutLedgerRow[]> {
-  const { data, error } = await supabase
-    .from('provider_payout_ledger')
-    .select('*')
-    .eq('provider_id', providerId);
-  if (error) return [];
-  return (data as ProviderPayoutLedgerRow[] | null) ?? [];
-}
-
 /** Deductions and their reversals for one earning, oldest first so the audit trail reads in order.
  *  Readable by the owning provider and by admin (RLS). */
 export async function getEarningDeductions(
@@ -206,27 +187,6 @@ export async function getProviderEarningsSummary(): Promise<EarningsSummary> {
     }),
     { entitlement: 0, deductions: 0, net_payable: 0, disbursed: 0, outstanding: 0 },
   );
-}
-
-/** Admin: all earnings for one provider, newest first. */
-export async function adminGetProviderEarnings(providerId: string): Promise<ProviderEarning[]> {
-  const { data, error } = await supabase
-    .from('provider_earnings')
-    .select('*')
-    .eq('provider_id', providerId)
-    .order('created_at', { ascending: false });
-  if (error) return [];
-  return (data as ProviderEarning[] | null) ?? [];
-}
-
-/** Admin: all provider earnings, newest first. */
-export async function adminGetAllEarnings(): Promise<ProviderEarning[]> {
-  const { data, error } = await supabase
-    .from('provider_earnings')
-    .select('*')
-    .order('created_at', { ascending: false });
-  if (error) return [];
-  return (data as ProviderEarning[] | null) ?? [];
 }
 
 // ── Client-side validation (the database repeats every one of these) ───────
@@ -313,67 +273,6 @@ export type MutationResult<T> = { ok: true; data: T } | { ok: false; error: stri
 
 /** Surface the server's message when it is a deliberate financial refusal (they are written for
  *  operators), and fall back to a generic message otherwise. Never claim a transfer was undone. */
-function rpcError(message: string | undefined, fallback: string): string {
+export function rpcError(message: string | undefined, fallback: string): string {
   return message && message.trim() !== '' ? message : fallback;
-}
-
-/** Admin: record a provider-borne deduction. */
-export async function adminRecordProviderDeduction(input: {
-  earningId: string;
-  amount: number;
-  category: DeductionCategory;
-  reason: string;
-}): Promise<MutationResult<LedgerState & { deduction_id: string }>> {
-  const { data, error } = await supabase.rpc('record_provider_deduction', {
-    p_earning_id: input.earningId,
-    p_amount: input.amount,
-    p_category: input.category,
-    p_reason: input.reason.trim(),
-  });
-  if (error) return { ok: false, error: rpcError(error.message, 'Could not record deduction.') };
-  return { ok: true, data: data as LedgerState & { deduction_id: string } };
-}
-
-/** Admin: fully reverse one unreversed deduction. Partial reversal does not exist. */
-export async function adminReverseProviderDeduction(input: {
-  deductionId: string;
-  reason: string;
-}): Promise<MutationResult<LedgerState & { reversal_id: string }>> {
-  const { data, error } = await supabase.rpc('reverse_provider_deduction', {
-    p_deduction_id: input.deductionId,
-    p_reason: input.reason.trim(),
-  });
-  if (error) return { ok: false, error: rpcError(error.message, 'Could not reverse deduction.') };
-  return { ok: true, data: data as LedgerState & { reversal_id: string } };
-}
-
-/** Admin: RECORD a payout that has already been transferred externally.
- *  This performs no transfer. `idempotencyKey` must be stable across retries of one submission. */
-export async function adminRecordProviderPayout(input: {
-  earningId: string;
-  amount: number;
-  method: PayoutMethod;
-  reference: string | null;
-  note: string | null;
-  idempotencyKey: string;
-  paidAt: string;
-}): Promise<MutationResult<LedgerState & { payout_id: string; idempotent_replay: boolean }>> {
-  const { data, error } = await supabase.rpc('record_provider_payout', {
-    p_earning_id: input.earningId,
-    p_amount: input.amount,
-    p_method: input.method,
-    p_reference: input.reference,
-    p_note: input.note,
-    p_idempotency_key: input.idempotencyKey,
-    p_paid_at: input.paidAt,
-  });
-  if (error) {
-    // Do NOT retry with a new key here. An ambiguous failure may mean the row was written; a new
-    // key would create a second disbursement record for the same money.
-    return { ok: false, error: rpcError(error.message, 'Could not record payout.') };
-  }
-  return {
-    ok: true,
-    data: data as LedgerState & { payout_id: string; idempotent_replay: boolean },
-  };
 }

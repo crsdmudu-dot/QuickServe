@@ -143,7 +143,6 @@ import type { Service } from '@/constants/services';
 import { SERVICES } from '@/constants/services';
 import BookingDetailScreen from '@/app/booking/[id]';
 import { BookingStatusCard } from '@/components/customer/booking-status-card';
-import AdminBookingDetailScreen from '@/app/admin/booking/[id]';
 
 const mockGetBookingById = getBookingById as jest.Mock;
 const mockGetCustomerBookings = getCustomerBookings as jest.Mock;
@@ -419,33 +418,6 @@ describe('BookingDetailScreen — service label fallback (3 cases)', () => {
   });
 });
 
-// ── AdminBookingDetailScreen — service label fallback ─────────────────────────
 
-// Note: admin/booking/[id].tsx uses useLocalSearchParams → id='b1' from the mock above
-
-describe('AdminBookingDetailScreen — service label via 3-step fallback', () => {
-  beforeEach(() => {
-    mockGetBookingById.mockReset();
-  });
-
-  it('(a) ACTIVE slug → renders known service title in admin view', async () => {
-    mockGetBookingById.mockResolvedValue({
-      ...BASE_BOOKING,
-      service_id: 'house-cleaning',
-      customer_id: 'cust1',
-    });
-    render(<AdminBookingDetailScreen />);
-    expect(await screen.findByText('House Cleaning')).toBeOnTheScreen();
-  });
-
-  it('(b)+(c) ANY slug → no crash; humanized fallback renders safely', async () => {
-    mockGetBookingById.mockResolvedValue({
-      ...BASE_BOOKING,
-      service_id: 'brand-new-unknown-service',
-      customer_id: 'cust1',
-    });
-    render(<AdminBookingDetailScreen />);
-    // humanize('brand-new-unknown-service') = 'Brand New Unknown Service'
-    expect(await screen.findByText('Brand New Unknown Service')).toBeOnTheScreen();
-  });
-});
+// The former AdminBookingDetailScreen fallback cases moved with the admin application into the
+// admin web booking-detail suite: apps/admin/src/__tests__/admin-web-bookings.test.tsx.

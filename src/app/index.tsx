@@ -5,14 +5,13 @@ import { AppLoadingScreen } from '@/components/ui/app-loading-screen';
 import { roleHref } from '@/constants/roles';
 
 /**
- * Root "/" entry dispatcher — NATIVE (customer/provider app).
+ * Root "/" entry dispatcher for the consumer app (native and web).
  *
- * Phase 3G: previously both `(admin-web)/index` and `(customer)/index` resolved to "/",
- * so Expo Router non-deterministically opened the native app on the admin login. Now "/"
- * is owned solely by this dispatcher (the group homes moved to explicit paths:
- * customer → `/home`, admin dashboard → `/(admin-web)/dashboard`). On native the app is the
- * customer/provider product, so "/" routes into the onboarding flow (or the signed-in
- * user's home). The web override lives in `index.web.tsx` (→ the admin dashboard).
+ * Phase 3G gave "/" a single owner after the customer and admin group indexes both resolved
+ * to it and Expo Router opened the native app on the admin login non-deterministically. The
+ * admin surface has since moved out of this application entirely (apps/admin), so the former
+ * web-only override (index.web.tsx → the admin dashboard) was removed: web and native now
+ * share this one dispatcher, and the consumer product is the only thing "/" can reach.
  *
  * No auth logic changes: this only chooses a destination from the already-resolved auth
  * state and redirects. It never renders protected content itself.

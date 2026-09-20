@@ -5,8 +5,6 @@ import {
   getUnreadNotificationCount,
   filterNotifications,
   groupNotificationsByDate,
-  emitNotification,
-  broadcastAnnouncement,
   getNotificationPreferences,
   DEFAULT_NOTIFICATION_PREFERENCES,
   type AppNotification,
@@ -243,91 +241,7 @@ describe('DEFAULT_NOTIFICATION_PREFERENCES', () => {
 
 // ── emitNotification ──────────────────────────────────────────────────────
 
-describe('emitNotification', () => {
-  it('calls emit_notification RPC with correct p_ params', async () => {
-    rpc.mockResolvedValue({ data: 'new-uuid', error: null });
-    const res = await emitNotification({
-      userId: 'u1',
-      audienceType: 'customer',
-      notificationType: 'booking_accepted',
-      category: 'booking',
-      title: 'Booking Accepted',
-      body: 'Your booking has been accepted.',
-      deepLink: '/booking/123',
-      metadata: { foo: 'bar' },
-      priority: 'normal',
-    });
-    expect(res).toEqual({ ok: true, id: 'new-uuid' });
-    expect(rpc).toHaveBeenCalledWith('emit_notification', {
-      p_user_id: 'u1',
-      p_audience_type: 'customer',
-      p_notification_type: 'booking_accepted',
-      p_category: 'booking',
-      p_title: 'Booking Accepted',
-      p_body: 'Your booking has been accepted.',
-      p_deep_link: '/booking/123',
-      p_metadata: { foo: 'bar' },
-      p_priority: 'normal',
-    });
-  });
-
-  it('returns ok:false with friendly message on RPC error', async () => {
-    rpc.mockResolvedValue({ data: null, error: { message: 'rpc failed' } });
-    const res = await emitNotification({
-      userId: 'u1',
-      notificationType: 'generic',
-      category: 'system',
-      title: 'Test',
-      body: 'Test body',
-    });
-    expect(res).toEqual({ ok: false, error: 'Could not emit notification. Please try again.' });
-  });
-
-  it('passes undefined optional params without throw', async () => {
-    rpc.mockResolvedValue({ data: null, error: null });
-    const res = await emitNotification({
-      userId: 'u2',
-      notificationType: 'generic',
-      category: 'system',
-      title: 'Hi',
-      body: 'Body',
-    });
-    expect(res.ok).toBe(true);
-  });
-});
-
 // ── broadcastAnnouncement ─────────────────────────────────────────────────
-
-describe('broadcastAnnouncement', () => {
-  it('calls broadcast_announcement RPC with correct p_ params', async () => {
-    rpc.mockResolvedValue({ data: 42, error: null });
-    const res = await broadcastAnnouncement({
-      audienceType: 'customer',
-      title: 'Big sale!',
-      body: 'Check our deals.',
-      deepLink: '/promotions',
-      priority: 'high',
-    });
-    expect(res).toEqual({ ok: true, count: 42 });
-    expect(rpc).toHaveBeenCalledWith('broadcast_announcement', {
-      p_audience_type: 'customer',
-      p_title: 'Big sale!',
-      p_body: 'Check our deals.',
-      p_deep_link: '/promotions',
-      p_priority: 'high',
-    });
-  });
-
-  it('returns ok:false with friendly message on RPC error', async () => {
-    rpc.mockResolvedValue({ data: null, error: { message: 'rpc failed' } });
-    const res = await broadcastAnnouncement({
-      audienceType: 'admin',
-      title: 'Alert',
-      body: 'System down.',
-    });
-    expect(res).toEqual({ ok: false, error: 'Could not broadcast announcement. Please try again.' });
-  });
-});
 
 // ── filterNotifications ───────────────────────────────────────────────────
 

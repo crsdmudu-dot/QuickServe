@@ -39,20 +39,22 @@ describe('customer navigation architecture (Phase 4E.1)', () => {
     }
   });
 
-  it('customer providers is at /browse-providers — NO collision with admin-web /providers', () => {
+  it('customer providers is at /browse-providers — the admin /providers route is gone', () => {
     // Customer screen exists at the collision-free path.
     expect(fs.existsSync(path.join(appDir, 'browse-providers.tsx'))).toBe(true);
     // There is NO root /providers (that URL belongs to admin-web only).
     expect(fs.existsSync(path.join(appDir, 'providers.tsx'))).toBe(false);
     // The admin route is untouched and still separate.
-    expect(fs.existsSync(path.join(appDir, '(admin-web)', 'providers', 'index.tsx'))).toBe(true);
+    // The admin providers screen moved to the separated admin application; it is no longer
+    // part of the consumer route tree at all, so there is nothing left to collide with.
+    expect(fs.existsSync(path.join(appDir, '(admin-web)'))).toBe(false);
   });
 
   it('no customer code targets the colliding /providers URL or the old /(customer)/* paths', () => {
     const walk = (dir: string): string[] =>
       fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
         const p = path.join(dir, e.name);
-        if (e.isDirectory()) return e.name === '(admin-web)' ? [] : walk(p); // admin-web legitimately uses /providers
+        if (e.isDirectory()) return walk(p);
         return /\.tsx?$/.test(e.name) && !/\.test\.tsx?$/.test(e.name) ? [p] : [];
       });
     const offenders: string[] = [];
