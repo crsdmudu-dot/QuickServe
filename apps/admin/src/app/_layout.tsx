@@ -2,7 +2,8 @@ import { Redirect, Slot, useSegments, type Href } from 'expo-router';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useAuth } from '@/auth/auth-context';
+import { AuthProvider, useAuth } from '@/auth/auth-context';
+import { ServicesProvider } from '@/services/services-provider';
 import { AdminShell } from '@admin/components/admin-shell';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
@@ -32,7 +33,12 @@ import { Spacing } from '@/constants/theme';
  * The overlays are opaque and cover the entire layout, so protected admin UI is never
  * visible to a loading or non-admin user. RLS/backend authorization is unchanged.
  */
-export default function AdminWebLayout() {
+/**
+ * The route guard itself. Exported so the guard-focused regression suites can drive it with
+ * their own controlled context, which is what they are actually asserting; the composed root
+ * below is covered by admin-login-automation-contract.test.tsx.
+ */
+export function AdminWebLayoutContent() {
   const { loading, session, isAdmin } = useAdminGuard();
   const { signOut } = useAuth();
   const segments = useSegments();
@@ -87,6 +93,29 @@ export default function AdminWebLayout() {
         </SafeAreaView>
       )}
     </View>
+  );
+}
+
+/**
+ * Root layout of the ADMIN application.
+ *
+ * The context providers live here because this file IS the admin app root. While the admin
+ * screens were a route group inside the consumer app they inherited the consumer root layout’s
+ * providers; separating the app left the guard below calling useAuth() with no AuthProvider above
+ * it, so every admin route threw "useAuth must be used within AuthProvider" at runtime and the
+ * React tree never mounted. The unit tests did not catch it because each one builds its own
+ * provider tree around this layout rather than relying on the app to supply it.
+ *
+ * ServicesProvider is included because the analytics and bookings screens call useServices().
+ * BookingDraftProvider is deliberately NOT included: no admin screen consumes it.
+ */
+export default function AdminWebLayout() {
+  return (
+    <AuthProvider>
+      <ServicesProvider>
+        <AdminWebLayoutContent />
+      </ServicesProvider>
+    </AuthProvider>
   );
 }
 

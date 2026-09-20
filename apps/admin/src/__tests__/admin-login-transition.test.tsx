@@ -103,7 +103,7 @@ import { AuthProvider } from '@/auth/auth-context';
 import { ServicesProvider } from '@/services/services-provider';
 import { BookingDraftProvider } from '@/booking/booking-draft';
 import { ErrorBoundary } from '@/components/error-boundary';
-import AdminWebLayout from '@admin/app/_layout';
+import { AdminWebLayoutContent as AdminWebLayout } from '@admin/app/_layout';
 
 function Tree() {
   return (

@@ -50,6 +50,13 @@ jest.mock('expo-router', () => {
 });
 
 jest.mock('@/hooks/use-admin-guard', () => ({ useAdminGuard: () => mockGuard }));
+// The app root composes AuthProvider/ServicesProvider around this guard; these tests drive the
+// guard directly with a controlled context, so keep the real services chain (and the Supabase
+// client it imports at module load) out of this graph.
+jest.mock('@/services/services-provider', () => ({
+  ServicesProvider: ({ children }: { children: unknown }) => children ?? null,
+  useServices: () => ({ getServiceBySlug: () => undefined }),
+}));
 jest.mock('@/auth/auth-context', () => ({ useAuth: () => ({ signOut: mockSignOut }) }));
 // Focus on the guard: render AdminShell as a light marker wrapper.
 jest.mock('@admin/components/admin-shell', () => {
@@ -58,7 +65,7 @@ jest.mock('@admin/components/admin-shell', () => {
   return { AdminShell: ({ children }: { children: unknown }) => React.createElement(View, { testID: 'admin-shell' }, children) };
 });
 
-import AdminWebLayout from '@admin/app/_layout';
+import { AdminWebLayoutContent as AdminWebLayout } from '@admin/app/_layout';
 
 const SESSION = { user: { id: 'admin-1', email: 'a@qs.test' } };
 
