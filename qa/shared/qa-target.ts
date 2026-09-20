@@ -173,6 +173,26 @@ export const ADMIN_TEST_PORT = 8473;
 /** The only base URL connected certification drives. Derived — never read from the environment. */
 export const ADMIN_TEST_BASE_URL = `http://${ADMIN_TEST_HOST}:${ADMIN_TEST_PORT}`;
 
+/**
+ * The admin application has no `/` route — administration starts at the login screen — so the
+ * origin root answers 404. Playwright's webServer readiness probe does not accept 404, so probing
+ * the origin can never succeed: it just re-requests `/` until the 180 s budget expires, which is
+ * exactly the deterministic failure this constant exists to prevent. Readiness must therefore be
+ * probed against a route the application actually serves.
+ *
+ * Kept beside ADMIN_TEST_BASE_URL so the origin used for readiness can never drift from the origin
+ * the browser drives. This path mirrors ADMIN_LOGIN_PATH in playwright/support/auth.ts; an
+ * invariant in qa-target-guards.spec.ts fails if the two ever disagree.
+ */
+export const ADMIN_READY_PATH = '/login';
+
+/**
+ * The URL Playwright probes to decide the managed admin server is up. Same origin as
+ * ADMIN_TEST_BASE_URL, which remains the origin the browser drives and the only value the
+ * ownership and loopback guards accept.
+ */
+export const ADMIN_TEST_READY_URL = `${ADMIN_TEST_BASE_URL}${ADMIN_READY_PATH}`;
+
 /** Working directory of the managed server: exactly the separated admin application. */
 export const ADMIN_SERVER_CWD = '../apps/admin';
 

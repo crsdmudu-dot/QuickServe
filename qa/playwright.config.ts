@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 import { loadEnv } from './shared/env';
-import { ADMIN_SERVER_COMMAND, ADMIN_SERVER_CWD } from './shared/qa-target';
+import { ADMIN_SERVER_COMMAND, ADMIN_SERVER_CWD, ADMIN_TEST_READY_URL } from './shared/qa-target';
 
 const env = loadEnv();
 const { BASE_URL, START_SERVER, CI } = env;
@@ -54,7 +54,11 @@ export default defineConfig({
         // before global setup and before any credential is submitted.
         command: ADMIN_SERVER_COMMAND,
         cwd: ADMIN_SERVER_CWD,
-        url: BASE_URL,
+        // Readiness is probed against /login, not the origin root. The admin application has no
+        // `/` route, so the root answers 404, and Playwright does not treat 404 as ready — it
+        // re-requests the root until the timeout expires and the run dies before global setup.
+        // use.baseURL below stays the bare origin: this URL decides only when the server is up.
+        url: ADMIN_TEST_READY_URL,
         timeout: 180_000,
         reuseExistingServer: false,
         stdout: 'pipe',

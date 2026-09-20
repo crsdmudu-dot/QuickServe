@@ -2,11 +2,13 @@ import { test, expect } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 import {
+  ADMIN_READY_PATH,
   ADMIN_SERVER_COMMAND,
   ADMIN_SERVER_CWD,
   ADMIN_TEST_BASE_URL,
   ADMIN_TEST_HOST,
   ADMIN_TEST_PORT,
+  ADMIN_TEST_READY_URL,
   CERTIFIED_QA_PROJECT_REF,
   assertCertifiedAdminApp,
   assertCertifiedQaDatabase,
@@ -16,6 +18,7 @@ import {
   projectRefFromSupabaseUrl,
 } from '../../shared/qa-target';
 import { loadEnv } from '../../shared/env';
+import playwrightConfig from '../../playwright.config';
 
 /**
  * qa-target-guards.spec.ts — OFFLINE proofs that connected certification fails closed.
@@ -307,6 +310,69 @@ test.describe('server ownership — connected runs drive only the managed admin 
     const launchAt = setup.indexOf('chromium.launch');
     expect(managedAt).toBeLessThan(targetAt);
     expect(targetAt).toBeLessThan(launchAt);
+  });
+});
+
+test.describe('webServer readiness probes a route the admin application actually serves', () => {
+  // The admin application has no `/` route, so the origin root answers 404 and Playwright never
+  // treats it as ready: it re-requests the root until the 180 s budget expires and the run dies
+  // before global setup. Readiness and the browser origin are therefore separate values.
+  const webServer = Array.isArray(playwrightConfig.webServer)
+    ? playwrightConfig.webServer[0]
+    : playwrightConfig.webServer;
+
+  test('the readiness URL carries the exact managed-server origin', () => {
+    expect(new URL(ADMIN_TEST_READY_URL).origin).toBe(new URL(ADMIN_TEST_BASE_URL).origin);
+    expect(new URL(ADMIN_TEST_READY_URL).origin).toBe(`http://${ADMIN_TEST_HOST}:${ADMIN_TEST_PORT}`);
+    expect(ADMIN_TEST_READY_URL.startsWith(ADMIN_TEST_BASE_URL)).toBe(true);
+  });
+
+  test('the readiness URL points at /login, never the origin root', () => {
+    expect(ADMIN_READY_PATH).toBe('/login');
+    expect(new URL(ADMIN_TEST_READY_URL).pathname).toBe('/login');
+    expect(new URL(ADMIN_TEST_READY_URL).pathname).not.toBe('/');
+    expect(ADMIN_TEST_READY_URL).not.toBe(ADMIN_TEST_BASE_URL);
+  });
+
+  test('the readiness path is a real route, not a stale route-group path', () => {
+    // Built at runtime so this file does not contain the literal it searches for.
+    const REMOVED_GROUP = ['(admin', '-web)'].join('');
+    expect(ADMIN_READY_PATH).not.toContain(REMOVED_GROUP);
+    expect(ADMIN_READY_PATH.startsWith('/')).toBe(true);
+    // The route file backing it exists in the separated admin application.
+    expect(fs.existsSync(path.join(QA_ROOT, '../apps/admin/src/app/login.tsx'))).toBe(true);
+  });
+
+  test('the readiness path agrees with the login path the specs navigate to', () => {
+    const auth = fs.readFileSync(path.join(QA_ROOT, 'playwright/support/auth.ts'), 'utf8');
+    expect(auth).toContain(`ADMIN_LOGIN_PATH = '${ADMIN_READY_PATH}'`);
+  });
+
+  test('use.baseURL remains the bare managed origin, not the readiness URL', () => {
+    expect(playwrightConfig.use?.baseURL).toBe(ADMIN_TEST_BASE_URL);
+    expect(new URL(String(playwrightConfig.use?.baseURL)).pathname).toBe('/');
+    expect(playwrightConfig.use?.baseURL).not.toBe(ADMIN_TEST_READY_URL);
+  });
+
+  test('the resolved webServer probes the readiness URL and keeps every ownership setting', () => {
+    test.skip(!webServer, 'no managed server in this mode (external BASE_URL, public smoke)');
+    expect(webServer?.url).toBe(ADMIN_TEST_READY_URL);
+    expect(webServer?.command).toBe(ADMIN_SERVER_COMMAND);
+    expect(webServer?.command).toContain(`--port ${ADMIN_TEST_PORT}`);
+    expect(webServer?.cwd).toBe(ADMIN_SERVER_CWD);
+    // Ownership is unchanged: an occupied port still fails the run rather than attaching.
+    expect(webServer?.reuseExistingServer).toBe(false);
+    // The budget is unchanged — the fix is a correct probe target, not a longer wait.
+    expect(webServer?.timeout).toBe(180_000);
+  });
+
+  test('the config source probes the shared readiness constant, never the bare origin', () => {
+    const cfg = fs.readFileSync(path.join(QA_ROOT, 'playwright.config.ts'), 'utf8');
+    expect(cfg).toContain('url: ADMIN_TEST_READY_URL');
+    expect(cfg).not.toMatch(/url:\s*BASE_URL/);
+    expect(cfg).toContain('baseURL: BASE_URL');
+    // No hard-coded origin or path: the constants remain the single source.
+    expect(cfg).not.toContain('127.0.0.1:8473');
   });
 });
 
