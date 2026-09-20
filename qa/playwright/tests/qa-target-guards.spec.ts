@@ -404,8 +404,13 @@ test.describe('repository invariants', () => {
 
   test('the Playwright web server launches the admin application, not the consumer app', () => {
     const cfg = fs.readFileSync(path.join(QA_ROOT, 'playwright.config.ts'), 'utf8');
-    expect(cfg).toContain("cwd: '../apps/admin'");
-    expect(cfg).not.toMatch(/cwd:\s*'\.\.'/);
+    // This used to look for a literal cwd path that the config has never contained: cwd is
+    // derived from the shared constant so it cannot drift from the command. The assertion only
+    // surfaced now because no run had reached Playwright before. Assert the same intent against
+    // the actual structure.
+    expect(cfg).toContain('cwd: ADMIN_SERVER_CWD');
+    expect(ADMIN_SERVER_CWD).toBe('../apps/admin');
+    expect(ADMIN_SERVER_CWD).not.toBe('..');
   });
 
   test('global setup aborts on login failure instead of continuing unauthenticated', () => {
