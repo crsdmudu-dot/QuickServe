@@ -684,9 +684,38 @@ subsequent extractions filtered those fields, and the practice held for the rema
 (§16). The item remains open as a **procedural** control, not a code defect.
 — **VERIFIED IN DURABLE ARTIFACT**
 
-### 15.2 Item D — `customer-search.test.tsx` load-sensitive flake — **OPEN, test infrastructure**
+### 15.2 Item D — `customer-search.test.tsx` load-sensitive flake — **MITIGATED — monitoring**
 
-A load-sensitive intermittent failure. Not a product defect; not addressed in this phase.
+A load-sensitive intermittent failure. Not a product defect.
+
+**Root cause.** Jest defaults `maxWorkers` to one less than the logical processor count (11 on the
+release machine). Eleven concurrent jest-expo workers, each holding a full React Native module graph,
+oversubscribe the CPU. Under that starvation the shortest asynchronous budget in the suite expires
+first. React Native Testing Library 13.3.3 resolves `waitFor`/`findBy*` from its own
+`asyncUtilTimeout` (`build/config.js`), which defaults to **1000 ms** and is read independently of
+Jest's `testTimeout` (`build/wait-for.js`). A Jest timeout increase therefore could not have
+addressed this failure at all.
+
+**Mitigation.** The release gate runs the consumer suite through a dedicated script that bounds
+concurrency:
+
+```
+npm run test:release     ->  jest --maxWorkers=2
+```
+
+`qa:release` invokes `npm run test:release` for its consumer Jest stage. `npm test` is unchanged, so
+ordinary development behaviour is unaffected. No timeout was raised, no test quarantined, no retry
+added, and no assertion or production component changed.
+
+**Evidence.** Full suite under two workers: 247 suites / 4,276 tests passed, 45.5 s wall clock
+(the same suite had recorded 309 s at 11 workers). The three files that failed the previous release
+run — `booking-detail.test.tsx`, `s36-provider-notifications.test.tsx`, `customer-search.test.tsx` —
+pass together under two workers.
+
+**Why monitoring, not closed.** The failing release run occurred on a cold cache immediately after
+`npm ci`; the passing runs above were warm. Cache warmth is an uncontrolled variable between them,
+so bounded concurrency is demonstrated sufficient but not proven to be the sole contributing factor.
+The item stays under observation across subsequent release runs.
 
 ---
 
@@ -745,7 +774,7 @@ changed, no notes saved, no Approve/Reject pressed, no booking created or delete
 | Home-screen safe area | A | **OPEN** — non-blocking |
 | Item **L** — legacy scheme handler | B | **OPEN** — environment/migration |
 | Item **C** — QA credential hygiene | — | **OPEN** — process |
-| Item **D** — `customer-search` flake | — | **OPEN** — test infra |
+| Item **D** — `customer-search` flake | — | **MITIGATED** — monitoring (§15.2) |
 | Android FCM / push on `fa138be5` | B | **NOT CERTIFIED** |
 | Provider physical route guard | B | **NOT RUN** |
 | Cross-customer booking `SELECT` | — | **UNPROVEN** |
