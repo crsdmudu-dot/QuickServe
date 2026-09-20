@@ -25,7 +25,10 @@ const BUILD_ID = 'b00fdcf7-4903-4153-a1ac-1e36ae9f881d';
 const COMMIT = '44215962efd311a85d344cb775670c4ea8e36914';
 const SHA256 = '6c5bfa9f3e8299ce429e4a924844c04d89ff891c075932a545f2b34693d0af7d';
 
-const read = (p: string) => fs.readFileSync(p, 'utf8');
+// Normalise line endings on read. The `^…$` multiline patterns below anchor on the line end, and
+// on a Windows checkout a CR sits between the text and that anchor, so none of them match. This
+// keeps the workflow contract assertions platform-independent without rewriting the YAML on disk.
+const read = (p: string) => fs.readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
 let yml: string;
 let smoke: string;
 
