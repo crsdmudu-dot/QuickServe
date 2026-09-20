@@ -8,13 +8,15 @@ import {
   acceptQuote,
   initiateAttempt,
   confirmAttempt,
-  cancelAttempt,
+  reconcileAttemptNoCollection,
   overrideStatus,
   getPaymentByBooking,
   getAttempts,
   getEarningByBooking,
+  externalDueForBooking,
   createAttemptWithCheckoutId,
   applyMpesaCallback,
+  mpesaSuccessRaw,
 } from '../support/connected/qa-payments';
 
 /**
@@ -32,6 +34,9 @@ import {
  * DB idempotency is validated through its service-role RPC `apply_mpesa_callback`.
  */
 const PROVIDER1 = { name: 'QA Provider One', phone: '+254700000001' };
+
+/** Unique synthetic settlement reference. confirm_payment_attempt rejects a reused one. */
+const syntheticReference = () => `QA-P2B-REF-${crypto.randomUUID()}`;
 
 test.describe('Phase 2B — Payments DB-state', { tag: ['@certification', '@connected'] }, () => {
   let customerCtx: APIRequestContext;
@@ -140,7 +145,9 @@ test.describe('Phase 2B — Payments DB-state', { tag: ['@certification', '@conn
     expect(r.status, 'initiate ok').toBe(200);
     const attempts = await getAttempts(adminCtx, paymentId);
     expect(attempts).toHaveLength(1);
-    expect(attempts[0].status).toBe('pending');
+    // 0045 reserves the row BEFORE contacting the provider, so a new attempt is 'initiated';
+    // only mark_attempt_accepted (the provider accepted the STK request) moves it to 'pending'.
+    expect(attempts[0].status).toBe('initiated');
     expect(Number(attempts[0].amount), 'amount is server-derived, not client-set').toBe(amount);
     void bookingId;
   });
@@ -160,7 +167,9 @@ test.describe('Phase 2B — Payments DB-state', { tag: ['@certification', '@conn
 
   test('state guard: an attempt cannot be initiated once the payment is no longer pending', { tag: ['@p1', '@integrity'] }, async () => {
     const { paymentId } = await payable();
-    expect((await overrideStatus(adminCtx, paymentId, 'paid')).status, 'admin marks paid').toBeLessThan(300);
+    // 0045 removed 'paid' from override_payment_status: settlement requires evidence. Reach a
+    // non-pending payment through the one operational route the override still permits.
+    expect((await overrideStatus(adminCtx, paymentId, 'cancelled')).status, 'admin cancels').toBeLessThan(300);
     const r = await initiateAttempt(customerCtx, paymentId);
     expect(r.status).toBe(400);
     expect(String((r.body as { message?: string })?.message ?? '')).toContain('not in pending status');
@@ -172,7 +181,14 @@ test.describe('Phase 2B — Payments DB-state', { tag: ['@certification', '@conn
     const { bookingId, paymentId, providerShare } = await payable();
     await initiateAttempt(customerCtx, paymentId);
     const [attempt] = await getAttempts(adminCtx, paymentId);
-    expect((await confirmAttempt(adminCtx, attempt.id as string)).status, 'confirm ok').toBeLessThan(300);
+    // Exact external due read back from the payment — never a second hard-coded figure.
+    const due = await externalDueForBooking(adminCtx, bookingId);
+    expect(
+      (
+        await confirmAttempt(adminCtx, attempt.id as string, due, 'QA settlement confirmation', syntheticReference())
+      ).status,
+      'confirm ok',
+    ).toBeLessThan(300);
     const [p] = await getPaymentByBooking(adminCtx, bookingId);
     expect(p.status).toBe('paid');
     expect(p.paid_at).toBeTruthy();
@@ -184,10 +200,19 @@ test.describe('Phase 2B — Payments DB-state', { tag: ['@certification', '@conn
   });
 
   test('authorization: only an admin can confirm an attempt (success cannot be self-applied)', { tag: ['@p1', '@security'] }, async () => {
-    const { paymentId } = await payable();
+    const { bookingId, paymentId } = await payable();
     await initiateAttempt(customerCtx, paymentId);
     const [attempt] = await getAttempts(adminCtx, paymentId);
-    const r = await confirmAttempt(customerCtx, attempt.id as string);
+    const due = await externalDueForBooking(adminCtx, bookingId);
+    // The SAME four-argument signature as the admin path, so the call reaches is_admin() and is
+    // rejected on AUTHORIZATION rather than on a missing function signature.
+    const r = await confirmAttempt(
+      customerCtx,
+      attempt.id as string,
+      due,
+      'QA unauthorized confirm',
+      syntheticReference(),
+    );
     expect(r.status, 'customer confirm denied').toBe(400);
     expect(String((r.body as { message?: string })?.message ?? '')).toContain('Permission denied');
   });
@@ -196,29 +221,71 @@ test.describe('Phase 2B — Payments DB-state', { tag: ['@certification', '@conn
     const { bookingId, paymentId } = await payable();
     await initiateAttempt(customerCtx, paymentId);
     const [attempt] = await getAttempts(adminCtx, paymentId);
-    expect((await confirmAttempt(adminCtx, attempt.id as string)).status).toBeLessThan(300);
-    // Second confirm: attempt is now 'successful' (terminal) → not confirmable.
-    expect((await confirmAttempt(adminCtx, attempt.id as string)).status, 're-confirm rejected').toBe(400);
+    const due = await externalDueForBooking(adminCtx, bookingId);
+    expect(
+      (
+        await confirmAttempt(adminCtx, attempt.id as string, due, 'QA first settlement', syntheticReference())
+      ).status,
+    ).toBeLessThan(300);
+    // Second confirm: the payment is now paid, so 0045 refuses at its FIRST state guard. Assert
+    // that exact contract message rather than accepting any 400.
+    const again = await confirmAttempt(
+      adminCtx,
+      attempt.id as string,
+      due,
+      'QA repeat settlement',
+      syntheticReference(),
+    );
+    expect(again.status, 're-confirm rejected').toBe(400);
+    expect(String((again.body as { message?: string })?.message ?? '')).toContain(
+      'Payment is not pending',
+    );
     expect((await getPaymentByBooking(adminCtx, bookingId))[0].status, 'still paid').toBe('paid');
     expect(await getEarningByBooking(adminCtx, bookingId), 'exactly one earning').toHaveLength(1);
   });
 
-  test('failure: cancelling an attempt is terminal and leaves the payment pending', { tag: ['@p1', '@integrity'] }, async () => {
+  test('failure: an evidenced no-collection reconciliation is terminal and leaves the payment pending', { tag: ['@p1', '@integrity'] }, async () => {
     const { bookingId, paymentId } = await payable();
     await initiateAttempt(customerCtx, paymentId);
     const [attempt] = await getAttempts(adminCtx, paymentId);
-    expect((await cancelAttempt(adminCtx, attempt.id as string)).status, 'cancel ok').toBeLessThan(300);
+    // cancel_payment_attempt was DROPPED by 0045: asserting "no money moved" is financially
+    // material, so it now requires a note, a reference and an explicit evidence source (0053).
+    expect(
+      (
+        await reconcileAttemptNoCollection(
+          adminCtx,
+          attempt.id as string,
+          'QA no-collection reconciliation',
+          syntheticReference(),
+          'provider_reference',
+        )
+      ).status,
+      'reconcile ok',
+    ).toBeLessThan(300);
     expect((await getAttempts(adminCtx, paymentId))[0].status).toBe('cancelled');
     expect((await getPaymentByBooking(adminCtx, bookingId))[0].status, 'payment NOT falsely paid').toBe('pending');
-    // Cancelling again hits the terminal-state guard.
-    expect((await cancelAttempt(adminCtx, attempt.id as string)).status, 're-cancel rejected').toBe(400);
+    // Reconciling again hits the terminal-state guard.
+    const again = await reconcileAttemptNoCollection(
+      adminCtx,
+      attempt.id as string,
+      'QA repeat reconciliation',
+      syntheticReference(),
+      'provider_reference',
+    );
+    expect(again.status, 're-reconcile rejected').toBe(400);
+    expect(String((again.body as { message?: string })?.message ?? '')).toContain(
+      'not in a reconcilable status',
+    );
   });
 
   test('invalid transition: override_payment_status rejects an unsupported status value', { tag: ['@p1', '@security'] }, async () => {
     const { paymentId } = await payable();
     const r = await overrideStatus(adminCtx, paymentId, 'not-a-status');
     expect(r.status).toBe(400);
-    expect(String((r.body as { message?: string })?.message ?? '')).toContain('Invalid status value');
+    // 0045 narrowed the override to ('pending','cancelled') and reworded the guard accordingly.
+    expect(String((r.body as { message?: string })?.message ?? '')).toContain(
+      'Status not available through this override',
+    );
   });
 
   test('authorization: only an admin can override payment status', { tag: ['@p1', '@security'] }, async () => {
@@ -232,7 +299,14 @@ test.describe('Phase 2B — Payments DB-state', { tag: ['@certification', '@conn
     const { bookingId, paymentId } = await payable();
     await initiateAttempt(customerCtx, paymentId);
     const [attempt] = await getAttempts(adminCtx, paymentId);
-    await confirmAttempt(adminCtx, attempt.id as string); // creates the earning
+    const due = await externalDueForBooking(adminCtx, bookingId);
+    // Evidenced settlement is what mints the earning (trg_create_earning_on_paid).
+    expect(
+      (
+        await confirmAttempt(adminCtx, attempt.id as string, due, 'QA RLS settlement', syntheticReference())
+      ).status,
+      'settlement ok',
+    ).toBeLessThan(300);
 
     // payments_select: customer own + admin only.
     expect(await getPaymentByBooking(customerCtx, bookingId), 'customer sees own payment').toHaveLength(1);
@@ -257,15 +331,19 @@ test.describe('Phase 2B — Payments DB-state', { tag: ['@certification', '@conn
   test('callback idempotency: apply_mpesa_callback settles once and is a no-op on replay', { tag: ['@p1', '@integrity'] }, async () => {
     const { bookingId, paymentId } = await payable();
     const checkoutId = `qa-p2b-${crypto.randomUUID()}`;
-    await createAttemptWithCheckoutId(paymentId, 1000, checkoutId);
+    // 0045 settles only on EXACT equality with the external due, so derive it from the payment.
+    const due = await externalDueForBooking(adminCtx, bookingId);
+    await createAttemptWithCheckoutId(paymentId, due, checkoutId);
+    const receipt = `QA-P2B-RCPT-${crypto.randomUUID()}`;
+    const raw = mpesaSuccessRaw(due, receipt);
 
     // Success callback → payment paid, attempt successful, one earning.
-    expect((await applyMpesaCallback(checkoutId, 0)).status).toBeLessThan(300);
+    expect((await applyMpesaCallback(checkoutId, 0, 'ok', raw)).status).toBeLessThan(300);
     expect((await getPaymentByBooking(adminCtx, bookingId))[0].status).toBe('paid');
     expect(await getEarningByBooking(adminCtx, bookingId)).toHaveLength(1);
 
-    // Replay of the same callback is idempotent — no second earning, still paid.
-    expect((await applyMpesaCallback(checkoutId, 0)).status).toBeLessThan(300);
+    // Replay of the IDENTICAL callback (same receipt AND amount) is an idempotent no-op.
+    expect((await applyMpesaCallback(checkoutId, 0, 'ok', raw)).status).toBeLessThan(300);
     expect((await getPaymentByBooking(adminCtx, bookingId))[0].status).toBe('paid');
     expect(await getEarningByBooking(adminCtx, bookingId), 'no duplicate earning on replay').toHaveLength(1);
   });
@@ -273,7 +351,8 @@ test.describe('Phase 2B — Payments DB-state', { tag: ['@certification', '@conn
   test('callback failure: a failed callback marks the attempt failed and never marks the payment paid', { tag: ['@p1', '@integrity'] }, async () => {
     const { bookingId, paymentId } = await payable();
     const checkoutId = `qa-p2b-${crypto.randomUUID()}`;
-    await createAttemptWithCheckoutId(paymentId, 1000, checkoutId);
+    const due = await externalDueForBooking(adminCtx, bookingId);
+    await createAttemptWithCheckoutId(paymentId, due, checkoutId);
 
     expect((await applyMpesaCallback(checkoutId, 1, 'insufficient funds')).status).toBeLessThan(300);
     const attempts = await getAttempts(adminCtx, paymentId);

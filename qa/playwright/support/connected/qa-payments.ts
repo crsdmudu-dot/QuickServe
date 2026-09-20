@@ -7,7 +7,8 @@ import { createCustomerBooking, assignProvider, setBookingStatus, type ProviderI
  *
  * Drives the REAL payment lifecycle of the dedicated QA project entirely through
  * the implemented SECURITY DEFINER RPCs (set_quote / accept_quote /
- * initiate_payment_attempt / confirm_payment_attempt / cancel_payment_attempt /
+ * initiate_payment_attempt / confirm_payment_attempt /
+ * reconcile_payment_attempt_no_collection /
  * override_payment_status / mark_payout_paid) and PostgREST reads — the same
  * functions the app calls. NO real money, NO Daraja/M-Pesa, NO edge function, NO
  * secret. The service-role-only `apply_mpesa_callback` (the callback's DB path,
@@ -69,11 +70,48 @@ export const initiateAttempt = (
     p_raw_response: null,
   });
 
-export const confirmAttempt = (adminCtx: APIRequestContext, attemptId: string) =>
-  rpc(adminCtx, 'confirm_payment_attempt', { p_attempt_id: attemptId });
+/**
+ * Evidenced manual settlement (0045). The old one-argument form was DROPPED, not kept as a
+ * compatibility overload, so calling it yields HTTP 404 rather than an authorization error.
+ * The collected amount must equal BOTH the attempt amount and the external due exactly —
+ * underpayment and overpayment both fail — and mpesa/card attempts require a reference.
+ */
+export const confirmAttempt = (
+  adminCtx: APIRequestContext,
+  attemptId: string,
+  collectedAmount: number,
+  confirmationNote: string,
+  confirmationReference: string,
+) =>
+  rpc(adminCtx, 'confirm_payment_attempt', {
+    p_attempt_id: attemptId,
+    p_collected_amount: collectedAmount,
+    p_confirmation_note: confirmationNote,
+    p_confirmation_reference: confirmationReference,
+  });
 
-export const cancelAttempt = (adminCtx: APIRequestContext, attemptId: string) =>
-  rpc(adminCtx, 'cancel_payment_attempt', { p_attempt_id: attemptId });
+/** Evidence sources accepted by reconcile_payment_attempt_no_collection (0053). */
+export type NoCollectionEvidenceSource = 'provider_reference' | 'portal_lookup';
+
+/**
+ * Evidenced negative reconciliation (0045, widened to four arguments by 0053). Replaces
+ * cancel_payment_attempt, which was dropped: "collection did NOT occur" is a financially
+ * material assertion and cannot be evidence-free. Moves a blocking attempt to cancelled and
+ * never touches the payment.
+ */
+export const reconcileAttemptNoCollection = (
+  adminCtx: APIRequestContext,
+  attemptId: string,
+  reconciliationNote: string,
+  providerReference: string | null,
+  evidenceSource: NoCollectionEvidenceSource,
+) =>
+  rpc(adminCtx, 'reconcile_payment_attempt_no_collection', {
+    p_attempt_id: attemptId,
+    p_reconciliation_note: reconciliationNote,
+    p_provider_reference: providerReference,
+    p_evidence_source: evidenceSource,
+  });
 
 export const overrideStatus = (adminCtx: APIRequestContext, paymentId: string, status: string) =>
   rpc(adminCtx, 'override_payment_status', { p_payment_id: paymentId, p_status: status });
@@ -99,6 +137,56 @@ export async function getEarningByBooking(ctx: APIRequestContext, bookingId: str
   const res = await ctx.get(`/rest/v1/provider_earnings?booking_id=eq.${bookingId}&select=id,amount,payout_status,provider_id`);
   if (res.status() !== 200) throw new Error(`getEarningByBooking HTTP ${res.status()} — ${await res.text()}`);
   return (await res.json()) as Record<string, unknown>[];
+}
+
+/**
+ * The external amount still owed on a payment, as every 0045 settlement path computes it:
+ *     external_due = amount - wallet_applied - promo_discount
+ * Derived from the payment row so a test never duplicates a hard-coded figure.
+ */
+export function externalDue(payment: Record<string, unknown>): number {
+  return (
+    Number(payment.amount) -
+    Number(payment.wallet_applied ?? 0) -
+    Number(payment.promo_discount ?? 0)
+  );
+}
+
+/** external_due for the single payment attached to a booking. */
+export async function externalDueForBooking(ctx: APIRequestContext, bookingId: string): Promise<number> {
+  const [payment] = await getPaymentByBooking(ctx, bookingId);
+  if (!payment) throw new Error(`externalDueForBooking: no payment for booking ${bookingId}`);
+  return externalDue(payment);
+}
+
+/**
+ * A success callback payload in the EXACT shape apply_mpesa_callback parses.
+ *
+ * Verified against the SQL, not assumed: 0045 §10 (body reaffirmed by 0050) reads
+ *     p_raw #> '{Body,stkCallback,CallbackMetadata,Item}'
+ * — the key is Item, SINGULAR — then selects the array entries named 'Amount' and
+ * 'MpesaReceiptNumber' via btrim(i->>'Value'). Both are mandatory: a missing, empty or
+ * unparseable Amount, or a missing receipt, records 'missing_or_invalid_callback_evidence'
+ * and refuses to settle. The amount must also equal both attempt.amount and external_due.
+ *
+ * Every value here is synthetic — no real M-Pesa receipt, phone number or personal data.
+ */
+export function mpesaSuccessRaw(amount: number, receipt: string): Record<string, unknown> {
+  return {
+    Body: {
+      stkCallback: {
+        ResultCode: 0,
+        ResultDesc: 'The service request is processed successfully.',
+        CallbackMetadata: {
+          Item: [
+            { Name: 'Amount', Value: amount },
+            { Name: 'MpesaReceiptNumber', Value: receipt },
+            { Name: 'TransactionDate', Value: 20300301090000 },
+          ],
+        },
+      },
+    },
+  };
 }
 
 // ── Service-role helpers (SETUP / callback DB-path only — never for behavior under test) ──
@@ -137,6 +225,7 @@ export async function applyMpesaCallback(
   checkoutRequestId: string,
   resultCode: number,
   resultDesc = 'ok',
+  raw: Record<string, unknown> = { stub: true },
 ): Promise<RpcResult> {
   const svc = await serviceContext();
   try {
@@ -145,7 +234,7 @@ export async function applyMpesaCallback(
       p_merchant_request_id: `mr-${checkoutRequestId}`,
       p_result_code: resultCode,
       p_result_desc: resultDesc,
-      p_raw: { stub: true },
+      p_raw: raw,
     });
   } finally {
     await svc.dispose();
