@@ -13,7 +13,13 @@
  *
  * If any required variable is missing, the certification suite skips cleanly.
  * It never falls back to the app's production project.
+ *
+ * Decision C (fail closed): targeting is no longer only a namespace convention. Exactly one
+ * project ref is certified for connected runs and `assertCertifiedQaDatabase()` refuses every
+ * other target — missing, malformed, Production, or unrecognised. See shared/qa-target.ts.
  */
+
+import { assertCertifiedQaDatabase, CERTIFIED_QA_PROJECT_REF } from '../../../shared/qa-target';
 
 export type QaRole = 'customer' | 'admin' | 'provider1' | 'provider2';
 
@@ -71,17 +77,23 @@ export function certificationSkipReason(): string {
 }
 
 /**
- * Guard: refuse to run certification against the app's production project.
- * If someone points QA_SUPABASE_URL at the same host as the app's
- * EXPO_PUBLIC_SUPABASE_URL, that is a misconfiguration — fail loudly.
+ * Guard: refuse to run certification against anything but the certified QA project.
+ *
+ * This used to be a RELATIVE check — it compared QA_SUPABASE_URL against the app's
+ * EXPO_PUBLIC_SUPABASE_URL host and refused only when the two matched. That comparison silently
+ * passed whenever the app variable was absent, which is the normal state of a fresh checkout
+ * (the root .env is git-ignored). A missing variable therefore disabled the guard completely, and
+ * any project ref — Production, or an unrecognised third project — would have been accepted for a
+ * full write suite driven by a service-role key.
+ *
+ * It is now ABSOLUTE: `assertCertifiedQaDatabase()` accepts exactly one project ref and rejects a
+ * missing, malformed, Production or simply unknown target. The exported NAME is deliberately
+ * unchanged: every connected entry point and both service-role contexts already call it, so the
+ * stronger guard reaches all of them without any call site being able to miss the change.
  */
 export function assertNotProduction(): void {
-  const qa = qaSupabaseUrl();
-  const app = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim();
-  if (qa && app && new URL(qa).host === new URL(app).host) {
-    throw new Error(
-      'REFUSING TO RUN: QA_SUPABASE_URL points at the app EXPO_PUBLIC_SUPABASE_URL host. ' +
-        'Launch Certification must use a DEDICATED QA/staging project (Decision A), never production.',
-    );
-  }
+  assertCertifiedQaDatabase();
 }
+
+/** Explicit names for new call sites; same guard. */
+export { assertCertifiedQaDatabase, CERTIFIED_QA_PROJECT_REF };

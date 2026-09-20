@@ -8,6 +8,7 @@ import {
   makeObjectPath,
   insertBookingPhotoRaw,
   readBookingPhotos,
+  sweepStorageObjects,
 } from '../support/connected/qa-storage';
 
 /**
@@ -63,6 +64,12 @@ test.describe('Phase 1B — Storage & uploads', { tag: ['@certification', '@conn
   });
 
   test.afterAll(async () => {
+    // Storage objects live outside the bookings foreign-key graph, so deleting the booking does
+    // NOT remove them. sweepStorageObjects() existed for this and was never called, leaving no
+    // safety net if an upload ever did land. It is scoped to the STORAGE_MARKER_PREFIX and runs
+    // through the service context, which fails closed unless the target is the certified QA
+    // project; the deletion scope is not widened.
+    if (certificationConfigured()) await sweepStorageObjects();
     if (bookingId) await deleteBookingsByIds([bookingId]);
     await customerCtx?.dispose();
     await provider1Ctx?.dispose();

@@ -4,7 +4,7 @@ import { loadEnv } from '../../shared/env';
 
 /** Admin login route. The admin login page is uniquely identified by the
  *  email placeholder 'admin@example.com' (onboarding login uses 'you@example.com'). */
-export const ADMIN_LOGIN_PATH = '/(admin-web)/login';
+export const ADMIN_LOGIN_PATH = '/login';
 export const ADMIN_EMAIL_PLACEHOLDER = 'admin@example.com';
 export const ADMIN_STORAGE_STATE_PATH = path.resolve(__dirname, '../../.auth/admin.json');
 

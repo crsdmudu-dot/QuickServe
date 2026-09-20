@@ -44,7 +44,8 @@ test.describe('framework self-tests', () => {
 
   test('isOnPath matches exact and path-segment prefix (not string prefix)', () => {
     expect(isOnPath('/login', '/login')).toBe(true);
-    expect(isOnPath('/(admin-web)/login', '/(admin-web)')).toBe(true);
+    // Segment prefix, using a real admin route now that they sit at the app root.
+    expect(isOnPath('/analytics/detailed', '/analytics')).toBe(true);
     expect(isOnPath('/other', '/login')).toBe(false);
     // Segment-aware: a shared string prefix without a slash boundary is NOT a match.
     expect(isOnPath('/login-extra', '/login')).toBe(false);

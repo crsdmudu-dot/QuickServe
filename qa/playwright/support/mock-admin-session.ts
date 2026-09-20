@@ -9,7 +9,7 @@ import * as path from 'path';
  *
  * It lets the Executive Dashboard suite run fully offline and deterministically
  * by establishing an authenticated admin the *normal* way — the app's real
- * `(admin-web)` guard runs unchanged and the app resolves the session through
+ * the admin application guard runs unchanged and the app resolves the session through
  * its own `supabase.auth.getSession()` + profile-role fetch. We do NOT bypass
  * the guard and we do NOT mount the dashboard component directly.
  *

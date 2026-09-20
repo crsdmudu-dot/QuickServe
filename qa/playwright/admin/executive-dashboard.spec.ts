@@ -14,7 +14,7 @@ import { isConnected, hasAdminCreds, connectedAdminLogin } from '../support/conn
  *
  * Two modes (the suite auto-selects):
  *  - DEFAULT: offline deterministic mode via `mockAdminSession` — the real
- *    `(admin-web)` guard runs unchanged and resolves a seeded admin session; the
+ *    the admin application guard runs unchanged and resolves a seeded admin session; the
  *    analytics `analytics_*` RPCs are stubbed. Runs fully offline with zero skips.
  *  - OPTIONAL: connected-confirmation mode (`QA_DASHBOARD_CONNECTED=1`) using the
  *    REAL admin login (Approach A). Skips if `E2E_ADMIN_*` are absent. This
@@ -47,7 +47,7 @@ test.describe('Admin Executive Dashboard', { tag: ['@admin', '@executive-dashboa
     'redirects an unauthenticated visitor to the admin login',
     { tag: ['@security', '@smoke', '@p0', '@regression'] },
     async ({ page }) => {
-      await page.goto('/(admin-web)/analytics');
+      await page.goto('/analytics');
       const login = new LoginPage(page);
       await expect(login.heading).toBeVisible();
       await expect(login.emailInput).toBeVisible();

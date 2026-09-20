@@ -59,7 +59,7 @@ test.describe('Phase 3A — Admin authentication', () => {
 
   test('unauthenticated access to a protected admin route is denied (redirect to login)', async ({ page }) => {
     await page.goto('/bookings', { waitUntil: 'domcontentloaded' });
-    // The (admin-web) guard redirects to the login screen; no admin data is shown.
+    // The admin application guard redirects to the login screen; no admin data is shown.
     await expect(page.getByText(/sign in with your admin account/i)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Providers' })).toHaveCount(0);
   });

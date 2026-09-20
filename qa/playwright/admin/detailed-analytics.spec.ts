@@ -21,7 +21,7 @@ import { readDownloadText } from '../support/download';
  * Admin Detailed Analytics — automated suite (QA Slice 42).
  *
  * Reuses the Slice-41 reference architecture: the bounded `mockAdminSession`
- * (unchanged) puts the real `(admin-web)` guard into an authenticated-admin state
+ * (unchanged) puts the real the admin application guard into an authenticated-admin state
  * offline, and a dedicated `detailed-analytics-stubs` module deterministically
  * serves the nine Slice-25/28 analytics RPCs. Optional connected mode
  * (`QA_DASHBOARD_CONNECTED=1` + `E2E_ADMIN_*`) preserves the real-login path.
@@ -63,7 +63,7 @@ test.describe('Admin Detailed Analytics', { tag: ['@admin', '@detailed-analytics
     'unauthenticated visit redirects to the admin login',
     { tag: ['@security', '@smoke', '@p0', '@access', '@regression'] },
     async ({ page }) => {
-      await page.goto('/(admin-web)/analytics/detailed');
+      await page.goto('/analytics/detailed');
       const login = new LoginPage(page);
       await expect(login.heading).toBeVisible();
       await expect(login.emailInput).toBeVisible();

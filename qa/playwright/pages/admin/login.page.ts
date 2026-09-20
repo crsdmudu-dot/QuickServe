@@ -4,7 +4,7 @@ import { ADMIN_LOGIN_PATH, ADMIN_EMAIL_PLACEHOLDER } from '../../support/auth';
 import { hydratedFill } from '../../support/rn-web';
 
 /**
- * Page Object for the QuickServe admin login screen (`(admin-web)/login`).
+ * Page Object for the QuickServe admin login screen (the admin login route).
  *
  * Locators target only stable, user-visible anchors (heading text, input
  * placeholders, the accessible button role, and the exact validation copy the
