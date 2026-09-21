@@ -59,8 +59,19 @@ jobs:
           npm --prefix qa ci
           npm --prefix qa run qa:typecheck
 
+      # The separated admin application (apps/admin) has its own tsconfig, Jest config and web
+      # export. It shares the repository's single node_modules install, so it needs no `npm ci`
+      # of its own. Its checks gate the PR exactly like the consumer ones.
+      - name: Admin TypeScript check
+        run: npm run typecheck:admin
+
       - name: Root Jest
         run: npm test
+
+      # Runs exactly once: the root Jest config ignores /apps/admin/, and this config's rootDir
+      # is apps/admin, so neither suite can discover the other's tests.
+      - name: Admin Jest
+        run: npm run test:admin
 
       - name: Website Vitest
         run: |
@@ -73,8 +84,17 @@ jobs:
         continue-on-error: true
         run: npm run lint
 
+      # `expo lint` does not traverse apps/admin, so the admin source is linted explicitly with
+      # the same flat config. Non-blocking for the same reason as the consumer lint step.
+      - name: Admin lint
+        continue-on-error: true
+        run: npm run lint:admin
+
       - name: Expo web export
         run: npx expo export --platform web
 
       - name: Expo Android export
         run: npx expo export --platform android
+
+      - name: Admin web export
+        run: npm run build:admin

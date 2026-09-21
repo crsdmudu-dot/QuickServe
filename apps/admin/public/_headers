@@ -1,0 +1,52 @@
+# apps/admin/public/_headers — response headers for the KwikServe Admin deployment.
+#
+# `expo export --platform web` copies public/ into dist/, so this file ships with every admin
+# build, exactly as the consumer app's public/_headers does for its own deployment.
+#
+# PROVENANCE. These values are not invented: they are the headers the Production admin portal
+# serves today, read back live from https://quickserve.zaka-crsd.workers.dev/login and /dashboard
+# before this file was written. Separating the admin application must not silently change its
+# security posture, so the observed behaviour is reproduced here verbatim — including the fact
+# that the Content-Security-Policy is REPORT-ONLY.
+#
+# CSP IS REPORT-ONLY, DELIBERATELY. The consumer app's _headers records why: the policy was
+# introduced in report-only mode for the first certification cycle so it produced browser reports
+# instead of breaking the admin web, to be promoted to enforcing only once the routing/auth
+# certification ran clean. That promotion was never made. It is a real outstanding hardening item,
+# but it is a behavioural change to the admin portal and does not belong in a refactor whose
+# contract is "same app, different build root". Promote it in its own change, after a browser pass
+# confirms nothing is blocked.
+#
+# The script-src hash is the SHA-256 of Expo Router's single inline hydrate script
+# (`globalThis.__EXPO_ROUTER_HYDRATE__=true;`), which is identical across exports on this Expo
+# version. Re-derive it after an Expo upgrade or the admin pages will fail to hydrate.
+#
+# `connect-src` pins the Production Supabase host — a public identifier, not a secret. No
+# WebSocket (Realtime) is used by the admin web and no Sentry DSN is configured.
+#
+# NO HSTS. The deployment serves no Strict-Transport-Security header today and none is added
+# here. Adding it — and especially `includeSubDomains` or `preload` — is a separate, effectively
+# irreversible decision that must consider every hostname under the apex, including the mail
+# subdomains. See the accompanying report's recommendation.
+#
+# CACHING. One conservative revalidation policy for every response, matching the consumer app.
+# Static-asset immutability is deliberately NOT claimed: `not_found_handling:
+# "single-page-application"` answers a missing /_expo/static/... path with the HTML shell, and
+# `_headers` matches by URL only, so a long-lived rule on those prefixes would let a browser pin
+# that fallback document to a hashed asset URL — a rollback hazard. Content-hashed bundle names
+# plus ETag revalidation keep every deployment safe under this policy.
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()
+  X-Frame-Options: DENY
+  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'sha256-67fhrP0+BkBqmgGGXTtgiVO/9EQs3QruYNU/7fnRkI8='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://lkigkltvstlxfdztffds.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
+  Cache-Control: public, max-age=0, must-revalidate
+  X-Robots-Tag: noindex
+
+# The consumer deployment carried a hostname-scoped rule that kept only the *.workers.dev
+# certification host out of search indexes. This application is an internal staff console in its
+# entirety, so the global rule above applies noindex to EVERY admin path and on every hostname,
+# including a future custom domain. That is a deliberate tightening, not a copy of the current
+# behaviour, and it is the one intentional difference from what Production serves today.

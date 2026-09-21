@@ -164,7 +164,7 @@ import { type Page, type Locator } from '@playwright/test';
 import { BasePage } from '../base.page';
 
 export class BookingsPage extends BasePage {
-  readonly path = '/(admin-web)/bookings';
+  readonly path = '/bookings';
   readonly bookingTable: Locator;
   readonly newBookingButton: Locator;
 
@@ -287,7 +287,7 @@ test runs without creds.
 - Set `BASE_URL=http://localhost:8081` in `qa/.env` and start the server in a
   separate terminal.  This bypasses the auto-start.
 
-**Admin login page does not render at `/(admin-web)/login`**
+**Admin login page does not render at `/login`**
 - The admin login is uniquely identified by `getByPlaceholder('admin@example.com')`.
   If the route changes, update the single constant `ADMIN_LOGIN_PATH` in
   `qa/playwright/support/auth.ts`.
@@ -351,7 +351,7 @@ to establish an authenticated admin deterministically, so the dashboard can be
 isolated and thoroughly tested offline (with the analytics RPCs stubbed).
 
 - `mockAdminSession` exists **only** for deterministic dashboard isolation — it
-  is not a substitute for real-login testing. It satisfies the real `(admin-web)`
+  is not a substitute for real-login testing. It satisfies the real admin application
   route guard through the normal application route (no guard bypass, no direct
   component mount) and stubs only the minimum auth/session/profile traffic.
 - The **Admin Authentication suite** (`qa/playwright/admin/authentication.spec.ts`)
@@ -364,7 +364,7 @@ isolated and thoroughly tested offline (with the analytics RPCs stubbed).
 ## Detailed Analytics suite (Slice 42)
 
 The **Admin Detailed Analytics** suite (`qa/playwright/admin/detailed-analytics.spec.ts`,
-`/(admin-web)/analytics/detailed`) follows the same isolation pattern as the Executive Dashboard:
+`/analytics/detailed`) follows the same isolation pattern as the Executive Dashboard:
 
 - It **reuses `mockAdminSession` unchanged** — no fork, no duplicate — to satisfy the real admin
   route guard offline.

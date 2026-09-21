@@ -1,5 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 import { loadEnv } from './shared/env';
+import { ADMIN_SERVER_COMMAND, ADMIN_SERVER_CWD, ADMIN_TEST_READY_URL } from './shared/qa-target';
 
 const env = loadEnv();
 const { BASE_URL, START_SERVER, CI } = env;
@@ -36,11 +37,30 @@ export default defineConfig({
   ],
   webServer: START_SERVER
     ? {
-        command: 'npm run web',
-        cwd: '..',
-        url: BASE_URL,
+        // The suite drives the ADMIN application, not the consumer app. Administration was
+        // separated into apps/admin, so the admin routes (/login, /dashboard, /analytics, ...)
+        // are served by that project at its app root; the consumer app no longer has them at
+        // all, and launching it here would 404 on every admin route.
+        //
+        // The command, the working directory and the base URL all come from the single set of
+        // constants in shared/qa-target.ts, so the port in the command can never drift from the
+        // port in the URL.
+        //
+        // reuseExistingServer is FALSE, unconditionally. Attaching to a process this suite did
+        // not start is the vulnerability being closed here: the loopback guard cannot tell a
+        // managed admin instance from an unrelated dev server on the same port, so a stray
+        // server would have been accepted and then driven with real credentials. With reuse
+        // disabled an occupied port makes Playwright fail to start the server, and the run stops
+        // before global setup and before any credential is submitted.
+        command: ADMIN_SERVER_COMMAND,
+        cwd: ADMIN_SERVER_CWD,
+        // Readiness is probed against /login, not the origin root. The admin application has no
+        // `/` route, so the root answers 404, and Playwright does not treat 404 as ready — it
+        // re-requests the root until the timeout expires and the run dies before global setup.
+        // use.baseURL below stays the bare origin: this URL decides only when the server is up.
+        url: ADMIN_TEST_READY_URL,
         timeout: 180_000,
-        reuseExistingServer: !CI,
+        reuseExistingServer: false,
         stdout: 'pipe',
         stderr: 'pipe',
         env: { BROWSER: 'none' },

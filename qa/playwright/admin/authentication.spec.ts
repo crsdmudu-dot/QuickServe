@@ -122,9 +122,9 @@ test.describe('Admin Authentication', { tag: ['@admin', '@authentication'] }, ()
       const login = new LoginPage(page);
 
       // Fresh, unauthenticated context hitting a protected admin route.
-      await page.goto('/(admin-web)/bookings');
+      await page.goto('/bookings');
 
-      // The (admin-web) guard has no session → redirects to the admin login.
+      // The admin application guard has no session → redirects to the admin login.
       // We assert the *rendered* admin login (heading + email), not the URL:
       // Expo Router strips route groups from the browser URL, so a path check
       // would be unreliable. The rendered form is the robust oracle.

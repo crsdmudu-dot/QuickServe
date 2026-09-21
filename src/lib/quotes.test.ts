@@ -1,5 +1,4 @@
 import {
-  setBookingQuote,
   acceptQuote,
   declineQuote,
   getQuoteForBooking,
@@ -42,25 +41,6 @@ beforeEach(() => {
 });
 
 // ── Tests ──────────────────────────────────────────────────────────────────
-
-describe('setBookingQuote', () => {
-  it('calls set_quote RPC with correct args on success', async () => {
-    rpc.mockResolvedValue({ error: null });
-    const res = await setBookingQuote('bk1', 500, 400);
-    expect(res).toEqual({ ok: true });
-    expect(rpc).toHaveBeenCalledWith('set_quote', {
-      p_booking_id: 'bk1',
-      p_amount: 500,
-      p_provider_share: 400,
-    });
-  });
-
-  it('returns friendly error when RPC fails', async () => {
-    rpc.mockResolvedValue({ error: { message: 'Permission denied' } });
-    const res = await setBookingQuote('bk1', 500, 400);
-    expect(res).toEqual({ ok: false, error: 'Could not send quote. Please try again.' });
-  });
-});
 
 describe('acceptQuote', () => {
   it('calls accept_quote RPC with correct args on success', async () => {

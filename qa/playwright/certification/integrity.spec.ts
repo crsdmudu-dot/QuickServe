@@ -45,54 +45,74 @@ test.describe('Launch Certification — Integrity & concurrency', { tag: ['@cert
   });
 
   test(
-    'B2 FIXED (P0): a duplicate active booking is rejected server-side (sequential + concurrent)',
+    'B2 (P0): duplicate submissions are rejected by idempotency key, not by slot similarity',
     { tag: ['@p0', '@integrity'] },
     async () => {
+      // THE CONTRACT (migrations 0034 and 0039).
+      //
+      // 0033 originally blocked a second ACTIVE booking sharing customer + service +
+      // scheduled_for, via the partial unique index bookings_active_dedup. 0034 dropped that
+      // index deliberately: it over-blocked legitimate distinct jobs that share a service and a
+      // deterministic time but differ by address or unit (two "tomorrow morning" jobs on
+      // different floors of one building). 0039 re-applied the same end state forward after a
+      // migration-version collision, and src/__tests__/service-details-schema.test.ts actively
+      // forbids re-creating the old index.
+      //
+      // Duplicate identity is therefore CLIENT INTENT, not field similarity: one logical
+      // submission carries one idempotency_key and reuses it across retries, while a genuinely
+      // new booking ("book another anyway") carries a new key. bookings_idempotency_key_uidx is
+      // partial (WHERE idempotency_key IS NOT NULL), so legacy key-less rows coexist freely.
+      //
+      // The P0 guarantee is unchanged in strength: one logical submission can never create two
+      // rows. Only the key it is enforced on changed.
       const { ctx: customer, userId } = await authedContextWithUser('customer');
       try {
-        // Identical payload = same customer, service, scheduled_for, address, notes.
-        // (migration 0033 partial unique index over active statuses).
-        const seqSlot = '2030-03-01T09:00:00.000Z';
-        const body = (marker: string, slot: string) => ({
+        const slot = '2030-03-01T09:00:00.000Z';
+        // One payload shape; only the idempotency key varies between the cases below.
+        const body = (marker: string, idempotencyKey: string) => ({
           customer_id: userId,
           service_id: 'house-cleaning',
           address: 'QA Dedup Address',
           scheduled_for: slot,
           notes: marker,
+          idempotency_key: idempotencyKey,
         });
 
-        // Sequential: first commits (201), the identical second is REJECTED (409).
-        const first = await insertBookingRaw(customer, body(makeBookingMarker(), seqSlot));
+        // ── Sequential, SAME key: the retry must not create a second row. ──
+        const sequentialKey = crypto.randomUUID();
+        const first = await insertBookingRaw(customer, body(makeBookingMarker(), sequentialKey));
         expect(first.status).toBe(201);
         expect(first.id).not.toBeNull();
         createdIds.push(first.id as string);
-        const second = await insertBookingRaw(customer, body(makeBookingMarker(), seqSlot));
-        expect(second.status, 'duplicate active booking rejected').toBe(409);
-        expect(second.id).toBeNull();
-        // Exactly one active booking exists for that slot.
+
+        const retry = await insertBookingRaw(customer, body(makeBookingMarker(), sequentialKey));
+        expect(retry.status, 'same idempotency key rejected').toBe(409);
+        expect(retry.id).toBeNull();
+        // Exactly one row exists for that submission.
         expect(await readBookingById(customer, first.id as string)).toHaveLength(1);
 
-        // Concurrent: two identical inserts at once → exactly one wins, one 409.
-        const concSlot = '2030-03-01T10:00:00.000Z';
+        // ── Concurrent, SAME key: exactly one wins, race-safe at the index. ──
+        const concurrentKey = crypto.randomUUID();
         const [c1, c2] = await Promise.all([
-          insertBookingRaw(customer, body(makeBookingMarker(), concSlot)),
-          insertBookingRaw(customer, body(makeBookingMarker(), concSlot)),
+          insertBookingRaw(customer, body(makeBookingMarker(), concurrentKey)),
+          insertBookingRaw(customer, body(makeBookingMarker(), concurrentKey)),
         ]);
-        const codes = [c1.status, c2.status].sort();
-        expect(codes, 'exactly one 201 and one 409').toEqual([201, 409]);
-        const winner = c1.status === 201 ? c1.id : c2.id;
-        createdIds.push(winner as string);
+        // Capture BEFORE asserting, so a failure here still cleans up whatever committed.
+        for (const r of [c1, c2]) if (r.id) createdIds.push(r.id);
+        expect([c1.status, c2.status].sort(), 'exactly one 201 and one 409').toEqual([201, 409]);
 
-        // Once the first booking is terminal (cancelled), the slot frees up again.
-        const admin = await authedContext('admin');
-        try {
-          await setBookingStatus(admin, first.id as string, 'cancelled');
-          const rebook = await insertBookingRaw(customer, body(makeBookingMarker(), seqSlot));
-          expect(rebook.status, 'slot re-bookable after prior booking is terminal').toBe(201);
-          if (rebook.id) createdIds.push(rebook.id);
-        } finally {
-          await admin.dispose();
-        }
+        // ── DISTINCT keys, otherwise identical: both must succeed. ──
+        // This is the regression guard for what 0034 set out to fix, and it fails if the coarse
+        // bookings_active_dedup index is ever restored.
+        const [d1, d2] = await Promise.all([
+          insertBookingRaw(customer, body(makeBookingMarker(), crypto.randomUUID())),
+          insertBookingRaw(customer, body(makeBookingMarker(), crypto.randomUUID())),
+        ]);
+        for (const r of [d1, d2]) if (r.id) createdIds.push(r.id);
+        expect(
+          [d1.status, d2.status],
+          'distinct keys at the same customer/service/address/time both succeed',
+        ).toEqual([201, 201]);
       } finally {
         await customer.dispose();
       }

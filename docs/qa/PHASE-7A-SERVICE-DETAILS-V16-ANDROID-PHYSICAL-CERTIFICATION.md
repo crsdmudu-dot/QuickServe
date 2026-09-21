@@ -684,9 +684,61 @@ subsequent extractions filtered those fields, and the practice held for the rema
 (§16). The item remains open as a **procedural** control, not a code defect.
 — **VERIFIED IN DURABLE ARTIFACT**
 
-### 15.2 Item D — `customer-search.test.tsx` load-sensitive flake — **OPEN, test infrastructure**
+### 15.2 Item D — `customer-search.test.tsx` load-sensitive flake — **MITIGATED — monitoring**
 
-A load-sensitive intermittent failure. Not a product defect; not addressed in this phase.
+A load-sensitive intermittent failure. Not a product defect.
+
+**Root cause.** Jest defaults `maxWorkers` to one less than the logical processor count (11 on the
+release machine). Eleven concurrent jest-expo workers, each holding a full React Native module graph,
+oversubscribe the CPU. Under that starvation the shortest asynchronous budget in the suite expires
+first. React Native Testing Library 13.3.3 resolves `waitFor`/`findBy*` from its own
+`asyncUtilTimeout` (`build/config.js`), which defaults to **1000 ms** and is read independently of
+Jest's `testTimeout` (`build/wait-for.js`). A Jest timeout increase therefore could not have
+addressed this failure at all.
+
+**Mitigation.** Both release suites run through dedicated scripts that bound concurrency:
+
+```
+npm run test:release        ->  jest --maxWorkers=2
+npm run test:admin:release  ->  jest --config apps/admin/jest.config.js --maxWorkers=2
+```
+
+`qa:release` invokes `npm run test:release` for its consumer Jest stage and
+`npm run test:admin:release` for its admin Jest stage. `npm test` and `npm run test:admin` are
+unchanged, so ordinary development behaviour is unaffected. No timeout was raised, no test
+quarantined, no retry added, and no assertion changed.
+
+**Admin suite — a separate, real defect found underneath the contention.** The admin suite also
+emitted `A worker process has failed to exit gracefully`, and that warning persisted at two
+workers, so it was not contention. Bisecting the 39 admin suites isolated
+`admin-web-operations.test.tsx`, which on its own passed in 4 s and then printed `Jest did not exit
+one second after the test run has completed`. `--detectOpenHandles` reported nothing, because the
+handle was not created inside a test. Instrumenting `setTimeout` showed 30 uncleared 16 ms timers,
+all from `TimingAnimation.__startAnimationIfNative -> NativeAnimatedHelper.flushQueue`.
+
+The cause was a lifecycle defect in `src/components/ui/skeleton.tsx`: the effect captured the
+animation in a local `let` that the cleanup closed over while it was still `null`, so when the
+component unmounted before the asynchronous `prefersReducedMotion()` check resolved, the cleanup
+stopped nothing and the late callback then started an endless `Animated.loop` on an unmounted
+component that nothing could reach. `DataTable loading=true` renders `Skeleton` rows and the mocked
+fetch resolves immediately, so that suite hit the window on every render. This was a production
+defect, not a test artifact — each skeleton unmounted in that window left a permanently running
+animation driver on real devices.
+
+Fixed by tracking cancellation and holding the loop in a ref, with regression cover in
+`src/components/ui/skeleton-animation-lifecycle.test.tsx` (3 of its 5 tests fail against the
+previous implementation). The admin suite now passes 39/39 suites and 550/550 tests at two workers
+with no forced-worker-exit warning, no `Jest did not exit` warning and no open handles reported.
+
+**Evidence.** Full suite under two workers: 247 suites / 4,276 tests passed, 45.5 s wall clock
+(the same suite had recorded 309 s at 11 workers). The three files that failed the previous release
+run — `booking-detail.test.tsx`, `s36-provider-notifications.test.tsx`, `customer-search.test.tsx` —
+pass together under two workers.
+
+**Why monitoring, not closed.** The failing release run occurred on a cold cache immediately after
+`npm ci`; the passing runs above were warm. Cache warmth is an uncontrolled variable between them,
+so bounded concurrency is demonstrated sufficient but not proven to be the sole contributing factor.
+The item stays under observation across subsequent release runs.
 
 ---
 
@@ -745,7 +797,7 @@ changed, no notes saved, no Approve/Reject pressed, no booking created or delete
 | Home-screen safe area | A | **OPEN** — non-blocking |
 | Item **L** — legacy scheme handler | B | **OPEN** — environment/migration |
 | Item **C** — QA credential hygiene | — | **OPEN** — process |
-| Item **D** — `customer-search` flake | — | **OPEN** — test infra |
+| Item **D** — `customer-search` flake | — | **MITIGATED** — monitoring (§15.2) |
 | Android FCM / push on `fa138be5` | B | **NOT CERTIFIED** |
 | Provider physical route guard | B | **NOT RUN** |
 | Cross-customer booking `SELECT` | — | **UNPROVEN** |

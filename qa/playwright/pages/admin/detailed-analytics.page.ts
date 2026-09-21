@@ -4,7 +4,7 @@ import { hydratedFill } from '../../support/rn-web';
 
 /**
  * Page Object for the Admin **Detailed Analytics** screen
- * (`(admin-web)/analytics/detailed`) — QA Slice 42.
+ * (`the admin analytics route`) — QA Slice 42.
  *
  * Locators target user-visible anchors (section heading text, accessible button
  * names, input placeholders, the app's exact copy) and the testIDs the app
@@ -14,7 +14,7 @@ import { hydratedFill } from '../../support/rn-web';
  * so value assertions are scoped per card (`expectKpi`) with no ambiguity.
  */
 export class DetailedAnalyticsPage extends BasePage {
-  readonly path = '/(admin-web)/analytics/detailed';
+  readonly path = '/analytics/detailed';
 
   /** All seven section headings, in render order. */
   static readonly SECTIONS = [

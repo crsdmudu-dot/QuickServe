@@ -8,6 +8,9 @@ import {
   signupPublicRaw,
   makeEphemeralEmail,
   sweepEphemeralUsers,
+  countProviderPendingNotifications,
+  deleteProviderPendingNotification,
+  approvedAdminProfileIds,
 } from '../support/connected/qa-auth';
 
 /**
@@ -25,15 +28,58 @@ const PW = 'QaPhase1b-123!';
 
 test.describe('Phase 1B — Onboarding', { tag: ['@certification', '@connected'] }, () => {
   const createdUserIds: string[] = [];
+  /** Pre-run count of admin provider-pending notifications; cleanup must return to exactly this. */
+  let providerPendingBaseline = 0;
+
+  test.beforeAll(async ({}, testInfo) => {
+    if (!certificationConfigured() || testInfo.project.name !== 'chromium') return;
+    providerPendingBaseline = await countProviderPendingNotifications();
+  });
 
   test.beforeEach(({}, testInfo) => {
     test.skip(!certificationConfigured(), certificationSkipReason());
     test.skip(testInfo.project.name !== 'chromium', 'Connected coverage is Chromium-only.');
   });
 
-  test.afterAll(async () => {
-    for (const id of createdUserIds) await adminDeleteUser(id);
+  test.afterAll(async ({}, testInfo) => {
+    if (!certificationConfigured() || testInfo.project.name !== 'chromium') return;
+
+    // Remove each fixture notification by exact dedup_key BEFORE deleting its user: once the
+    // user is gone nothing can attribute the row, and it would have to be left behind.
+    // Every id is attempted even if one fails, and the failures are surfaced rather than
+    // swallowed — a silent cleanup failure is how the rows accumulated in the first place.
+    const failures: string[] = [];
+    // notify_admins writes one row per approved admin and appends the recipient to the dedup
+    // key, so the fixture's key set is only knowable once the recipients are resolved.
+    let recipients: string[] = [];
+    try {
+      recipients = await approvedAdminProfileIds();
+    } catch (err) {
+      failures.push(`could not resolve admin recipients: ${(err as Error).message}`);
+    }
+    for (const id of createdUserIds) {
+      try {
+        await deleteProviderPendingNotification(id, recipients);
+      } catch (err) {
+        failures.push(`notification cleanup failed: ${(err as Error).message}`);
+      }
+      try {
+        await adminDeleteUser(id);
+      } catch (err) {
+        failures.push(`user cleanup failed: ${(err as Error).message}`);
+      }
+    }
     await sweepEphemeralUsers();
+
+    const after = await countProviderPendingNotifications();
+    if (failures.length) {
+      throw new Error(`onboarding cleanup failures:\n${failures.join('\n')}`);
+    }
+    // DELTA-zero, not absolute: rows orphaned by an earlier crash have no provable owner and
+    // are left for separately authorised bounded cleanup.
+    expect(after, 'provider-pending notifications must not accumulate across runs').toBe(
+      providerPendingBaseline,
+    );
   });
 
   async function createUser(tag: string, role: string): Promise<{ id: string; email: string }> {

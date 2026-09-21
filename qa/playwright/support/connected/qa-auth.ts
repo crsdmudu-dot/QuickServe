@@ -198,11 +198,130 @@ export async function adminDeleteUser(userId: string): Promise<void> {
   }
 }
 
+// ── Provider-onboarding admin notification ──────────────────────────────────
+//
+// Creating a provider profile fires tg_notify_provider_pending (migration 0020), which fans an
+// admin notification out through notify_admins with p_booking_id NULL. That row is unreachable
+// from booking-scoped marker cleanup (no booking) and survives deletion of the provider user
+// (its user_id is the ADMIN recipient, not the provider), so certification runs accumulated one
+// row each. The dedup_key is the only thing that ties a row to the fixture that caused it.
+
+/** The notification type tg_notify_provider_pending emits. */
+export const PROVIDER_PENDING_NOTIFICATION_TYPE = 'admin_provider_pending';
+
+/**
+ * The BASE key tg_notify_provider_pending passes to notify_admins:
+ *     new.id::text || ':admin_provider_pending'
+ * where new.id is the profiles row id, which is the auth user id.
+ *
+ * This is NOT what is stored. notify_admins fans the notification out one row per approved
+ * admin and appends the recipient for per-row uniqueness (0020_notification_system.sql):
+ *     p_dedup_base || ':' || r.id::text
+ * so matching the base alone matches nothing at all.
+ */
+export function providerPendingDedupBase(profileId: string): string {
+  return `${profileId}:${PROVIDER_PENDING_NOTIFICATION_TYPE}`;
+}
+
+/**
+ * Every stored dedup_key for one provider fixture: the base plus each approved admin recipient.
+ * Exact values, never a pattern — a row for a different provider cannot be built from this list.
+ */
+export function providerPendingDedupKeys(profileId: string, adminIds: string[]): string[] {
+  const base = providerPendingDedupBase(profileId);
+  return adminIds.map((adminId) => `${base}:${adminId}`);
+}
+
+/**
+ * The approved admin profiles notify_admins fans out to. Read once per teardown and reused, so
+ * the composed keys match exactly the rows the trigger produced.
+ */
+export async function approvedAdminProfileIds(): Promise<string[]> {
+  assertNotProduction();
+  const svc = await service();
+  try {
+    const res = await svc.get('/rest/v1/profiles?select=id&role=eq.admin&approval_status=eq.approved');
+    if (res.status() >= 400) throw new Error(`approvedAdminProfileIds HTTP ${res.status()}`);
+    return ((await res.json()) as { id: string }[]).map((row) => row.id);
+  } finally {
+    await svc.dispose();
+  }
+}
+
+/**
+ * Count of admin provider-pending notifications carrying no booking.
+ *
+ * Used for a DELTA-ZERO assertion, never an absolute one: rows orphaned by an earlier crash
+ * (profile already gone, notification left behind) cannot have their ownership inferred and are
+ * deliberately left for separately authorised bounded cleanup.
+ */
+export async function countProviderPendingNotifications(): Promise<number> {
+  assertNotProduction();
+  const svc = await service();
+  try {
+    const res = await svc.get(
+      `/rest/v1/notifications?select=id&type=eq.${PROVIDER_PENDING_NOTIFICATION_TYPE}&booking_id=is.null`,
+      { headers: { Prefer: 'count=exact', Range: '0-0' } },
+    );
+    if (res.status() >= 400) {
+      throw new Error(`countProviderPendingNotifications HTTP ${res.status()}`);
+    }
+    const range = res.headers()['content-range'] ?? '';
+    const total = range.includes('/') ? Number(range.split('/')[1]) : NaN;
+    if (Number.isNaN(total)) throw new Error('countProviderPendingNotifications: no exact count returned');
+    return total;
+  } finally {
+    await svc.dispose();
+  }
+}
+
+/**
+ * Delete ONLY the provider-pending notifications caused by this fixture profile.
+ *
+ * All three predicates are required and all are exact: the type, a NULL booking_id, and a
+ * dedup_key drawn from the composed set for THIS profile. `in.` is exact-set equality, not a
+ * pattern: no prefix match, no LIKE, no bare type delete and no time window, none of which
+ * could distinguish a fixture row from a genuine admin notification.
+ *
+ * Returns the number of rows actually removed. An earlier version matched the base key alone,
+ * which the fan-out never stores: the request succeeded, deleted nothing, and the leak went
+ * unnoticed until the delta-zero assertion caught it. Reporting the count makes a silent
+ * zero-row delete visible to the caller.
+ */
+export async function deleteProviderPendingNotification(
+  profileId: string,
+  adminIds?: string[],
+): Promise<number> {
+  assertNotProduction();
+  const recipients = adminIds ?? (await approvedAdminProfileIds());
+  if (recipients.length === 0) return 0;
+  const keys = providerPendingDedupKeys(profileId, recipients);
+  const inList = `(${keys.map((key) => `"${key}"`).join(",")})`;
+  const svc = await service();
+  try {
+    const res = await svc.delete(
+      `/rest/v1/notifications?type=eq.${PROVIDER_PENDING_NOTIFICATION_TYPE}&booking_id=is.null&dedup_key=in.${encodeURIComponent(inList)}`,
+      { headers: { Prefer: 'return=representation' } },
+    );
+    if (res.status() >= 400) {
+      throw new Error(`deleteProviderPendingNotification HTTP ${res.status()}`);
+    }
+    const removed = (await res.json()) as unknown[];
+    return Array.isArray(removed) ? removed.length : 0;
+  } finally {
+    await svc.dispose();
+  }
+}
+
 /**
  * Safety-net sweep: delete every auth user whose email starts with the ephemeral
  * prefix. Guarantees repeated runs leave the QA project clean even after a crash.
+ *
+ * Order matters. Each surviving id is collected and its exact notification removed FIRST, while
+ * ownership is still provable; deleting the user first would leave a row nothing could attribute.
  */
 export async function sweepEphemeralUsers(prefix = EPHEMERAL_EMAIL_PREFIX): Promise<void> {
+  const recipients = await approvedAdminProfileIds();
   const svc = await service();
   try {
     // The admin list endpoint is paginated; one page (default 50) is ample for a run.
@@ -210,6 +329,7 @@ export async function sweepEphemeralUsers(prefix = EPHEMERAL_EMAIL_PREFIX): Prom
     const body = (await res.json()) as { users?: { id: string; email?: string }[] };
     const victims = (body.users ?? []).filter((u) => (u.email ?? '').startsWith(prefix));
     for (const u of victims) {
+      await deleteProviderPendingNotification(u.id, recipients);
       await svc.delete(`/auth/v1/admin/users/${u.id}`);
     }
   } finally {

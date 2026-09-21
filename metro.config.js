@@ -1,19 +1,26 @@
-// metro.config.js — Expo default Metro config, with the isolated QA workspace
-// (`qa/`, a standalone package with its own node_modules) excluded from the app
-// bundle graph. Without this, Metro crawls `qa/` and mis-resolves the app entry
-// during `expo export`. Build-tool exclusion only — changes no application
-// behaviour (mirrors the additive `qa` exclusions in jest.config.js / tsconfig.json).
+// metro.config.js — Expo default Metro config for the CONSUMER application, with sibling
+// workspaces excluded from the bundle graph:
+//
+//   qa/          a standalone package with its own node_modules. Without this, Metro crawls it
+//                and mis-resolves the app entry during `expo export`.
+//   apps/admin/  the separated administrative web application. It has its own Metro config and
+//                its own route tree; nothing in src/app imports it, so it is already unreachable.
+//                Blocking it is belt-and-braces so administrative code can never be pulled into
+//                an Android/iOS bundle by an accidental import.
+//
+// Build-tool exclusion only — changes no application behaviour (mirrors the additive exclusions
+// in jest.config.js / tsconfig.json).
 const { getDefaultConfig } = require('expo/metro-config');
 
 const config = getDefaultConfig(__dirname);
 
-// Block the top-level `qa/` workspace (any OS separator) from Metro's graph.
 const qaBlock = /[\\/]qa[\\/].*/;
+const adminAppBlock = /[\\/]apps[\\/]admin[\\/].*/;
 const prev = config.resolver.blockList;
 config.resolver.blockList = Array.isArray(prev)
-  ? [...prev, qaBlock]
+  ? [...prev, qaBlock, adminAppBlock]
   : prev
-    ? [prev, qaBlock]
-    : qaBlock;
+    ? [prev, qaBlock, adminAppBlock]
+    : [qaBlock, adminAppBlock];
 
 module.exports = config;

@@ -35,7 +35,12 @@ let sql: string;
 let statements: string;
 
 beforeAll(() => {
-  sql = fs.readFileSync(MIGRATION_PATH, 'utf-8').toLowerCase();
+  // Normalise line endings on read. On a Windows checkout every line ends CR+LF, and after
+  // `.split('\n')` each line still carries a trailing CR — `/--.*$/` then strips nothing,
+  // because `.` does not match CR and `$` cannot anchor before it, so comment prose leaks into
+  // the "executable SQL" the assertions below inspect. Normalising in memory keeps this suite
+  // platform-independent without touching the file on disk.
+  sql = fs.readFileSync(MIGRATION_PATH, 'utf-8').replace(/\r\n/g, '\n').toLowerCase();
   statements = sql
     .split('\n')
     .map((line) => line.replace(/--.*$/, ''))

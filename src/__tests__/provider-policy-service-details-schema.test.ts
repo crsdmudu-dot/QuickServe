@@ -40,6 +40,10 @@ const TERMINAL = path.join(MIGRATIONS_DIR, 'archive', '0034_provider_terminal_st
 const executable = (file: string): string =>
   fs
     .readFileSync(file, 'utf-8')
+    // Normalise line endings first. On a Windows checkout each line ends CR+LF, so after the
+    // split below every line still carries a trailing CR and `/--.*$/` strips nothing — comment
+    // prose would leak into the "executable SQL" these assertions inspect.
+    .replace(/\r\n/g, '\n')
     .toLowerCase()
     .split('\n')
     .map((line) => line.replace(/--.*$/, ''))

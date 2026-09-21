@@ -9,7 +9,7 @@ import { validateRpcShape, type RpcShapeRules } from './validate-rpc-shape';
 
 /**
  * Deterministic network stubs for the **Detailed Analytics** screen
- * (`(admin-web)/analytics/detailed.tsx`) — QA Slice 42.
+ * (the admin analytics screen) — QA Slice 42.
  *
  * The detailed screen calls a DIFFERENT set of Supabase RPCs from the Executive
  * Dashboard (Slice 41), and with different request shapes, so this is a separate,

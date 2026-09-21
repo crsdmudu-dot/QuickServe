@@ -15,7 +15,6 @@ export type RootRedirectTarget = '/welcome' | ReturnType<typeof roleHref>;
 /**
  * The root navigator's redirect decision (pure, so it can be tested without rendering).
  *
- *  - `(admin-web)` manages its own guard.
  *  - `auth/*` link routes (recovery, confirmation) manage their own lifecycle: they must be
  *    reachable while signed out and must not be left when the link creates a session.
  *  - While a recovery is active, ordinary role routing is held so the user reaches the
@@ -27,7 +26,9 @@ export function resolveRootRedirect(input: RootRedirectInput): RootRedirectTarge
   const { isLoading, signedIn, role, segments, recoveryActive } = input;
   if (isLoading) return null;
   const first = segments[0];
-  if (first === '(admin-web)' || first === 'auth') return null;
+  // The former `(admin-web)` group moved to the separated admin application (apps/admin), which
+  // owns its own guard layout; this app has no administrative segment to exempt any more.
+  if (first === 'auth') return null;
   if (recoveryActive) return null;
   const inOnboarding = first === '(onboarding)';
   if (!signedIn && !inOnboarding) return '/welcome';

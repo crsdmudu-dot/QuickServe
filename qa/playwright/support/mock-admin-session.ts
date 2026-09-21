@@ -1,6 +1,10 @@
 import { type Page } from '@playwright/test';
-import * as fs from 'fs';
-import * as path from 'path';
+
+import {
+  CERTIFIED_QA_PROJECT_REF,
+  connectedModeConfigured,
+  projectRefFromSupabaseUrl,
+} from '../../shared/qa-target';
 
 /**
  * mockAdminSession — a DASHBOARD-ISOLATION fixture (NOT a replacement for
@@ -9,12 +13,13 @@ import * as path from 'path';
  *
  * It lets the Executive Dashboard suite run fully offline and deterministically
  * by establishing an authenticated admin the *normal* way — the app's real
- * `(admin-web)` guard runs unchanged and the app resolves the session through
+ * the admin application guard runs unchanged and the app resolves the session through
  * its own `supabase.auth.getSession()` + profile-role fetch. We do NOT bypass
  * the guard and we do NOT mount the dashboard component directly.
  *
  * What it stubs — the MINIMUM to establish an authenticated admin:
- *   1. A valid, non-expired Supabase session seeded into `localStorage` under the
+ *   1. A valid, non-expired Supabase session seeded into `localStorage` under the storage key of
+ *      the SERVED project (derived from EXPO_PUBLIC_SUPABASE_URL, never from a file), under the
  *      real storage key (the app's web storage adapter reads `window.localStorage`
  *      with the raw key). Seeded via `addInitScript` so it exists before app code.
  *   2. The `/rest/v1/profiles` role query → `role: 'admin'` (what `useAdminGuard`
@@ -36,20 +41,82 @@ export type NetworkGuard = {
   assertClean(): void;
 };
 
-function rootSupabaseUrl(): string {
-  const envPath = path.resolve(__dirname, '../../../.env');
-  const content = fs.readFileSync(envPath, 'utf-8');
-  const m = content.match(/^EXPO_PUBLIC_SUPABASE_URL=(.+)$/m);
-  if (!m) {
-    throw new Error('mockAdminSession: EXPO_PUBLIC_SUPABASE_URL not found in the repo-root .env');
+/**
+ * The project the SERVED application is running against.
+ *
+ * This used to be read from the repo-root .env. That was correct only while the web server
+ * served the consumer app from the repository root; once the admin app moved to apps/admin the
+ * server took its environment from qa/.env and the two diverged. The mock then seeded the
+ * session under a key the app never reads, every dashboard test landed on /login, and the one
+ * test meant to prove the mock worked passed anyway because it asserted server-rendered text.
+ *
+ * The only defensible source is the same variable the server was started with. No file is read
+ * and there is no fallback: an unknown project must fail, never be guessed.
+ */
+function servedProjectRef(): string {
+  const ref = projectRefFromSupabaseUrl(
+    process.env.EXPO_PUBLIC_SUPABASE_URL,
+    'EXPO_PUBLIC_SUPABASE_URL',
+  );
+  if (connectedModeConfigured() && ref !== CERTIFIED_QA_PROJECT_REF) {
+    throw new Error(
+      'mockAdminSession: the served application does not resolve to the certified QA project.',
+    );
   }
-  return m[1].trim();
+  return ref;
 }
+
+/**
+ * True when the served project is knowable, i.e. the managed server was started with
+ * EXPO_PUBLIC_SUPABASE_URL.
+ *
+ * False for a public-smoke run pointed at an external BASE_URL: a remote bundle has its project
+ * baked in at export time and it is unobservable from here, which is the same reason
+ * qa-target.ts refuses a remote origin for connected certification. Mock-authenticated admin
+ * specs skip on false. Anonymous and public smoke coverage is unaffected because it never
+ * seeds a session.
+ */
+export function mockAdminSessionConfigured(): boolean {
+  try {
+    servedProjectRef();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Reason surfaced by the specs that skip when the served project is unknowable. */
+export const MOCK_ADMIN_SESSION_SKIP_REASON =
+  'mockAdminSession needs the served project (EXPO_PUBLIC_SUPABASE_URL). An external BASE_URL hides it, so no session can be seeded; run against the managed admin server.';
 
 /** Supabase v2 persists the session under `sb-<project-ref>-auth-token`. */
 export function supabaseStorageKey(): string {
-  const ref = new URL(rootSupabaseUrl()).hostname.split('.')[0];
-  return `sb-${ref}-auth-token`;
+  return `sb-${servedProjectRef()}-auth-token`;
+}
+
+/**
+ * The admin shell sign-out control. AdminShell renders it ONLY for an authorized admin
+ * (showChrome), so it cannot appear in server-rendered HTML nor on /login. Verified absent from
+ * the exported analytics/index.html, analytics/detailed.html and login.html.
+ */
+export const ADMIN_SHELL_LANDMARK = 'Sign out';
+
+/**
+ * Wait for a POST-HYDRATION terminal outcome and report which one occurred.
+ *
+ * A content assertion made straight after goto() can be satisfied by static HTML before the
+ * guard has decided anything, which is how a broken session mock looked healthy for three
+ * commits. Waiting for either the authenticated shell or the login form forces the guard to
+ * have run.
+ *
+ * Deliberately NOT waitForURL on a non-login pathname: the dashboard URL already satisfies that
+ * at the moment of navigation, before any redirect can occur.
+ */
+export async function waitForAdminAuthOutcome(page: Page): Promise<'authenticated' | 'login'> {
+  const shell = page.getByRole('button', { name: ADMIN_SHELL_LANDMARK }).first();
+  const login = page.getByPlaceholder('admin@example.com').first();
+  await shell.or(login).first().waitFor({ state: 'visible' });
+  return (await shell.isVisible()) ? 'authenticated' : 'login';
 }
 
 /** A valid, non-expired session object shaped like a Supabase v2 Session. */

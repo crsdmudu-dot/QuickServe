@@ -17,6 +17,6 @@ describe('roles', () => {
   it('maps each role to its app path', () => {
     expect(roleHref('customer')).toBe('/home');
     expect(roleHref('provider')).toBe('/provider');
-    expect(roleHref('admin')).toBe('/admin');
+    expect(roleHref('admin')).toBe('/staff-notice'); // administration moved to apps/admin
   });
 });

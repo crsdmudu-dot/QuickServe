@@ -24,9 +24,11 @@ describe('resolveRootRedirect', () => {
     expect(resolveRootRedirect({ ...base, signedIn: true, role: null, segments: ['(onboarding)', 'signin'] })).toBeNull();
   });
 
-  it('leaves the admin-web group to its own guard', () => {
-    expect(resolveRootRedirect({ ...base, segments: ['(admin-web)', 'dashboard'] })).toBeNull();
-    expect(resolveRootRedirect({ ...base, signedIn: true, role: 'admin', segments: ['(admin-web)', 'login'] })).toBeNull();
+  it('has no administrative segment to exempt — admin-web moved to apps/admin', () => {
+    // An admin identity is routed like any other role, to the inert staff notice screen.
+    expect(
+      resolveRootRedirect({ ...base, signedIn: true, role: 'admin', segments: ['(onboarding)'] }),
+    ).toBe('/staff-notice');
   });
 
   it('never redirects away from the auth link routes, signed in or not', () => {

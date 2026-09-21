@@ -2,7 +2,7 @@ import { type Page, type Locator } from '@playwright/test';
 import { BasePage } from '../base.page';
 
 /**
- * Page Object for the Admin Executive Dashboard (`(admin-web)/analytics` index).
+ * Page Object for the Admin Executive Dashboard (the admin analytics route index).
  *
  * Locators target user-visible, stable anchors only — section heading text,
  * unique KPI card labels, accessible button names, the app's exact error copy,
@@ -15,7 +15,7 @@ import { BasePage } from '../base.page';
  * fixture values keep value-visibility unambiguous.
  */
 export class ExecutiveDashboardPage extends BasePage {
-  readonly path = '/(admin-web)/analytics';
+  readonly path = '/analytics';
 
   readonly refreshButton: Locator;
   readonly viewDetailedButton: Locator;

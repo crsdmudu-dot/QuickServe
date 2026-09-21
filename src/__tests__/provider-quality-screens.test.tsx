@@ -1,11 +1,13 @@
 /**
- * Tests for Slice 33 Task 5 provider quality screens + admin page + entry points.
+ * Tests for the Slice 33 Task 5 CONSUMER provider quality screens and their entry point.
  *
  * Covers:
- *   1. provider/quality.tsx        — dashboard, privacy guardrail
+ *   1. provider/quality.tsx         — dashboard, privacy guardrail
  *   2. provider/code-of-conduct.tsx — sections, acceptance flow
- *   3. (admin-web)/provider-quality/[id].tsx — admin summary page
- *   4. Entry points — provider profile + admin providers/[id]
+ *   3. Entry point — provider profile
+ *
+ * The admin-side counterparts moved with the admin application; see
+ * apps/admin/src/__tests__/admin-provider-quality.test.tsx.
  *
  * All network/lib calls are mocked; expo-router is mocked throughout.
  */
@@ -298,9 +300,7 @@ import { router } from 'expo-router';
 
 import ProviderQualityDashboardScreen from '@/app/provider/quality';
 import ProviderCodeOfConductScreen from '@/app/provider/code-of-conduct';
-import AdminProviderQualityScreen from '@/app/(admin-web)/provider-quality/[id]';
 import ProviderProfileScreen from '@/app/provider/(tabs)/profile';
-import AdminWebProviderDetailScreen from '@/app/(admin-web)/providers/[id]';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 1. Provider Quality Dashboard
@@ -473,118 +473,6 @@ describe('ProviderCodeOfConductScreen', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// 3. Admin Provider Quality page
-// ═══════════════════════════════════════════════════════════════════════════════
-
-describe('AdminProviderQualityScreen', () => {
-  beforeEach(() => {
-    mockGetProviderQualitySummary.mockClear();
-    mockRecordProviderQualityAction.mockClear();
-    mockGetProviderQualitySummary.mockResolvedValue(MOCK_ADMIN_SUMMARY);
-    mockRecordProviderQualityAction.mockResolvedValue({ ok: true, id: 'qa-new' });
-  });
-
-  it('renders provider name and verification badge', async () => {
-    render(<AdminProviderQualityScreen />);
-    expect(await screen.findByText('Jane Doe')).toBeOnTheScreen();
-    expect(screen.getByText('Verified by KwikServe')).toBeOnTheScreen();
-  });
-
-  it('renders approval status', async () => {
-    render(<AdminProviderQualityScreen />);
-    await screen.findByText('Jane Doe');
-    expect(screen.getByText('Approved')).toBeOnTheScreen();
-  });
-
-  it('renders CompletenessCard', async () => {
-    render(<AdminProviderQualityScreen />);
-    await screen.findByText('Jane Doe');
-    // CompletenessCard renders "Profile completeness" — may appear in SectionHeader + Card
-    expect(screen.getAllByText('Profile completeness').length).toBeGreaterThan(0);
-  });
-
-  it('renders AchievementGrid with achievement from mock', async () => {
-    render(<AdminProviderQualityScreen />);
-    await screen.findByText('Jane Doe');
-    expect(screen.getByText('First Job Done')).toBeOnTheScreen();
-  });
-
-  it('renders ProviderQualityBreakdownCard', async () => {
-    render(<AdminProviderQualityScreen />);
-    await screen.findByText('Jane Doe');
-    expect(screen.getByText('Your ratings')).toBeOnTheScreen();
-  });
-
-  it('renders recent reviews', async () => {
-    render(<AdminProviderQualityScreen />);
-    await screen.findByText('Jane Doe');
-    expect(await screen.findByText('Excellent work!')).toBeOnTheScreen();
-  });
-
-  it('renders quality action history — both visible and internal actions', async () => {
-    render(<AdminProviderQualityScreen />);
-    await screen.findByText('Jane Doe');
-    // Both actions in the history — may appear multiple times (form selector + badge)
-    expect(await screen.findByText('Quality action history')).toBeOnTheScreen();
-    expect(screen.getAllByText('Coaching needed').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Warning given').length).toBeGreaterThan(0);
-    // Internal flag present (appears in action card and may also appear in form toggle)
-    expect(screen.getAllByText('Internal only').length).toBeGreaterThan(0);
-    // Visible to provider flag present
-    expect(screen.getAllByText('Visible to provider').length).toBeGreaterThan(0);
-  });
-
-  it('renders conduct acceptance status', async () => {
-    render(<AdminProviderQualityScreen />);
-    await screen.findByText('Jane Doe');
-    expect(await screen.findByText('Code of Conduct')).toBeOnTheScreen();
-    expect(screen.getByText('Accepted')).toBeOnTheScreen();
-  });
-
-  it('renders flags summary (read-only)', async () => {
-    render(<AdminProviderQualityScreen />);
-    await screen.findByText('Jane Doe');
-    expect(await screen.findByText('Account flags summary')).toBeOnTheScreen();
-    expect(screen.getByText(/Total:\s*2/)).toBeOnTheScreen();
-    expect(screen.getByText(/Active:\s*1/)).toBeOnTheScreen();
-  });
-
-  it('renders AdminRecordQualityActionForm with record-only disclaimer', async () => {
-    render(<AdminProviderQualityScreen />);
-    await screen.findByText('Jane Doe');
-    expect(await screen.findByText('Record quality action')).toBeOnTheScreen();
-    // Disclaimer text from AdminRecordQualityActionForm
-    expect(
-      screen.getByText(/Record-only.*does not suspend/),
-    ).toBeOnTheScreen();
-  });
-
-  it('reloads summary after successful record action', async () => {
-    mockGetProviderQualitySummary.mockResolvedValue(MOCK_ADMIN_SUMMARY);
-    render(<AdminProviderQualityScreen />);
-    await screen.findByText('Jane Doe');
-
-    // The form's onRecorded fires after record; verify summary reloads.
-    // Select action type "No action" (avoid label clashes with history badges).
-    // The form renders QUALITY_ACTION_TYPES as pressable chips with the label text.
-    const noActionChips = screen.getAllByText('No action');
-    // Press the first match (the chip inside the form's type selector)
-    fireEvent.press(noActionChips[0]);
-    fireEvent.press(screen.getByText('Record action'));
-
-    await waitFor(() =>
-      expect(mockRecordProviderQualityAction).toHaveBeenCalledWith(
-        expect.objectContaining({ providerId: 'prov1', actionType: 'no_action' }),
-      ),
-    );
-    // Summary should be reloaded (called once on mount + once after record)
-    await waitFor(() =>
-      expect(mockGetProviderQualitySummary).toHaveBeenCalledTimes(2),
-    );
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════════════════════
 // 4. Entry points
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -615,23 +503,5 @@ describe('Entry points — ProviderProfileScreen', () => {
     await screen.findByText('Code of Conduct');
     fireEvent.press(screen.getByText('Code of Conduct'));
     expect(router.push).toHaveBeenCalledWith('/provider/code-of-conduct');
-  });
-});
-
-describe('Entry points — AdminWebProviderDetailScreen', () => {
-  beforeEach(() => {
-    (router.push as jest.Mock).mockClear();
-  });
-
-  it('renders "View provider quality" button', async () => {
-    render(<AdminWebProviderDetailScreen />);
-    expect(await screen.findByText('View provider quality')).toBeOnTheScreen();
-  });
-
-  it('navigates to /(admin-web)/provider-quality/{id} when pressed', async () => {
-    render(<AdminWebProviderDetailScreen />);
-    await screen.findByText('View provider quality');
-    fireEvent.press(screen.getByText('View provider quality'));
-    expect(router.push).toHaveBeenCalledWith('/(admin-web)/provider-quality/prov1');
   });
 });

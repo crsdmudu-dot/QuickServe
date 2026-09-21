@@ -25,6 +25,7 @@
     "_parked",
     "qa",
     "apps/website",
+    "apps/admin",
     "supabase/functions/mpesa-stk-push/index.ts",
     "supabase/functions/mpesa-callback/index.ts",
     "supabase/functions/_shared/daraja-client.ts",
