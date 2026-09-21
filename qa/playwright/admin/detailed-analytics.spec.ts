@@ -13,7 +13,12 @@ import {
   type DetailedAnalyticsTracker,
 } from '../support/detailed-analytics-stubs';
 import { stubExecutiveAnalytics } from '../support/analytics-stubs';
-import { installMockAdminSession, type NetworkGuard } from '../support/mock-admin-session';
+import {
+  installMockAdminSession,
+  mockAdminSessionConfigured,
+  MOCK_ADMIN_SESSION_SKIP_REASON,
+  type NetworkGuard,
+} from '../support/mock-admin-session';
 import { isConnected, hasAdminCreds, connectedAdminLogin } from '../support/connected-mode';
 import { readDownloadText } from '../support/download';
 
@@ -56,6 +61,8 @@ test.describe('Admin Detailed Analytics', { tag: ['@admin', '@detailed-analytics
   // Chromium-only (Decision B).
   test.beforeEach(({}, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium', 'Detailed Analytics suite is Chromium-only (admin desktop surface).');
+    // Offline mock mode needs the served project to build the session storage key.
+    test.skip(!isConnected() && !mockAdminSessionConfigured(), MOCK_ADMIN_SESSION_SKIP_REASON);
   });
 
   // ── 1. Access (unauthenticated — no session, no mock) ───────────────────────

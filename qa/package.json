@@ -22,6 +22,7 @@
     "qa:health": "playwright test playwright/tests --project=chromium",
     "qa:test:certification": "playwright test playwright/certification --project=chromium --workers=1",
     "qa:test:web": "playwright test --config=playwright.web.config.ts",
+    "check:admin-session-target": "node --experimental-strip-types scripts/check-admin-session-target.mjs",
     "check:notification-cleanup": "node scripts/check-notification-cleanup.mjs",
     "qa:typecheck": "tsc --noEmit",
     "qa:report": "playwright show-report reports/html"

@@ -6,7 +6,12 @@ import {
   type StubOptions,
   type AnalyticsTracker,
 } from '../support/analytics-stubs';
-import { installMockAdminSession, type NetworkGuard } from '../support/mock-admin-session';
+import {
+  installMockAdminSession,
+  mockAdminSessionConfigured,
+  MOCK_ADMIN_SESSION_SKIP_REASON,
+  type NetworkGuard,
+} from '../support/mock-admin-session';
 import { isConnected, hasAdminCreds, connectedAdminLogin } from '../support/connected-mode';
 
 /**
@@ -59,6 +64,9 @@ test.describe('Admin Executive Dashboard', { tag: ['@admin', '@executive-dashboa
     test.beforeEach(() => {
       if (isConnected()) {
         test.skip(!hasAdminCreds(), 'Connected mode requires E2E_ADMIN_* (a pre-existing admin) + a reachable backend.');
+      } else {
+        // Offline mock mode needs the served project to build the session storage key.
+        test.skip(!mockAdminSessionConfigured(), MOCK_ADMIN_SESSION_SKIP_REASON);
       }
     });
 
