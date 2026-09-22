@@ -98,3 +98,10 @@ jobs:
 
       - name: Admin web export
         run: npm run build:admin
+
+      # MANDATORY. Building successfully is not the same as building the right application: the
+      # Cloudflare Worker that serves the admin portal once published the CONSUMER bundle because
+      # nothing verified WHICH app the artifact was. This fails the build unless apps/admin/dist is
+      # unmistakably the admin export.
+      - name: Admin artifact check
+        run: npm run check:admin-artifact
