@@ -1,0 +1,42 @@
+// apps/admin/wrangler.jsonc — Cloudflare Workers with Static Assets, assets-only.
+//
+// Hosts ONLY the KwikServe ADMIN web export (`npm run build:admin` → apps/admin/dist). The Worker
+// name is deliberately unchanged, so this configuration keeps the existing `quickserve` Worker and
+// its existing admin URL; only the artifact it serves changes.
+//
+// WHY THIS FILE MOVED. It used to live at the repository root and point at `./dist`. That was
+// correct only while the admin routes lived inside the consumer app. After the admin application
+// was separated into apps/admin, the root `./dist` became the CONSUMER export, so the root config
+// silently retargeted the admin URL at the wrong application — and a push to main published the
+// consumer bundle over the admin portal. Keeping the config next to the app it deploys makes the
+// artifact impossible to confuse, and leaving no config at the repository root means a bare
+// `wrangler deploy` there now fails closed instead of shipping whatever `./dist` happens to hold.
+// (`./dist` is also reused by `expo export --platform android`, so at the root it may not even be
+// a web bundle.)
+//
+// `directory` is relative to THIS file, so "./dist" resolves to apps/admin/dist. Deploy with the
+// explicit `npm run deploy:admin`, never a bare `wrangler deploy`.
+//
+// Supabase remains the backend; there is deliberately no Worker script (`main`), no assets
+// binding, no `run_worker_first`, no other bindings and no secrets here.
+//
+// Routing model: Expo `web.output: "static"` emits one HTML document per route plus literal
+// dynamic-route files (e.g. bookings/[id].html) that no host can map to /bookings/<id>. Cloudflare
+// serves generated documents directly and falls back to /index.html (200) for unmatched paths so
+// Expo Router's client-side matcher resolves dynamic and unknown routes.
+//
+// Build-time configuration (EXPO_PUBLIC_*) is inlined by Expo at export time and is supplied as
+// Cloudflare BUILD variables, never here. Preview URLs stay off until preview/Production
+// environment isolation exists (Workers Builds has a single build-variable set).
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "quickserve",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application",
+    "html_handling": "drop-trailing-slash"
+  },
+  "workers_dev": true,
+  "preview_urls": false
+}

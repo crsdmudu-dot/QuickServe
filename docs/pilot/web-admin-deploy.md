@@ -1,134 +1,153 @@
-# QuickServe Web Admin — Deployment Guide
+# KwikServe Web Admin — Deployment Guide
 
-**Slice:** 19 (Web Admin Polish + Deployment)
-**Related docs:** [web-admin-release.md](web-admin-release.md) · [backend-readiness.md](backend-readiness.md)
+The admin portal is a **separate Expo application** at `apps/admin`. It is deployed to a
+**Cloudflare Worker with Static Assets** named **`quickserve`**, which owns the existing admin URL.
 
----
+> **Why this document was rewritten.** It previously described Vercel and Netlify and pointed at
+> `src/app/(admin-web)/` and the repository-root `dist/`. None of that is true any more: the admin
+> routes moved to `apps/admin`, and the root `dist/` is now the **consumer** export. The stale
+> instructions were not merely out of date — following them would have deployed the wrong
+> application to the admin URL.
 
-## Overview
+## Topology
 
-The QuickServe web admin panel is a **static single-page application (SPA)** built with Expo Router.
+| | |
+| --- | --- |
+| Application source | `apps/admin` |
+| Build output | `apps/admin/dist` |
+| Cloudflare target | Worker `quickserve` (Workers with Static Assets, assets-only) |
+| Configuration | `apps/admin/wrangler.jsonc` |
+| Worker script | none — there is no `main`, no bindings, no runtime vars, no secrets |
+| Backend | Supabase (unchanged; the Worker only serves files) |
 
-- Build command: `npx expo export --platform web`
-- Output: `dist/` directory (static HTML + JS assets, ready for any CDN or static host)
-- `app.json` sets `web.output = "static"`, so the Expo bundler emits a fully pre-rendered static bundle.
-- The panel is **admin-role-gated** — the `(admin-web)/_layout.tsx` guard checks `role === 'admin'` from the `profiles` table before rendering any admin screen.
-- It is **completely separate** from the mobile apps (Android / iOS). No app-store submission is involved.
+There is deliberately **no Wrangler configuration at the repository root**. A bare `wrangler deploy`
+there fails closed instead of publishing whatever `dist/` happens to contain. That matters because
+the root `dist/` is reused by `expo export --platform android`, so it is frequently not even a web
+bundle.
 
-Routes live under `src/app/(admin-web)/`. The route-group prefix is stripped from the browser URL by Expo Router, so the deployed site serves paths like `/`, `/login`, `/bookings`, `/providers/:id`, etc.
+> ### ⚠️ If bare Wrangler offers to create a root configuration, CANCEL
+>
+> Running `wrangler deploy` from the repository root exits non-zero, but before it does it may offer
+> to **scaffold a new `wrangler.jsonc`**, pre-filled with `Worker Name: quickserve` and
+> `Output Directory: dist`. Accepting that prompt recreates precisely the misconfiguration this
+> layout exists to prevent: the admin Worker pointed at the **consumer** export.
+>
+> **The operator must cancel the prompt and must never accept it.** Never commit a root
+> `wrangler.jsonc`, `wrangler.json` or `wrangler.toml`.
+> `src/__tests__/admin-deploy-target.test.ts` fails if one appears, but that is the last line of
+> defence, not the first. Always deploy with `npm run deploy:admin`.
 
----
+## Required environment variables (build-time, PUBLIC only)
 
-## Required environment variables (build-time, PUBLIC)
-
-Both variables must be available **before** the export command runs — they are baked into the JS bundle at build time.
-
-| Variable | Where to find it |
-|---|---|
+| Variable | Source |
+| --- | --- |
 | `EXPO_PUBLIC_SUPABASE_URL` | Supabase dashboard → Project Settings → API → Project URL |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Supabase dashboard → Project Settings → API → **anon / public** key |
 
-> **Security note:** Use the **anon (public) key only** — NEVER a service-role key in the web bundle.
-> Row Level Security (RLS) is the data boundary. The `is_admin()` helper (defined in migration
-> `0003_admin_dispatch.sql`) gates every admin RLS policy. No elevated key belongs in a browser-side bundle.
+Both are **inlined by Expo at export time**. They must be present as Cloudflare **build**
+variables; the Worker has no runtime environment, so setting them as runtime vars does nothing.
 
-Set them in `.env.local` (git-ignored) for local builds, or via your CI/CD environment-variable settings for hosted deploys. See `.env.example` for the full variable list — only the two `EXPO_PUBLIC_*` variables are needed for the web build.
+**Never** put a service-role key, a database URL or any secret in these. The admin portal
+authenticates as a normal Supabase user and is authorised by RLS and `SECURITY DEFINER` RPCs.
 
----
-
-## Build
+## Build and deploy
 
 ```bash
-# 1. Copy the example env file and fill in the two required values.
-cp .env.example .env.local
-# Edit .env.local: set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY
-
-# 2. Run the static export.
-npx expo export --platform web
+npm ci                # from the repository ROOT — apps/admin has no node_modules of its own
+npm run deploy:admin  # build → artifact check → deploy, in that order
 ```
 
-Output directory: `dist/` — serve it from any static host or CDN.
+`npm run deploy:admin` is the **only** supported manual deployment. It is guarded: it runs
 
----
+1. `npm run build:admin` — exports the admin app to `apps/admin/dist`;
+2. `npm run check:admin-artifact` — fails unless that freshly built output is unmistakably the
+   **admin** app (admin route documents present, consumer-only documents absent, `_headers`
+   shipped);
+3. `wrangler deploy -c apps/admin/wrangler.jsonc` — the explicit, non-discovering deploy.
 
-## Vercel (primary)
+Because the stages are chained with `&&`, a failed shape check stops the deployment before
+anything is uploaded. Do not run the three steps individually to work around a failure — a failing
+check means the artifact is wrong, not that the check is.
 
-`vercel.json` is committed at the repo root. It configures:
+The individual steps, if you need them for diagnosis only:
 
-- **`buildCommand`:** `npx expo export --platform web`
-- **`outputDirectory`:** `dist`
-- **`rewrites`:** `/(.*) → /` — SPA fallback so every deep link (e.g. `/bookings/123`, `/providers`) resolves to the client router instead of a 404.
-
-### Steps
-
-1. Connect the GitHub repo in the [Vercel dashboard](https://vercel.com/new) (or run `npx vercel` / `vercel --prod` from the repo root).
-2. In **Project Settings → Environment Variables**, add:
-   - `EXPO_PUBLIC_SUPABASE_URL`
-   - `EXPO_PUBLIC_SUPABASE_ANON_KEY`
-3. Trigger a deploy (push to the connected branch, or click **Redeploy**).
-4. (Optional) Add a custom domain in **Project Settings → Domains** — Vercel provisions HTTPS automatically.
-
-Subsequent pushes to the connected branch deploy automatically. The SPA rewrite in `vercel.json` handles all deep links.
-
----
-
-## Netlify (alternative)
-
-Do **not** commit a `netlify.toml` unless you actively use Netlify — the file below is shown for reference only.
-
-```toml
-[build]
-  command = "npx expo export --platform web"
-  publish = "dist"
-
-[[redirects]]
-  from   = "/*"
-  to     = "/index.html"
-  status = 200
+```bash
+npm run build:admin          # -> apps/admin/dist
+npm run check:admin-artifact # shape check on its own
 ```
 
-The `[[redirects]]` block is the SPA fallback equivalent to the Vercel rewrite.
+`apps/admin` declares no dependencies and its Metro config resolves modules from the repository
+root, so **every command must run from the repository root**. Setting a Cloudflare "root directory"
+of `apps/admin` will fail.
 
-Set `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` in **Site settings → Environment variables** in the Netlify dashboard.
+Dry-run without deploying:
 
----
+```bash
+npx wrangler deploy -c apps/admin/wrangler.jsonc --dry-run --outdir <scratch-dir>
+```
 
-## Generic static host (alternative)
+## Cloudflare settings (Workers Builds)
 
-Any static or CDN host works:
+| Setting | Value |
+| --- | --- |
+| Root directory | `/` (repository root) |
+| Build command | `npm run build:admin` |
+| Deploy command | `npm run check:admin-artifact && npx wrangler deploy -c apps/admin/wrangler.jsonc` |
+| Production branch | `main` |
+| Build variables | `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY` |
 
-- **Cloudflare Pages:** set build command + output directory; add env vars; Pages applies a default SPA fallback.
-- **AWS S3 + CloudFront:** upload `dist/` to an S3 bucket; create a CloudFront error-page rule that maps 404 → `index.html` with status 200.
-- **nginx:** `try_files $uri /index.html;` in the server block.
-- **Apache:** `FallbackResource /index.html` in `.htaccess`.
+Changing any of these is a production change and needs explicit authorisation.
 
-**The SPA fallback (all unknown paths → `index.html`) is required.** Without it, reloading any deep link returns a 404.
+## Routing
 
-Set the two `EXPO_PUBLIC_*` env vars at build time (CI environment or local `.env.local`).
+`app.json` sets `web.output: "static"`, so Expo emits one HTML document per route plus literal
+dynamic-route files (for example `bookings/[id].html`) that no host can map to `/bookings/<id>`.
+The Worker therefore uses:
 
----
+- `not_found_handling: "single-page-application"` — an unmatched path returns `/index.html` with
+  **200**, letting Expo Router's client-side matcher resolve dynamic and unknown routes.
+- `html_handling: "drop-trailing-slash"`.
 
-## Deployment checklist
+## Response headers
 
-- [ ] `EXPO_PUBLIC_SUPABASE_URL` set (anon key only — no service-role key).
-- [ ] `EXPO_PUBLIC_SUPABASE_ANON_KEY` set (anon key only — no service-role key).
-- [ ] `npx expo export --platform web` completes locally without errors.
-- [ ] SPA fallback configured on the host (Vercel: handled by `vercel.json`; others: see above).
-- [ ] Admin account exists and is promoted in Supabase (see [backend-readiness.md](backend-readiness.md) — create the user in Auth → Users, then set `role = 'admin'` and `approval_status = 'approved'` in `public.profiles`).
-- [ ] Login verified on the deployed URL: navigate to `/login`, sign in with admin credentials, dashboard loads.
-- [ ] Deep link verified: open `/bookings` directly in the browser (new tab / address bar) — table loads without a 404.
-- [ ] Page titles visible in the browser tab.
-- [ ] Non-admin account blocked: sign in with a customer/provider account → "Not authorized" screen; no admin data visible.
+`apps/admin/public/_headers` ships with every export. It sets `X-Frame-Options: DENY`,
+`X-Content-Type-Options: nosniff`, a restrictive `Permissions-Policy`, `Referrer-Policy`, a global
+`X-Robots-Tag: noindex` and `Cache-Control: public, max-age=0, must-revalidate`.
 
----
+Two deliberate, documented gaps: the Content-Security-Policy is **Report-Only**, and **no HSTS**
+header is sent. Both are tracked hardening items and each needs its own change.
+
+Static-asset immutability is deliberately **not** claimed — the SPA fallback answers a missing
+`/_expo/static/...` path with the HTML shell, so a long-lived cache rule there would let a browser
+pin that fallback document to a hashed asset URL. Content-hashed filenames plus ETag revalidation
+keep every deployment safe under the current policy.
+
+## Post-deployment smoke checks
+
+- [ ] `/login` returns 200 and renders the admin sign-in form.
+- [ ] Signing in with an admin account reaches `/dashboard`.
+- [ ] A deep link such as `/bookings/<id>` returns 200 and renders after a **hard refresh**.
+- [ ] An unknown path returns the shell with 200, not a 404 page.
+- [ ] Response headers include `X-Frame-Options: DENY` and `X-Robots-Tag: noindex`.
+- [ ] `/home` and `/staff-notice` return the SPA fallback, **not** their own documents — if they
+      render as real pages, the consumer app was deployed by mistake.
+- [ ] No console errors referencing a missing Supabase URL or anon key.
 
 ## Rollback
 
-The web admin panel has no schema or data changes — rollback is safe and instant.
+Cloudflare Workers keeps previous versions. To roll back, open the `quickserve` Worker →
+**Deployments**, select the last known-good version and promote it. This is a production action and
+needs explicit authorisation.
 
-1. **Disable the hosted deployment:** in Vercel, open the project → **Deployments** → select the previous build → **Promote to Production** (or simply delete/pause the project to take it fully offline).
-2. **Netlify / other hosts:** redeploy the previous build from deployment history, or delete the site.
-3. **Drop the Vercel config:** `git revert <vercel.json-commit-sha>` removes `vercel.json` from the repo; Vercel will stop using the custom config on the next deploy.
-4. **No database rollback needed:** zero migrations were added or modified in this task. The mobile apps and existing database are unaffected.
+Rolling back the repository alone does **not** roll back the deployment; a Workers Build must run,
+or a version must be promoted.
 
-See [web-admin-release.md](web-admin-release.md) for the full Slice 18 rollback procedure and the admin login flow reference.
+## Guardrails
+
+- `src/__tests__/admin-deploy-target.test.ts` — static proof that no root Wrangler config exists,
+  that `apps/admin/wrangler.jsonc` targets `quickserve`, that its asset directory resolves to
+  `apps/admin/dist`, that the SPA settings stay pinned, and that no package script runs an
+  unqualified `wrangler deploy`.
+- `scripts/check-admin-artifact.mjs` — run in PR CI immediately after the admin export; fails
+  unless `apps/admin/dist` contains the admin route documents, ships `_headers`, and contains no
+  consumer-only documents.

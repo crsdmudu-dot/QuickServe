@@ -78,13 +78,24 @@ and a deployment must be built without it.
 
 ## Deployment (separate authorisation required)
 
-Never run `npm run deploy:web` while a Cloudflare token is present: that command targets the
-**Production** Worker.
+`npm run deploy:web` no longer exists, and there is no Wrangler configuration at the repository
+root, so a bare `wrangler deploy` there fails closed rather than publishing `dist/`. Do not
+reintroduce either: the Production admin Worker `quickserve` is now deployed only by
+`npm run deploy:admin`, which names `apps/admin/wrangler.jsonc` explicitly.
+
+**If bare Wrangler offers to scaffold a root configuration, cancel it.** Run from the repository
+root, `wrangler deploy` exits non-zero but may first offer to create a `wrangler.jsonc` pre-filled
+with `Worker Name: quickserve` and `Output Directory: dist`. Accepting it would point the
+Production admin Worker at the consumer export. Never accept the prompt and never commit a root
+Wrangler configuration — a token that can edit `quickserve` plus a scaffolded root config is
+exactly the combination this section exists to prevent.
 
 1. Create a token in the Cloudflare dashboard by hand: *Account → Workers Scripts → Edit* on the one
    account, short expiry. Cloudflare cannot scope a token to a single Worker, so this token could
-   also edit `quickserve`; the expiry, the `-c wrangler.qa-auth.jsonc` flag and the absence of
-   `dist/` are the compensating controls.
+   also edit `quickserve`; the expiry and the explicit `-c wrangler.qa-auth.jsonc` flag are the
+   compensating controls. The old wording also cited "the absence of `dist/`" - that never held,
+   because the root `dist/` is produced by both the web and Android exports. The real control now
+   is that no root configuration exists to discover.
 2. Build fresh, run the local certification matrix, and keep the manifest.
 3. Deploy with the token supplied in-process only (never on the command line, never in a file):
 

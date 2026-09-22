@@ -60,7 +60,6 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "build:web": "expo export --platform web",
-    "deploy:web": "wrangler deploy",
     "lint": "expo lint",
     "qa:release": "npm run test:release && npm run test:admin:release && tsc --noEmit && npm run typecheck:admin && expo export --platform web && expo export --platform android && npm run build:admin && npm --prefix qa run qa:release:e2e",
     "typecheck": "tsc --noEmit",
@@ -68,7 +67,9 @@
     "test:admin": "jest --config apps/admin/jest.config.js",
     "test:admin:release": "jest --config apps/admin/jest.config.js --maxWorkers=2",
     "lint:admin": "eslint apps/admin",
-    "build:admin": "npm --prefix apps/admin run build:web"
+    "build:admin": "npm --prefix apps/admin run build:web",
+    "check:admin-artifact": "node scripts/check-admin-artifact.mjs",
+    "deploy:admin": "npm run build:admin && npm run check:admin-artifact && wrangler deploy -c apps/admin/wrangler.jsonc"
   },
   "private": true
 }
