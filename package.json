@@ -69,7 +69,8 @@
     "lint:admin": "eslint apps/admin",
     "build:admin": "npm --prefix apps/admin run build:web",
     "check:admin-artifact": "node scripts/check-admin-artifact.mjs",
-    "deploy:admin": "npm run build:admin && npm run check:admin-artifact && wrangler deploy -c apps/admin/wrangler.jsonc"
+    "check:admin-routing": "node scripts/check-admin-routing.mjs",
+    "deploy:admin": "npm run build:admin && npm run check:admin-artifact && npm run check:admin-routing && wrangler deploy -c apps/admin/wrangler.jsonc"
   },
   "private": true
 }

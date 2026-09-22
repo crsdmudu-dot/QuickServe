@@ -133,7 +133,7 @@ describe('the deploy command', () => {
 
   it('exists and names the nested configuration explicitly', () => {
     expect(scripts['deploy:admin']).toBe(
-      'npm run build:admin && npm run check:admin-artifact && wrangler deploy -c apps/admin/wrangler.jsonc',
+      'npm run build:admin && npm run check:admin-artifact && npm run check:admin-routing && wrangler deploy -c apps/admin/wrangler.jsonc',
     );
   });
 
@@ -143,21 +143,24 @@ describe('the deploy command', () => {
   // artifact cannot reach the Worker that serves the admin portal.
   it('runs build, then the artifact check, then the explicit deploy, in that order', () => {
     const stages = scripts['deploy:admin'].split('&&').map((part) => part.trim());
-    expect(stages).toHaveLength(3);
+    expect(stages).toHaveLength(4);
     expect(stages[0]).toBe('npm run build:admin');
     expect(stages[1]).toBe('npm run check:admin-artifact');
-    expect(stages[2].startsWith('wrangler deploy ')).toBe(true);
-    expect(stages[2]).toContain('-c apps/admin/wrangler.jsonc');
+    expect(stages[2]).toBe('npm run check:admin-routing');
+    expect(stages[3].startsWith('wrangler deploy ')).toBe(true);
+    expect(stages[3]).toContain('-c apps/admin/wrangler.jsonc');
   });
 
   it('cannot deploy without the artifact check having run first', () => {
     const command = scripts['deploy:admin'];
     const checkAt = command.indexOf('check:admin-artifact');
+    const routingAt = command.indexOf('check:admin-routing');
     const deployAt = command.indexOf('wrangler deploy');
     const buildAt = command.indexOf('build:admin');
     expect(buildAt).toBeGreaterThan(-1);
     expect(checkAt).toBeGreaterThan(buildAt);
-    expect(deployAt).toBeGreaterThan(checkAt);
+    expect(routingAt).toBeGreaterThan(checkAt);
+    expect(deployAt).toBeGreaterThan(routingAt);
   });
 
   it('builds the admin app it deploys', () => {
@@ -184,5 +187,49 @@ describe('build outputs stay out of version control', () => {
     // CRLF-safe: this repository checks out with CRLF, so the line is `dist/` + CR.
     expect(ignored).toMatch(/^dist\/\r?$/m);
     expect(ignored.split(/\r?\n/).map((l) => l.trim())).toContain('dist/');
+  });
+});
+
+describe('the Cloudflare SPA shell', () => {
+  const ROOT_ROUTE = join(REPO_ROOT, 'apps/admin/src/app/index.tsx');
+
+  // Production returned 404 for the bare root AND for every dynamic route on a hard refresh,
+  // because the admin app had no root route and therefore the export emitted no index.html for
+  // not_found_handling: single-page-application to serve. The artifact check was green throughout:
+  // it proved WHICH app was built, never that the build was routable.
+  it('the admin application has a root route, so the export emits index.html', () => {
+    expect(existsSync(ROOT_ROUTE)).toBe(true);
+  });
+
+  it('the root route records why it must not be deleted', () => {
+    const src = readFileSync(ROOT_ROUTE, 'utf8');
+    expect(src).toContain('index.html');
+    expect(src).toContain('single-page-application');
+  });
+
+  it('the artifact checker requires index.html and says why when it is missing', () => {
+    const checker = readFileSync(join(REPO_ROOT, 'scripts/check-admin-artifact.mjs'), 'utf8');
+    expect(checker).toContain('SPA_SHELL');
+    expect(checker).toContain('MISSING SPA SHELL');
+  });
+
+  it('a routing smoke exists and runs after the artifact check in PR CI', () => {
+    expect(existsSync(join(REPO_ROOT, 'scripts/check-admin-routing.mjs'))).toBe(true);
+    expect(readPackageScripts('package.json')['check:admin-routing']).toBe(
+      'node scripts/check-admin-routing.mjs',
+    );
+    const ci = readFileSync(join(REPO_ROOT, '.github/workflows/pr-ci.yml'), 'utf8');
+    const artifactAt = ci.indexOf('npm run check:admin-artifact');
+    const routingAt = ci.indexOf('npm run check:admin-routing');
+    expect(artifactAt).toBeGreaterThan(-1);
+    expect(routingAt).toBeGreaterThan(artifactAt);
+  });
+
+  it('the routing smoke asserts the root, the dynamic route and the fallback identity', () => {
+    const smoke = readFileSync(join(REPO_ROOT, 'scripts/check-admin-routing.mjs'), 'utf8');
+    expect(smoke).toContain('/bookings/00000000-0000-0000-0000-000000000000');
+    expect(smoke).toContain('not_found_handling');
+    expect(smoke).toContain('equals(shell)');
+    expect(smoke).toContain('portIsFree');
   });
 });

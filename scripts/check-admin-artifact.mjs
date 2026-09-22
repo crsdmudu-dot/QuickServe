@@ -40,6 +40,16 @@ const REQUIRED_ADMIN_DOCS = [
  */
 const FORBIDDEN_CONSUMER_DOCS = ['home.html', 'staff-notice.html', 'provider.html', 'onboarding.html'];
 
+/**
+ * The Cloudflare SPA shell. `not_found_handling: "single-page-application"` answers every
+ * unmatched request with `/index.html` — the bare root, and every dynamic route on a hard
+ * refresh, because `/bookings/<id>` cannot match the literal exported `bookings/[id].html`.
+ * A build without this file returns 404 for all of them while still looking like a healthy
+ * admin artifact, which is exactly how it reached production once. `+not-found.html` is not a
+ * substitute: it is an Expo route reachable only after hydration.
+ */
+const SPA_SHELL = 'index.html';
+
 /** Shipped response headers — without this the deployment loses its security posture silently. */
 const REQUIRED_FILES = ['_headers'];
 
@@ -65,6 +75,17 @@ for (const rel of FORBIDDEN_CONSUMER_DOCS) {
   else notes.push(`ok        absent   ${rel}`);
 }
 
+if (existsSync(join(DIST, SPA_SHELL))) {
+  notes.push(`ok        present  ${SPA_SHELL} (Cloudflare SPA shell)`);
+} else {
+  failures.push(
+    `MISSING SPA SHELL: ${SPA_SHELL} is not in the artifact. Cloudflare serves it for the bare ` +
+      `root and for every dynamic route on a hard refresh, so this build would return 404 for ` +
+      `"/" and for /bookings/<id>. Add a root route (apps/admin/src/app/index.tsx) — ` +
+      `+not-found.html and bookings/[id].html are NOT substitutes.`,
+  );
+}
+
 for (const rel of REQUIRED_FILES) {
   if (existsSync(join(DIST, rel))) notes.push(`ok        present  ${rel}`);
   else failures.push(`missing required file: ${rel}`);
@@ -82,7 +103,7 @@ const htmlCount = (function walk(dir) {
   }
   return n;
 })(DIST);
-if (htmlCount < REQUIRED_ADMIN_DOCS.length) {
+if (htmlCount < REQUIRED_ADMIN_DOCS.length + 1) {
   failures.push(`only ${htmlCount} HTML documents found; this does not look like a static web export`);
 } else {
   notes.push(`ok        ${htmlCount} HTML documents in the artifact`);

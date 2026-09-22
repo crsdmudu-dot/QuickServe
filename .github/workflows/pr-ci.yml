@@ -105,3 +105,9 @@ jobs:
       # unmistakably the admin export.
       - name: Admin artifact check
         run: npm run check:admin-artifact
+
+      # File presence cannot prove routing. Production returned 404 for "/" and for every
+      # dynamic route on a hard refresh while the artifact check was green, because the build had
+      # no index.html for the SPA fallback to serve. This issues real requests through Wrangler.
+      - name: Admin routing smoke
+        run: npm run check:admin-routing
