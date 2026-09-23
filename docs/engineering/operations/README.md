@@ -208,7 +208,7 @@ What a merge to `main` actually deploys, and what it does not. Verified from the
 | Cloudflare Workers Builds -> Worker `quickserve` (admin web) | Push to `main` | **ACTIVE.** Build `npm run build:admin`; deploy `npm run check:admin-artifact && npx wrangler deploy -c apps/admin/wrangler.jsonc` |
 | Vercel | — | **Not a deployment target.** `vercel.json` at the repository root is inert repository configuration retained from an earlier plan. Vercel is not part of the deployment path; nothing to confirm. |
 | GitHub Actions | — | **NONE deploy.** `pr-ci.yml` runs on `pull_request` to `main` and manual dispatch; the three iOS workflows are `workflow_dispatch` only. No workflow has a `push:` trigger. |
-| Supabase Edge Functions | — | **Hand-deployed only.** No workflow runs `supabase functions deploy`. QA holds `delete-account` v2 (certified 2026-09-23); **Production holds neither `0056` nor the function.** |
+| Supabase Edge Functions | — | **Hand-deployed only.** No workflow runs `supabase functions deploy`. QA holds `delete-account` (Phase B1 revision, certified 2026-09-24) and `deletion-worker` (deployed with `--no-verify-jwt`, secret-only; scheduling disabled); QA migrations 0056, 0058, 0059, 0060. **Production holds none of these migrations or functions.** |
 | Worker `quickserve-auth-qa` (QA auth bridge) | — | **Hand-deployed only** via `wrangler.qa-auth.jsonc`. Never touched by Workers Builds. |
 
 The Cloudflare deploy command above is the agreed one and must be preserved verbatim; changing it,

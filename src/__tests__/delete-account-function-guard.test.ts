@@ -124,7 +124,7 @@ describe('delete-account: two phases and safe failure', () => {
 
   it('reports 202 pending_auth_delete on auth failure and records it, instead of pretending success', () => {
     expect(handler).toContain('record_auth_deletion_failure');
-    expect(handler).toMatch(/status: 'pending_auth_delete' \}, 202\)/);
+    expect(handler).toMatch(/status: 'pending_auth_delete', \.\.\.work\('pending_retry'\) \}, 202\)/);
   });
 
   it('returns 409 with blockers and 200 deleted', () => {

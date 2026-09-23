@@ -278,7 +278,7 @@ describe('pending_auth_delete retry still completes without re-proving the crede
     const res = await handleDeleteAccount(request({ json: async () => ({ confirmation: 'DELETE' }) }), deps);
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ ok: true, status: 'deleted' });
+    expect(res.body).toMatchObject({ ok: true, status: 'deleted', auth_state: 'deleted', access_state: 'revoked' });
     expect(calls).not.toContain('signInWithPassword');
     expect(calls).toContain('rpc:delete_account');
     expect(calls).toContain('auth.admin.deleteUser');
@@ -295,7 +295,7 @@ describe('pending_auth_delete retry still completes without re-proving the crede
     const res = await handleDeleteAccount(request(), deps);
 
     expect(res.status).toBe(202);
-    expect(res.body).toEqual({ ok: true, status: 'pending_auth_delete' });
+    expect(res.body).toMatchObject({ ok: true, status: 'pending_auth_delete', auth_state: 'pending_retry', access_state: 'revoked' });
     expect(calls).toContain('rpc:record_auth_deletion_failure');
     expect(calls).not.toContain('rpc:complete_account_deletion');
   });
@@ -316,7 +316,7 @@ describe('normal deletion path', () => {
 
     const res = await handleDeleteAccount(request(), deps);
 
-    expect(res.body).toEqual({ ok: true, status: 'deleted' });
+    expect(res.body).toMatchObject({ ok: true, status: 'deleted', auth_state: 'deleted', access_state: 'revoked' });
     expect(calls.indexOf('signInWithPassword')).toBeLessThan(calls.indexOf('rpc:delete_account'));
     expect(calls.indexOf('rpc:delete_account')).toBeLessThan(calls.indexOf('auth.admin.deleteUser'));
     expect(calls.indexOf('auth.admin.updateUserById')).toBeLessThan(
@@ -412,5 +412,79 @@ describe('request envelope', () => {
     const res = await handleDeleteAccount(request(), deps);
     expect(res.status).toBe(401);
     expect(calls).toEqual(['getUser']);
+  });
+});
+
+describe('durable work (0059/0060): what the handler reports and how it treats an already-gone identity', () => {
+  it('passes the database work state through: deletion_id and cleanup_state from delete_account', async () => {
+    const { deps } = makeDeps({
+      profile: { role: 'customer', deletion_status: 'active' },
+      rpcResults: {
+        delete_account: {
+          data: { status: 'pending_auth_delete', deletion_id: 'd-1', cleanup_state: 'pending', auth_state: 'not_started', intents: 3 },
+        },
+        complete_account_deletion: { data: { status: 'deleted', cleanup_state: 'pending' } },
+      },
+    });
+    const res = await handleDeleteAccount(request(), deps);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      ok: true,
+      status: 'deleted',
+      deletion_id: 'd-1',
+      access_state: 'revoked',
+      auth_state: 'deleted',
+      cleanup_state: 'pending',
+    });
+  });
+
+  it('treats "user not found" from deleteUser as the identity being gone: completes, does not record a failure', async () => {
+    const { deps, calls } = makeDeps({
+      profile: { role: 'customer', deletion_status: 'active' },
+      rpcResults: {
+        delete_account: { data: { status: 'pending_auth_delete', deletion_id: 'd-2', cleanup_state: 'pending' } },
+        complete_account_deletion: { data: { status: 'deleted', cleanup_state: 'complete' } },
+      },
+      deleteUserError: { status: 404, message: 'User not found' },
+    });
+    const res = await handleDeleteAccount(request(), deps);
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ status: 'deleted', auth_state: 'deleted', cleanup_state: 'complete' });
+    expect(calls).toContain('rpc:complete_account_deletion');
+    expect(calls).not.toContain('rpc:record_auth_deletion_failure');
+  });
+
+  it('a transport-class deleteUser error is still a failure: records it and reports pending_retry with the cleanup state', async () => {
+    const { deps, calls } = makeDeps({
+      profile: { role: 'customer', deletion_status: 'active' },
+      rpcResults: {
+        delete_account: { data: { status: 'pending_auth_delete', deletion_id: 'd-3', cleanup_state: 'pending' } },
+      },
+      deleteUserError: { status: 503, message: 'upstream unavailable' },
+    });
+    const res = await handleDeleteAccount(request(), deps);
+    expect(res.status).toBe(202);
+    expect(res.body).toEqual({
+      ok: true,
+      status: 'pending_auth_delete',
+      deletion_id: 'd-3',
+      access_state: 'revoked',
+      auth_state: 'pending_retry',
+      cleanup_state: 'pending',
+    });
+    expect(calls).toContain('rpc:record_auth_deletion_failure');
+    expect(calls).not.toContain('rpc:complete_account_deletion');
+  });
+
+  it('an idempotent re-entry of an already-deleted account reports the recorded cleanup state, not a fresh claim', async () => {
+    const { deps, calls } = makeDeps({
+      profile: { role: 'customer', deletion_status: 'pending_auth_delete' },
+      rpcResults: {
+        delete_account: { data: { status: 'deleted', idempotent: true, deletion_id: 'd-4', cleanup_state: 'complete_with_retained' } },
+      },
+    });
+    const res = await handleDeleteAccount(request(), deps);
+    expect(res.body).toMatchObject({ status: 'deleted', auth_state: 'deleted', cleanup_state: 'complete_with_retained', deletion_id: 'd-4' });
+    expect(calls).not.toContain('auth.admin.deleteUser');
   });
 });

@@ -117,6 +117,40 @@ export const CONFIRMATION = 'DELETE';
 /** ~100 years: belt-and-braces if deleteUser fails after tombstoning. */
 export const BAN_DURATION = '876600h';
 
+/** What the database reports about the durable work (0059/0060), passed through to the app. */
+export type WorkState = {
+  deletion_id?: string;
+  access_state: 'revoked';
+  auth_state: 'not_started' | 'pending_retry' | 'deleted' | 'needs_operator';
+  cleanup_state: 'not_started' | 'pending' | 'provisional' | 'complete' | 'complete_with_retained' | 'needs_operator';
+};
+
+type DeletePayload = {
+  status?: string;
+  blockers?: string[];
+  deletion_id?: string;
+  cleanup_state?: string;
+  auth_state?: string;
+};
+
+function cleanupOf(payload: DeletePayload | null): WorkState['cleanup_state'] {
+  const c = payload?.cleanup_state;
+  return c === 'pending' || c === 'provisional' || c === 'complete' || c === 'complete_with_retained' || c === 'needs_operator'
+    ? c
+    : 'not_started';
+}
+
+/**
+ * An identity that is already gone is a success for this step, not a failure: a retry after a
+ * crash between deleteUser and complete_account_deletion must not loop forever on "not found".
+ */
+export function authIdentityGone(error: unknown): boolean {
+  const e = error as { status?: unknown; message?: unknown } | null;
+  if (e?.status === 404) return true;
+  const msg = typeof e?.message === 'string' ? e.message.toLowerCase() : '';
+  return /not found|does not exist/.test(msg);
+}
+
 const GENERIC_FAILURE = 'Could not delete the account. Please try again.';
 
 function result(body: Record<string, unknown>, status = 200): HandlerResult {
@@ -225,17 +259,26 @@ export async function handleDeleteAccount(
     }
 
     // ── Phase 1: database (one transaction, blockers re-checked inside) ──────────────────
+    // delete_account (0060) also inventories the person's uploads as durable cleanup intents in
+    // the same transaction and reports the work state; nothing here interprets that state beyond
+    // passing it to the app, which composes the message from the separate dimensions.
     const { data: rpcData, error: dbError } = await admin.rpc('delete_account', { p_user: uid });
     if (dbError) {
       return result({ ok: false, error: GENERIC_FAILURE }, 500);
     }
-    const payload = rpcData as { status?: string; blockers?: string[] } | null;
+    const payload = rpcData as DeletePayload | null;
     const status = payload?.status;
     if (status === 'blocked') {
       return result({ ok: false, status: 'blocked', blockers: payload?.blockers ?? [] }, 409);
     }
+    const work = (auth: WorkState['auth_state'], cleanup?: WorkState['cleanup_state']): WorkState => ({
+      deletion_id: payload?.deletion_id,
+      access_state: 'revoked',
+      auth_state: auth,
+      cleanup_state: cleanup ?? cleanupOf(payload),
+    });
     if (status === 'deleted') {
-      return result({ ok: true, status: 'deleted' });
+      return result({ ok: true, status: 'deleted', ...work('deleted') });
     }
     // `not_found` is retained defensively. The profile gate above already refuses a subject with
     // no profile, so the database should never reach this answer through this path.
@@ -244,15 +287,23 @@ export async function handleDeleteAccount(
     }
 
     // ── Phase 2: auth identity ───────────────────────────────────────────────────────────
-    // Ban first so that even if deleteUser fails, refresh and sign-in are impossible.
+    // Ban first so that even if deleteUser fails, refresh and sign-in are impossible. The
+    // database phase is already durable: if this step fails, or this process dies here, the
+    // deletion-worker's account-level recovery (0059 claim_auth_work) retries it; the user may
+    // also re-invoke this endpoint. Cleanup of uploads is independent of this step.
     await admin.auth.admin.updateUserById(uid, { ban_duration: BAN_DURATION }).catch(() => {});
     const { error: authError } = await admin.auth.admin.deleteUser(uid);
-    if (authError) {
+    if (authError && !authIdentityGone(authError)) {
       await admin.rpc('record_auth_deletion_failure', { p_user: uid });
-      return result({ ok: true, status: 'pending_auth_delete' }, 202);
+      return result({ ok: true, status: 'pending_auth_delete', ...work('pending_retry') }, 202);
     }
-    await admin.rpc('complete_account_deletion', { p_user: uid });
-    return result({ ok: true, status: 'deleted' });
+    const { data: completed } = await admin.rpc('complete_account_deletion', { p_user: uid });
+    const done = completed as { cleanup_state?: string } | null;
+    return result({
+      ok: true,
+      status: 'deleted',
+      ...work('deleted', cleanupOf({ cleanup_state: done?.cleanup_state ?? payload?.cleanup_state })),
+    });
   } catch {
     // Deliberately no detail: nothing about the request may reach the logs.
     return result({ ok: false, error: 'Unexpected error.' }, 500);

@@ -1,0 +1,84 @@
+# Phase B1 — durable deletion work: QA certification record
+
+**Date:** 2026-09-24 · **Target:** the certified QA project (reference verified against the CLI's
+linked project before every step; Production never contacted) · **Result: PASS** — 17 of 18 new
+cases passed, 1 skipped by design (opt-in observational case); both existing certifications passed
+unchanged (9 and 13). Restoration delta zero against the baseline captured before the migrations
+were applied. **Tested working-tree state:** Phase B1 revision 4 plus the two harness corrections
+recorded below, on top of `491c8d8` (commit SHA to be recorded when the focused commit lands; the
+full `qa:release` gate remains attributed only to `e85c3764ff027dc60b91b59aa49edc02c70b8303`).
+
+## 1. What was applied to QA (authorised step by step)
+
+| Step | Action | Evidence |
+|---|---|---|
+| Pre-check | `db push --dry-run` listed exactly `0059_deletion_work.sql` and `0060_delete_account_durable_work.sql`; pre-state: 0 executed deletions, 0 bucket objects, 0 tombstones, 3 bucket policies | CLI output |
+| Migrations | `db push --linked`: 0059 then 0060 applied | migration list shows 0056, 0058, 0059, 0060 remote |
+| Post-check | 0 backfilled rows (no prior executed deletions), 3 bucket policies, 4 new routines present, 0 cron jobs named for the worker, tick disabled (null URL and secret) | SQL read |
+| Secret | `DELETION_WORKER_SECRET` generated locally (43 chars), set on the QA function, recorded in the operator's `qa/.env`; never displayed | CLI: `count: 1` |
+| Functions | `delete-account` deployed; `deletion-worker` deployed with `--no-verify-jwt` (matches `config.toml`, this function only) | CLI output |
+
+Scheduling stays disabled on QA: no `cron.schedule`, `private.deletion_worker_config` untouched.
+
+## 2. Runs
+
+| Run | Command | Outcome |
+|---|---|---|
+| 1 | `deletion-work.spec.ts`, default workers | **Aborted in `beforeAll`**: the baseline counter selected `id` on `account_deletion_attempts`, which is keyed by `user_id`; PostgREST 400. No case body executed. QA residue: none (verified by exact-category counts and baseline delta zero). Harness fix: explicit key column; offline regression added. |
+| 2 | `deletion-work.spec.ts`, default workers (parallel) | 10 passed, 7 failed, 1 skipped. All seven failures traced to parallel workers: each `worker()` call processes every claimable intent on the shared project (C3a, C3c, C6b lost their object to another case's call before the hold applied) and per-worker baselines were captured with other workers' fixtures present (C2a, C2d, C4, C5c failed only in restoration). Per-worker teardown still restored QA: residue none, baseline delta zero. Harness fix: `test.describe.configure({ mode: 'serial' })` and `--workers=1` mandatory. |
+| 3 | `deletion-work.spec.ts --workers=1 --retries=0 --reporter=list,json` | **17 passed, 1 skipped (C2e opt-in), 5.6 min.** Residue none; baseline delta zero. |
+| C7a | `account-deletion.spec.ts --workers=1` | **9 passed** (1.7 min) |
+| C7b | `deleted-payer-redaction.spec.ts --workers=1` | **13 passed** (3.5 min) |
+| Final | Residue and independent 22-measure baseline after all suites | Zero residue in every category; delta zero; 8 fixed profiles, 0 tombstones |
+
+Runs 1 and 2 were each stopped and reported before the next was authorised; no automatic retry.
+
+## 3. Per-case results (run 3) and what each proves
+
+| Case | Result | Proves | Class |
+|---|---|---|---|
+| C0 | pass | Deployed gateway: 401 without or with a wrong secret and with a user JWT alone; 200 with the secret only | connected |
+| C1 | pass | Own photos removed with database-verified absence; counterparty photo etag unchanged; `provisional` with `final_sweep_at` null; Auth deleted; `complete` only after the boundary with `final_sweep_at` and `closed_at` | connected |
+| C2a | pass | A tombstoned identity's upload is refused (policy); object absent | connected |
+| C2b | pass | An owned object the inventory missed (intent row dropped) is rediscovered by the sweep and removed | seeded simulation |
+| C2c | pass | A metadata row reappearing on an inventoried path → `needs_operator`, never complete | connected |
+| C2d | pass | A late metadata row reopens a provisional account to `pending`; the late intent verifies as `absent`; provisional again; `complete` only after boundary + final sweep | seeded simulation |
+| C2f | pass | Boundary and last sweep three days past, one run → `complete` with `final_sweep_at` | connected |
+| C2e | skipped | Opt-in observational (`QA_DW_INFLIGHT=1` not set) | not run by design |
+| C3a | pass | Legal hold → held, provisional with reference; release → account stays provisional until the worker's next pass (lazy reopen) → verified → complete after boundary, reference cleared | connected |
+| C3b | pass | `{authorized_before_hold:1, held:1}` then `{already_removed:2}` | connected |
+| C3c | pass | Case on A: A held, B planned; move to B: A released "case reassigned", B held, A still held by its legal hold; close: B released, A held; legal release → both verified | connected |
+| C4 | pass | Two concurrent invocations over 20 intents: per-deletion states `{verified:removed: 20}`; expired-lease `destroying` intent resumed | connected |
+| C5a | pass | **Platform fact U4: Auth deletion succeeded immediately while the identity still owned a Storage object (HTTP 200, `auth_state: deleted`)**; object then removed | connected |
+| C5b | pass | Because the platform did not refuse, the held-object escalation was exercised through `record_auth_result` (**labelled simulated**): `needs_operator`/`dependency`, no further Auth attempt | simulated |
+| C5c | pass | Identity established gone; retry answering 404 → `deleted` | connected |
+| C5d | pass | `not_started` untouched inside the grace period; then `deleted`, identity 404 | connected |
+| C6a | pass | Verified EMPTY retired path: counterparty upload, upsert, copy and move refused; fresh path under the same booking allowed (control) | connected |
+| C6b | pass | Held path: admin-JWT delete returned `200 []` with the object still present (admin credentials were configured); service-role replacement → `identity_mismatch`, replacement etag unchanged, metadata row kept; fresh path still allowed | connected |
+
+## 4. U1–U8 after this certification
+
+| # | Status |
+|---|---|
+| U1 | C4 passed on QA; the completion-vs-release interleaving passed the two-connection regression on a local PostgreSQL (2026-09-24) |
+| U2 | Proven on QA (C2a, C6a, C6b incl. the admin-JWT refusal) |
+| U3 | Proven on QA for the seeded simulations and the real reappearing row (C2b, C2c, C2d); a real in-flight upload remains observational only |
+| U4 | **Answered:** Auth deletes an identity that still owns objects (C5a). The dependency-refusal path therefore did not occur on this platform; its escalation rule is proven by the routine (C5b, simulated) and offline |
+| U5 | Proven on QA (C1) |
+| U6 | Proven on QA (C3c) |
+| U7 | **Outstanding**: zero eligible rows on QA, so the backfill's transformation was not exercised |
+| U8 | **Outstanding**: scheduling stays disabled; C0 proves the secret-only path the tick would use |
+
+## 5. Harness corrections made during certification (local, offline-verified)
+
+1. `ServiceApi.count(table, filter, keyCol)`: explicit key column; `account_deletion_attempts` counted by `user_id`. Regression in `deletion-work-cleanup.test.ts`.
+2. `test.describe.configure({ mode: 'serial' })` in `deletion-work.spec.ts`; run sheet makes `--workers=1` mandatory and adds the JSON reporter so platform annotations are preserved.
+
+No migration, function, policy or product code changed during certification.
+
+## 6. Explicitly not done
+
+No Production contact; no merge; no website publication; no mobile build; no scheduler enabled;
+no `qa:release` gate run (it must run on the exact PR candidate head before merge). The website
+verification route, transactional email, wallet refunds, `access_closed` and every unresolved
+retention rule remain outside this increment.

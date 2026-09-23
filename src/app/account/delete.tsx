@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/auth/auth-context';
@@ -11,6 +11,7 @@ import {
   DELETION_BLOCKER_COPY,
   requestAccountDeletion,
   type DeletionBlocker,
+  describeDeletionOutcome,
 } from '@/lib/account';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -54,6 +55,9 @@ export default function DeleteAccountScreen() {
 
     if (outcome.ok) {
       if (outcome.status === 'pending_auth_delete') setPending(true);
+      // Tell the person exactly what happened, dimension by dimension, before the session goes.
+      const { title, lines } = describeDeletionOutcome(outcome);
+      Alert.alert(title, lines.join('\n\n'));
       // Local sign-out is enough: the server has already revoked data access, and for
       // `deleted` there is no session left to revoke anywhere else.
       await signOut();
@@ -193,7 +197,7 @@ export default function DeleteAccountScreen() {
             )}
             {pending && (
               <Text variant="caption" color="textSecondary" testID="delete-account-pending">
-                Your data has been removed and access revoked. Final clean-up will complete shortly.
+                Your access has been revoked. Removal of your login is still pending and is retried automatically.
               </Text>
             )}
 
