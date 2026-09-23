@@ -77,7 +77,10 @@ export default function DeleteAccountPage() {
           <div className="flex flex-col gap-3">
             <h2 className="text-heading font-bold text-ink">3. What is deleted</h2>
             <ul className="list-disc pl-6 text-body text-textSecondary flex flex-col gap-1">
-              <li>Your login. You cannot sign in again and every device is signed out.</li>
+              <li>
+                Your login. Access ends immediately: every device is signed out the moment the
+                deletion succeeds, and you cannot sign in again.
+              </li>
               <li>Your name, phone number, profile photo, and — for providers — bio, skills and experience.</li>
               <li>Saved addresses, favourites, notification settings and device registrations.</li>
               <li>Your written review comments (the star rating you gave is kept, without your name).</li>
@@ -88,11 +91,23 @@ export default function DeleteAccountPage() {
             <h2 className="text-heading font-bold text-ink">4. What is kept, and why</h2>
             <p className="text-body text-textSecondary">
               Records of completed bookings and payments — and, for providers, earnings and payouts —
-              are retained for accounting, dispute resolution and legal obligations, for as long as
-              those obligations require. Your personal details are removed from them: the booking
+              are retained, together with support cases and safety or fraud records involving your
+              account. We keep them only where it is reasonably necessary for accounting, payment
+              reconciliation, dispute resolution, safety, fraud prevention or a legal obligation we
+              are subject to.
+            </p>
+            <p className="text-body text-textSecondary">
+              Direct personal identifiers are removed from those records where possible: the booking
               address, notes and location are cleared, chat messages you sent are replaced with a
-              placeholder, and the account is marked as deleted. Support cases and safety records
-              involving your account are also retained for the same reasons.
+              placeholder, the payer phone number on a payment is reduced to its last three digits,
+              and the account itself is marked as deleted so the remaining rows no longer identify
+              you by name.
+            </p>
+            <p className="text-body text-textSecondary">
+              Access to retained records is restricted to staff who need it for one of the purposes
+              above. They are not used for marketing, profiling or any other unrelated purpose, and
+              they are deleted or fully anonymised once that purpose and any applicable legal
+              obligation no longer apply.
             </p>
           </div>
 

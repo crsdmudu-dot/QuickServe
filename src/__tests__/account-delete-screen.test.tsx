@@ -139,3 +139,48 @@ describe('DeleteAccountScreen — roles', () => {
     expect(screen.getByText(/all earnings paid out/)).toBeOnTheScreen();
   });
 });
+
+/**
+ * Retention disclosure.
+ *
+ * The screen must not under-state what survives deletion. It previously named only bookings,
+ * payments and payouts while the implementation also retains support cases, safety records and
+ * account flags, so the in-app copy disclosed less than both the public page and the database.
+ * These cases pin the full disclosure and the purpose limitation that qualifies it.
+ */
+describe('DeleteAccountScreen — retention disclosure', () => {
+  it.each(['customer', 'provider'] as const)('discloses support and safety records to a %s', (role) => {
+    mockRole = role;
+    render(<DeleteAccountScreen />);
+    expect(
+      screen.getByText(/support cases and safety or fraud records involving your account/),
+    ).toBeOnTheScreen();
+  });
+
+  it('limits retention to named purposes', () => {
+    mockRole = 'customer';
+    render(<DeleteAccountScreen />);
+    expect(screen.getByText(/only where reasonably necessary/)).toBeOnTheScreen();
+    expect(screen.getByText(/fraud prevention or legal obligations/)).toBeOnTheScreen();
+  });
+
+  it('states identifier removal, restricted access and no unrelated use', () => {
+    mockRole = 'customer';
+    render(<DeleteAccountScreen />);
+    expect(screen.getByText(/Direct[\s\S]*personal identifiers are removed/)).toBeOnTheScreen();
+    expect(screen.getByText(/access is restricted/)).toBeOnTheScreen();
+    expect(screen.getByText(/never used for unrelated purposes/)).toBeOnTheScreen();
+  });
+
+  it('states eventual deletion or anonymisation', () => {
+    mockRole = 'customer';
+    render(<DeleteAccountScreen />);
+    expect(screen.getByText(/deleted[\s\S]*or fully anonymised/)).toBeOnTheScreen();
+  });
+
+  it('quotes no fixed retention period', () => {
+    mockRole = 'customer';
+    const { toJSON } = render(<DeleteAccountScreen />);
+    expect(JSON.stringify(toJSON())).not.toMatch(/\b\d+\s*(years?|months?|days?)\b/i);
+  });
+});

@@ -88,6 +88,64 @@ Verified, repository-supported activities only:
 - **Deterministic QA cleanup** — certification teardown deletes created rows + sweeps by marker
   (`qa/docs/LAUNCH-CERTIFICATION.md`).
 
+### Account deletion — never delete an Auth user directly
+
+**Rule: do not delete a row from `auth.users` (Supabase dashboard, admin API or SQL) as a way of
+removing an account.** Since migration `0056_account_deletion.sql`, `profiles.id` no longer
+references `auth.users`, so the profile does not cascade when the login is removed. A raw Auth
+deletion therefore leaves an **active, un-scrubbed profile** behind: the person's name, phone,
+photo and other personal fields stay in the database, the row is not marked deleted, and nothing
+downstream treats the account as gone.
+
+The profile is deliberately retained as a **tombstone** so that financial, dispute and audit rows
+keep a referent. Deleting it outright is blocked anyway: roughly thirty tables reference
+`profiles(id)`, and `provider_payouts.earning_id` is `ON DELETE RESTRICT`.
+
+**Correct operator sequence**
+
+1. **Scrub and tombstone first.** Call `public.delete_account(<user id>)` as `service_role`. This
+   runs in one transaction: it refuses the request if a blocker is present, otherwise deletes the
+   disposable rows, anonymises the retained ones, and sets the profile to a tombstone with
+   `deletion_status = 'pending_auth_delete'`. From this point restrictive RLS denies the identity,
+   so the account has already lost data access.
+2. **Then remove the Auth user.** Only after step 1 reports success.
+3. **If the Auth deletion fails, leave it pending and retry.** `pending_auth_delete` is the
+   designed retryable state, not an error to clean up by hand. The data layer has already locked
+   the account out, and re-running the `delete-account` Edge Function (or repeating step 2)
+   completes the job idempotently. Do not hand-edit `deletion_status` and do not delete the
+   profile row to "finish" it.
+
+**Admins are out of scope for self-service deletion.** Administrator and support accounts cannot
+be deleted from the app; the screen refuses them. They are removed by operations using the same
+two-step sequence above.
+
+QA fixture teardown follows the same rule: the helpers remove fixture profiles explicitly rather
+than relying on a cascade that no longer exists.
+
+Public-facing wording for this behaviour lives in `docs/pilot/legal-support.md` §8, the
+`/delete-account` website page and the in-app delete screen. They must stay consistent.
+
+### Migration numbering — `0055` is reserved, not free
+
+Operational record, current as of this note:
+
+- **Account deletion owns `0056`** (`0056_account_deletion.sql`). It is merged in PR #27 and is the
+  highest migration QA has applied.
+- There is **no `0055` file in this branch**, and nothing in it references one. The gap is
+  intentional.
+- An **unmerged** hardening migration (internal notification helper privileges) currently sits on
+  its own branch named `0055`. It **must be renamed to `0057` before that branch merges**, together
+  with the two filename constants in its own tests.
+- **Production must never receive a `0055` after `0056`.** The Supabase CLI keys history on the
+  four-digit version prefix and refuses a local migration that sorts before the last applied remote
+  version, failing closed with `LegacyDbPushMissingRemoteError`. Renumbering forward keeps every
+  push in order.
+- **`--include-all` is not the planned production procedure.** It is not a remedy for this and must
+  not be used to force an out-of-order migration through. See
+  `supabase/migrations/archive/README.md` for the earlier `0034` collision that established this.
+- **No change to the unmerged branch is authorised by this note.** It records the agreed target
+  only; the rename happens on that branch, by its own owner, before it merges.
+
 **Not documented / Not verified:** automated backups, restore drills, incident response,
 on-call, scheduled maintenance jobs.
 

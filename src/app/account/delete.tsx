@@ -27,8 +27,9 @@ import { Text } from '@/components/ui/text';
  * credential re-proof, blockers, the transaction — happens in the `delete-account` Edge Function;
  * this component never learns anything it could misuse and never names a user.
  *
- * What is deleted vs retained is stated here in plain language and must stay consistent with
- * docs/pilot/legal-support.md and the public /delete-account page.
+ * What is deleted vs retained is stated here in plain language, including the purpose limitation
+ * on retained records, and must stay consistent with docs/pilot/legal-support.md and the public
+ * /delete-account page.
  */
 export default function DeleteAccountScreen() {
   const theme = useTheme();
@@ -109,9 +110,22 @@ export default function DeleteAccountScreen() {
                 What is kept
               </Text>
               <Text variant="body" color="textSecondary">
-                Records of completed bookings and payments{isProvider ? ', earnings and payouts' : ''}{' '}
-                are kept for accounting, dispute and legal reasons, with your personal details
-                removed from them. Reviews you left keep their rating but lose the written comment.
+                Records of completed bookings and payments{isProvider ? ', earnings and payouts' : ''},
+                together with any support cases and safety or fraud records involving your account.
+                Reviews you left keep their rating but lose the written comment.
+              </Text>
+            </View>
+
+            <View style={styles.section}>
+              <Text variant="heading" color="text">
+                Why those are kept
+              </Text>
+              <Text variant="body" color="textSecondary">
+                They are kept only where reasonably necessary for accounting, payment
+                reconciliation, disputes, safety, fraud prevention or legal obligations. Direct
+                personal identifiers are removed from them where possible, access is restricted to
+                staff who need it, and they are never used for unrelated purposes. They are deleted
+                or fully anonymised once that purpose and any applicable legal obligation end.
               </Text>
             </View>
 

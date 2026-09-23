@@ -264,6 +264,9 @@ keeps a referent. A raw auth deletion (dashboard or admin API) therefore leaves 
 profile behind. Ops-initiated deletions must call `public.delete_account(<user id>)` as
 `service_role` first (it scrubs and tombstones), then remove the auth user. The QA helpers were
 updated to remove fixture profiles explicitly for the same reason.
+The operator-facing copy of this rule, including the retry semantics of the `pending_auth_delete`
+state, lives in the operations runbook
+([engineering/operations](../engineering/operations/README.md) §5).
 
 ### What happens
 
