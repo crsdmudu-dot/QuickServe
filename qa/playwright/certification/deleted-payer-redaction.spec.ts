@@ -55,6 +55,13 @@ test.describe('Phase 4 — Deleted-payer payload redaction (0058)', { tag: ['@ce
 
   test.afterAll(async ({}, testInfo) => {
     if (!certificationConfigured() || !process.env.QA_SERVICE_ROLE_KEY || testInfo.project.name !== 'chromium') return;
+    // This suite creates roughly three times as many subjects as the deletion suite (the race
+    // alone seeds twelve), so its cleanup is hundreds of sequential requests. The first run on
+    // QA hit the default 60 s hook timeout after the booking pass and before the user pass,
+    // leaving tombstones and audit rows behind. Two changes: a hook budget sized to the work,
+    // and the per-user pass run in bounded parallel batches. Order WITHIN a user is unchanged
+    // (audit and throttle rows before the profile, the profile before the auth identity).
+    test.setTimeout(10 * 60 * 1000);
     const failures: string[] = [];
     // Financial rows in dependency order: payouts RESTRICT earnings; bookings cascade the rest.
     for (const b of seededBookingIds) {
@@ -72,7 +79,7 @@ test.describe('Phase 4 — Deleted-payer payload redaction (0058)', { tag: ['@ce
     }
     let recipients: string[] = [];
     try { recipients = await approvedAdminProfileIds(); } catch (err) { failures.push(`admin recipients: ${(err as Error).message}`); }
-    for (const id of createdUserIds) {
+    const cleanupUser = async (id: string): Promise<void> => {
       try {
         await deleteProviderPendingNotification(id, recipients).catch(() => {});
         await svcDelete(`/rest/v1/notifications?user_id=eq.${id}`);
@@ -86,9 +93,16 @@ test.describe('Phase 4 — Deleted-payer payload redaction (0058)', { tag: ['@ce
       } catch (err) {
         failures.push(`user cleanup ${id}: ${(err as Error).message}`);
       }
+    };
+    const BATCH = 6;
+    for (let i = 0; i < createdUserIds.length; i += BATCH) {
+      await Promise.all(createdUserIds.slice(i, i + BATCH).map(cleanupUser));
     }
     await svcDelete(`/rest/v1/notifications?type=in.(admin_provider_pending,admin_attempt_discrepancy)&created_at=gt.${encodeURIComponent(suiteStart)}`);
     await sweepEphemeralUsers(PREFIX);
+    // Residue checks by THIS suite's markers, so a partial cleanup can never read as clean.
+    expect(await count('profiles', `&full_name=eq.${encodeURIComponent('QA Redaction Subject')}`), 'no subject profile left').toBe(0);
+    expect(await count('profiles', `&deleted_at=gt.${encodeURIComponent(suiteStart)}`), 'no tombstone from this run left').toBe(0);
     const after = await totals();
     if (failures.length) throw new Error(`deleted-payer-redaction cleanup failures:\n${failures.join('\n')}`);
     expect(after, 'fixed-account totals must return to baseline (delta zero)').toEqual(baseline);
