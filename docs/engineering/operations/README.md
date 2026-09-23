@@ -132,7 +132,14 @@ manual procedure, its dependency constraints and the code and schema work it nee
 #### Outstanding before the account-deletion release
 
 The `delete-account` Edge Function was restructured (decision flow moved to `handler.ts`, profile
-lookup now fails closed). **It is NOT certified against QA in that form.** Open items:
+lookup now fails closed). **It passed focused QA certification on 2026-09-23 as v2**, against PR
+head `81de534`: 9 of 9 cases including the `pending_auth_delete` retry, with all 21 measured counts
+returning to baseline and no residue. Record:
+[2026-09-23-ACCOUNT-DELETION-V2-QA-CERTIFICATION.md](../../qa/2026-09-23-ACCOUNT-DELETION-V2-QA-CERTIFICATION.md).
+
+That certification covers the **Edge Function only**. The `qa:release` gate has not been re-run on
+this head, no app layer was exercised, and Production has neither `0056` nor the function. Open
+items:
 
 1. **Validate the Deno boundary — DONE.** `deno check` now passes on the real `index.ts` against
    the real `jsr:@supabase/supabase-js@2`, with the entry point free of casts. Removing the
@@ -142,13 +149,14 @@ lookup now fails closed). **It is NOT certified against QA in that form.** Open 
    both to keep TypeScript inside its instantiation-depth limit. Reproduce with:
    `npx deno@2 check supabase/functions/delete-account/index.ts` from a directory whose
    `deno.json` sets `"nodeModulesDir": "auto"`, outside the repository's own `node_modules`.
-2. **Re-certify against QA once access is restored — PREPARED, NOT RUN.** The run sheet is
-   `docs/qa/ACCOUNT-DELETION-REVISED-FUNCTION-QA-RUN.md`: deploy ONLY `delete-account`, do not
-   reapply `0056`, run the full certification (which already covers the `pending_auth_delete` retry
-   and idempotent repeat), and confirm the delta-zero baseline and disposable-user cleanup. The
-   only missing credential is a Supabase CLI personal access token, for `functions deploy` alone;
-   every QA fixture key is already in `qa/.env`. Do not carry the previous version's certification
-   forward.
+2. **Re-certify against QA — DONE 2026-09-23.** Deployed only `delete-account` to the explicitly
+   referenced QA project, taking it from v1 to **v2**; `0056` was already applied and was **not**
+   reapplied, and the migration list was unchanged before and after (55 entries, `0001`–`0054` then
+   `0056`, no `0055`). All nine certification cases passed, including the forced auth-deletion
+   failure and its retry. A 21-measure before/after comparison, captured independently of the
+   specification, showed delta zero across fixed-account totals, financial fingerprints, tombstones,
+   audit and throttle rows, and residue markers; the spec's own delta-zero assertion agreed. Every
+   other Edge Function was left at its prior version.
 3. **Cover the two new refusal paths — DONE locally.** Profile-read failure and missing profile are
    covered by dependency injection in `src/__tests__/delete-account-handler.test.ts`: four causes
    for the read failure, each proving no password verification, no data mutation, no ban and no
@@ -198,7 +206,7 @@ What a merge to `main` actually deploys, and what it does not. Verified from the
 | Cloudflare Workers Builds -> Worker `quickserve` (admin web) | Push to `main` | **ACTIVE.** Build `npm run build:admin`; deploy `npm run check:admin-artifact && npx wrangler deploy -c apps/admin/wrangler.jsonc` |
 | Vercel -> consumer Expo web export | Push to `main`, IF a git integration exists | **UNKNOWN.** `vercel.json` at the repository root is configuration evidence only. It is not proof of a live connection, and repository contents cannot establish one. **An operator must confirm.** |
 | GitHub Actions | — | **NONE deploy.** `pr-ci.yml` runs on `pull_request` to `main` and manual dispatch; the three iOS workflows are `workflow_dispatch` only. No workflow has a `push:` trigger. |
-| Supabase Edge Functions | — | **Hand-deployed only.** No workflow runs `supabase functions deploy`. |
+| Supabase Edge Functions | — | **Hand-deployed only.** No workflow runs `supabase functions deploy`. QA holds `delete-account` v2 (certified 2026-09-23); **Production holds neither `0056` nor the function.** |
 | Worker `quickserve-auth-qa` (QA auth bridge) | — | **Hand-deployed only** via `wrangler.qa-auth.jsonc`. Never touched by Workers Builds. |
 
 The Cloudflare deploy command above is the agreed one and must be preserved verbatim; changing it,
