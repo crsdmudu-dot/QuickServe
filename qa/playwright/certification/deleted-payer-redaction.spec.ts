@@ -362,33 +362,88 @@ test.describe('Phase 4 — Deleted-payer payload redaction (0058)', { tag: ['@ce
     expect(item(after.raw_response, 'MpesaReceiptNumber'), 'non-phone fields written through').toBe(s.receipt);
   });
 
-  // ── 7. Concurrency ───────────────────────────────────────────────────────────────────────
-  test('deletion racing a concurrent full-phone write never leaves an unmasked phone', { tag: ['@p0', '@security'] }, async () => {
+  // ── 7. Ordering and concurrency ──────────────────────────────────────────────────────────
+  //
+  // Three cases, because a race test alone proves too little. The two ORDERINGS are proved
+  // deterministically: write-then-delete exercises the tombstone trigger rewriting a row that
+  // already holds the phone; delete-then-write exercises the write-time trigger on a committed
+  // tombstone. The RACE then fires many pairs together and measures, from each request's
+  // in-flight window, how many pairs actually overlapped; it fails if none did, so it cannot pass
+  // as a race while having run sequentially. Lock-level interleaving cannot be injected without a
+  // test hook in the schema, which is deliberately not provided; the overlap count is reported
+  // so the strength of the evidence is visible in the run log.
+  const hostileWrite = (s: Seeded) => ({
+    raw_response: { ...callbackRaw(1500, s.receipt, FULL_PHONE, s.checkoutId), PhoneNumber: FULL_PHONE },
+    phone: FULL_PHONE,
+  });
+  async function expectFullyMasked(id: string, s: Seeded, label: string): Promise<void> {
+    const [p] = await svcGet<Row[]>(`/rest/v1/profiles?id=eq.${id}&select=deleted_at`);
+    expect(p.deleted_at, `${label}: deletion committed`).not.toBeNull();
+    const row = await readAttempt(s.attemptId);
+    expect(containsFullPhone(row.raw_response), `${label}: raw`).toBe(false);
+    expect((row.raw_response as Row).PhoneNumber, `${label}: top-level`).toBe(MASKED);
+    expect(item(row.raw_response, 'PhoneNumber'), `${label}: callback item`).toBe(MASKED);
+    expect(row.phone, `${label}: phone column`).toBe(MASKED);
+    expect(row.settlement_reference, `${label}: settlement intact`).toBe(s.receipt);
+    expect(row.status, `${label}: status intact`).toBe('successful');
+  }
+
+  test('ordering A — a full-phone write committed BEFORE deletion is rewritten by the deletion', { tag: ['@p0', '@security'] }, async () => {
+    const c = await createSubject('customer');
+    const pr = await createSubject('provider');
+    const s = await seedSettledViaCallback(c.id, pr.id, 'both');
+    expect(await svcPatch(`/rest/v1/payment_attempts?id=eq.${s.attemptId}`, hostileWrite(s))).toBeLessThan(300);
+    expect(containsFullPhone((await readAttempt(s.attemptId)).raw_response), 'precondition: phone present').toBe(true);
+    expect((await deleteAccount(c.id)).status).toBe('pending_auth_delete');
+    await expectFullyMasked(c.id, s, 'write-then-delete');
+  });
+
+  test('ordering B — a full-phone write AFTER deletion is redacted at write time', { tag: ['@p0', '@security'] }, async () => {
+    const c = await createSubject('customer');
+    const pr = await createSubject('provider');
+    const s = await seedSettledViaCallback(c.id, pr.id, 'both');
+    expect((await deleteAccount(c.id)).status).toBe('pending_auth_delete');
+    await expectFullyMasked(c.id, s, 'after delete, before write');
+    expect(await svcPatch(`/rest/v1/payment_attempts?id=eq.${s.attemptId}`, hostileWrite(s))).toBeLessThan(300);
+    await expectFullyMasked(c.id, s, 'delete-then-write');
+  });
+
+  test('race — deletion and a full-phone write in flight together never leave or restore the phone', { tag: ['@p0', '@security'] }, async () => {
     const pr = await createSubject('provider');
     const subjects: { id: string; s: Seeded }[] = [];
-    for (let i = 0; i < 4; i += 1) {
+    for (let i = 0; i < 12; i += 1) {
       const c = await createSubject('customer');
       subjects.push({ id: c.id, s: await seedSettledViaCallback(c.id, pr.id, 'both') });
     }
-    for (let round = 0; round < 2; round += 1) {
-      await Promise.all(
-        subjects.flatMap(({ id, s }) => [
-          deleteAccount(id),
-          svcPatch(`/rest/v1/payment_attempts?id=eq.${s.attemptId}`, {
-            raw_response: { ...callbackRaw(1500, s.receipt, FULL_PHONE, s.checkoutId), PhoneNumber: FULL_PHONE },
-            phone: FULL_PHONE,
-          }),
-        ]),
+    type Win = { start: number; end: number };
+    const timed = async <T,>(fn: () => Promise<T>): Promise<Win & { value: T }> => {
+      const start = Date.now();
+      const value = await fn();
+      return { start, end: Date.now(), value };
+    };
+    let overlapped = 0;
+    let pairs = 0;
+    for (let round = 0; round < 3; round += 1) {
+      const results = await Promise.all(
+        subjects.map(async ({ id, s }) => {
+          const [del, wr] = await Promise.all([
+            timed(() => deleteAccount(id)),
+            timed(() => svcPatch(`/rest/v1/payment_attempts?id=eq.${s.attemptId}`, hostileWrite(s))),
+          ]);
+          return { del, wr };
+        }),
       );
+      for (const { del, wr } of results) {
+        pairs += 1;
+        if (del.start < wr.end && wr.start < del.end) overlapped += 1;
+        expect(['pending_auth_delete', 'deleted']).toContain(del.value.status as string);
+        expect(wr.value).toBeLessThan(300);
+      }
     }
-    for (const { id, s } of subjects) {
-      const [p] = await svcGet<Row[]>(`/rest/v1/profiles?id=eq.${id}&select=deleted_at`);
-      expect(p.deleted_at, 'deletion committed').not.toBeNull();
-      const row = await readAttempt(s.attemptId);
-      expect(containsFullPhone(row.raw_response), `subject ${id}: raw`).toBe(false);
-      expect(row.phone, `subject ${id}: phone`).toBe(MASKED);
-      expect(row.settlement_reference, 'settlement intact through the race').toBe(s.receipt);
-    }
+    // Persisted outcome, inspected only after every request in every round has completed.
+    for (const { id, s } of subjects) await expectFullyMasked(id, s, `race subject ${id}`);
+    console.log(`[deleted-payer-redaction] race: ${overlapped} of ${pairs} delete/write pairs were in flight together`);
+    expect(overlapped, 'the race must have actually raced: at least one pair in flight together').toBeGreaterThan(0);
   });
 
   // ── 8. Malformed and non-object payloads ─────────────────────────────────────────────────
