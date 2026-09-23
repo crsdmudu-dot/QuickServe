@@ -100,9 +100,24 @@ test.describe('Phase 4 — Deleted-payer payload redaction (0058)', { tag: ['@ce
     }
     await svcDelete(`/rest/v1/notifications?type=in.(admin_provider_pending,admin_attempt_discrepancy)&created_at=gt.${encodeURIComponent(suiteStart)}`);
     await sweepEphemeralUsers(PREFIX);
-    // Residue checks by THIS suite's markers, so a partial cleanup can never read as clean.
-    expect(await count('profiles', `&full_name=eq.${encodeURIComponent('QA Redaction Subject')}`), 'no subject profile left').toBe(0);
-    expect(await count('profiles', `&deleted_at=gt.${encodeURIComponent(suiteStart)}`), 'no tombstone from this run left').toBe(0);
+    // Residue checks by THIS suite's own identities, so a partial or silently failed cleanup can
+    // never read as clean. Every id this run created must be gone from profiles AND from auth;
+    // swallowed errors above cannot mask that, because these read the live state afterwards.
+    if (createdUserIds.length) {
+      const inList = `in.(${createdUserIds.join(',')})`;
+      expect(await count('profiles', `&id=${inList}`), 'no profile from this run left').toBe(0);
+      expect(await count('account_deletions', `&user_id=${inList}`), 'no audit row from this run left').toBe(0);
+      const s = await service();
+      try {
+        let remaining = 0;
+        for (const id of createdUserIds) {
+          const r = await s.get(`/auth/v1/admin/users/${id}`);
+          if (r.status() === 200) remaining += 1;
+        }
+        expect(remaining, 'no auth identity from this run left').toBe(0);
+      } finally { await s.dispose(); }
+    }
+    expect(await count('profiles', `&deleted_at=gt.${encodeURIComponent(suiteStart)}`), 'no tombstone dated after suite start left').toBe(0);
     const after = await totals();
     if (failures.length) throw new Error(`deleted-payer-redaction cleanup failures:\n${failures.join('\n')}`);
     expect(after, 'fixed-account totals must return to baseline (delta zero)').toEqual(baseline);
