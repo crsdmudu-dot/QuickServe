@@ -12,7 +12,7 @@ import {
   FAQ_ITEMS,
 } from '@/content/site';
 
-// The 12 allowed marketing routes — no admin or app routes.
+// The 13 allowed marketing routes — no admin or app routes.
 const ALLOWED_ROUTES = new Set([
   '/',
   '/services',
@@ -26,6 +26,7 @@ const ALLOWED_ROUTES = new Set([
   '/download',
   '/privacy',
   '/terms',
+  '/delete-account',
 ]);
 
 describe('SERVICE_CATEGORIES', () => {
@@ -74,6 +75,16 @@ describe('FOOTER_GROUPS hrefs', () => {
         expect(link.href).not.toMatch(/\(admin-web\)/);
       }
     }
+  });
+
+  // Google Play's account-deletion policy requires a public, signed-out request page. It must be
+  // discoverable from every marketing page, so it lives in the Legal footer group.
+  it('the Legal group links to the public account-deletion page', () => {
+    const legal = FOOTER_GROUPS.find((g) => g.title === 'Legal');
+    expect(legal).toBeDefined();
+    expect(legal?.links.map((l) => l.href)).toEqual(
+      expect.arrayContaining(['/privacy', '/terms', '/delete-account']),
+    );
   });
 });
 

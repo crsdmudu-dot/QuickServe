@@ -1,0 +1,141 @@
+/**
+ * account-delete-screen.test.tsx — the confirmation gate, blocker rendering and sign-out handoff.
+ *
+ * The screen owns the UX gate only; the server owns identity, credential re-proof and the
+ * transaction. So the contract tested here is: the button cannot fire until the confirmation word
+ * AND a password are present; blockers from the server are rendered by code; success signs out
+ * locally and leaves; admins are refused before any control is shown.
+ */
+import React from 'react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+
+import DeleteAccountScreen from '@/app/account/delete';
+import { DELETE_CONFIRMATION_WORD } from '@/lib/account';
+
+const mockReplace = jest.fn();
+const mockBack = jest.fn();
+jest.mock('expo-router', () => ({
+  router: {
+    push: jest.fn(),
+    replace: (...a: unknown[]) => mockReplace(...a),
+    back: (...a: unknown[]) => mockBack(...a),
+  },
+}));
+
+const mockSignOut = jest.fn(async () => {});
+let mockRole: 'customer' | 'provider' | 'admin' = 'customer';
+jest.mock('@/auth/auth-context', () => ({
+  useAuth: () => ({ role: mockRole, signOut: mockSignOut }),
+}));
+
+// The real client throws at import time without EXPO_PUBLIC_* env; the screen never talks to it
+// directly (only through requestAccountDeletion, mocked below), so a stub is all that is needed.
+jest.mock('@/lib/supabase', () => ({ supabase: { functions: { invoke: jest.fn() } } }));
+
+const mockRequest = jest.fn();
+jest.mock('@/lib/account', () => {
+  const actual = jest.requireActual('@/lib/account');
+  return { ...actual, requestAccountDeletion: (...a: unknown[]) => mockRequest(...a) };
+});
+
+jest.mock('@/components/ui/support-link', () => ({ SupportLink: () => null }));
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockRole = 'customer';
+});
+
+function fillGate(word = DELETE_CONFIRMATION_WORD, password = 'correct horse') {
+  fireEvent.changeText(screen.getByTestId('delete-account-confirmation'), word);
+  fireEvent.changeText(screen.getByTestId('delete-account-password'), password);
+}
+
+describe('DeleteAccountScreen — confirmation gate', () => {
+  it('starts disabled and stays disabled until the exact word AND a password are entered', () => {
+    render(<DeleteAccountScreen />);
+    const submit = screen.getByTestId('delete-account-submit');
+    expect(submit.props.accessibilityState?.disabled ?? submit.props.disabled).toBe(true);
+
+    fillGate('delete', 'pw'); // wrong case
+    expect(submit.props.accessibilityState?.disabled ?? submit.props.disabled).toBe(true);
+
+    fillGate(DELETE_CONFIRMATION_WORD, ''); // no password
+    expect(submit.props.accessibilityState?.disabled ?? submit.props.disabled).toBe(true);
+
+    fillGate();
+    expect(submit.props.accessibilityState?.disabled ?? submit.props.disabled).toBe(false);
+  });
+
+  it('never calls the server while the gate is closed', () => {
+    render(<DeleteAccountScreen />);
+    fillGate('nope', 'pw');
+    fireEvent.press(screen.getByTestId('delete-account-submit'));
+    expect(mockRequest).not.toHaveBeenCalled();
+  });
+});
+
+describe('DeleteAccountScreen — outcomes', () => {
+  it('renders every blocker the server returns, and does not sign out', async () => {
+    mockRequest.mockResolvedValueOnce({
+      ok: false,
+      status: 'blocked',
+      blockers: ['active_booking', 'positive_wallet_balance'],
+    });
+    render(<DeleteAccountScreen />);
+    fillGate();
+    fireEvent.press(screen.getByTestId('delete-account-submit'));
+
+    await waitFor(() => expect(screen.getByTestId('delete-account-blocked-title')).toBeOnTheScreen());
+    expect(screen.getByTestId('delete-account-blocker-active_booking')).toBeOnTheScreen();
+    expect(screen.getByTestId('delete-account-blocker-positive_wallet_balance')).toBeOnTheScreen();
+    expect(mockSignOut).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('on deleted: signs out locally and leaves for /welcome', async () => {
+    mockRequest.mockResolvedValueOnce({ ok: true, status: 'deleted' });
+    render(<DeleteAccountScreen />);
+    fillGate();
+    fireEvent.press(screen.getByTestId('delete-account-submit'));
+
+    await waitFor(() => expect(mockSignOut).toHaveBeenCalledTimes(1));
+    expect(mockReplace).toHaveBeenCalledWith('/welcome');
+    expect(mockRequest).toHaveBeenCalledWith({ password: 'correct horse', confirmation: DELETE_CONFIRMATION_WORD });
+  });
+
+  it('on pending_auth_delete: still signs out and leaves (access is already revoked server-side)', async () => {
+    mockRequest.mockResolvedValueOnce({ ok: true, status: 'pending_auth_delete' });
+    render(<DeleteAccountScreen />);
+    fillGate();
+    fireEvent.press(screen.getByTestId('delete-account-submit'));
+    await waitFor(() => expect(mockSignOut).toHaveBeenCalledTimes(1));
+    expect(mockReplace).toHaveBeenCalledWith('/welcome');
+  });
+
+  it('shows a server error and keeps the session', async () => {
+    mockRequest.mockResolvedValueOnce({ ok: false, status: 'error', error: 'Incorrect password.' });
+    render(<DeleteAccountScreen />);
+    fillGate();
+    fireEvent.press(screen.getByTestId('delete-account-submit'));
+    await waitFor(() => expect(screen.getByTestId('delete-account-error')).toBeOnTheScreen());
+    expect(screen.getByText('Incorrect password.')).toBeOnTheScreen();
+    expect(mockSignOut).not.toHaveBeenCalled();
+  });
+});
+
+describe('DeleteAccountScreen — roles', () => {
+  it('admins get a notice and no controls', () => {
+    mockRole = 'admin';
+    render(<DeleteAccountScreen />);
+    expect(screen.getByTestId('delete-account-admin-notice')).toBeOnTheScreen();
+    expect(screen.queryByTestId('delete-account-submit')).toBeNull();
+    expect(screen.queryByTestId('delete-account-password')).toBeNull();
+  });
+
+  it('providers see provider-specific retention copy', () => {
+    mockRole = 'provider';
+    render(<DeleteAccountScreen />);
+    expect(screen.getByText(/earnings and payouts/)).toBeOnTheScreen();
+    expect(screen.getByText(/all earnings paid out/)).toBeOnTheScreen();
+  });
+});

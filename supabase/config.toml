@@ -18,3 +18,8 @@ verify_jwt = true
 
 [functions.tracking-map]
 verify_jwt = true
+
+# Self-service account deletion. The gateway verifies the JWT and the function derives the target
+# identity from it; the request body never names a user.
+[functions.delete-account]
+verify_jwt = true

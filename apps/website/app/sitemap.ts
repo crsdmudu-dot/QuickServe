@@ -1,4 +1,4 @@
-// app/sitemap.ts — static sitemap for all 12 KwikServe marketing routes.
+// app/sitemap.ts — static sitemap for all 13 KwikServe marketing routes.
 // No data fetching — pure static export.
 // `dynamic = 'force-static'` is required for `output: 'export'` in Next 15.
 
@@ -26,6 +26,7 @@ const ROUTES: RouteConfig[] = [
   { path: '/download',          changeFrequency: 'monthly', priority: 0.8 },
   { path: '/privacy',           changeFrequency: 'yearly',  priority: 0.4 },
   { path: '/terms',             changeFrequency: 'yearly',  priority: 0.4 },
+  { path: '/delete-account',    changeFrequency: 'yearly',  priority: 0.4 },
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

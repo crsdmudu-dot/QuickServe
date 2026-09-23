@@ -16,6 +16,7 @@ import SupportPage, { metadata as supportMeta } from '@/app/support/page';
 import DownloadPage, { metadata as downloadMeta } from '@/app/download/page';
 import PrivacyPage, { metadata as privacyMeta } from '@/app/privacy/page';
 import TermsPage, { metadata as termsMeta } from '@/app/terms/page';
+import DeleteAccountPage, { metadata as deleteAccountMeta } from '@/app/delete-account/page';
 
 // Home metadata for duplicate-title check
 import { metadata as homeMeta } from '@/app/page';
@@ -355,10 +356,10 @@ describe('/terms page', () => {
 });
 
 // =============================================================================
-// Cross-page: metadata title uniqueness (all 12 pages)
+// Cross-page: metadata title uniqueness (all 13 pages)
 // =============================================================================
 describe('Metadata title uniqueness across all pages', () => {
-  it('all 12 page titles are distinct (no duplicates)', () => {
+  it('all 13 page titles are distinct (no duplicates)', () => {
     const allMetas = [
       homeMeta,
       servicesMeta,
@@ -372,6 +373,7 @@ describe('Metadata title uniqueness across all pages', () => {
       downloadMeta,
       privacyMeta,
       termsMeta,
+      deleteAccountMeta,
     ];
     const titles = allMetas.map((m) => resolveTitle(m as { title?: unknown }));
     const uniqueTitles = new Set(titles);
@@ -402,4 +404,25 @@ describe('Cross-page admin-link guard', () => {
       expect(adminLinks.length).toBe(0);
     }
   );
+});
+
+// ── /delete-account — Google Play public deletion page ───────────────────────
+describe('DeleteAccountPage', () => {
+  it('renders the h1, the in-app path, the email request route and legal links', () => {
+    render(<DeleteAccountPage />);
+    expect(screen.getByRole('heading', { level: 1, name: /delete your kwikserve account/i })).toBeInTheDocument();
+    expect(screen.getByText(/delete it yourself in the app/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: /sign in.*ask us/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /privacy policy/i })).toHaveAttribute('href', '/privacy');
+    expect(screen.getByRole('link', { name: /terms of service/i })).toHaveAttribute('href', '/terms');
+    const mail = screen.getAllByRole('link').find((a) => (a.getAttribute('href') ?? '').startsWith('mailto:'));
+    expect(mail?.getAttribute('href')).toMatch(/subject=Account%20deletion%20request/);
+  });
+
+  it('states what is deleted and what is kept without quoting an unapproved retention period', () => {
+    render(<DeleteAccountPage />);
+    expect(screen.getByText(/what is deleted/i)).toBeInTheDocument();
+    expect(screen.getByText(/what is kept, and why/i)).toBeInTheDocument();
+    expect(document.body.textContent ?? '').not.toMatch(/d+ (years?|months?)/i);
+  });
 });
