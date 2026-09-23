@@ -90,8 +90,9 @@ export default function DeleteAccountScreen() {
           <>
             <Card>
               <Text variant="body" color="text">
-                This permanently deletes your KwikServe account. You will be signed out on every
-                device and cannot sign in again.
+                This permanently deletes your KwikServe account. Your access ends as soon as the
+                deletion completes and you cannot sign in again. A device you are still signed in on
+                may keep showing its last screen until it next contacts us.
               </Text>
             </Card>
 
@@ -111,8 +112,9 @@ export default function DeleteAccountScreen() {
               </Text>
               <Text variant="body" color="textSecondary">
                 Records of completed bookings and payments{isProvider ? ', earnings and payouts' : ''},
-                together with any support cases and safety or fraud records involving your account.
-                Reviews you left keep their rating but lose the written comment.
+                photos attached to those bookings, and any support cases, internal notes and safety
+                or fraud records involving your account. Reviews you left keep their rating but lose
+                the written comment.
               </Text>
             </View>
 
@@ -121,11 +123,12 @@ export default function DeleteAccountScreen() {
                 Why those are kept
               </Text>
               <Text variant="body" color="textSecondary">
-                They are kept only where reasonably necessary for accounting, payment
-                reconciliation, disputes, safety, fraud prevention or legal obligations. Direct
-                personal identifiers are removed from them where possible, access is restricted to
-                staff who need it, and they are never used for unrelated purposes. They are deleted
-                or fully anonymised once that purpose and any applicable legal obligation end.
+                Only where one of these still applies: accounting, payment reconciliation,
+                disputes, safety, fraud prevention or a legal obligation. We remove direct personal
+                identifiers where we can, but some kept records, booking photos and support notes in
+                particular, may still contain personal information. Access is limited to staff who
+                need it and to the other person on a booking you shared, who keeps their own view of
+                that booking. We never use them for unrelated purposes.
               </Text>
             </View>
 

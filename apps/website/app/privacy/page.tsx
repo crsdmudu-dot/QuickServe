@@ -117,8 +117,7 @@ export default function PrivacyPage() {
               Your email address and password authenticate you. Passwords are never stored in a
               readable form. We send account emails such as sign-up confirmation and password reset,
               and those links are single-use and time-limited. Sessions are held on your device and
-              are revoked when you sign out, when you change your password, or when your account is
-              deleted. Your role determines what you can see and do, and that separation is enforced
+              are revoked when you sign out and when your account is deleted. Your role determines what you can see and do, and that separation is enforced
               by the database itself, not only by the app.
             </p>
           </div>
@@ -127,8 +126,9 @@ export default function PrivacyPage() {
             <h2 className="text-heading font-bold text-ink">5. Bookings and service fulfilment</h2>
             <p className="text-body text-textSecondary">
               To fulfil a booking we share with the assigned provider only what they need to do the
-              job: your first name, the service address and access notes, the scheduled time and a
-              contact number. Providers do not see your payment details or your other bookings.
+              job: the service address and access notes you supply, the scheduled time, and the
+              details of that booking. Providers do not see your profile, your payment records or
+              your other bookings.
               Booking chat messages are visible to you and to the other party on that booking.
               Photos attached to a booking form part of its record. Reviews you write are shown with
               your first name against the provider you reviewed.
@@ -165,8 +165,11 @@ export default function PrivacyPage() {
               an address field is sent to that service to return suggestions. Coordinates for a
               booking address are stored with the booking so the provider can find you. Where a
               provider has granted location permission, their location is shared while a job is
-              active so that you can follow its progress, and it stops being shared when the job
-              ends. Customer location is not tracked in the background.
+              active so that you can follow its progress. When the job is completed or cancelled the
+              app stops sending updates and asks us to delete the last position it stored. That
+              request comes from the provider's device, so if their app is closed at that moment the
+              last stored position can remain until it is removed. Customer location is not tracked
+              in the background.
             </p>
           </div>
 
@@ -223,7 +226,10 @@ export default function PrivacyPage() {
               for the steps and for exactly what is removed.
             </p>
             <p className="text-body text-textSecondary">
-              Deletion removes your login and your personal profile, and access ends immediately.
+              Deletion removes your login and your personal profile. As soon as it completes we
+              stop serving your data to any device and your saved sign-ins are revoked, so nothing
+              can sign in or renew a session; a device still open may keep showing its last screen
+              until it next contacts us.
               Your account record itself is not dropped from the database: it is reduced to a
               tombstone with your personal fields cleared, so that the financial, dispute and audit
               records that must point at an account still have something to point at. Deleting those
@@ -238,15 +244,21 @@ export default function PrivacyPage() {
           <div className="flex flex-col gap-3">
             <h2 className="text-heading font-bold text-ink">13. How long we keep data</h2>
             <p className="text-body text-textSecondary">
-              We keep personal data only for as long as it is reasonably necessary for the purpose it
-              was collected for, or for as long as a legal obligation that applies to us requires. In
-              practice that means account and profile data lasts while your account does; booking,
-              payment, payout, support, safety and audit records are kept after deletion where they
-              are still needed for accounting, payment reconciliation, dispute resolution, safety,
-              fraud prevention or a legal obligation. Direct personal identifiers are removed from
-              those records where possible, access to them is restricted, and they are not used for
-              marketing, profiling or any other unrelated purpose. When the purpose and any
-              applicable obligation no longer apply, the records are deleted or fully anonymised.
+              We keep personal data only where it is still needed for the purpose it was collected
+              for, or where a legal obligation that applies to us requires it. In practice that means
+              account and profile data lasts while your account does; booking, payment, payout,
+              booking photos, support, safety and audit records are kept after deletion where
+              accounting, payment reconciliation, dispute resolution, safety, fraud prevention or a
+              legal obligation still applies.
+            </p>
+            <p className="text-body text-textSecondary">
+              We remove direct personal identifiers from those records where we can, but that is not
+              a guarantee that every retained record is free of personal information: photos
+              attached to a booking are kept as they were, and a support or safety note written by
+              our staff may describe you or what happened. Access is limited to our staff who need
+              it for one of the purposes above, and to the other person on a booking you shared, who
+              keeps their own view of that booking. We do not use retained records for marketing,
+              profiling or any other unrelated purpose.
             </p>
           </div>
 

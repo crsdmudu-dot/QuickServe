@@ -125,6 +125,39 @@ than relying on a cascade that no longer exists.
 Public-facing wording for this behaviour lives in `docs/pilot/legal-support.md` §8, the
 `/delete-account` website page and the in-app delete screen. They must stay consistent.
 
+Retention of the records deletion leaves behind has **no** implemented review or purge. A proposed
+manual procedure, its dependency constraints and the code and schema work it needs are drafted in
+`docs/pilot/data-retention-review.md`, awaiting owner approval.
+
+#### Outstanding before the account-deletion release
+
+The `delete-account` Edge Function was restructured (decision flow moved to `handler.ts`, profile
+lookup now fails closed). **It is NOT certified against QA in that form.** Open items:
+
+1. **Validate the Deno boundary.** `index.ts` is excluded from `tsconfig.json` and unreachable from
+   Jest, and Deno is not installed on the build host, so nothing currently typechecks the entry
+   point, the `jsr:` import, the relative `./handler.ts` import or the client wiring. The handler's
+   TypeScript tests prove the decision flow and say nothing about that boundary. Validate it by
+   running `deno check` on the function directory, or by the first QA deploy, before release.
+2. **Re-certify against QA once access is restored.** Deploy ONLY the revised `delete-account`
+   function to the certified QA project, run the complete deletion certification
+   (`qa/playwright/certification/account-deletion.spec.ts`), verify the `pending_auth_delete` retry
+   path end to end, and prove the QA baseline is restored afterwards. Do not carry the previous
+   version's certification forward.
+3. **Cover the two new refusal paths** — profile-read failure and missing profile — without adding
+   any fault-injection hook that could exist in a production build, and without altering shared QA
+   RLS or storage policies that other certifications depend on. Prefer a disposable fixture user,
+   or exercise them where they already are exercised: in the handler's offline tests.
+4. **Booking-photo storage scope: FINDING WITHDRAWN.** An earlier review claimed the
+   `booking-photos` object-read policy was open to any authenticated user. That described the
+   superseded `0006` policy; `0016_tighten_booking_photos_storage.sql` drops it and scopes object
+   reads to the booking's customer, its assigned provider, or an admin. No investigation is
+   required. A cheap regression guard asserting that `0016`'s scoping survives, and that no later
+   migration re-broadens it, is worth adding separately. No storage policy is changed here.
+5. **The retention procedure remains unapproved.** `docs/pilot/data-retention-review.md` is a draft.
+   Its owner and cadence are proposals. The deletion-or-anonymisation sentence stays out of the
+   public pages until the gate in its §9 is met.
+
 ### Migration numbering — `0055` is reserved, not free
 
 Operational record, current as of this note:
@@ -145,6 +178,23 @@ Operational record, current as of this note:
   `supabase/migrations/archive/README.md` for the earlier `0034` collision that established this.
 - **No change to the unmerged branch is authorised by this note.** It records the agreed target
   only; the rename happens on that branch, by its own owner, before it merges.
+
+### Automatic deployment inventory
+
+What a merge to `main` actually deploys, and what it does not. Verified from the repository on
+2026-09-23; dashboard-held state is marked UNKNOWN rather than assumed.
+
+| Surface | Trigger | State |
+|---|---|---|
+| Cloudflare Workers Builds -> Worker `quickserve` (admin web) | Push to `main` | **ACTIVE.** Build `npm run build:admin`; deploy `npm run check:admin-artifact && npx wrangler deploy -c apps/admin/wrangler.jsonc` |
+| Vercel -> consumer Expo web export | Push to `main`, IF a git integration exists | **UNKNOWN.** `vercel.json` at the repository root is configuration evidence only. It is not proof of a live connection, and repository contents cannot establish one. **An operator must confirm.** |
+| GitHub Actions | — | **NONE deploy.** `pr-ci.yml` runs on `pull_request` to `main` and manual dispatch; the three iOS workflows are `workflow_dispatch` only. No workflow has a `push:` trigger. |
+| Supabase Edge Functions | — | **Hand-deployed only.** No workflow runs `supabase functions deploy`. |
+| Worker `quickserve-auth-qa` (QA auth bridge) | — | **Hand-deployed only** via `wrangler.qa-auth.jsonc`. Never touched by Workers Builds. |
+
+The Cloudflare deploy command above is the agreed one and must be preserved verbatim; changing it,
+or any other Workers Builds setting, is a production change needing explicit authorisation
+(`docs/pilot/web-admin-deploy.md`).
 
 **Not documented / Not verified:** automated backups, restore drills, incident response,
 on-call, scheduled maintenance jobs.

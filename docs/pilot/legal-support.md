@@ -284,9 +284,13 @@ account flag.
 
 ### Retention basis — NEEDS OWNER / LEGAL REVIEW
 
-The public `/delete-account` page states that retained records are kept "for as long as required
-for accounting, dispute resolution and legal obligations" and deliberately does **not** quote a
-period. The figures in the Section 1 table (2 years bookings, 5 years financial, 1 year chat) are
+The public `/delete-account` page and the Privacy Policy state the PURPOSES retention is limited to
+and deliberately quote **no** period. They also no longer promise that records are "deleted or fully
+anonymised once the purpose ends": nothing performs that, and `account_deletions.user_id` is
+`ON DELETE RESTRICT` against `profiles(id)`, so a tombstone cannot currently be deleted at all. A
+proposed manual procedure, and the code and schema work it would need, is drafted in
+[data-retention-review.md](data-retention-review.md) and is **awaiting owner approval**. The
+sentence may be restored to both pages only through the gate in §9 of that document. The figures in the Section 1 table (2 years bookings, 5 years financial, 1 year chat) are
 placeholders that predate legal review; they are not enforced by code and must be confirmed by the
 owner before they appear on any public page.
 

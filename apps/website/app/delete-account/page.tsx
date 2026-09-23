@@ -46,7 +46,7 @@ export default function DeleteAccountPage() {
               <li>Open KwikServe and go to <strong>Profile</strong>.</li>
               <li>Tap <strong>Delete account</strong>.</li>
               <li>Read what will be deleted and kept, type <strong>DELETE</strong>, and enter your current password.</li>
-              <li>Tap <strong>Delete my account</strong>. You are signed out everywhere immediately.</li>
+              <li>Tap <strong>Delete my account</strong>. Your access ends as soon as the deletion completes.</li>
             </ol>
             <p className="text-body text-textSecondary">
               If something still needs your attention — a booking that is not finished, a payment
@@ -78,8 +78,10 @@ export default function DeleteAccountPage() {
             <h2 className="text-heading font-bold text-ink">3. What is deleted</h2>
             <ul className="list-disc pl-6 text-body text-textSecondary flex flex-col gap-1">
               <li>
-                Your login. Access ends immediately: every device is signed out the moment the
-                deletion succeeds, and you cannot sign in again.
+                Your login. As soon as the deletion completes we stop serving your data to any
+                device and your saved sign-ins are revoked, so nothing can sign in or renew a
+                session. A device still open may keep showing its last screen until it next
+                contacts us, but it can no longer load anything.
               </li>
               <li>Your name, phone number, profile photo, and — for providers — bio, skills and experience.</li>
               <li>Saved addresses, favourites, notification settings and device registrations.</li>
@@ -91,23 +93,26 @@ export default function DeleteAccountPage() {
             <h2 className="text-heading font-bold text-ink">4. What is kept, and why</h2>
             <p className="text-body text-textSecondary">
               Records of completed bookings and payments — and, for providers, earnings and payouts —
-              are retained, together with support cases and safety or fraud records involving your
-              account. We keep them only where it is reasonably necessary for accounting, payment
-              reconciliation, dispute resolution, safety, fraud prevention or a legal obligation we
-              are subject to.
+              are retained, together with photos attached to those bookings and any support cases,
+              internal notes and safety or fraud records involving your account. We keep them only
+              where one of these still applies: accounting, payment reconciliation, dispute
+              resolution, safety, fraud prevention, or a legal obligation we are subject to.
             </p>
             <p className="text-body text-textSecondary">
-              Direct personal identifiers are removed from those records where possible: the booking
-              address, notes and location are cleared, chat messages you sent are replaced with a
-              placeholder, the payer phone number on a payment is reduced to its last three digits,
-              and the account itself is marked as deleted so the remaining rows no longer identify
-              you by name.
+              We remove direct personal identifiers where we can: the booking address, notes and
+              location are cleared, chat messages you sent are replaced with a placeholder, the
+              payer phone number on a payment is reduced to its last three digits, and the account
+              itself is marked as deleted so the remaining rows no longer carry your name. This is
+              not a guarantee that every retained record is free of personal information. Photos
+              attached to a booking are kept as they were, and a support or safety note written by
+              our staff may describe you or what happened.
             </p>
             <p className="text-body text-textSecondary">
-              Access to retained records is restricted to staff who need it for one of the purposes
-              above. They are not used for marketing, profiling or any other unrelated purpose, and
-              they are deleted or fully anonymised once that purpose and any applicable legal
-              obligation no longer apply.
+              Access is limited to our staff who need it for one of the purposes above, and to the
+              other person on a booking you shared. They keep their own view of that booking, with
+              your details already removed from it; they do not gain access to your payment records,
+              which remain visible only to you while your account exists, and to our staff. We do
+              not use retained records for marketing, profiling or any other unrelated purpose.
             </p>
           </div>
 

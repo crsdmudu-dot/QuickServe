@@ -361,7 +361,7 @@ describe('/privacy page', () => {
     render(<PrivacyPage />);
     const text = document.body.textContent ?? '';
     expect(text).toMatch(/tombstone/i);
-    expect(text).toMatch(/access ends immediately/i);
+    expect(text).toMatch(/we stop serving your data to any device/i);
     expect(text).toMatch(/Administrator accounts cannot be deleted/i);
     expect(screen.getByRole('link', { name: /delete your account/i })).toHaveAttribute(
       'href',
@@ -372,10 +372,10 @@ describe('/privacy page', () => {
   it('states reasonable-necessity retention with purpose limitation and no fixed period', () => {
     render(<PrivacyPage />);
     const text = document.body.textContent ?? '';
-    expect(text).toMatch(/reasonably necessary/i);
+    expect(text).toMatch(/only where it is still needed for the purpose/i);
     expect(text).toMatch(/legal obligation/i);
-    expect(text).toMatch(/not used for marketing, profiling or any other unrelated purpose/i);
-    expect(text).toMatch(/deleted or fully anonymised/i);
+    expect(text).toMatch(/not use retained records for marketing, profiling or any other unrelated purpose/i);
+    expect(text).toMatch(/not a guarantee that every retained record is free of personal information/i);
     expect(text).not.toMatch(/\b\d+\s*(years?|months?|days?)\b/i);
   });
 
@@ -488,23 +488,41 @@ describe('DeleteAccountPage', () => {
     expect(document.body.textContent ?? '').not.toMatch(/\b\d+\s*(years?|months?|days?)\b/i);
   });
 
-  it('states that account access ends immediately on success', () => {
-    render(<DeleteAccountPage />);
-    expect(document.body.textContent ?? '').toMatch(/Access ends immediately/i);
-  });
-
-  it('discloses support, safety and fraud records among what is retained', () => {
-    render(<DeleteAccountPage />);
-    expect(document.body.textContent ?? '').toMatch(/support cases and safety or fraud records/i);
-  });
-
-  it('states the purpose limitation, the access restriction and eventual deletion', () => {
+  it('states that access ends on completion without promising other devices sign out', () => {
     render(<DeleteAccountPage />);
     const text = document.body.textContent ?? '';
-    expect(text).toMatch(/only where it is reasonably necessary/i);
-    expect(text).toMatch(/Access to retained records is restricted/i);
-    expect(text).toMatch(/not used for marketing, profiling or any other unrelated purpose/i);
-    expect(text).toMatch(/deleted or fully anonymised/i);
+    expect(text).toMatch(/we stop serving your data to any device/i);
+    expect(text).toMatch(/may keep showing its last screen/i);
+    expect(text).not.toMatch(/signed out everywhere immediately/i);
+    expect(text).not.toMatch(/every device is signed out/i);
+  });
+
+  it('discloses support notes, safety records and retained booking photos', () => {
+    render(<DeleteAccountPage />);
+    const text = document.body.textContent ?? '';
+    expect(text).toMatch(/support cases, internal notes and safety or fraud records/i);
+    expect(text).toMatch(/photos attached to those bookings/i);
+  });
+
+  it('states the purpose limitation and the real access scope', () => {
+    render(<DeleteAccountPage />);
+    const text = document.body.textContent ?? '';
+    expect(text).toMatch(/only where one of these still applies/i);
+    expect(text).toMatch(/the other person on a booking you shared/i);
+    expect(text).toMatch(/do not gain access to your payment records/i);
+    expect(text).toMatch(/not use retained records for marketing, profiling or any other unrelated purpose/i);
+  });
+
+  it('does not claim every retained record is stripped of personal information', () => {
+    render(<DeleteAccountPage />);
+    expect(document.body.textContent ?? '').toMatch(
+      /not a guarantee that every retained record is free of personal information/i,
+    );
+  });
+
+  it('promises no end-of-retention deletion while no such process is implemented', () => {
+    render(<DeleteAccountPage />);
+    expect(document.body.textContent ?? '').not.toMatch(/fully anonymised/i);
   });
 
   it('describes identity verification for the email request route', () => {

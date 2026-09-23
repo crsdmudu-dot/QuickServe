@@ -148,39 +148,63 @@ describe('DeleteAccountScreen — roles', () => {
  * account flags, so the in-app copy disclosed less than both the public page and the database.
  * These cases pin the full disclosure and the purpose limitation that qualifies it.
  */
+const NO_FIXED_PERIOD = /\b\d+\s*(years?|months?|days?)\b/i;
+
 describe('DeleteAccountScreen — retention disclosure', () => {
   it.each(['customer', 'provider'] as const)('discloses support and safety records to a %s', (role) => {
     mockRole = role;
     render(<DeleteAccountScreen />);
     expect(
-      screen.getByText(/support cases and safety or fraud records involving your account/),
+      screen.getByText(/support cases, internal notes and safety[\s\S]*fraud records/),
     ).toBeOnTheScreen();
+  });
+
+  it('discloses that booking photos are kept', () => {
+    mockRole = 'customer';
+    render(<DeleteAccountScreen />);
+    expect(screen.getByText(/photos attached to those bookings/)).toBeOnTheScreen();
   });
 
   it('limits retention to named purposes', () => {
     mockRole = 'customer';
     render(<DeleteAccountScreen />);
-    expect(screen.getByText(/only where reasonably necessary/)).toBeOnTheScreen();
-    expect(screen.getByText(/fraud prevention or legal obligations/)).toBeOnTheScreen();
+    expect(screen.getByText(/Only where one of these still applies/)).toBeOnTheScreen();
+    expect(screen.getByText(/fraud prevention or a legal obligation/)).toBeOnTheScreen();
   });
 
-  it('states identifier removal, restricted access and no unrelated use', () => {
+  it('does not claim every retained record is stripped of personal information', () => {
     mockRole = 'customer';
     render(<DeleteAccountScreen />);
-    expect(screen.getByText(/Direct[\s\S]*personal identifiers are removed/)).toBeOnTheScreen();
-    expect(screen.getByText(/access is restricted/)).toBeOnTheScreen();
-    expect(screen.getByText(/never used for unrelated purposes/)).toBeOnTheScreen();
+    expect(screen.getByText(/may still contain personal information/)).toBeOnTheScreen();
   });
 
-  it('states eventual deletion or anonymisation', () => {
+  it('describes access as staff plus the booking counterpart, not staff alone', () => {
     mockRole = 'customer';
     render(<DeleteAccountScreen />);
-    expect(screen.getByText(/deleted[\s\S]*or fully anonymised/)).toBeOnTheScreen();
+    expect(screen.getByText(/the other person on a booking you shared/)).toBeOnTheScreen();
+    expect(screen.getByText(/never use them for unrelated purposes/)).toBeOnTheScreen();
+  });
+
+  it('promises no end-of-retention deletion while no such process is implemented', () => {
+    mockRole = 'customer';
+    const { toJSON } = render(<DeleteAccountScreen />);
+    const text = JSON.stringify(toJSON());
+    expect(text).not.toMatch(/fully anonymised/i);
+    expect(text).not.toMatch(/deleted or fully anonymous/i);
+  });
+
+  it('states that access ends on completion without promising other devices sign out', () => {
+    mockRole = 'customer';
+    const { toJSON } = render(<DeleteAccountScreen />);
+    const text = JSON.stringify(toJSON());
+    expect(text).toMatch(/Your access ends as soon as the deletion completes/);
+    expect(text).toMatch(/may keep showing its last screen/);
+    expect(text).not.toMatch(/signed out on every\s*device/i);
   });
 
   it('quotes no fixed retention period', () => {
     mockRole = 'customer';
     const { toJSON } = render(<DeleteAccountScreen />);
-    expect(JSON.stringify(toJSON())).not.toMatch(/\b\d+\s*(years?|months?|days?)\b/i);
+    expect(JSON.stringify(toJSON())).not.toMatch(NO_FIXED_PERIOD);
   });
 });
