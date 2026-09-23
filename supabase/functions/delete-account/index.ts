@@ -30,7 +30,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 import { handleDeleteAccount } from './handler.ts';
-import type { AdminClient, CallerClient, Deps, VerifierClient } from './handler.ts';
+import type { AdminClient, DeleteAccountDatabase, Deps } from './handler.ts';
 
 const AUTH_OPTS = { auth: { persistSession: false, autoRefreshToken: false } } as const;
 
@@ -47,14 +47,31 @@ Deno.serve(async (req: Request) => {
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
+    const service = createClient<DeleteAccountDatabase>(supabaseUrl, serviceKey, AUTH_OPTS);
+
+    // Pass-through adapter, not a cast. Every call below is checked against the real client; we
+    // simply avoid asking TypeScript to prove the whole client satisfies `AdminClient`, which
+    // exceeds its instantiation depth on the `from` overloads alone.
+    const admin: AdminClient = {
+      from: (table) => ({
+        select: (columns) => ({
+          eq: (column, value) => ({
+            maybeSingle: () => service.from(table).select(columns).eq(column, value).maybeSingle(),
+          }),
+        }),
+      }),
+      rpc: (fn, args) => service.rpc(fn, args),
+      auth: service.auth,
+    };
+
     const deps: Deps = {
       caller: (authHeader: string) =>
-        createClient(supabaseUrl, anonKey, {
+        createClient<DeleteAccountDatabase>(supabaseUrl, anonKey, {
           global: { headers: { Authorization: authHeader } },
           ...AUTH_OPTS,
-        }) as unknown as CallerClient,
-      admin: createClient(supabaseUrl, serviceKey, AUTH_OPTS) as unknown as AdminClient,
-      verifier: () => createClient(supabaseUrl, anonKey, AUTH_OPTS) as unknown as VerifierClient,
+        }),
+      admin,
+      verifier: () => createClient<DeleteAccountDatabase>(supabaseUrl, anonKey, AUTH_OPTS),
     };
 
     const { status, body } = await handleDeleteAccount(

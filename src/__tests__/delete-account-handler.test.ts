@@ -123,60 +123,130 @@ function expectNothingDestructive(calls: Recorded) {
   expect(hit).toEqual([]);
 }
 
+/**
+ * The four categories a refused request must not reach, asserted by name so a reader can see each
+ * one covered rather than trusting a single aggregate.
+ */
+function expectNoPasswordVerification(calls: Recorded) {
+  expect(calls).not.toContain('signInWithPassword');
+  expect(calls.filter((c) => c.startsWith('rpc:throttle_account_deletion'))).toEqual([]);
+}
+function expectNoDataMutation(calls: Recorded) {
+  expect(calls).not.toContain('rpc:delete_account');
+  expect(calls).not.toContain('rpc:complete_account_deletion');
+  expect(calls).not.toContain('rpc:record_auth_deletion_failure');
+}
+function expectNoBan(calls: Recorded) {
+  expect(calls).not.toContain('auth.admin.updateUserById');
+}
+function expectNoAuthDeletion(calls: Recorded) {
+  expect(calls).not.toContain('auth.admin.deleteUser');
+}
+/** All four, for a request that must change nothing at all. */
+function expectFullyInert(calls: Recorded) {
+  expectNoPasswordVerification(calls);
+  expectNoDataMutation(calls);
+  expectNoBan(calls);
+  expectNoAuthDeletion(calls);
+  expectNothingDestructive(calls);
+}
+
 // ---------------------------------------------------------------------------
 // The profile gate — the reason this file exists
 // ---------------------------------------------------------------------------
 
-describe('profile gate: an unreadable profile is refused, destructively inert', () => {
-  it('returns 500 and makes no destructive call when the profile query errors', async () => {
-    const { deps, calls } = makeDeps({
-      profile: null,
-      profileError: { code: '42703', message: 'column profiles.deletion_status does not exist' },
-    });
+describe('profile gate: an unreadable profile is refused and changes nothing', () => {
+  const CAUSES: [string, unknown][] = [
+    ['a missing column', { code: '42703', message: 'column profiles.deletion_status does not exist' }],
+    ['a missing relation', { code: '42P01', message: 'relation "profiles" does not exist' }],
+    ['an RLS denial', { code: '42501', message: 'permission denied for table profiles' }],
+    ['a transport failure', { message: 'fetch failed' }],
+  ];
+
+  it.each(CAUSES)('refuses with 500 and stays fully inert on %s', async (_label, profileError) => {
+    const { deps, calls } = makeDeps({ profile: null, profileError });
 
     const res = await handleDeleteAccount(request(), deps);
 
     expect(res.status).toBe(500);
     expect(res.body.ok).toBe(false);
-    expectNothingDestructive(calls);
+    expectFullyInert(calls);
   });
 
-  it('does not verify the password when the profile query errors', async () => {
-    const { deps, calls } = makeDeps({ profileError: { message: 'transport failure' } });
+  it('reaches no password verification', async () => {
+    const { deps, calls } = makeDeps({ profileError: { message: 'fetch failed' } });
     await handleDeleteAccount(request(), deps);
-    expect(calls).not.toContain('signInWithPassword');
-    expect(calls).not.toContain('rpc:throttle_account_deletion:check');
+    expectNoPasswordVerification(calls);
+  });
+
+  it('mutates no data', async () => {
+    const { deps, calls } = makeDeps({ profileError: { message: 'fetch failed' } });
+    await handleDeleteAccount(request(), deps);
+    expectNoDataMutation(calls);
+  });
+
+  it('bans nobody and deletes no auth identity', async () => {
+    const { deps, calls } = makeDeps({ profileError: { message: 'fetch failed' } });
+    await handleDeleteAccount(request(), deps);
+    expectNoBan(calls);
+    expectNoAuthDeletion(calls);
+  });
+
+  it('stops at the profile read, so the read is the only call made', async () => {
+    const { deps, calls } = makeDeps({ profileError: { message: 'fetch failed' } });
+    await handleDeleteAccount(request(), deps);
+    expect(calls).toEqual(['getUser', 'from:profiles.select(role, deletion_status).eq(id,' + UID + ')']);
   });
 
   it('leaks no detail of the underlying failure', async () => {
     const { deps } = makeDeps({ profileError: { message: 'relation "profiles" does not exist' } });
     const res = await handleDeleteAccount(request(), deps);
-    expect(JSON.stringify(res.body)).not.toMatch(/relation|profiles|does not exist/i);
+    expect(JSON.stringify(res.body)).not.toMatch(/relation|does not exist|42P01/i);
   });
 });
 
-describe('profile gate: a missing profile is refused, destructively inert', () => {
-  it('returns 403 and makes no destructive call when no profile row exists', async () => {
+describe('profile gate: a missing profile is refused and changes nothing', () => {
+  it('refuses with 403 and stays fully inert', async () => {
     const { deps, calls } = makeDeps({ profile: null, profileError: null });
 
     const res = await handleDeleteAccount(request(), deps);
 
     expect(res.status).toBe(403);
     expect(res.body.ok).toBe(false);
-    expectNothingDestructive(calls);
+    expectFullyInert(calls);
   });
 
-  it('never bans or deletes the auth identity of a profile-less subject', async () => {
+  it('reaches no password verification', async () => {
+    const { deps, calls } = makeDeps({ profile: null });
+    await handleDeleteAccount(request(), deps);
+    expectNoPasswordVerification(calls);
+  });
+
+  it('mutates no data even when the database would answer not_found', async () => {
     // `delete_account` answering `not_found` is precisely the pre-fix path that walked on to the
-    // ban and the auth deletion for a subject with no profile row. Configure it so the test would
-    // fail loudly if the gate were ever removed again.
+    // ban and the auth deletion for a subject with no profile row.
     const { deps, calls } = makeDeps({
       profile: null,
       rpcResults: { delete_account: { data: { status: 'not_found' } } },
     });
     await handleDeleteAccount(request(), deps);
-    expect(calls).not.toContain('auth.admin.updateUserById');
-    expect(calls).not.toContain('auth.admin.deleteUser');
+    expectNoDataMutation(calls);
+  });
+
+  it('bans nobody and deletes no auth identity, even on the not_found path', async () => {
+    const { deps, calls } = makeDeps({
+      profile: null,
+      rpcResults: { delete_account: { data: { status: 'not_found' } } },
+    });
+    await handleDeleteAccount(request(), deps);
+    expectNoBan(calls);
+    expectNoAuthDeletion(calls);
+  });
+
+  it('stops at the profile read, so the read is the only call made', async () => {
+    const { deps, calls } = makeDeps({ profile: null });
+    await handleDeleteAccount(request(), deps);
+    expect(calls).toEqual(['getUser', 'from:profiles.select(role, deletion_status).eq(id,' + UID + ')']);
   });
 });
 

@@ -134,26 +134,35 @@ manual procedure, its dependency constraints and the code and schema work it nee
 The `delete-account` Edge Function was restructured (decision flow moved to `handler.ts`, profile
 lookup now fails closed). **It is NOT certified against QA in that form.** Open items:
 
-1. **Validate the Deno boundary.** `index.ts` is excluded from `tsconfig.json` and unreachable from
-   Jest, and Deno is not installed on the build host, so nothing currently typechecks the entry
-   point, the `jsr:` import, the relative `./handler.ts` import or the client wiring. The handler's
-   TypeScript tests prove the decision flow and say nothing about that boundary. Validate it by
-   running `deno check` on the function directory, or by the first QA deploy, before release.
-2. **Re-certify against QA once access is restored.** Deploy ONLY the revised `delete-account`
-   function to the certified QA project, run the complete deletion certification
-   (`qa/playwright/certification/account-deletion.spec.ts`), verify the `pending_auth_delete` retry
-   path end to end, and prove the QA baseline is restored afterwards. Do not carry the previous
-   version's certification forward.
-3. **Cover the two new refusal paths** — profile-read failure and missing profile — without adding
-   any fault-injection hook that could exist in a production build, and without altering shared QA
-   RLS or storage policies that other certifications depend on. Prefer a disposable fixture user,
-   or exercise them where they already are exercised: in the handler's offline tests.
-4. **Booking-photo storage scope: FINDING WITHDRAWN.** An earlier review claimed the
+1. **Validate the Deno boundary — DONE.** `deno check` now passes on the real `index.ts` against
+   the real `jsr:@supabase/supabase-js@2`, with the entry point free of casts. Removing the
+   `as unknown as` casts exposed a genuine incompatibility they had been hiding: PostgREST returns
+   an awaitable builder, not a `Promise`, so `maybeSingle()` and `rpc()` are typed `PromiseLike`.
+   The client is given an explicit schema and the `from` signature is pinned to the one table read,
+   both to keep TypeScript inside its instantiation-depth limit. Reproduce with:
+   `npx deno@2 check supabase/functions/delete-account/index.ts` from a directory whose
+   `deno.json` sets `"nodeModulesDir": "auto"`, outside the repository's own `node_modules`.
+2. **Re-certify against QA once access is restored — PREPARED, NOT RUN.** The run sheet is
+   `docs/qa/ACCOUNT-DELETION-REVISED-FUNCTION-QA-RUN.md`: deploy ONLY `delete-account`, do not
+   reapply `0056`, run the full certification (which already covers the `pending_auth_delete` retry
+   and idempotent repeat), and confirm the delta-zero baseline and disposable-user cleanup. The
+   only missing credential is a Supabase CLI personal access token, for `functions deploy` alone;
+   every QA fixture key is already in `qa/.env`. Do not carry the previous version's certification
+   forward.
+3. **Cover the two new refusal paths — DONE locally.** Profile-read failure and missing profile are
+   covered by dependency injection in `src/__tests__/delete-account-handler.test.ts`: four causes
+   for the read failure, each proving no password verification, no data mutation, no ban and no
+   auth deletion. Reverting the gate fails twelve of those tests. **No fault-injection hook was
+   added to the deployed function, and none may be**: anything that can force a failure in QA can
+   be reached in production. No shared QA policy is touched.
+4. **Booking-photo storage scope: FINDING WITHDRAWN, guard added.** An earlier review claimed the
    `booking-photos` object-read policy was open to any authenticated user. That described the
    superseded `0006` policy; `0016_tighten_booking_photos_storage.sql` drops it and scopes object
-   reads to the booking's customer, its assigned provider, or an admin. No investigation is
-   required. A cheap regression guard asserting that `0016`'s scoping survives, and that no later
-   migration re-broadens it, is worth adding separately. No storage policy is changed here.
+   reads to the booking's customer, its assigned provider, or an admin.
+   `src/__tests__/booking-photo-storage-scope.test.ts` now replays every migration in version order
+   and asserts on the definition left standing, rather than on `0016`'s wording — so a later
+   migration that dropped or re-broadened the policy would fail it. Verified by temporarily adding
+   such a migration, which failed four cases. No storage policy is changed.
 5. **The retention procedure remains unapproved.** `docs/pilot/data-retention-review.md` is a draft.
    Its owner and cadence are proposals. The deletion-or-anonymisation sentence stays out of the
    public pages until the gate in its §9 is met.

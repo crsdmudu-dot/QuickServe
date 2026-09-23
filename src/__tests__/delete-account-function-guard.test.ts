@@ -79,12 +79,27 @@ describe('delete-account: credential re-proof', () => {
     expect(body).toMatch(/deps\s*\.verifier\(\)/);
   });
 
-  it('gives the service key only to the admin client', () => {
-    const adminLine = edge.match(/admin: createClient\([^)]*\)/)?.[0] ?? '';
-    expect(adminLine).toContain('serviceKey');
-    const callerBlock = edge.slice(edge.indexOf('caller: (authHeader'), edge.indexOf('admin: createClient'));
-    expect(callerBlock).toContain('anonKey');
-    expect(callerBlock).not.toContain('serviceKey');
+  it('gives the service key to exactly one client, and never to the caller or verifier', () => {
+    // The service key must reach one createClient call and no other.
+    const serviceUses = [...edge.matchAll(/createClient<[^>]*>\([^)]*serviceKey/g)];
+    expect(serviceUses).toHaveLength(1);
+
+    const callerLine = edge.match(/caller: \(authHeader[\s\S]*?\}\),/)?.[0] ?? '';
+    expect(callerLine).toContain('anonKey');
+    expect(callerLine).not.toContain('serviceKey');
+
+    const verifierLine = edge.match(/verifier: \(\) =>[^\n]*/)?.[0] ?? '';
+    expect(verifierLine).toContain('anonKey');
+    expect(verifierLine).not.toContain('serviceKey');
+  });
+
+  it('hides no client mismatch behind a cast', () => {
+    // `as unknown as` silenced a real incompatibility here once: PostgREST returns a thenable, not
+    // a Promise, and the casts made that type-check anyway. `deno check` only catches it while the
+    // casts are absent.
+    expect(edge).not.toMatch(/as unknown as/);
+    expect(edge).not.toMatch(/\bas any\b/);
+    expect(edge).not.toMatch(/@ts-(ignore|expect-error|nocheck)/);
   });
 
   it('checks that the proven identity is the caller (no cross-user proof)', () => {

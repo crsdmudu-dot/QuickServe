@@ -29,6 +29,31 @@ export type AuthUser = {
 
 export type ProfileRow = { role?: string | null; deletion_status?: string | null };
 
+/**
+ * The slice of the database schema this function touches, passed to `createClient` in index.ts.
+ *
+ * Without an explicit schema `createClient` falls back to a permissive default and TypeScript
+ * cannot finish comparing the resulting client against the interfaces below ("type instantiation
+ * is excessively deep"). Naming the one table we read is MORE precise than the default, not less:
+ * a `profiles` row now has a checked shape at the call site.
+ */
+export type DeleteAccountDatabase = {
+  public: {
+    Tables: {
+      profiles: {
+        Row: { id: string; role: string | null; deletion_status: string | null };
+        Insert: { id: string; role?: string | null; deletion_status?: string | null };
+        Update: { id?: string; role?: string | null; deletion_status?: string | null };
+        Relationships: [];
+      };
+    };
+    Views: Record<string, never>;
+    Functions: { [name: string]: { Args: Record<string, unknown>; Returns: unknown } };
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
+  };
+};
+
 export type CallerClient = {
   auth: { getUser(): Promise<{ data: { user: AuthUser | null } }> };
 };
@@ -42,16 +67,27 @@ export type VerifierClient = {
   };
 };
 
+/**
+ * The service-role surface this function uses, and nothing else.
+ *
+ * `maybeSingle()` and `rpc()` return PromiseLike, not Promise: PostgREST hands back a builder that
+ * is awaitable but carries no `.catch`/`.finally`. Declaring `Promise` here type-checked happily
+ * against a hand-written fake and failed against the real client — which is exactly the kind of
+ * mismatch the earlier `as unknown as` casts in index.ts were hiding.
+ *
+ * The table and column literals are deliberate. A `from(table: string)` signature forces
+ * TypeScript to instantiate the client's whole overload surface and exceed its depth limit.
+ */
 export type AdminClient = {
-  from(table: string): {
-    select(columns: string): {
+  from(table: 'profiles'): {
+    select(columns: 'role, deletion_status'): {
       eq(
-        column: string,
+        column: 'id',
         value: string,
-      ): { maybeSingle(): Promise<{ data: ProfileRow | null; error: unknown }> };
+      ): { maybeSingle(): PromiseLike<{ data: ProfileRow | null; error: unknown }> };
     };
   };
-  rpc(fn: string, args: Record<string, unknown>): Promise<{ data: unknown; error: unknown }>;
+  rpc(fn: string, args: Record<string, unknown>): PromiseLike<{ data: unknown; error: unknown }>;
   auth: {
     admin: {
       updateUserById(uid: string, attrs: Record<string, unknown>): Promise<unknown>;
