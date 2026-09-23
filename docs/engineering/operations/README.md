@@ -30,7 +30,7 @@ response, and on-call are **Not documented / Not verified** in the repository.
 
 ## 3. Operational Architecture
 
-QuickServe runs on managed platforms (Supabase + Vercel + EAS builds), so operations is
+QuickServe runs on managed platforms (Supabase + Cloudflare Workers + EAS builds), so operations is
 mostly **platform-managed plus repository-supported scripts and in-app admin tooling**:
 
 - **Operators** run CLI utilities (provisioning, migrations, health/certification) and use the
@@ -56,8 +56,10 @@ flowchart TD
 - **Mobile application** — authenticates via the anon key; persists/refreshes sessions;
   registers a push token (`register-device`); reports crashes to Sentry **only if**
   `EXPO_PUBLIC_SENTRY_DSN` is set (`src/lib/monitoring.ts`).
-- **Web application** — the Vercel-served Expo web build; hosts the **admin operations panel**
-  (`src/app/(admin-web)/operations/*`) for runtime operational actions.
+- **Web application** — the admin Expo web export (`apps/admin`), served by the Cloudflare Worker
+  `quickserve` and deployed by Workers Builds from `main`; hosts the **admin operations panel**
+  for runtime operational actions. (Superseded note: this previously said Vercel-served, from
+  before the admin app was separated out. See the deployment inventory in §5.)
 - **Supabase** — enforces access (RLS), runs triggers/RPCs, stores data/objects, and serves
   Realtime; provides platform logs/backups (platform-managed, not configured in-repo).
 - **Edge Functions** — payments (`mpesa-stk-push`/`mpesa-callback`), push (`send-push`),
@@ -204,7 +206,7 @@ What a merge to `main` actually deploys, and what it does not. Verified from the
 | Surface | Trigger | State |
 |---|---|---|
 | Cloudflare Workers Builds -> Worker `quickserve` (admin web) | Push to `main` | **ACTIVE.** Build `npm run build:admin`; deploy `npm run check:admin-artifact && npx wrangler deploy -c apps/admin/wrangler.jsonc` |
-| Vercel -> consumer Expo web export | Push to `main`, IF a git integration exists | **UNKNOWN.** `vercel.json` at the repository root is configuration evidence only. It is not proof of a live connection, and repository contents cannot establish one. **An operator must confirm.** |
+| Vercel | — | **Not a deployment target.** `vercel.json` at the repository root is inert repository configuration retained from an earlier plan. Vercel is not part of the deployment path; nothing to confirm. |
 | GitHub Actions | — | **NONE deploy.** `pr-ci.yml` runs on `pull_request` to `main` and manual dispatch; the three iOS workflows are `workflow_dispatch` only. No workflow has a `push:` trigger. |
 | Supabase Edge Functions | — | **Hand-deployed only.** No workflow runs `supabase functions deploy`. QA holds `delete-account` v2 (certified 2026-09-23); **Production holds neither `0056` nor the function.** |
 | Worker `quickserve-auth-qa` (QA auth bridge) | — | **Hand-deployed only** via `wrangler.qa-auth.jsonc`. Never touched by Workers Builds. |
@@ -293,7 +295,8 @@ Repository-supported maintenance only:
 
 - **Supabase project** (Auth/DB/Storage/Realtime/Edge) — the core runtime.
 - **Supabase CLI** — migrations + Edge Function deploys.
-- **Vercel** — web hosting; **EAS** — mobile builds.
+- **Cloudflare Workers** — admin web hosting (Worker `quickserve`, assets-only); **EAS** — mobile
+  builds. Vercel is **not** used.
 - **External services** — M-Pesa Daraja, Expo Push, Google Places/Maps (per-environment config).
 - **Environment variables/secrets** — client `EXPO_PUBLIC_*`, server/edge secrets, QA `QA_*`
   (see [security/](../security/README.md) §9; names in `.env.example`, `qa/.env.example`).

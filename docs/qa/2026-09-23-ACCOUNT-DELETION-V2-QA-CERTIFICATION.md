@@ -8,8 +8,13 @@
 >
 > **Source under test:** PR #27, head `81de534bd0bbd210948f468e48d76f8553ea146b`.
 >
-> **This certifies the Edge Function only.** It is not a release gate, it does not cover Production,
-> and it does not make Production ready. Read §7 before citing it.
+> **Separately, the full `qa:release` gate passed with exit 0** on head
+> `e85c3764ff027dc60b91b59aa49edc02c70b8303`, one run, no retry. See §6.1. The two results are
+> independent: §4 certifies the Edge Function against QA, §6.1 is the wider repository gate. Neither
+> subsumes the other.
+>
+> **Neither covers Production**, which holds neither `0056` nor this function, and neither makes
+> Production ready. Read §7 before citing either.
 
 ---
 
@@ -127,13 +132,56 @@ during the run was removed. **No residue.**
 Migrations re-listed after the run: still 55 entries ending `0054, 0056`, still no `0055`, still
 fully aligned local to remote. Nothing about the schema changed.
 
+## 6.1 Full release gate — `qa:release`, exit 0
+
+Run once, later on 2026-09-23, after the certification above. **Not** a re-run of anything here;
+a separate, wider gate.
+
+| | |
+|---|---|
+| Head | `e85c3764ff027dc60b91b59aa49edc02c70b8303` |
+| Working tree at launch | clean (precheck recorded an empty dirty list) |
+| Head at finish | unchanged |
+| Invocations | one, no retry |
+| **Exit code** | **0** |
+| Elapsed | 662 s |
+
+| Stage | Result |
+|---|---|
+| `test:release` (Jest, root) | 254 suites, 4396 tests passed |
+| `test:admin:release` (Jest, admin) | 40 suites, 557 tests passed |
+| `tsc --noEmit` (root) | passed |
+| `typecheck:admin` | passed |
+| `expo export --platform web` | bundled |
+| `expo export --platform android` | bundled |
+| `build:admin` | bundled |
+| `qa:test:certification` | 125 passed, 6.1 min |
+| `qa:test:browsers:noncert` | 277 passed, **50 skipped**, 2.5 min |
+
+The 50 skipped are the `@certification`-tagged cases, excluded by that stage's `--grep-invert`.
+They are covered by the certification stage above them. **Zero failures in the whole run.**
+
+A second 21-measure before/after comparison spanning the entire gate also returned delta zero, so
+no suite in the gate left residue on QA. The QA target was re-verified before the run and
+`delete-account` was still v2, digest `68c2abe6…`, afterwards.
+
+### Provenance of this record
+
+The gate result above belongs to head `e85c3764ff027dc60b91b59aa49edc02c70b8303`. **The commit that
+adds this section is documentation only and has NOT itself been through `qa:release`**, nor has any
+later commit. Do not read the gate result as applying to any SHA after `e85c376`. Documentation-only
+commits are deliberately not re-gated; the gate covers code, tests, builds and QA behaviour, none of
+which these change.
+
 ## 7. Scope — what this does NOT certify
 
 Stated plainly so the result is not over-read.
 
-- **The full release gate was not re-run on this head.** `qa:release` last ran green at `495b8f5`.
-  The three commits since are copy, documentation, tests, and an Edge Function that gate does not
-  cover. This certification covers the function, not the gate.
+- **This section certifies the function, not the gate.** The full `qa:release` gate was run
+  separately, later the same day, and passed; see §6.1. The two ran on **different heads**: the
+  function certification from the worktree at `81de534`, the gate at `e85c376`. The only difference
+  between those commits is documentation, so the function source under test was identical. Neither
+  result subsumes the other.
 - **Production is not ready and was never contacted.** Production has neither `0056` nor this
   function. Both need separate authorisation.
 - **No app layer was exercised.** No Android or iOS build, no device, no push, no website
@@ -151,16 +199,12 @@ Stated plainly so the result is not over-read.
 1. **Owner approval of the public legal copy**, including the retention decision. Until the gate in
    `docs/pilot/data-retention-review.md` §9 is met, neither public page promises a deletion or
    anonymisation event, because nothing performs one.
-2. **Vercel connection state: UNKNOWN.** Root `vercel.json` is configuration evidence only, not
-   proof of a live integration. An operator must confirm before merge. If live, merging publishes a
-   Delete Account screen that cannot work until `0056` and this function reach Production; it fails
-   closed rather than corrupting anything.
-3. **Production deployment** of `0056` and `delete-account` — separate authorisation.
-4. **Website publication** of `/delete-account` before any Play submission.
-5. **A new Android build.** The current artifact predates the entire feature.
-6. **PR #27 needs one approving review.** Its blocked state is the review requirement, not a
+2. **Production deployment** of `0056` and `delete-account` — separate authorisation.
+3. **Website publication** of `/delete-account` before any Play submission.
+4. **A new Android build.** The current artifact predates the entire feature.
+5. **PR #27 needs one approving review.** Its blocked state is the review requirement, not a
    failing check.
-7. **Migration `0055` → `0057`** on the privilege-hardening branch before it merges, so nothing
+6. **Migration `0055` → `0057`** on the privilege-hardening branch before it merges, so nothing
    arrives out of order and `--include-all` is never needed.
 
 ## 9. Reproduction
