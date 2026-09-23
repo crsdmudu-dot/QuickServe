@@ -360,7 +360,8 @@ describe('/privacy page', () => {
   it('explains deletion, tombstoning and the admin exclusion, and links to /delete-account', () => {
     render(<PrivacyPage />);
     const text = document.body.textContent ?? '';
-    expect(text).toMatch(/tombstone/i);
+    expect(text).toMatch(/Your account record itself is not erased/i);
+    expect(text).toMatch(/it is not anonymous/i);
     expect(text).toMatch(/we stop serving your data to any device/i);
     expect(text).toMatch(/Administrator accounts cannot be deleted/i);
     expect(screen.getByRole('link', { name: /delete your account/i })).toHaveAttribute(
@@ -375,7 +376,8 @@ describe('/privacy page', () => {
     expect(text).toMatch(/only where it is still needed for the purpose/i);
     expect(text).toMatch(/legal obligation/i);
     expect(text).toMatch(/not use retained records for marketing, profiling or any other unrelated purpose/i);
-    expect(text).toMatch(/not a guarantee that every retained record is free of personal information/i);
+    expect(text).toMatch(/Some retained records still contain personal information and we do not edit them/i);
+    expect(text).toMatch(/may show you, your home or your belongings/i);
     expect(text).not.toMatch(/\b\d+\s*(years?|months?|days?)\b/i);
   });
 
@@ -513,11 +515,20 @@ describe('DeleteAccountPage', () => {
     expect(text).toMatch(/not use retained records for marketing, profiling or any other unrelated purpose/i);
   });
 
-  it('does not claim every retained record is stripped of personal information', () => {
+  it('states affirmatively that photos and notes can still identify the user', () => {
     render(<DeleteAccountPage />);
-    expect(document.body.textContent ?? '').toMatch(
-      /not a guarantee that every retained record is free of personal information/i,
-    );
+    const text = document.body.textContent ?? '';
+    expect(text).toMatch(/Some retained records still contain personal information, and we do not edit/i);
+    expect(text).toMatch(/may show you, your home or your belongings/i);
+    expect(text).toMatch(/may name or describe you/i);
+  });
+
+  it('states that the account record is retained, linked and not anonymous', () => {
+    render(<DeleteAccountPage />);
+    const text = document.body.textContent ?? '';
+    expect(text).toMatch(/Your account record itself is not erased/i);
+    expect(text).toMatch(/linked by an internal identifier/i);
+    expect(text).toMatch(/it is not anonymous/i);
   });
 
   it('promises no end-of-retention deletion while no such process is implemented', () => {

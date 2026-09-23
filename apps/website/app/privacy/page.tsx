@@ -226,15 +226,18 @@ export default function PrivacyPage() {
               for the steps and for exactly what is removed.
             </p>
             <p className="text-body text-textSecondary">
-              Deletion removes your login and your personal profile. As soon as it completes we
-              stop serving your data to any device and your saved sign-ins are revoked, so nothing
-              can sign in or renew a session; a device still open may keep showing its last screen
-              until it next contacts us.
-              Your account record itself is not dropped from the database: it is reduced to a
-              tombstone with your personal fields cleared, so that the financial, dispute and audit
-              records that must point at an account still have something to point at. Deleting those
-              rows outright would destroy other people&apos;s payment and payout records as well as
-              your own. Deletion is refused, and nothing is changed, while a booking, payment, payout
+              Deletion removes your login. As soon as it completes we stop serving your data to any
+              device and your saved sign-ins are revoked, so nothing can sign in or renew a session;
+              a device still open may keep showing its last screen until it next contacts us.
+              <strong>Your account record itself is not erased.</strong> Your name, phone number,
+              photo, bio and skills are removed from it, but the record stays, still linked by an
+              internal identifier to your retained bookings, payments and support history, and your
+              overall ratings and job counts remain on it. It no longer carries your name or contact
+              details, but it is not anonymous: it remains the single thread connecting your past
+              activity. We keep it because removing it today would break the retained records that
+              reference it, and in some cases destroy them &mdash; including other people&apos;s
+              payment and payout records. Whether it can later be reduced further, or removed once
+              the records that depend on it have gone, is under review. Deletion is refused, and nothing is changed, while a booking, payment, payout
               or support case is still open, and the app tells you what to resolve first.
               Administrator accounts cannot be deleted this way and are removed by our operations
               team.
@@ -252,12 +255,13 @@ export default function PrivacyPage() {
               legal obligation still applies.
             </p>
             <p className="text-body text-textSecondary">
-              We remove direct personal identifiers from those records where we can, but that is not
-              a guarantee that every retained record is free of personal information: photos
-              attached to a booking are kept as they were, and a support or safety note written by
-              our staff may describe you or what happened. Access is limited to our staff who need
-              it for one of the purposes above, and to the other person on a booking you shared, who
-              keeps their own view of that booking. We do not use retained records for marketing,
+              We remove direct personal identifiers from those records where we can. Some retained
+              records still contain personal information and we do not edit them: photos attached to
+              a booking are kept exactly as uploaded and may show you, your home or your belongings,
+              and support and safety notes are written by our staff in their own words and may name
+              or describe you and what happened. Access is limited to our staff who need it for one
+              of the purposes above, and to the other person on a booking you shared, who keeps
+              their own view of that booking. We do not use retained records for marketing,
               profiling or any other unrelated purpose.
             </p>
           </div>

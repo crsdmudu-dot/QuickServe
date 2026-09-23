@@ -172,10 +172,19 @@ describe('DeleteAccountScreen — retention disclosure', () => {
     expect(screen.getByText(/fraud prevention or a legal obligation/)).toBeOnTheScreen();
   });
 
-  it('does not claim every retained record is stripped of personal information', () => {
+  it('states affirmatively that photos and notes can still identify the user', () => {
     mockRole = 'customer';
     render(<DeleteAccountScreen />);
-    expect(screen.getByText(/may still contain personal information/)).toBeOnTheScreen();
+    expect(screen.getByText(/may show you or your home/)).toBeOnTheScreen();
+    expect(screen.getByText(/support notes written by our staff may describe you/)).toBeOnTheScreen();
+    expect(screen.getByText(/We do not edit either/)).toBeOnTheScreen();
+  });
+
+  it('states that the account record is retained and still links past activity', () => {
+    mockRole = 'customer';
+    render(<DeleteAccountScreen />);
+    expect(screen.getByText(/Your account record is not erased/)).toBeOnTheScreen();
+    expect(screen.getByText(/links your past bookings and payments together/)).toBeOnTheScreen();
   });
 
   it('describes access as staff plus the booking counterpart, not staff alone', () => {

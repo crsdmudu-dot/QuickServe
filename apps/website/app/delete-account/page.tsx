@@ -100,12 +100,23 @@ export default function DeleteAccountPage() {
             </p>
             <p className="text-body text-textSecondary">
               We remove direct personal identifiers where we can: the booking address, notes and
-              location are cleared, chat messages you sent are replaced with a placeholder, the
-              payer phone number on a payment is reduced to its last three digits, and the account
-              itself is marked as deleted so the remaining rows no longer carry your name. This is
-              not a guarantee that every retained record is free of personal information. Photos
-              attached to a booking are kept as they were, and a support or safety note written by
-              our staff may describe you or what happened.
+              location are cleared, chat messages you sent are replaced with a placeholder, and the
+              payer phone number on a payment is reduced to its last three digits.
+            </p>
+            <p className="text-body text-textSecondary">
+              <strong>Your account record itself is not erased.</strong> It is kept as a stripped
+              record: your name, phone number, photo, bio and skills are removed, but the record
+              stays, still linked by an internal identifier to the bookings, payments and support
+              history above, and your overall ratings and job counts remain on it. We keep it
+              because deleting it would break, or in places destroy, those retained records. It no
+              longer carries your name or contact details, but it is not anonymous: it remains the
+              single thread connecting your past activity.
+            </p>
+            <p className="text-body text-textSecondary">
+              <strong>Some retained records still contain personal information, and we do not edit
+              them.</strong> Photos attached to a booking are kept exactly as they were uploaded and
+              may show you, your home or your belongings. Support and safety notes are written by
+              our staff in their own words and may name or describe you and what happened.
             </p>
             <p className="text-body text-textSecondary">
               Access is limited to our staff who need it for one of the purposes above, and to the

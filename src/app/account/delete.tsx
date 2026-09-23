@@ -124,11 +124,22 @@ export default function DeleteAccountScreen() {
               </Text>
               <Text variant="body" color="textSecondary">
                 Only where one of these still applies: accounting, payment reconciliation,
-                disputes, safety, fraud prevention or a legal obligation. We remove direct personal
-                identifiers where we can, but some kept records, booking photos and support notes in
-                particular, may still contain personal information. Access is limited to staff who
-                need it and to the other person on a booking you shared, who keeps their own view of
-                that booking. We never use them for unrelated purposes.
+                disputes, safety, fraud prevention or a legal obligation. Access is limited to staff
+                who need it and to the other person on a booking you shared, who keeps their own
+                view of that booking. We never use them for unrelated purposes.
+              </Text>
+            </View>
+
+            <View style={styles.section}>
+              <Text variant="heading" color="text">
+                What stays linked to you
+              </Text>
+              <Text variant="body" color="textSecondary">
+                Your account record is not erased. Your name, phone
+                {isProvider ? ', bio and skills' : ''} and photo are removed, but the record stays
+                and still links your past bookings and payments together by an internal identifier.
+                Booking photos are kept exactly as uploaded and may show you or your home, and
+                support notes written by our staff may describe you. We do not edit either.
               </Text>
             </View>
 
