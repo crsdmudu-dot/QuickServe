@@ -128,3 +128,23 @@ guard test). Harness `deletion-work.spec.ts` `9592d4c67ac760d80a629db3b9f30f5de7
 The source commit is recorded in §9 once the fix is committed; the full gate result for that
 commit is recorded there too. The gate result in §7 belongs to `56c898b` alone.
 
+## 9. Full `qa:release` gate on `c478d2d2fd598e83a6ded7bc48e57dd7cd93acea` (2026-09-24, 11:37–11:58 local, one run, no retry)
+
+The committed candidate containing 0061, its tests and the §8 evidence.
+
+| Stage | Result |
+|---|---|
+| `test:release` (Jest) | 260 suites, 4586 tests passed |
+| `test:admin:release` | 40 suites, 557 tests passed |
+| root `tsc --noEmit`, `typecheck:admin` | clean |
+| `expo export` web and android, `build:admin` | exported and built |
+| `qa:test:certification` (all certification files, one worker, on QA) | **157 passed, 1 skipped by design** (C2e opt-in observational; the two 0061 regressions C3d/C3e included), 15.6 min |
+| `qa:test:browsers:noncert` (three browsers) | **277 passed**, 50 `@certification` cases skipped by that stage's grep-invert, 2.4 min |
+| npm error lines in the log | 0 |
+| Independent 22-measure baseline, captured before launch and after completion | **delta zero** |
+| Working tree after the gate | unchanged (`c478d2d`, only the two untracked pilot drafts) |
+
+**This result belongs to `c478d2d` and to that SHA alone.** The §7 result belongs to `56c898b`;
+the earlier full-gate head `e85c3764ff027dc60b91b59aa49edc02c70b8303` is preserved as history. The
+documentation-only commit that adds this section has not itself been through the gate.
+
