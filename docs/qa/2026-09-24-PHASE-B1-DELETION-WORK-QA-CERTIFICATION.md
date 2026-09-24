@@ -4,9 +4,10 @@
 linked project before every step; Production never contacted) · **Result: PASS** — 17 of 18 new
 cases passed, 1 skipped by design (opt-in observational case); both existing certifications passed
 unchanged (9 and 13). Restoration delta zero against the baseline captured before the migrations
-were applied. **Tested working-tree state:** Phase B1 revision 4 plus the two harness corrections
-recorded below, on top of `491c8d8` (commit SHA to be recorded when the focused commit lands; the
-full `qa:release` gate remains attributed only to `e85c3764ff027dc60b91b59aa49edc02c70b8303`).
+were applied. **Tested commit:** `56c898b9ba35b07438b3a2bedca718cf55383512` (Phase B1 revision 4 plus the two
+harness corrections recorded below). **The full `qa:release` gate passed on this exact commit on
+2026-09-24** (see §7); the earlier full-gate result at `e85c3764ff027dc60b91b59aa49edc02c70b8303`
+stands as the previous certified head.
 
 ## 1. What was applied to QA (authorised step by step)
 
@@ -78,7 +79,25 @@ No migration, function, policy or product code changed during certification.
 
 ## 6. Explicitly not done
 
-No Production contact; no merge; no website publication; no mobile build; no scheduler enabled;
-no `qa:release` gate run (it must run on the exact PR candidate head before merge). The website
+No Production contact; no merge; no website publication; no mobile build; no scheduler enabled.
+(The full `qa:release` gate was run afterwards on this exact commit and passed; see §7.) The website
 verification route, transactional email, wallet refunds, `access_closed` and every unresolved
 retention rule remain outside this increment.
+
+## 7. Full `qa:release` gate on `56c898b` (2026-09-24, 01:17–01:35 local, one run, no retry)
+
+| Stage | Result |
+|---|---|
+| `test:release` (Jest) | 260 suites, 4575 tests passed (including the customer-search case that was intermittent earlier the same night) |
+| `test:admin:release` | 40 suites, 557 tests passed |
+| root `tsc --noEmit`, `typecheck:admin` | clean |
+| `expo export` web and android, `build:admin` | exported and built |
+| `qa:test:certification` (all certification files, one worker, on QA) | **155 passed, 1 skipped by design** (C2e opt-in observational), 11.5 min |
+| `qa:test:browsers:noncert` (three browsers) | **277 passed**, 50 `@certification` cases skipped by that stage's grep-invert, 3.5 min |
+| npm error lines in the log | 0 |
+| Independent 22-measure baseline, captured before launch and after completion | **delta zero** |
+| Working tree after the gate | unchanged (`56c898b`, only the two untracked pilot drafts) |
+
+Launched detached from the account-deletion worktree at `56c898b`; the CLI-linked project was the
+certified QA project throughout; Production was not contacted.
+
