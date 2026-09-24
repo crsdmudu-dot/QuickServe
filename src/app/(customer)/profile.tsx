@@ -138,6 +138,12 @@ export default function ProfileScreen() {
             onPress={() => router.push('/trust')}
           />
           <Button label="Sign out / Switch role" onPress={signOut} />
+          <Button
+            label="Delete account"
+            variant="ghost"
+            onPress={() => router.push('/account/delete')}
+            testID="profile-delete-account"
+          />
           <SupportLink />
         </View>
       </SafeAreaView>

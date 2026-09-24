@@ -16,6 +16,7 @@ import SupportPage, { metadata as supportMeta } from '@/app/support/page';
 import DownloadPage, { metadata as downloadMeta } from '@/app/download/page';
 import PrivacyPage, { metadata as privacyMeta } from '@/app/privacy/page';
 import TermsPage, { metadata as termsMeta } from '@/app/terms/page';
+import DeleteAccountPage, { metadata as deleteAccountMeta } from '@/app/delete-account/page';
 
 // Home metadata for duplicate-title check
 import { metadata as homeMeta } from '@/app/page';
@@ -323,9 +324,73 @@ describe('/privacy page', () => {
     expect(h1.textContent).toMatch(/Privacy Policy/i);
   });
 
-  it('renders the "pending legal review" placeholder notice', () => {
+  it('carries no placeholder or "pending legal review" status', () => {
     render(<PrivacyPage />);
-    expect(screen.getByText(/placeholder policy pending legal review/i)).toBeInTheDocument();
+    const text = document.body.textContent ?? '';
+    expect(text).not.toMatch(/placeholder/i);
+    expect(text).not.toMatch(/pending legal review/i);
+  });
+
+  it('names the operating entity', () => {
+    render(<PrivacyPage />);
+    expect(document.body.textContent ?? '').toMatch(/Hired Corp Limited/);
+  });
+
+  it.each([
+    ['authentication and account management', /Authentication and account management/i],
+    ['bookings and fulfilment', /Bookings and service fulfilment/i],
+    ['payments and M-PESA', /Payments and M-PESA records/i],
+    ['provider verification and payouts', /Provider verification and payouts/i],
+    ['location data', /Location data/i],
+    ['notifications and device tokens', /Notifications and device tokens/i],
+    ['support, safety, fraud and audit', /Support, safety, fraud prevention and audit/i],
+    ['processors', /Service providers we use/i],
+    ['account deletion', /Deleting your account/i],
+    ['retention', /How long we keep data/i],
+    ['security', /How we protect your data/i],
+    ['rights', /Your rights/i],
+    ['contact', /Contact us/i],
+    ['complaints', /Complaints/i],
+    ['policy updates', /Changes to this policy/i],
+  ])('covers %s', (_label, pattern) => {
+    render(<PrivacyPage />);
+    expect(screen.getByRole('heading', { level: 2, name: pattern })).toBeInTheDocument();
+  });
+
+  it('explains deletion, tombstoning and the admin exclusion, and links to /delete-account', () => {
+    render(<PrivacyPage />);
+    const text = document.body.textContent ?? '';
+    expect(text).toMatch(/Your account record itself is not erased/i);
+    expect(text).toMatch(/it is not anonymous/i);
+    expect(text).toMatch(/we stop serving your data to any device/i);
+    expect(text).toMatch(/Administrator accounts cannot be deleted/i);
+    expect(screen.getByRole('link', { name: /delete your account/i })).toHaveAttribute(
+      'href',
+      '/delete-account',
+    );
+  });
+
+  it('states reasonable-necessity retention with purpose limitation and no fixed period', () => {
+    render(<PrivacyPage />);
+    const text = document.body.textContent ?? '';
+    expect(text).toMatch(/only where it is still needed for the purpose/i);
+    expect(text).toMatch(/legal obligation/i);
+    expect(text).toMatch(/not use retained records for marketing, profiling or any other unrelated purpose/i);
+    expect(text).toMatch(/Some retained records still contain personal information and we do not edit them/i);
+    expect(text).toMatch(/may show you, your home or your belongings/i);
+    expect(text).not.toMatch(/\b\d+\s*(years?|months?|days?)\b/i);
+  });
+
+  it('names the Kenyan supervisory authority for complaints', () => {
+    render(<PrivacyPage />);
+    expect(document.body.textContent ?? '').toMatch(/Office of the Data Protection Commissioner/i);
+  });
+
+  it('lists the rights the policy must offer', () => {
+    render(<PrivacyPage />);
+    const text = document.body.textContent ?? '';
+    const rights = [/access a copy/i, /corrected/i, /object to/i, /restrict/i, /delete your data/i];
+    for (const right of rights) expect(text).toMatch(right);
   });
 
   it('has a defined, non-empty metadata title', () => {
@@ -355,10 +420,10 @@ describe('/terms page', () => {
 });
 
 // =============================================================================
-// Cross-page: metadata title uniqueness (all 12 pages)
+// Cross-page: metadata title uniqueness (all 13 pages)
 // =============================================================================
 describe('Metadata title uniqueness across all pages', () => {
-  it('all 12 page titles are distinct (no duplicates)', () => {
+  it('all 13 page titles are distinct (no duplicates)', () => {
     const allMetas = [
       homeMeta,
       servicesMeta,
@@ -372,6 +437,7 @@ describe('Metadata title uniqueness across all pages', () => {
       downloadMeta,
       privacyMeta,
       termsMeta,
+      deleteAccountMeta,
     ];
     const titles = allMetas.map((m) => resolveTitle(m as { title?: unknown }));
     const uniqueTitles = new Set(titles);
@@ -402,4 +468,78 @@ describe('Cross-page admin-link guard', () => {
       expect(adminLinks.length).toBe(0);
     }
   );
+});
+
+// ── /delete-account — Google Play public deletion page ───────────────────────
+describe('DeleteAccountPage', () => {
+  it('renders the h1, the in-app path, the email request route and legal links', () => {
+    render(<DeleteAccountPage />);
+    expect(screen.getByRole('heading', { level: 1, name: /delete your kwikserve account/i })).toBeInTheDocument();
+    expect(screen.getByText(/delete it yourself in the app/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: /sign in.*ask us/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /privacy policy/i })).toHaveAttribute('href', '/privacy');
+    expect(screen.getByRole('link', { name: /terms of service/i })).toHaveAttribute('href', '/terms');
+    const mail = screen.getAllByRole('link').find((a) => (a.getAttribute('href') ?? '').startsWith('mailto:'));
+    expect(mail?.getAttribute('href')).toMatch(/subject=Account%20deletion%20request/);
+  });
+
+  it('states what is deleted and what is kept without quoting an unapproved retention period', () => {
+    render(<DeleteAccountPage />);
+    expect(screen.getByText(/what is deleted/i)).toBeInTheDocument();
+    expect(screen.getByText(/what is kept, and why/i)).toBeInTheDocument();
+    expect(document.body.textContent ?? '').not.toMatch(/\b\d+\s*(years?|months?|days?)\b/i);
+  });
+
+  it('states that access ends on completion without promising other devices sign out', () => {
+    render(<DeleteAccountPage />);
+    const text = document.body.textContent ?? '';
+    expect(text).toMatch(/we stop serving your data to any device/i);
+    expect(text).toMatch(/may keep showing its last screen/i);
+    expect(text).not.toMatch(/signed out everywhere immediately/i);
+    expect(text).not.toMatch(/every device is signed out/i);
+  });
+
+  it('discloses support notes, safety records and retained booking photos', () => {
+    render(<DeleteAccountPage />);
+    const text = document.body.textContent ?? '';
+    expect(text).toMatch(/support cases, internal notes and safety or fraud records/i);
+    expect(text).toMatch(/photos attached to those bookings/i);
+  });
+
+  it('states the purpose limitation and the real access scope', () => {
+    render(<DeleteAccountPage />);
+    const text = document.body.textContent ?? '';
+    expect(text).toMatch(/only where one of these still applies/i);
+    expect(text).toMatch(/the other person on a booking you shared/i);
+    expect(text).toMatch(/do not gain access to your payment records/i);
+    expect(text).toMatch(/not use retained records for marketing, profiling or any other unrelated purpose/i);
+  });
+
+  it('states affirmatively that photos and notes can still identify the user', () => {
+    render(<DeleteAccountPage />);
+    const text = document.body.textContent ?? '';
+    expect(text).toMatch(/Some retained records still contain personal information, and we do not edit/i);
+    expect(text).toMatch(/may show you, your home or your belongings/i);
+    expect(text).toMatch(/may name or describe you/i);
+  });
+
+  it('states that the account record is retained, linked and not anonymous', () => {
+    render(<DeleteAccountPage />);
+    const text = document.body.textContent ?? '';
+    expect(text).toMatch(/Your account record itself is not erased/i);
+    expect(text).toMatch(/linked by an internal identifier/i);
+    expect(text).toMatch(/it is not anonymous/i);
+  });
+
+  it('promises no end-of-retention deletion while no such process is implemented', () => {
+    render(<DeleteAccountPage />);
+    expect(document.body.textContent ?? '').not.toMatch(/fully anonymised/i);
+  });
+
+  it('describes identity verification for the email request route', () => {
+    render(<DeleteAccountPage />);
+    expect(document.body.textContent ?? '').toMatch(
+      /we verify the request by replying to that registered address/i,
+    );
+  });
 });

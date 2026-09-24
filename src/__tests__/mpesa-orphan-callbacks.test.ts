@@ -30,9 +30,12 @@ function fn(name: string): string {
 }
 
 describe('0054 — placement and evidence table', () => {
-  it('is the only migration after 0053', () => {
+  it('is unique and sits directly after 0053', () => {
     const files = fs.readdirSync(dir).filter((f) => /^\d{4}_.*\.sql$/.test(f)).sort();
-    expect(files[files.length - 1]).toBe(MIGRATION);
+    // Placement, not ceiling: asserting 0054 is the NEWEST migration makes this test fail on
+    // every later migration for reasons unrelated to orphan-callback evidence (see the earlier
+    // stale migration-ceiling removal). What matters here is that 0054 is unique and follows 0053.
+    expect(files[files.indexOf(MIGRATION) - 1]).toMatch(/^0053_/);
     expect(files.filter((f) => f.startsWith('0054'))).toHaveLength(1);
     expect(files.filter((f) => f.startsWith('0053'))).toHaveLength(1);
   });

@@ -323,6 +323,12 @@ export default function ProviderProfileScreen() {
             />
 
             <Button label="Sign out" variant="ghost" onPress={signOut} />
+            <Button
+              label="Delete account"
+              variant="ghost"
+              onPress={() => router.push('/account/delete' as Href)}
+              testID="profile-delete-account"
+            />
             <SupportLink />
           </View>
         </View>

@@ -18,3 +18,15 @@ verify_jwt = true
 
 [functions.tracking-map]
 verify_jwt = true
+
+# Self-service account deletion. The gateway verifies the JWT and the function derives the target
+# identity from it; the request body never names a user.
+[functions.delete-account]
+verify_jwt = true
+
+# Internal deletion worker. No user JWT exists for its work (it runs after identities are gone) and
+# the database tick sends only the shared secret, so the gateway does not verify a JWT for THIS
+# function only. The handler requires `x-worker-secret` to equal DELETION_WORKER_SECRET and fails
+# closed. Deploy with `--no-verify-jwt` (the run sheet records the exact command).
+[functions.deletion-worker]
+verify_jwt = false

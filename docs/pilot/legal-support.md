@@ -43,7 +43,8 @@ It must be publicly accessible via a URL (not gated behind a login).
 - [ ] Third-party processors listed with links to their privacy policies.
 - [ ] Data retention periods for each category.
 - [ ] User rights: access, correction, deletion, portability (Kenya DPA 2019 / GDPR if applicable).
-- [ ] How to submit a deletion request (email address or in-app form).
+- [x] How to submit a deletion request — **implemented**: in-app (Profile → Delete account) and the
+      public signed-out page `/delete-account` on the website (see Section 8).
 - [ ] Cookie / local storage disclosure (if web dashboard is added).
 - [ ] Effective date and version number.
 - [ ] **Hosted at a public URL** (e.g. `https://quickserve.app/privacy` or a GitHub Pages / Notion page).
@@ -187,11 +188,12 @@ Complete the Play Console → App content → Data safety section. Guidance for 
 | Data collected: Messages | Yes — in-app chat between customer and provider |
 | Data collected: Device or other identifiers | Yes — push tokens |
 | Is all data encrypted in transit? | Yes — Supabase uses TLS; Expo Push uses HTTPS |
-| Does the user have a way to request data deletion? | Yes — via support email (include this in Privacy Policy) |
+| Does the user have a way to request data deletion? | Yes — **in-app** (Profile → Delete account) and the public web page `/delete-account`; enter that URL under **Data safety → Account deletion** |
 | Does the app share data with third parties for advertising? | No |
 
 - [ ] Data Safety form completed and saved in Play Console.
-- [ ] Deletion request path documented in Privacy Policy and tested (email to support → admin deletes account in Supabase).
+- [ ] `/delete-account` URL entered under Play Console → App content → Data safety → Account deletion.
+- [x] Deletion request path implemented and certified (Section 8). The email route remains for users who cannot sign in.
 
 ### Apple — App Privacy Questionnaire (App Store Connect)
 
@@ -247,3 +249,50 @@ These apply for the duration of the pilot and should be communicated to all test
 
 - [ ] Community guidelines communicated to all pilot testers (WhatsApp group pinned message or email).
 - [ ] Testers have acknowledged the pilot data reset notice.
+
+---
+
+## 8. Account Deletion — implemented behaviour
+
+Self-service deletion exists for customers and providers (migration `0056_account_deletion.sql`,
+Edge Function `delete-account`, app screen `/account/delete`, website page `/delete-account`).
+Admin/support accounts cannot self-delete; operations remove them.
+
+**Operations note — do not delete `auth.users` rows directly.** Since `0056`, a profile no longer
+cascades from its auth user: it is a tombstone that must outlive the login so financial history
+keeps a referent. A raw auth deletion (dashboard or admin API) therefore leaves a live, un-scrubbed
+profile behind. Ops-initiated deletions must call `public.delete_account(<user id>)` as
+`service_role` first (it scrubs and tombstones), then remove the auth user. The QA helpers were
+updated to remove fixture profiles explicitly for the same reason.
+The operator-facing copy of this rule, including the retry semantics of the `pending_auth_delete`
+state, lives in the operations runbook
+([engineering/operations](../engineering/operations/README.md) §5).
+
+### What happens
+
+| Class | Records | Treatment |
+|-------|---------|-----------|
+| Deleted immediately | device registrations, notification preferences, notifications addressed to the user, saved addresses, favourites, live provider location, code-of-conduct acceptance, the login (auth identity and every session) | removed |
+| Anonymised in place | the profile (becomes a tombstone: name → "Deleted user"; phone, bio, skills, photo, experience cleared; aggregate ratings kept), booking addresses/notes/coordinates/access details, denormalised provider name/phone on bookings, the user's chat messages, the user's review comments (ratings kept), the payer phone on payment attempts (last three digits kept) | personal fields removed, row retained |
+| Retained | bookings, payments, payment attempts, provider earnings/payouts/deductions, wallet transactions, M-Pesa callback evidence, booking activity, booking photos, support cases/notes/events, internal notes, account flags, quality actions | unchanged apart from the anonymised fields above; they point at the tombstone |
+
+### Blockers (request is refused, nothing changes)
+
+Any booking not completed/cancelled · a payment attempt still initiated/pending · a pending payment ·
+provider earnings not fully paid out · a positive wallet balance · an open support case · an active
+account flag.
+
+### Retention basis — NEEDS OWNER / LEGAL REVIEW
+
+The public `/delete-account` page and the Privacy Policy state the PURPOSES retention is limited to
+and deliberately quote **no** period. They also no longer promise that records are "deleted or fully
+anonymised once the purpose ends": nothing performs that, and `account_deletions.user_id` is
+`ON DELETE RESTRICT` against `profiles(id)`, so a tombstone cannot currently be deleted at all. A
+proposed manual procedure, and the code and schema work it would need, is drafted in
+[data-retention-review.md](data-retention-review.md) and is **awaiting owner approval**. The
+sentence may be restored to both pages only through the gate in §9 of that document. The figures in the Section 1 table (2 years bookings, 5 years financial, 1 year chat) are
+placeholders that predate legal review; they are not enforced by code and must be confirmed by the
+owner before they appear on any public page.
+
+- [ ] Retention periods confirmed by owner/legal and, if approved, added to the Privacy Policy and
+      `/delete-account`.

@@ -10,8 +10,8 @@ import { metadata as pageMetadata } from '@/app/page';
 describe('sitemap()', () => {
   const entries = sitemap();
 
-  it('returns exactly 12 entries', () => {
-    expect(entries).toHaveLength(12);
+  it('returns exactly 13 entries', () => {
+    expect(entries).toHaveLength(13);
   });
 
   it('includes https://quickserve.co.ke/ (home)', () => {

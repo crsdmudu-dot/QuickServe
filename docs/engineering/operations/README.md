@@ -30,7 +30,7 @@ response, and on-call are **Not documented / Not verified** in the repository.
 
 ## 3. Operational Architecture
 
-QuickServe runs on managed platforms (Supabase + Vercel + EAS builds), so operations is
+QuickServe runs on managed platforms (Supabase + Cloudflare Workers + EAS builds), so operations is
 mostly **platform-managed plus repository-supported scripts and in-app admin tooling**:
 
 - **Operators** run CLI utilities (provisioning, migrations, health/certification) and use the
@@ -56,8 +56,10 @@ flowchart TD
 - **Mobile application** — authenticates via the anon key; persists/refreshes sessions;
   registers a push token (`register-device`); reports crashes to Sentry **only if**
   `EXPO_PUBLIC_SENTRY_DSN` is set (`src/lib/monitoring.ts`).
-- **Web application** — the Vercel-served Expo web build; hosts the **admin operations panel**
-  (`src/app/(admin-web)/operations/*`) for runtime operational actions.
+- **Web application** — the admin Expo web export (`apps/admin`), served by the Cloudflare Worker
+  `quickserve` and deployed by Workers Builds from `main`; hosts the **admin operations panel**
+  for runtime operational actions. (Superseded note: this previously said Vercel-served, from
+  before the admin app was separated out. See the deployment inventory in §5.)
 - **Supabase** — enforces access (RLS), runs triggers/RPCs, stores data/objects, and serves
   Realtime; provides platform logs/backups (platform-managed, not configured in-repo).
 - **Edge Functions** — payments (`mpesa-stk-push`/`mpesa-callback`), push (`send-push`),
@@ -87,6 +89,131 @@ Verified, repository-supported activities only:
   (`supabase secrets set ...`), and use the push kill-switch; reference `docs/pilot/edge-function-health.md`.
 - **Deterministic QA cleanup** — certification teardown deletes created rows + sweeps by marker
   (`qa/docs/LAUNCH-CERTIFICATION.md`).
+
+### Account deletion — never delete an Auth user directly
+
+**Rule: do not delete a row from `auth.users` (Supabase dashboard, admin API or SQL) as a way of
+removing an account.** Since migration `0056_account_deletion.sql`, `profiles.id` no longer
+references `auth.users`, so the profile does not cascade when the login is removed. A raw Auth
+deletion therefore leaves an **active, un-scrubbed profile** behind: the person's name, phone,
+photo and other personal fields stay in the database, the row is not marked deleted, and nothing
+downstream treats the account as gone.
+
+The profile is deliberately retained as a **tombstone** so that financial, dispute and audit rows
+keep a referent. Deleting it outright is blocked anyway: roughly thirty tables reference
+`profiles(id)`, and `provider_payouts.earning_id` is `ON DELETE RESTRICT`.
+
+**Correct operator sequence**
+
+1. **Scrub and tombstone first.** Call `public.delete_account(<user id>)` as `service_role`. This
+   runs in one transaction: it refuses the request if a blocker is present, otherwise deletes the
+   disposable rows, anonymises the retained ones, and sets the profile to a tombstone with
+   `deletion_status = 'pending_auth_delete'`. From this point restrictive RLS denies the identity,
+   so the account has already lost data access.
+2. **Then remove the Auth user.** Only after step 1 reports success.
+3. **If the Auth deletion fails, leave it pending and retry.** `pending_auth_delete` is the
+   designed retryable state, not an error to clean up by hand. The data layer has already locked
+   the account out, and re-running the `delete-account` Edge Function (or repeating step 2)
+   completes the job idempotently. Do not hand-edit `deletion_status` and do not delete the
+   profile row to "finish" it.
+
+**Admins are out of scope for self-service deletion.** Administrator and support accounts cannot
+be deleted from the app; the screen refuses them. They are removed by operations using the same
+two-step sequence above.
+
+QA fixture teardown follows the same rule: the helpers remove fixture profiles explicitly rather
+than relying on a cascade that no longer exists.
+
+Public-facing wording for this behaviour lives in `docs/pilot/legal-support.md` §8, the
+`/delete-account` website page and the in-app delete screen. They must stay consistent.
+
+Retention of the records deletion leaves behind has **no** implemented review or purge. A proposed
+manual procedure, its dependency constraints and the code and schema work it needs are drafted in
+`docs/pilot/data-retention-review.md`, awaiting owner approval.
+
+#### Outstanding before the account-deletion release
+
+The `delete-account` Edge Function was restructured (decision flow moved to `handler.ts`, profile
+lookup now fails closed). **It passed focused QA certification on 2026-09-23 as v2**, against PR
+head `81de534`: 9 of 9 cases including the `pending_auth_delete` retry, with all 21 measured counts
+returning to baseline and no residue. Record:
+[2026-09-23-ACCOUNT-DELETION-V2-QA-CERTIFICATION.md](../../qa/2026-09-23-ACCOUNT-DELETION-V2-QA-CERTIFICATION.md).
+
+That certification covers the **Edge Function only**. The `qa:release` gate has not been re-run on
+this head, no app layer was exercised, and Production has neither `0056` nor the function. Open
+items:
+
+1. **Validate the Deno boundary — DONE.** `deno check` now passes on the real `index.ts` against
+   the real `jsr:@supabase/supabase-js@2`, with the entry point free of casts. Removing the
+   `as unknown as` casts exposed a genuine incompatibility they had been hiding: PostgREST returns
+   an awaitable builder, not a `Promise`, so `maybeSingle()` and `rpc()` are typed `PromiseLike`.
+   The client is given an explicit schema and the `from` signature is pinned to the one table read,
+   both to keep TypeScript inside its instantiation-depth limit. Reproduce with:
+   `npx deno@2 check supabase/functions/delete-account/index.ts` from a directory whose
+   `deno.json` sets `"nodeModulesDir": "auto"`, outside the repository's own `node_modules`.
+2. **Re-certify against QA — DONE 2026-09-23.** Deployed only `delete-account` to the explicitly
+   referenced QA project, taking it from v1 to **v2**; `0056` was already applied and was **not**
+   reapplied, and the migration list was unchanged before and after (55 entries, `0001`–`0054` then
+   `0056`, no `0055`). All nine certification cases passed, including the forced auth-deletion
+   failure and its retry. A 21-measure before/after comparison, captured independently of the
+   specification, showed delta zero across fixed-account totals, financial fingerprints, tombstones,
+   audit and throttle rows, and residue markers; the spec's own delta-zero assertion agreed. Every
+   other Edge Function was left at its prior version.
+3. **Cover the two new refusal paths — DONE locally.** Profile-read failure and missing profile are
+   covered by dependency injection in `src/__tests__/delete-account-handler.test.ts`: four causes
+   for the read failure, each proving no password verification, no data mutation, no ban and no
+   auth deletion. Reverting the gate fails twelve of those tests. **No fault-injection hook was
+   added to the deployed function, and none may be**: anything that can force a failure in QA can
+   be reached in production. No shared QA policy is touched.
+4. **Booking-photo storage scope: FINDING WITHDRAWN, guard added.** An earlier review claimed the
+   `booking-photos` object-read policy was open to any authenticated user. That described the
+   superseded `0006` policy; `0016_tighten_booking_photos_storage.sql` drops it and scopes object
+   reads to the booking's customer, its assigned provider, or an admin.
+   `src/__tests__/booking-photo-storage-scope.test.ts` now replays every migration in version order
+   and asserts on the definition left standing, rather than on `0016`'s wording — so a later
+   migration that dropped or re-broadened the policy would fail it. Verified by temporarily adding
+   such a migration, which failed four cases. No storage policy is changed.
+5. **The retention procedure remains unapproved.** `docs/pilot/data-retention-review.md` is a draft.
+   Its owner and cadence are proposals. The deletion-or-anonymisation sentence stays out of the
+   public pages until the gate in its §9 is met.
+
+### Migration numbering — `0055` is reserved, not free
+
+Operational record, current as of this note:
+
+- **Account deletion owns `0056`** (`0056_account_deletion.sql`). It is merged in PR #27 and is the
+  highest migration QA has applied.
+- There is **no `0055` file in this branch**, and nothing in it references one. The gap is
+  intentional.
+- An **unmerged** hardening migration (internal notification helper privileges) currently sits on
+  its own branch named `0055`. It **must be renamed to `0057` before that branch merges**, together
+  with the two filename constants in its own tests.
+- **Production must never receive a `0055` after `0056`.** The Supabase CLI keys history on the
+  four-digit version prefix and refuses a local migration that sorts before the last applied remote
+  version, failing closed with `LegacyDbPushMissingRemoteError`. Renumbering forward keeps every
+  push in order.
+- **`--include-all` is not the planned production procedure.** It is not a remedy for this and must
+  not be used to force an out-of-order migration through. See
+  `supabase/migrations/archive/README.md` for the earlier `0034` collision that established this.
+- **No change to the unmerged branch is authorised by this note.** It records the agreed target
+  only; the rename happens on that branch, by its own owner, before it merges.
+
+### Automatic deployment inventory
+
+What a merge to `main` actually deploys, and what it does not. Verified from the repository on
+2026-09-23; dashboard-held state is marked UNKNOWN rather than assumed.
+
+| Surface | Trigger | State |
+|---|---|---|
+| Cloudflare Workers Builds -> Worker `quickserve` (admin web) | Push to `main` | **ACTIVE.** Build `npm run build:admin`; deploy `npm run check:admin-artifact && npx wrangler deploy -c apps/admin/wrangler.jsonc` |
+| Vercel | — | **Not a deployment target.** `vercel.json` at the repository root is inert repository configuration retained from an earlier plan. Vercel is not part of the deployment path; nothing to confirm. |
+| GitHub Actions | — | **NONE deploy.** `pr-ci.yml` runs on `pull_request` to `main` and manual dispatch; the three iOS workflows are `workflow_dispatch` only. No workflow has a `push:` trigger. |
+| Supabase Edge Functions | — | **Hand-deployed only.** No workflow runs `supabase functions deploy`. QA holds `delete-account` (Phase B1 revision, certified 2026-09-24) and `deletion-worker` (deployed with `--no-verify-jwt`, secret-only; scheduling disabled); QA migrations 0056, 0058, 0059, 0060. **Production holds none of these migrations or functions.** |
+| Worker `quickserve-auth-qa` (QA auth bridge) | — | **Hand-deployed only** via `wrangler.qa-auth.jsonc`. Never touched by Workers Builds. |
+
+The Cloudflare deploy command above is the agreed one and must be preserved verbatim; changing it,
+or any other Workers Builds setting, is a production change needing explicit authorisation
+(`docs/pilot/web-admin-deploy.md`).
 
 **Not documented / Not verified:** automated backups, restore drills, incident response,
 on-call, scheduled maintenance jobs.
@@ -168,7 +295,8 @@ Repository-supported maintenance only:
 
 - **Supabase project** (Auth/DB/Storage/Realtime/Edge) — the core runtime.
 - **Supabase CLI** — migrations + Edge Function deploys.
-- **Vercel** — web hosting; **EAS** — mobile builds.
+- **Cloudflare Workers** — admin web hosting (Worker `quickserve`, assets-only); **EAS** — mobile
+  builds. Vercel is **not** used.
 - **External services** — M-Pesa Daraja, Expo Push, Google Places/Maps (per-environment config).
 - **Environment variables/secrets** — client `EXPO_PUBLIC_*`, server/edge secrets, QA `QA_*`
   (see [security/](../security/README.md) §9; names in `.env.example`, `qa/.env.example`).

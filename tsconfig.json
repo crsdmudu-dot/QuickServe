@@ -34,6 +34,8 @@
     "supabase/functions/_shared/expo-push-client.ts",
     "supabase/functions/places-autocomplete/index.ts",
     "supabase/functions/place-details/index.ts",
-    "supabase/functions/tracking-map/index.ts"
+    "supabase/functions/tracking-map/index.ts",
+    "supabase/functions/delete-account/index.ts",
+    "supabase/functions/deletion-worker/index.ts"
   ]
 }

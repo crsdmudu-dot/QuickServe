@@ -188,11 +188,21 @@ export async function readOwnProfile(accessToken: string, userId: string): Promi
   }
 }
 
-/** Delete a specific user via the admin API (profiles cascade). */
+/**
+ * Delete a specific user via the admin API, AND its profile row.
+ *
+ * Since migration 0056 the profile no longer cascades from auth.users: a profile is a tombstone
+ * that must survive the auth deletion so financial history keeps a referent. That is correct for
+ * production, where deletion goes through `delete_account`, but it means a raw auth delete leaves
+ * the profile behind. Test fixtures never have financial history, so their profile rows are
+ * removed explicitly here (notifications addressed to the user first: they reference profiles).
+ */
 export async function adminDeleteUser(userId: string): Promise<void> {
   const svc = await service();
   try {
     await svc.delete(`/auth/v1/admin/users/${userId}`);
+    await svc.delete(`/rest/v1/notifications?user_id=eq.${userId}`);
+    await svc.delete(`/rest/v1/profiles?id=eq.${userId}`);
   } finally {
     await svc.dispose();
   }
@@ -331,6 +341,9 @@ export async function sweepEphemeralUsers(prefix = EPHEMERAL_EMAIL_PREFIX): Prom
     for (const u of victims) {
       await deleteProviderPendingNotification(u.id, recipients);
       await svc.delete(`/auth/v1/admin/users/${u.id}`);
+      // Post-0056: the profile no longer cascades from auth.users (see adminDeleteUser).
+      await svc.delete(`/rest/v1/notifications?user_id=eq.${u.id}`);
+      await svc.delete(`/rest/v1/profiles?id=eq.${u.id}`);
     }
   } finally {
     await svc.dispose();
