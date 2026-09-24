@@ -101,3 +101,30 @@ retention rule remain outside this increment.
 Launched detached from the account-deletion worktree at `56c898b`; the CLI-linked project was the
 certified QA project throughout; Production was not contacted.
 
+## 8. Migration 0061 on QA (2026-09-24, 11:20–11:36 local) — post-certification review fix
+
+**Finding (confirmed):** with 0059 as applied, a `complete_with_retained` account whose released
+intent failed in the same worker pass (intents stage runs before candidates) was never selected
+again because the candidate rule required open work or no held intent; it stayed falsely
+complete and closed with a stale reference. A successful partial release never refreshed
+`retained_exception_ref`. Reproduced on a local PostgreSQL against 0059
+(`qa/sql/partial-release-reflects-unresolved.mjs`, both scenarios failed) and fixed by 0061 (both
+passed, exit 0). The local script keeps its local-only target guard; QA was exercised through the
+certified harness instead.
+
+| Step | Evidence |
+|---|---|
+| Preflight | linked reference = env host = certified QA; independent baseline captured; residue zero in every category; pinned hashes of 0056, 0058, 0059, 0060 verified; `db push --dry-run` listed exactly `0061_cleanup_state_reflects_unresolved_intents.sql` |
+| Apply | 0061 applied; `pg_proc` shows the two replaced routines contain the new rule and reason; 0 cron jobs; tick disabled; **no function redeployed, scheduling untouched** |
+| Regressions on real QA | C3d (released intent → `needs_operator` via the real `record_destroy_result`, labelled injected failure class): account `needs_operator`, `closed_at` null, other intent still held, object present. C3e (released intent completes): reference refreshed to the remaining hold in the same pass, stable on the next pass, full release → `complete`, reference null, `closed_at` set. **2 passed, 1.5 min** |
+| Full suite, serial, no retries | `deletion-work.spec.ts` **19 passed, 1 skipped by design** (C2e opt-in), 6.3 min; `account-deletion.spec.ts` 9 passed; `deleted-payer-redaction.spec.ts` 13 passed |
+| Restoration | residue zero; independent 22-measure baseline **delta zero against the ORIGINAL pre-run capture** |
+| Platform annotations | U4 unchanged: Auth deleted the identity immediately (HTTP 200); C5b took the labelled simulated branch |
+
+**Hashes under test (normalised SHA-256):** `0059` `32aa4c0ce62c20b93eb2c97ee0ce4985d4855c2843550dea1c111087331418ca`;
+`0060` `0136c6bc143bc922ccc8e5cf20944d835d5bdf2a677c6cde35e2f17f90230deb`;
+`0061` `dfdaeb9829a9de92617bb0e8812e9e0ef5a866f74a04f2807be1ef2c08a27a9e` (all three pinned by the
+guard test). Harness `deletion-work.spec.ts` `9592d4c67ac760d80a629db3b9f30f5de77d807853dc3b09c945b0ef92f2f6d5`.
+The source commit is recorded in §9 once the fix is committed; the full gate result for that
+commit is recorded there too. The gate result in §7 belongs to `56c898b` alone.
+

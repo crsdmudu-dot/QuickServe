@@ -47,6 +47,30 @@ describe('applied migrations are untouched', () => {
       '0afd7a77df0aa0a7cd08db38676e591c8c1108670607de8f3bd669328291b634',
     );
   });
+  it('0059 has the hash recorded when it was applied to QA (2026-09-24)', () => {
+    expect(sha256Normalised('0059_deletion_work.sql')).toBe(
+      '32aa4c0ce62c20b93eb2c97ee0ce4985d4855c2843550dea1c111087331418ca',
+    );
+  });
+  it('0060 has the hash recorded when it was applied to QA (2026-09-24)', () => {
+    expect(sha256Normalised('0060_delete_account_durable_work.sql')).toBe(
+      '0136c6bc143bc922ccc8e5cf20944d835d5bdf2a677c6cde35e2f17f90230deb',
+    );
+  });
+  it('0061 has the hash recorded when it was applied to QA (2026-09-24)', () => {
+    expect(sha256Normalised('0061_cleanup_state_reflects_unresolved_intents.sql')).toBe(
+      'dfdaeb9829a9de92617bb0e8812e9e0ef5a866f74a04f2807be1ef2c08a27a9e',
+    );
+  });
+});
+
+describe('0061 is the latest owner of the completion routines', () => {
+  const files = fs.readdirSync(DIR).filter((f) => /^\d{4}_.*\.sql$/.test(f)).sort();
+  it.each(['list_cleanup_candidates(integer)', 'try_complete_cleanup(uuid)'])('the last migration defining %s is 0061', (sig) => {
+    const name = sig.replace(/\(.*/, '');
+    const owners = files.filter((f) => fs.readFileSync(path.join(DIR, f), 'utf-8').toLowerCase().includes(`create or replace function public.${name}(`));
+    expect(owners).toEqual(['0059_deletion_work.sql', '0061_cleanup_state_reflects_unresolved_intents.sql']);
+  });
 });
 
 describe('0060 is the latest owner of the deletion routines', () => {

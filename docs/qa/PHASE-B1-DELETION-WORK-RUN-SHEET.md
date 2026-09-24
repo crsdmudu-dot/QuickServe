@@ -25,7 +25,11 @@ unchanged: `delete-account` v2 at `81de534`, `0058` at `491c8d8`, full `qa:relea
 | 11 | Tests (offline): `deletion-worker-handler.test.ts`, `deletion-work-migration-guard.test.ts`, `delete-account-v2-migration-guard.test.ts`, `account-deletion-messages.test.ts`, `deletion-work-cleanup.test.ts` (new); `delete-account-handler.test.ts`, `delete-account-function-guard.test.ts` (updated) | — | 1–8 |
 | 12 | `docs/qa/2026-09-23-QA-COMPAT-PROBE-STORAGE-AUTH-REMOVAL.md` (new), this run sheet | Evidence and procedure | — |
 
-Apply order: 0059 → 0060 → deploy `delete-account` and `deletion-worker` → app. B1's `0055 → 0057`
+| 13 | `supabase/migrations/0061_cleanup_state_reflects_unresolved_intents.sql` (new, **applied to QA 2026-09-24 and certified**: C3d/C3e plus the full suite and the two existing suites; record §8), `qa/sql/partial-release-reflects-unresolved.mjs` (new, local-only) | Post-certification review fix: a settled account is a cleanup candidate when any intent is `needs_operator` or its retained reference no longer matches the holds still holding intents; `try_complete_cleanup` escalates on a `needs_operator` intent before the uncovered-object check and clears `closed_at`. Local SQL regression reproduced the finding on 0059 and passed on 0061 (2026-09-24). | 0059 (re-creates two of its routines) |
+
+Apply order: 0059 → 0060 → deploy `delete-account` and `deletion-worker` → app; **then 0061**
+(re-creates `list_cleanup_candidates` and `try_complete_cleanup` only; no function redeploy
+needed; re-run `deletion-work.spec.ts` C3a and the two existing certifications after applying). B1's `0055 → 0057`
 renumber is independent and untouched. Excluded by decision: web verification route, transactional
 email, wallet-refund implementation, `access_closed`, every unresolved retention rule.
 
@@ -90,6 +94,19 @@ Provisional now reads: "Photo cleanup is awaiting a final check for uploads that
 progress. Some photos may remain under a hold. We cannot confirm completion yet." No removal claim,
 no deadline, three dimensions kept apart. Tests cover provisional with and without held items,
 delayed finalisation, and both terminal states.
+
+### 2.8 Post-certification review finding (0061) — confirmed, fixed, applied to QA and certified
+
+Sequence: `complete_with_retained` with two held intents under two holds; one hold released
+(intent re-planned, no account write by lock order); next worker pass: intents stage first, the
+released intent becomes `needs_operator`; then `list_cleanup_candidates` (0059) selected settled
+accounts only with open work or with no held intent — neither held → the account stayed
+`complete_with_retained`, closed, with a stale reference. A successful partial release likewise
+never refreshed `retained_exception_ref`. **Reproduced on a local PostgreSQL against 0059**
+(`qa/sql/partial-release-reflects-unresolved.mjs`: both scenarios `ok: false`), **fixed by 0061**
+(same script `ok: true`, exit 0, exact-id cleanup). Lock order preserved: no account-row write in
+any hold routine; the account is selected lazily by the corrected candidate rule. Offline: model
+regressions (two scenarios) and static guards; 0059/0060 hash-pinned now that they are on QA.
 
 ## 3. Offline verification (run 2026-09-23, revision 4)
 

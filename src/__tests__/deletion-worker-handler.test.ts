@@ -232,6 +232,14 @@ class World {
   private heldIntents(d: Account): Intent[] {
     return [...this.intents.values()].filter((i) => i.deletionId === d.id && i.state === 'held');
   }
+  private needsOperatorIntents(d: Account): Intent[] {
+    return [...this.intents.values()].filter((i) => i.deletionId === d.id && i.state === 'needs_operator');
+  }
+  /** The references of the holds that still hold this account's intents (null when none). */
+  private currentRefs(d: Account): string | null {
+    const refs = [...new Set(this.heldIntents(d).map((i) => this.holds.find((h) => h.id === i.holdId)?.reference ?? '?'))].sort();
+    return refs.length ? refs.join('; ') : null;
+  }
 
   record_auth_result({ p_deletion, p_lease, p_result }: { p_deletion: string; p_lease: string; p_result: string }) {
     const d = this.accounts.get(p_deletion);
@@ -269,7 +277,7 @@ class World {
       .filter((d) => d.cleanupBoundaryAt === null || d.cleanupBoundaryAt <= this.now || d.lastSweepAt === null || d.lastSweepAt < this.now - HOUR);
     const reopenable = [...this.accounts.values()]
       .filter((d) => d.status !== 'blocked' && (d.cleanupState === 'provisional' || d.cleanupState === 'complete_with_retained'))
-      .filter((d) => this.openIntents(d) || (d.cleanupState === 'complete_with_retained' && this.heldIntents(d).length === 0));
+      .filter((d) => this.openIntents(d) || this.needsOperatorIntents(d).length > 0 || d.retainedRef !== this.currentRefs(d));
     const all = [...new Set([...pending, ...provisional, ...reopenable])];
     return all.slice(0, Math.max(1, Math.min(p_limit, 100))).map((d) => ({ deletion_id: d.id }));
   }
@@ -309,11 +317,11 @@ class World {
     const added = this.inventory(d);
     d.lastSweepAt = this.now;
     if (added > 0) { d.cleanupState = 'pending'; d.finalSweepAt = null; d.closedAt = null; return { complete: false, reason: wasProvisional ? 'reopened' : 'new_intents', new_intents: added, cleanup_state: 'pending' }; }
+    if (this.needsOperatorIntents(d).length > 0) { d.cleanupState = 'needs_operator'; d.closedAt = null; return { complete: false, reason: 'intent_needs_operator', cleanup_state: 'needs_operator' }; }
     const heldPaths = new Set(this.heldIntents(d).map((i) => i.path));
     const uncovered = [...this.objects.entries()].some(([k, o]) => o.owner === d.userId && !heldPaths.has(k.slice('booking-photos/'.length)))
       || [...this.rows.values()].some((r) => r.uploadedBy === d.userId && !heldPaths.has(r.path));
-    if (uncovered) { d.cleanupState = 'needs_operator'; return { complete: false, reason: 'uninventoried_owned_data', cleanup_state: 'needs_operator' }; }
-    if ([...this.intents.values()].some((i) => i.deletionId === d.id && i.state === 'needs_operator')) { d.cleanupState = 'needs_operator'; return { complete: false, cleanup_state: 'needs_operator' }; }
+    if (uncovered) { d.cleanupState = 'needs_operator'; d.closedAt = null; return { complete: false, reason: 'uninventoried_owned_data', cleanup_state: 'needs_operator' }; }
     const refs = [...new Set(this.heldIntents(d).map((i) => this.holds.find((h) => h.id === i.holdId)?.reference ?? '?'))].sort();
     d.retainedRef = refs.length ? refs.join('; ') : null;
     if (d.cleanupBoundaryAt === null || d.cleanupBoundaryAt > this.now) {
@@ -1003,6 +1011,53 @@ describe('recovery review: crash before auth, zero photos, held photos, dependen
     w.now += 3 * MIN;
     await run(w);
     expect(w.accounts.get(a.id)!.cleanupState).toBe('provisional');
+  });
+});
+
+describe('0061: partial hold release with a failing intent is reflected at account level (review finding)', () => {
+  it('REGRESSION: complete_with_retained, two holds; one released; the released intent becomes needs_operator in the intents stage; the account MUST become needs_operator in the same pass, not stay complete', async () => {
+    const w = new World();
+    const a = w.addAccount({ authState: 'deleted', status: 'deleted' });
+    const i1 = w.addPhoto(a); const i2 = w.addPhoto(a);
+    const hA = (await w.rpc('apply_hold', { p_scope: 'booking', p_booking: i1.bookingId, p_user: null, p_reference: 'hold-A' })).data as { hold_id: string };
+    await w.rpc('apply_hold', { p_scope: 'booking', p_booking: i2.bookingId, p_user: null, p_reference: 'hold-B' });
+    w.now += 25 * HOUR;
+    await run(w);
+    expect(w.accounts.get(a.id)!).toMatchObject({ cleanupState: 'complete_with_retained', retainedRef: 'hold-A; hold-B' });
+    expect(w.accounts.get(a.id)!.closedAt).not.toBeNull();
+    // Release A only. B still holds i2.
+    await w.rpc('release_hold', { p_hold: hA.hold_id });
+    expect(w.intents.get(i1.id)!.state).toBe('planned');
+    // Next pass: the intents stage runs first and i1 fails with a permission error → needs_operator,
+    // BEFORE list_cleanup_candidates runs.
+    w.storageMode = 'permission';
+    const res = await run(w);
+    expect(w.intents.get(i1.id)!).toMatchObject({ state: 'needs_operator', lastErrorClass: 'permission' });
+    expect(w.intents.get(i2.id)!.state).toBe('held');
+    // Under revision 4 the account was not a candidate here (no open work, one intent still held).
+    expect(res.body).toMatchObject({ cleanup: expect.objectContaining({ 'pending:intent_needs_operator': 1 }) });
+    expect(w.accounts.get(a.id)!).toMatchObject({ cleanupState: 'needs_operator', closedAt: null });
+  });
+
+  it('REGRESSION: a successful partial release refreshes retained_exception_ref to the remaining hold, and a full release finalises as complete', async () => {
+    const w = new World();
+    const a = w.addAccount({ authState: 'deleted', status: 'deleted' });
+    const i1 = w.addPhoto(a); const i2 = w.addPhoto(a);
+    const hA = (await w.rpc('apply_hold', { p_scope: 'booking', p_booking: i1.bookingId, p_user: null, p_reference: 'hold-A' })).data as { hold_id: string };
+    const hB = (await w.rpc('apply_hold', { p_scope: 'booking', p_booking: i2.bookingId, p_user: null, p_reference: 'hold-B' })).data as { hold_id: string };
+    w.now += 25 * HOUR;
+    await run(w);
+    expect(w.accounts.get(a.id)!.retainedRef).toBe('hold-A; hold-B');
+    await w.rpc('release_hold', { p_hold: hA.hold_id });
+    await run(w); // i1 removed in the intents stage; the account is re-finalised in the same pass
+    expect(w.intents.get(i1.id)!).toMatchObject({ state: 'verified', outcome: 'removed' });
+    expect(w.accounts.get(a.id)!).toMatchObject({ cleanupState: 'complete_with_retained', retainedRef: 'hold-B' });
+    await run(w); // stable: not selected again while nothing changed
+    expect(w.accounts.get(a.id)!).toMatchObject({ cleanupState: 'complete_with_retained', retainedRef: 'hold-B' });
+    await w.rpc('release_hold', { p_hold: hB.hold_id });
+    await run(w);
+    expect(w.accounts.get(a.id)!).toMatchObject({ cleanupState: 'complete', retainedRef: null });
+    expect(w.accounts.get(a.id)!.closedAt).not.toBeNull();
   });
 });
 

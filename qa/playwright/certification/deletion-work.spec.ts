@@ -474,6 +474,77 @@ test.describe('Phase B1 — durable deletion work', { tag: ['@certification', '@
     expect(await ownIntentStates(deletion.id as string)).toEqual({ 'verified:removed': 2 });
   });
 
+  // ── C3d / C3e: 0061 — partial hold release reflected at account level ─────────────────────
+  /** Two bookings, one own photo each, deleted through the function, one legal hold per booking,
+   *  settled as complete_with_retained through the real routines (settling and boundary advanced on
+   *  this run's own row). Returns everything needed to release one hold and observe the account. */
+  async function retainedUnderTwoHolds(): Promise<{ c: Subject; deletion: Row; holds: { id: string; reference: string }[]; paths: string[] }> {
+    const c = await createSubject('customer');
+    const p = await createSubject('provider');
+    const bookings = [await seedCompletedBooking(c.id, p.id), await seedCompletedBooking(c.id, p.id)];
+    const paths = [await uploadPhoto(c, bookings[0], 'issue'), await uploadPhoto(c, bookings[1], 'issue')];
+    await deleteViaFunction(c);
+    const deletion = await deletionRow(c.id);
+    const holds: { id: string; reference: string }[] = [];
+    for (const [i, b] of bookings.entries()) {
+      const reference = `${PREFIX}-0061-${i}-${crypto.randomUUID().slice(0, 8)}`;
+      const h = await api.rpc<Row>('apply_hold', { p_scope: 'booking', p_booking: b, p_user: null, p_source: 'legal', p_reference: reference, p_case_id: null, p_placed_by: null });
+      fixtures.holdIds.push(h.hold_id as string);
+      holds.push({ id: h.hold_id as string, reference });
+    }
+    await ensureAuthDeleted(c, deletion.id as string);
+    await openSettling(deletion.id as string);
+    await passBoundary(deletion.id as string);
+    await worker();
+    const settled = await deletionRow(c.id);
+    expect(settled).toMatchObject({ cleanup_state: 'complete_with_retained', retained_exception_ref: [...holds.map((h) => h.reference)].sort().join('; ') });
+    expect(settled.closed_at).toBeTruthy();
+    return { c, deletion, holds, paths };
+  }
+
+  test('C3d 0061 regression (real QA): one held intent remains while a released intent reaches needs_operator → the account becomes needs_operator and closed_at is cleared', async () => {
+    const { c, deletion, holds, paths } = await retainedUnderTwoHolds();
+    const rel = await api.rpc<Row>('release_hold', { p_hold: holds[0].id, p_released_by: null, p_note: 'qa partial release' });
+    expect(rel.replanned).toBe(1);
+    expect((await deletionRow(c.id)).cleanup_state).toBe('complete_with_retained'); // no account write in release_hold (lock order)
+    const released = (await intentsOf(deletion.id as string)).find((i) => i.object_path === paths[0]) as Row;
+    expect(released.state).toBe('planned');
+    // Drive the released intent to needs_operator through the REAL routines, as the worker's intents
+    // stage would on a Storage permission failure (labelled: the failure class is injected via
+    // record_destroy_result because a real 403 cannot be forced on QA without a fault hook).
+    const lease = crypto.randomUUID();
+    await svcPatch(`/rest/v1/deletion_photo_intents?id=eq.${released.id}`, { state: 'destroying', lease_id: lease, leased_until: future(10), destroy_authorized_at: new Date().toISOString() });
+    const rec = await api.rpc<Row>('record_destroy_result', { p_intent: released.id, p_lease: lease, p_result: 'api_permission', p_detail: 'qa: SIMULATED permission failure' });
+    expect(rec).toMatchObject({ recorded: true, state: 'needs_operator' });
+    // Next worker pass: candidates must select the account although one intent is still held.
+    const w = await worker();
+    expect(w.body.cleanup).toMatchObject({ 'pending:intent_needs_operator': 1 });
+    const after = await deletionRow(c.id);
+    expect(after).toMatchObject({ cleanup_state: 'needs_operator', closed_at: null });
+    const other = (await intentsOf(deletion.id as string)).find((i) => i.object_path === paths[1]) as Row;
+    expect(other.state).toBe('held');
+    expect(await objectExists(paths[1])).toBe(true);
+    // Leave the held object protected; the intent in needs_operator is an operator's to resolve.
+  });
+
+  test('C3e 0061 regression (real QA): one held intent remains while a released intent completes → retained reference refreshed to the remaining hold; full release → complete', async () => {
+    const { c, deletion, holds, paths } = await retainedUnderTwoHolds();
+    await api.rpc('release_hold', { p_hold: holds[0].id, p_released_by: null, p_note: 'qa partial release' });
+    const w1 = await worker(); // intents stage removes the released object; the same pass re-finalises the account
+    expect(w1.body.intents).toMatchObject({ 'verified:removed': 1 });
+    expect(await objectExists(paths[0])).toBe(false);
+    expect(await deletionRow(c.id)).toMatchObject({ cleanup_state: 'complete_with_retained', retained_exception_ref: holds[1].reference });
+    const before = await deletionRow(c.id);
+    await worker(); // nothing changed: not re-selected, state and reference stable
+    expect(await deletionRow(c.id)).toMatchObject({ cleanup_state: 'complete_with_retained', retained_exception_ref: holds[1].reference, final_sweep_at: before.final_sweep_at });
+    await api.rpc('release_hold', { p_hold: holds[1].id, p_released_by: null, p_note: 'qa full release' });
+    await worker();
+    expect(await objectExists(paths[1])).toBe(false);
+    const done = await deletionRow(c.id);
+    expect(done).toMatchObject({ cleanup_state: 'complete', retained_exception_ref: null });
+    expect(done.closed_at).toBeTruthy();
+  });
+
   // ── C4 concurrency ────────────────────────────────────────────────────────────────────────
   test('C4 two concurrent worker invocations over 20 intents: each processed once (per-deletion accounting), none to the operator; an expired-lease destroying intent is resumed', async () => {
     test.setTimeout(5 * 60 * 1000);

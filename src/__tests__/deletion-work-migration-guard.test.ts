@@ -31,20 +31,27 @@ function topLevel(text: string): string {
   return text.replace(/\$\$[\s\S]*?\$\$/g, '$$body$$');
 }
 
-/** The body of one `create or replace function public.<name>(` definition. */
+/** The body of one `create or replace function public.<name>(` definition, from its LATEST owner. */
+const LATER_OWNERS: Record<string, string> = {
+  list_cleanup_candidates: '0061_cleanup_state_reflects_unresolved_intents.sql',
+  try_complete_cleanup: '0061_cleanup_state_reflects_unresolved_intents.sql',
+};
 function body(name: string): string {
-  const start = sql.indexOf(`create or replace function public.${name}(`);
+  const text = LATER_OWNERS[name] ? fs.readFileSync(path.join(DIR, LATER_OWNERS[name]), 'utf-8') : sql;
+  const start = text.indexOf(`create or replace function public.${name}(`);
   if (start < 0) throw new Error(`definition of ${name} not found`);
-  const open = sql.indexOf('$$', start);
-  const close = sql.indexOf('$$;', open + 2);
-  return sql.slice(open, close);
+  const open = text.indexOf('$$', start);
+  const close = text.indexOf('$$;', open + 2);
+  return text.slice(open, close);
 }
+const sql61 = fs.readFileSync(path.join(DIR, '0061_cleanup_state_reflects_unresolved_intents.sql'), 'utf-8');
 
 describe('0059: numbering', () => {
   it('is the only 0059, 0060 exists, and the reserved 0055/0057 numbers stay free', () => {
     const files = fs.readdirSync(DIR).filter((f) => /^\d{4}_.*\.sql$/.test(f)).sort();
     expect(files.filter((f) => f.startsWith('0059_'))).toEqual([FILE]);
     expect(files.filter((f) => f.startsWith('0060_'))).toHaveLength(1);
+    expect(files.filter((f) => f.startsWith('0061_'))).toEqual(['0061_cleanup_state_reflects_unresolved_intents.sql']);
     expect(files.some((f) => f.startsWith('0055_'))).toBe(false);
     expect(files.some((f) => f.startsWith('0057_'))).toBe(false);
   });
@@ -381,8 +388,9 @@ describe('0059: lock order is acyclic (review finding 2)', () => {
   it('a released hold reopens the account lazily: candidates select settled accounts with open intents and try_complete reopens them', () => {
     const c = body('list_cleanup_candidates');
     expect(c).toContain("d.cleanup_state in ('provisional', 'complete_with_retained')");
-    expect(c).toContain("i.state in ('planned', 'destroying', 'object_removed', 'object_absent'))");
-    expect(c).toContain("and not exists (select 1 from public.deletion_photo_intents i\n                                 where i.account_deletion_id = d.id and i.state = 'held')");
+    expect(c).toContain("i.state in ('planned', 'destroying', 'object_removed', 'object_absent',\n                                       'needs_operator'))");
+    // 0061 replaced "no held intent remains" with "recorded reference differs from the holds still holding intents".
+    expect(c).toContain('or d.retained_exception_ref is distinct from');
     const t = body('try_complete_cleanup');
     expect(t).toContain("if d.cleanup_state in ('provisional', 'complete_with_retained') then\n      update public.account_deletions\n         set cleanup_state = 'pending', cleanup_settled_at = null, final_sweep_at = null, closed_at = null");
     expect(t).toContain("if d.cleanup_state = 'complete' then\n    return jsonb_build_object('complete', true, 'cleanup_state', d.cleanup_state);");
@@ -409,9 +417,11 @@ describe('0059: recovery without endless cycles', () => {
     expect(b.indexOf("d.cleanup_state = 'complete_with_retained'")).toBeLessThan(b.indexOf("if p_result = 'permission' or v_attempts >= 10 then"));
     expect(b).toContain("i.state in ('planned', 'destroying', 'object_removed', 'object_absent')))) then");
   });
-  it('held intents are never claimable and needs_operator accounts are never cleanup candidates', () => {
+  it('held intents are never claimable and needs_operator ACCOUNTS are never cleanup candidates', () => {
     expect(body('claim_deletion_work')).not.toContain("'held'");
-    expect(body('list_cleanup_candidates')).not.toContain("'needs_operator'");
+    const c = body('list_cleanup_candidates');
+    expect(c).not.toMatch(/d\.cleanup_state[^\n]*'needs_operator'/); // account state never selected
+    expect(c).toContain("'needs_operator'))"); // but an INTENT in needs_operator does select a settled account (0061)
   });
 });
 
@@ -471,5 +481,33 @@ describe('gateway configuration for the worker (finding 3)', () => {
     expect(index).toContain("req.headers.get('x-worker-secret')");
     expect(index).toContain("Deno.env.get('DELETION_WORKER_SECRET') ?? null");
     expect(index).toContain('AbortSignal.timeout(STORAGE_TIMEOUT_MS)');
+  });
+});
+
+describe('0061: account-level state reflects unresolved intents after a partial hold release (review finding)', () => {
+  it('REGRESSION: a settled account is a candidate when any intent is needs_operator', () => {
+    const c = body('list_cleanup_candidates');
+    expect(c).toContain("and i.state in ('planned', 'destroying', 'object_removed', 'object_absent',\n                                       'needs_operator'))");
+  });
+  it('REGRESSION: a settled account is a candidate when its recorded retained reference no longer matches the holds that still hold intents', () => {
+    const c = body('list_cleanup_candidates');
+    expect(c).toContain('or d.retained_exception_ref is distinct from');
+    expect(c).toContain("where i.account_deletion_id = d.id and i.state = 'held'))");
+  });
+  it('try_complete_cleanup escalates on a needs_operator intent BEFORE the uncovered-object check, with its own reason', () => {
+    const t = body('try_complete_cleanup');
+    const needs = t.indexOf("'reason', 'intent_needs_operator'");
+    const uncovered = t.indexOf("'reason', 'uninventoried_owned_data'");
+    expect(needs).toBeGreaterThan(-1);
+    expect(needs).toBeLessThan(uncovered);
+    expect(t.match(/i\.state = 'needs_operator'\) then/g)).toHaveLength(1);
+  });
+  it('0061 re-creates only the two routines, keeps them service-role only, and writes no account row from any hold routine', () => {
+    const defs = sql61.match(/create or replace function public\.[a-z_]+\(/g) ?? [];
+    expect(defs).toEqual(['create or replace function public.list_cleanup_candidates(', 'create or replace function public.try_complete_cleanup(']);
+    expect(sql61).toContain('revoke execute on function public.list_cleanup_candidates(integer) from public, anon, authenticated;');
+    expect(sql61).toContain('grant execute on function public.try_complete_cleanup(uuid) to service_role;');
+    const code61 = sql61.replace(/--[^\n]*/g, ''); // the header comment names the hold routines it must not touch
+    expect(code61).not.toMatch(/release_hold|apply_hold|tg_support_case_hold/);
   });
 });
