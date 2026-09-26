@@ -70,6 +70,15 @@ describe('ProviderHomeScreen', () => {
     expect(screen.getByText('Application declined')).toBeOnTheScreen();
   });
 
+  // App Store 5.1.1(v) / Google Play: every account that can be created can be deleted in the app,
+  // including providers who are still pending or were declined.
+  it.each(['pending', 'rejected'])('offers Delete account when approvalStatus is %s', (status) => {
+    mockApprovalStatus = status;
+    render(<ProviderHomeScreen />);
+    fireEvent.press(screen.getByText('Delete account'));
+    expect(router.push).toHaveBeenCalledWith('/account/delete');
+  });
+
   it('shows job status label and navigates on press when approved', async () => {
     mockApprovalStatus = 'approved';
     render(<ProviderHomeScreen />);

@@ -238,10 +238,36 @@ describe('ProviderProfileScreen — approved', () => {
 describe('ProviderProfileScreen — pending', () => {
   beforeEach(() => {
     mockApprovalStatus = 'pending';
+    (router.push as jest.Mock).mockClear();
   });
 
   it('shows "Awaiting approval" gate screen', () => {
     render(<ProviderProfileScreen />);
     expect(screen.getByText('Awaiting approval')).toBeOnTheScreen();
+  });
+
+  // App Store 5.1.1(v) / Google Play: every account that can be created can be deleted in the app.
+  it('offers Delete account, which opens the delete-account screen', () => {
+    render(<ProviderProfileScreen />);
+    fireEvent.press(screen.getByText('Delete account'));
+    expect(router.push).toHaveBeenCalledWith('/account/delete');
+  });
+});
+
+describe('ProviderProfileScreen — rejected', () => {
+  beforeEach(() => {
+    mockApprovalStatus = 'rejected';
+    (router.push as jest.Mock).mockClear();
+  });
+
+  it('shows "Application declined" gate screen', () => {
+    render(<ProviderProfileScreen />);
+    expect(screen.getByText('Application declined')).toBeOnTheScreen();
+  });
+
+  it('offers Delete account, which opens the delete-account screen', () => {
+    render(<ProviderProfileScreen />);
+    fireEvent.press(screen.getByText('Delete account'));
+    expect(router.push).toHaveBeenCalledWith('/account/delete');
   });
 });

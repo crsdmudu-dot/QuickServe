@@ -119,6 +119,8 @@ export default function ProviderProfileScreen() {
   }, [approvalStatus, session]);
 
   // ── Gate screens ──────────────────────────────────────────────────────────
+  // Pending and declined providers can still delete their account (App Store 5.1.1(v) and
+  // Google Play's account-deletion policy require it for every account that can be created).
 
   if (approvalStatus === 'pending') {
     return (
@@ -129,6 +131,8 @@ export default function ProviderProfileScreen() {
           message="Your application is under review. We'll notify you once it's approved."
           actionLabel="Sign out"
           onAction={signOut}
+          secondaryActionLabel="Delete account"
+          onSecondaryAction={() => router.push('/account/delete' as Href)}
         />
       </SafeAreaView>
     );
@@ -143,6 +147,8 @@ export default function ProviderProfileScreen() {
           message="Unfortunately your provider application was not approved."
           actionLabel="Sign out"
           onAction={signOut}
+          secondaryActionLabel="Delete account"
+          onSecondaryAction={() => router.push('/account/delete' as Href)}
         />
       </SafeAreaView>
     );
