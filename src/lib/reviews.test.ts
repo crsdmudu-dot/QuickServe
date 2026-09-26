@@ -444,3 +444,19 @@ describe('adminGetAllReviews pagination', () => {
     expect(mockRange).not.toHaveBeenCalled();
   });
 });
+
+describe('reviews — objectionable-language filter (0067)', () => {
+  it('submitReview explains a filtered comment in plain words', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    setupReviewInsertError('P0001', 'content_not_allowed');
+    expect(await submitReview({ bookingId: 'bk1', providerId: 'p1', rating: 1, comment: 'rude' })).toEqual({
+      ok: false,
+      error: 'Please remove offensive language and try again.',
+    });
+  });
+
+  it('editReview explains a filtered comment in plain words', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'content_not_allowed', code: 'P0001' } });
+    expect(await editReview({ reviewId: 'r1', rating: 1, comment: 'rude' })).toEqual({ ok: false, error: 'Please remove offensive language and try again.' });
+  });
+});

@@ -1,5 +1,6 @@
 // reviews.ts — Supabase helpers for submitting and reading booking reviews.
 import { supabase } from '@/lib/supabase';
+import { CONTENT_NOT_ALLOWED_MESSAGE, isContentNotAllowed } from '@/lib/content-filter';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -121,6 +122,7 @@ export async function submitReview(input: {
     if (error.code === '23505') {
       return { ok: false, error: "You've already reviewed this booking." };
     }
+    if (isContentNotAllowed(error)) return { ok: false, error: CONTENT_NOT_ALLOWED_MESSAGE };
     return { ok: false, error: 'Could not submit review. Please try again.' };
   }
 
@@ -248,6 +250,7 @@ export async function editReview(input: {
   if (error) {
     // The RPC raises 'edit window closed or not owner' for auth/window failures.
     // Map all server errors to a friendly client message.
+    if (isContentNotAllowed(error)) return { ok: false, error: CONTENT_NOT_ALLOWED_MESSAGE };
     return { ok: false, error: 'Could not update review.' };
   }
   return { ok: true };

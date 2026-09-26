@@ -1,5 +1,6 @@
 // messages.ts — Supabase helpers for in-app chat on bookings.
 import { supabase } from '@/lib/supabase';
+import { CONTENT_NOT_ALLOWED_MESSAGE, isContentNotAllowed } from '@/lib/content-filter';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -59,6 +60,7 @@ export async function sendBookingMessage(
   });
 
   // 4. Map error to a friendly message.
+  if (isContentNotAllowed(error)) return { ok: false, error: CONTENT_NOT_ALLOWED_MESSAGE };
   if (error) return { ok: false, error: 'Could not send message. Please try again.' };
   return { ok: true };
 }

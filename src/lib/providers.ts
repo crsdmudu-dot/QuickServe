@@ -1,5 +1,6 @@
 // providers.ts — Supabase helpers for reading and approving service providers.
 import { supabase } from '@/lib/supabase';
+import { CONTENT_NOT_ALLOWED_MESSAGE, isContentNotAllowed } from '@/lib/content-filter';
 
 export type ProviderProfile = {
   id: string;
@@ -84,6 +85,7 @@ export async function updateMyProviderProfile(
     .from('profiles')
     .update(fields)
     .eq('id', data.user.id);
+  if (isContentNotAllowed(error)) return { ok: false, error: CONTENT_NOT_ALLOWED_MESSAGE };
   if (error) return { ok: false, error: 'Could not update profile. Please try again.' };
   return { ok: true };
 }
@@ -97,6 +99,7 @@ export async function adminUpdateProviderProfile(
     .from('profiles')
     .update(fields)
     .eq('id', id);
+  if (isContentNotAllowed(error)) return { ok: false, error: CONTENT_NOT_ALLOWED_MESSAGE };
   if (error) return { ok: false, error: 'Could not update provider profile. Please try again.' };
   return { ok: true };
 }
