@@ -47,8 +47,10 @@ type Kind = 'admin' | 'caller' | 'admin-or-caller' | 'signed-in-read' | 'rls-hel
  *   signed-in-read  - curated read-only projection for any signed-in user
  *   rls-helper      - called inside RLS policies as the querying role, so anon must keep EXECUTE
  * Adding an entry is a security decision: review the function's caller check first.
+ * ALLOWLIST_0064 is the reviewed set as of 0064; later migrations add their entries to their own
+ * section below, so the 0064 checks (O2_SWEPT) stay pinned to what 0064 actually changed.
  */
-const ALLOWLIST: Record<string, { kind: Kind; why: string }> = {
+const ALLOWLIST_0064: Record<string, { kind: Kind; why: string }> = {
   'public.accept_provider_conduct(text)': { kind: 'caller', why: "records the caller's own acceptance (auth.uid())" },
   'public.accept_quote(uuid)': { kind: 'caller', why: "only the booking's customer, only a quote in state 'sent'" },
   'public.add_internal_note(text,uuid,text)': { kind: 'admin', why: 'admin notes' },
@@ -119,10 +121,27 @@ const ALLOWLIST: Record<string, { kind: Kind; why: string }> = {
   'public.upsert_provider_location(uuid,double precision,double precision,double precision,double precision)': { kind: 'caller', why: 'the assigned provider of an active booking' },
 };
 
+/**
+ * Store-compliance F5 (user-content safeguards), reviewed with each migration. Admin entries check
+ * public.is_active_admin() (approved and not deleted), which is stricter than is_admin().
+ */
+const ALLOWLIST_F5: Record<string, { kind: Kind; why: string }> = {
+  // 0065: reports and moderation
+  'public.is_active_admin()': { kind: 'rls-helper', why: 'F5 admin-only policies; yes/no about the caller (never granted to anon)' },
+  'public.report_content(text,uuid,text)': { kind: 'caller', why: 'reports as the caller; the reported user is derived server-side; active users only' },
+  'public.admin_get_content_reports(text)': { kind: 'admin', why: 'moderation queue' },
+  'public.admin_resolve_content_report(uuid,text,text)': { kind: 'admin', why: 'moderation queue' },
+  'public.admin_set_message_hidden(uuid,boolean,uuid,text)': { kind: 'admin', why: 'moderation: hide a chat message' },
+  'public.admin_set_review_hidden(uuid,boolean,uuid,text)': { kind: 'admin', why: 'moderation: hide a review' },
+  'public.admin_clear_profile_text(uuid,uuid,text)': { kind: 'admin', why: "moderation: clear a provider's bio and skills" },
+};
+
+const ALLOWLIST: Record<string, { kind: Kind; why: string }> = { ...ALLOWLIST_0064, ...ALLOWLIST_F5 };
+
 /** The 49 functions 0064 Part B takes away from PUBLIC and anon (O2). */
-const O2_SWEPT = Object.keys(ALLOWLIST).filter(
+const O2_SWEPT = Object.keys(ALLOWLIST_0064).filter(
   (k) =>
-    ALLOWLIST[k].kind !== 'rls-helper' &&
+    ALLOWLIST_0064[k].kind !== 'rls-helper' &&
     ![
       'public.admin_mpesa_attempt_review()',
       'public.admin_mpesa_callback_events()',
@@ -172,7 +191,8 @@ export function auditViolations(model: FunctionModel, allowlist: typeof ALLOWLIS
     }
     if (anonOrPublic(f) && entry.kind !== 'rls-helper') out.push(`anon/PUBLIC can execute ${f.key}, which is not an RLS helper`);
     const body = f.definition;
-    if ((entry.kind === 'admin' || entry.kind === 'admin-or-caller') && !/\bis_admin\s*\(/.test(body)) out.push(`${f.key}: kind ${entry.kind} but no is_admin() call`);
+    // is_active_admin() (F5) is is_admin() plus "approved and not deleted", so it satisfies an admin check.
+    if ((entry.kind === 'admin' || entry.kind === 'admin-or-caller') && !/\bis_(active_)?admin\s*\(/.test(body)) out.push(`${f.key}: kind ${entry.kind} but no is_admin() call`);
     if ((entry.kind === 'caller' || entry.kind === 'admin-or-caller') && !/\bauth\.uid\(\)/.test(body)) out.push(`${f.key}: kind ${entry.kind} but no auth.uid() check`);
     if (entry.kind === 'rls-helper' && !new RegExp(`\\b${f.name}\\(`).test(policyText)) out.push(`${f.key}: kind rls-helper but no policy calls it`);
     if (entry.kind === 'signed-in-read' && /\b(insert\s+into|update\s+[a-z_.]+\s+set|delete\s+from)\b/.test(body)) out.push(`${f.key}: kind signed-in-read but it writes`);
@@ -217,8 +237,10 @@ describe('function EXECUTE privilege audit (M7) and 0064', () => {
       expect(auditViolations(model, ALLOWLIST, policyText)).toEqual([]);
     });
 
-    it('the allowlist holds 68 reviewed entries, and exactly three may be called by anon', () => {
-      expect(Object.keys(ALLOWLIST)).toHaveLength(68);
+    it('the allowlist holds 68 reviewed entries as of 0064 plus the F5 entries, and exactly three may be called by anon', () => {
+      expect(Object.keys(ALLOWLIST_0064)).toHaveLength(68);
+      expect(Object.keys(ALLOWLIST_F5)).toHaveLength(7);
+      expect(Object.keys(ALLOWLIST)).toHaveLength(68 + 7);
       const anon = [...model.functions.values()].filter((f) => f.securityDefiner && !isTriggerFunction(f) && anonOrPublic(f)).map((f) => f.key);
       expect(anon.sort()).toEqual(['public.deletion_path_frozen(text,text)', 'public.is_active_user()', 'public.is_admin()']);
     });
