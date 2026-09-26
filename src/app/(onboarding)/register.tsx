@@ -8,8 +8,10 @@ import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/auth/auth-context';
 import { AUTH_LINK_REQUEST_COPY, authLinkFailureCopy, isNeutralSuccess, type AuthLinkRequestOutcome } from '@/lib/auth-link-request';
 import { validateRegister } from '@/lib/validation';
+import { CURRENT_TERMS_VERSION } from '@/constants/terms';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { TermsConsent } from '@/components/ui/terms-consent';
 import { Text } from '@/components/ui/text';
 
 export default function RegisterScreen() {
@@ -22,13 +24,17 @@ export default function RegisterScreen() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   async function submit() {
     const e = validateRegister({ name, email, phone, password, confirm });
+    // F5.4: the Terms must be accepted before an account (and so any content) can be created.
+    if (!termsAccepted) e.terms = 'Please agree to the Terms of Service to create an account.';
     setErrors(e);
     if (Object.keys(e).length > 0) return;
-    await signUp({ fullName: name, email, phone, password }); // gating routes on success
+    // The accepted version travels with the sign-up; it is recorded on the server at first sign-in.
+    await signUp({ fullName: name, email, phone, password, acceptedTermsVersion: CURRENT_TERMS_VERSION }); // gating routes on success
   }
 
   async function resend() {
@@ -140,6 +146,7 @@ export default function RegisterScreen() {
             autoCapitalize="none"
             error={errors.confirm}
           />
+          <TermsConsent checked={termsAccepted} onChange={setTermsAccepted} error={errors.terms} />
 
           <View style={styles.actions}>
             <Button label="Create account" fullWidth size="lg" onPress={submit} />

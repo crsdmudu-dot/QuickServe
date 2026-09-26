@@ -460,3 +460,10 @@ describe('reviews — objectionable-language filter (0067)', () => {
     expect(await editReview({ reviewId: 'r1', rating: 1, comment: 'rude' })).toEqual({ ok: false, error: 'Please remove offensive language and try again.' });
   });
 });
+
+describe('reviews — Terms gate (0068)', () => {
+  it('editReview explains the Terms refusal in plain words', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'terms_not_accepted', code: 'P0001' } });
+    expect(await editReview({ reviewId: 'r1', rating: 4, comment: 'Changed my mind' })).toEqual({ ok: false, error: 'Please accept the Terms of Service first.' });
+  });
+});

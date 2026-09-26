@@ -34,6 +34,7 @@ function Probe() {
       <Text>{isLoading ? 'loading' : `ready:${role ?? 'none'}:${signedIn}:${authError ?? '-'}`}</Text>
       <Pressable onPress={() => selectRole('provider')}><Text>select</Text></Pressable>
       <Pressable onPress={() => su({ fullName: 'A', email: 'a@b', phone: '07', password: 'pw' })}><Text>signup</Text></Pressable>
+      <Pressable onPress={() => su({ fullName: 'A', email: 'a@b', phone: '07', password: 'pw', acceptedTermsVersion: 'draft-2026-09-26' })}><Text>signup-terms</Text></Pressable>
       <Pressable onPress={() => signIn('a@b', 'pw')}><Text>signin</Text></Pressable>
       <Pressable onPress={() => so()}><Text>signout</Text></Pressable>
     </>
@@ -85,6 +86,20 @@ it('signUp passes role metadata and signOut calls supabase', async () => {
   ));
   fireEvent.press(screen.getByText('signout'));
   await waitFor(() => expect(mockSignOut).toHaveBeenCalled());
+});
+
+it('signUp carries the Terms version agreed on the register screen (F5.4)', async () => {
+  mockGetSession.mockResolvedValue({ data: { session: null } });
+  mockSignUp.mockResolvedValue({ error: null });
+  render(<AuthProvider><Probe /></AuthProvider>);
+  await waitFor(() => expect(screen.getByText('ready:none:false:-')).toBeOnTheScreen());
+  fireEvent.press(screen.getByText('select'));
+  fireEvent.press(screen.getByText('signup-terms'));
+  await waitFor(() => expect(mockSignUp).toHaveBeenCalledWith(
+    expect.objectContaining({
+      options: expect.objectContaining({ data: { full_name: 'A', phone: '07', role: 'provider', terms_version: 'draft-2026-09-26' } }),
+    }),
+  ));
 });
 
 it('signOut unregisters this device push token BEFORE supabase signOut (Phase 4E.1)', async () => {

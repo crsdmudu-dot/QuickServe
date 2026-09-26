@@ -42,3 +42,37 @@ describe('resolveRootRedirect', () => {
     expect(resolveRootRedirect({ ...base, segments: ['home'], recoveryActive: true })).toBeNull();
   });
 });
+
+describe('resolveRootRedirect — Terms gate (F5.4)', () => {
+  const signedIn = { ...base, signedIn: true, role: 'customer' } as const;
+
+  it('sends a signed-in user who has not accepted the current Terms to the Terms screen, from anywhere', () => {
+    expect(resolveRootRedirect({ ...signedIn, segments: ['home'], termsRequired: true })).toBe('/accept-terms');
+    expect(resolveRootRedirect({ ...signedIn, segments: ['booking', '[id]'], termsRequired: true })).toBe('/accept-terms');
+    expect(resolveRootRedirect({ ...signedIn, segments: ['(onboarding)', 'signin'], termsRequired: true })).toBe('/accept-terms');
+    expect(resolveRootRedirect({ ...signedIn, role: 'provider', segments: ['provider'], termsRequired: true })).toBe('/accept-terms');
+  });
+
+  it('keeps them on the Terms screen until they accept', () => {
+    expect(resolveRootRedirect({ ...signedIn, segments: ['accept-terms'], termsRequired: true })).toBeNull();
+  });
+
+  it('sends them to their home once accepted (or when the screen is opened without need)', () => {
+    expect(resolveRootRedirect({ ...signedIn, segments: ['accept-terms'], termsRequired: false })).toBe('/home');
+    expect(resolveRootRedirect({ ...signedIn, role: 'provider', segments: ['accept-terms'] })).toBe('/provider');
+  });
+
+  it('does not gate while the check is pending or when not required', () => {
+    expect(resolveRootRedirect({ ...signedIn, segments: ['home'], termsRequired: false })).toBeNull();
+    expect(resolveRootRedirect({ ...signedIn, segments: ['home'] })).toBeNull();
+  });
+
+  it('still lets auth link routes and an active recovery run first', () => {
+    expect(resolveRootRedirect({ ...signedIn, segments: ['auth', 'recovery'], termsRequired: true })).toBeNull();
+    expect(resolveRootRedirect({ ...signedIn, segments: ['home'], recoveryActive: true, termsRequired: true })).toBeNull();
+  });
+
+  it('a signed-out visitor on the Terms screen goes to welcome', () => {
+    expect(resolveRootRedirect({ ...base, segments: ['accept-terms'], termsRequired: false })).toBe('/welcome');
+  });
+});

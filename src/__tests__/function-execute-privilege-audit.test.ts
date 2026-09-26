@@ -140,6 +140,9 @@ const ALLOWLIST_F5: Record<string, { kind: Kind; why: string }> = {
   'public.get_my_blocked_users()': { kind: 'caller', why: "the caller's own block list" },
   'public.booking_chat_blocked(uuid)': { kind: 'admin-or-caller', why: "yes/no for the booking's participants or an admin; also used by the chat insert policy" },
   'public.admin_blocked_provider_ids(uuid)': { kind: 'admin', why: 'dispatch warning on the admin assign screen' },
+  // 0068: Terms acceptance
+  'public.accept_terms(text,text)': { kind: 'caller', why: "records the caller's own acceptance of the current Terms version only; active users only" },
+  'public.has_accepted_current_terms()': { kind: 'rls-helper', why: 'restrictive chat/review insert policies and the bio trigger; yes/no about the caller (never granted to anon)' },
 };
 
 const ALLOWLIST: Record<string, { kind: Kind; why: string }> = { ...ALLOWLIST_0064, ...ALLOWLIST_F5 };
@@ -245,8 +248,8 @@ describe('function EXECUTE privilege audit (M7) and 0064', () => {
 
     it('the allowlist holds 68 reviewed entries as of 0064 plus the F5 entries, and exactly three may be called by anon', () => {
       expect(Object.keys(ALLOWLIST_0064)).toHaveLength(68);
-      expect(Object.keys(ALLOWLIST_F5)).toHaveLength(12);
-      expect(Object.keys(ALLOWLIST)).toHaveLength(68 + 12);
+      expect(Object.keys(ALLOWLIST_F5)).toHaveLength(14);
+      expect(Object.keys(ALLOWLIST)).toHaveLength(68 + 14);
       const anon = [...model.functions.values()].filter((f) => f.securityDefiner && !isTriggerFunction(f) && anonOrPublic(f)).map((f) => f.key);
       expect(anon.sort()).toEqual(['public.deletion_path_frozen(text,text)', 'public.is_active_user()', 'public.is_admin()']);
     });

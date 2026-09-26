@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
+import { CURRENT_TERMS_VERSION } from '@/constants/terms';
+
 const mockSignUp = jest.fn().mockResolvedValue(true);
 jest.mock('expo-router', () => ({ router: { push: jest.fn(), replace: jest.fn() } }));
 const mockResendConfirmation = jest.fn();
@@ -41,7 +43,23 @@ describe('RegisterScreen', () => {
     expect(mockSignUp).not.toHaveBeenCalled();
   });
 
-  it('calls signUp with correct values when valid', async () => {
+  it('calls signUp with correct values when valid (including the agreed Terms version, F5.4)', async () => {
+    render(<RegisterScreen />);
+    fireEvent.changeText(screen.getByPlaceholderText('Full name'), 'A');
+    fireEvent.changeText(screen.getByPlaceholderText('you@example.com'), 'a@b');
+    fireEvent.changeText(screen.getByPlaceholderText('07xx xxx xxx'), '0700');
+    fireEvent.changeText(screen.getByPlaceholderText('Create a password'), 'longenough');
+    fireEvent.changeText(screen.getByPlaceholderText('Confirm password'), 'longenough');
+    fireEvent.press(screen.getByTestId('terms-consent'));
+    fireEvent.press(screen.getByText('Create account'));
+    await waitFor(() =>
+      expect(mockSignUp).toHaveBeenCalledWith({
+        fullName: 'A', email: 'a@b', phone: '0700', password: 'longenough', acceptedTermsVersion: CURRENT_TERMS_VERSION,
+      }),
+    );
+  });
+
+  it('does not create an account until the Terms box is ticked (F5.4)', () => {
     render(<RegisterScreen />);
     fireEvent.changeText(screen.getByPlaceholderText('Full name'), 'A');
     fireEvent.changeText(screen.getByPlaceholderText('you@example.com'), 'a@b');
@@ -49,9 +67,8 @@ describe('RegisterScreen', () => {
     fireEvent.changeText(screen.getByPlaceholderText('Create a password'), 'longenough');
     fireEvent.changeText(screen.getByPlaceholderText('Confirm password'), 'longenough');
     fireEvent.press(screen.getByText('Create account'));
-    await waitFor(() =>
-      expect(mockSignUp).toHaveBeenCalledWith({ fullName: 'A', email: 'a@b', phone: '0700', password: 'longenough' }),
-    );
+    expect(screen.getByText('Please agree to the Terms of Service to create an account.')).toBeOnTheScreen();
+    expect(mockSignUp).not.toHaveBeenCalled();
   });
 });
 

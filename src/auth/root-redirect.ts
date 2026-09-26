@@ -8,9 +8,11 @@ export type RootRedirectInput = {
   segments: readonly string[];
   /** True while a password recovery is in progress (link verified, password not yet set). */
   recoveryActive: boolean;
+  /** True when the signed-in customer or provider has not accepted the current Terms (F5.4). */
+  termsRequired?: boolean;
 };
 
-export type RootRedirectTarget = '/welcome' | ReturnType<typeof roleHref>;
+export type RootRedirectTarget = '/welcome' | '/accept-terms' | ReturnType<typeof roleHref>;
 
 /**
  * The root navigator's redirect decision (pure, so it can be tested without rendering).
@@ -19,11 +21,12 @@ export type RootRedirectTarget = '/welcome' | ReturnType<typeof roleHref>;
  *    reachable while signed out and must not be left when the link creates a session.
  *  - While a recovery is active, ordinary role routing is held so the user reaches the
  *    set-password step before landing on a role home.
- *  - Otherwise: signed out outside onboarding → welcome; signed in with a role inside
- *    onboarding → role home.
+ *  - Otherwise: signed out outside onboarding → welcome.
+ *  - Signed in without the current Terms accepted (F5.4) → the Terms screen, wherever they are.
+ *  - Signed in with a role inside onboarding, or on the Terms screen once accepted → role home.
  */
 export function resolveRootRedirect(input: RootRedirectInput): RootRedirectTarget | null {
-  const { isLoading, signedIn, role, segments, recoveryActive } = input;
+  const { isLoading, signedIn, role, segments, recoveryActive, termsRequired = false } = input;
   if (isLoading) return null;
   const first = segments[0];
   // The former `(admin-web)` group moved to the separated admin application (apps/admin), which
@@ -31,7 +34,9 @@ export function resolveRootRedirect(input: RootRedirectInput): RootRedirectTarge
   if (first === 'auth') return null;
   if (recoveryActive) return null;
   const inOnboarding = first === '(onboarding)';
+  const onTermsScreen = first === 'accept-terms';
   if (!signedIn && !inOnboarding) return '/welcome';
-  if (signedIn && role && inOnboarding) return roleHref(role);
+  if (signedIn && termsRequired && !onTermsScreen) return '/accept-terms';
+  if (signedIn && role && (inOnboarding || (onTermsScreen && !termsRequired))) return roleHref(role);
   return null;
 }

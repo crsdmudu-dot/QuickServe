@@ -9,7 +9,8 @@ import { mobileAuthRedirectUrl, type AuthLinkType } from '@/lib/auth-links';
 import { unregisterForPushNotifications } from '@/lib/push';
 import { normalizeEmail } from '@/lib/validation';
 
-type SignUpValues = { fullName: string; email: string; phone: string; password: string };
+/** acceptedTermsVersion: the Terms version the person agreed to on the register screen (F5.4). */
+type SignUpValues = { fullName: string; email: string; phone: string; password: string; acceptedTermsVersion?: string };
 
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
 
@@ -147,7 +148,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: v.email,
       password: v.password,
       options: {
-        data: { full_name: v.fullName, phone: v.phone, role: pendingRole },
+        // terms_version: the agreed Terms version, recorded server-side at first sign-in (src/auth/terms-gate.tsx).
+        data: {
+          full_name: v.fullName,
+          phone: v.phone,
+          role: pendingRole,
+          ...(v.acceptedTermsVersion ? { terms_version: v.acceptedTermsVersion } : {}),
+        },
         emailRedirectTo: mobileAuthRedirectUrl('signup'),
       },
     });
