@@ -1,7 +1,9 @@
 /**
  * ios-permissions.test.ts — the iOS capability matrix is locked:
- * only Photos + Location are declared; Camera/Mic/Contacts/Bluetooth/
+ * only Photos + Location (when in use) are declared; Camera/Mic/Contacts/Bluetooth/
  * Calendars/Motion stay absent; Notifications stay system-managed.
+ * Plugin options that would otherwise ADD default strings (camera, microphone,
+ * "always" location, motion) are set to false, which removes them.
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -29,8 +31,10 @@ describe('declared capabilities (used)', () => {
   test('Location: expo-location with when-in-use only (no Always/background)', () => {
     const opts = pluginOpts('expo-location');
     expect(opts.locationWhenInUsePermission.length).toBeGreaterThan(0);
-    expect(opts.locationAlwaysPermission).toBeUndefined();
-    expect(opts.locationAlwaysAndWhenInUsePermission).toBeUndefined();
+    // Left undefined, the plugin ADDS generic "always" and motion strings; false removes them.
+    expect(opts.locationAlwaysPermission).toBe(false);
+    expect(opts.locationAlwaysAndWhenInUsePermission).toBe(false);
+    expect(opts.motionUsagePermission).toBe(false);
     expect(opts.isIosBackgroundLocationEnabled).not.toBe(true);
   });
   test('Notifications: expo-notifications present and system-managed (no usage string)', () => {
@@ -44,8 +48,8 @@ describe('declared capabilities (used)', () => {
 
 describe('absent capabilities (must not be introduced)', () => {
   const forbidden = [
-    'NSCameraUsageDescription', 'cameraPermission', 'expo-camera',
-    'NSMicrophoneUsageDescription', 'microphonePermission',
+    'NSCameraUsageDescription', 'expo-camera',
+    'NSMicrophoneUsageDescription',
     'NSContactsUsageDescription', 'expo-contacts',
     'NSBluetoothAlwaysUsageDescription', 'NSBluetoothPeripheralUsageDescription',
     'NSCalendarsUsageDescription', 'expo-calendar',
@@ -53,5 +57,10 @@ describe('absent capabilities (must not be introduced)', () => {
   ];
   test.each(forbidden)('app.json does not declare %s', (token) => {
     expect(raw).not.toContain(token);
+  });
+  test('the image picker switches camera and microphone off explicitly', () => {
+    const opts = pluginOpts('expo-image-picker');
+    expect(opts.cameraPermission).toBe(false);
+    expect(opts.microphonePermission).toBe(false);
   });
 });

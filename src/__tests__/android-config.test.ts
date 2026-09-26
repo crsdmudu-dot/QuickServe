@@ -31,6 +31,22 @@ describe('Android identity (Phase 3B migration)', () => {
   });
 });
 
+describe('Android backup', () => {
+  // Sign-in sessions are stored unencrypted until encrypted storage follows launch (owner
+  // decision, 2026-09-26), so the app's data is kept out of Android cloud backups.
+  test('android.allowBackup is false', () => {
+    expect(expo.android.allowBackup).toBe(false);
+  });
+});
+
+describe('Android permissions the app does not use are blocked', () => {
+  // The Expo template adds "display over other apps" (SYSTEM_ALERT_WINDOW) as an optional permission.
+  // KwikServe never draws over other apps, so it is blocked (Google Play: request only what features need).
+  test('SYSTEM_ALERT_WINDOW is in android.blockedPermissions', () => {
+    expect(expo.android.blockedPermissions).toContain('android.permission.SYSTEM_ALERT_WINDOW');
+  });
+});
+
 describe('identifiers cross-checked against the Android package', () => {
   test('public app name remains KwikServe', () => {
     expect(expo.name).toBe('KwikServe');

@@ -3,18 +3,21 @@
  *
  * Sections:
  *   1. Verified provider explanation — what the verified badge means (static copy + VerifiedBadge).
- *   2. TrustSignalCard — representative trust signals for illustration (derived/static).
- *   3. ServiceGuaranteesCard — KwikServe's platform guarantees.
- *   4. SafetyTipsCard — SAFETY_REMINDERS + CUSTOMER_TIPS.
+ *   2. ServiceGuaranteesCard — KwikServe's platform guarantees.
+ *   3. SafetyTipsCard — SAFETY_REMINDERS + CUSTOMER_TIPS.
  *
- * Fully static/derived content — no data mutation.
+ * Every statement here must be true today (App Store 2.3.1: no misleading claims). The owner
+ * confirmed on 2026-09-26 that providers are reviewed and approved by the team; background checks,
+ * ID checks and skills assessments are NOT claimed. The former sample card with invented figures
+ * (120 jobs, 4.9 stars) was removed.
+ *
+ * Fully static content — no data mutation.
  */
 
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 
-import { deriveCustomerTrustSignals } from '@/constants/trust';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { Button } from '@/components/ui/button';
@@ -22,17 +25,8 @@ import { Card } from '@/components/ui/card';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
 import { VerifiedBadge } from '@/components/ui/verified-badge';
-import { TrustSignalCard } from '@/components/customer/trust-signal-card';
 import { ServiceGuaranteesCard } from '@/components/customer/service-guarantees-card';
 import { SafetyTipsCard } from '@/components/customer/safety-tips-card';
-
-// ── Illustrative trust signals — representative example (fully static, no DB call) ────────────
-
-const ILLUSTRATIVE_SIGNALS = deriveCustomerTrustSignals({
-  is_verified: true,
-  completed_jobs_count: 120,
-  average_rating: 4.9,
-});
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
@@ -60,24 +54,21 @@ export default function TrustScreen() {
             <View style={styles.verifiedBlock}>
               <VerifiedBadge />
               <Text variant="body" color="textSecondary" style={styles.verifiedBody}>
-                Providers earn the{' '}
+                Every provider on KwikServe is reviewed and approved by our team before they can
+                take jobs. The{' '}
                 <Text variant="body" weight="semibold">
                   Verified by KwikServe
                 </Text>{' '}
-                badge after passing our background check, identity verification, and skills
-                assessment. Look for this badge when choosing a provider for extra confidence.
+                badge is added by our team after it reviews a provider.
               </Text>
             </View>
           </Card>
         </View>
 
-        {/* ── 2. Trust signal illustration ────────────────────────────── */}
-        <TrustSignalCard signals={ILLUSTRATIVE_SIGNALS} />
-
-        {/* ── 3. Service guarantees ────────────────────────────────────── */}
+        {/* ── 2. Service guarantees ────────────────────────────────────── */}
         <ServiceGuaranteesCard />
 
-        {/* ── 4. Safety tips ───────────────────────────────────────────── */}
+        {/* ── 3. Safety tips ───────────────────────────────────────────── */}
         <SafetyTipsCard />
       </SafeAreaView>
     </ScrollView>

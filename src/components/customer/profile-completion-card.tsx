@@ -1,6 +1,7 @@
 // profile-completion-card.tsx — Shows customer profile completion %.
-// Renders a progress bar, a checklist of items (done ✓ / remaining),
-// and future-ready items muted with "coming soon".
+// Renders a progress bar and a checklist of items (done ✓ / remaining).
+// Future-ready items (features that do not exist yet) are NOT shown: a submitted app
+// must not advertise "coming soon" features (App Store 2.1).
 // Pure display — accepts the output of computeCustomerProfileCompletion.
 
 import { StyleSheet, View } from 'react-native';
@@ -59,23 +60,16 @@ export function ProfileCompletionCard({ completion }: ProfileCompletionCardProps
           />
         </View>
 
-        {/* ── Checklist ── */}
+        {/* ── Checklist (only items the app supports today) ── */}
         <View style={styles.checklist}>
-          {items.map((item) => {
-            const isFutureReady = item.futureReady === true;
-
-            return (
+          {items
+            .filter((item) => item.futureReady !== true)
+            .map((item) => (
               <View key={item.key} style={styles.checkRow}>
                 {/* Status indicator */}
                 <Text
                   variant="caption"
-                  color={
-                    isFutureReady
-                      ? 'textTertiary'
-                      : item.done
-                        ? 'success'
-                        : 'textSecondary'
-                  }
+                  color={item.done ? 'success' : 'textSecondary'}
                   style={styles.checkIcon}
                 >
                   {item.done ? '✓' : '○'}
@@ -84,25 +78,13 @@ export function ProfileCompletionCard({ completion }: ProfileCompletionCardProps
                 {/* Item label */}
                 <Text
                   variant="caption"
-                  color={isFutureReady ? 'textTertiary' : item.done ? 'textSecondary' : 'text'}
+                  color={item.done ? 'textSecondary' : 'text'}
                   style={styles.checkLabel}
                 >
                   {item.label}
                 </Text>
-
-                {/* "coming soon" badge for future-ready items */}
-                {isFutureReady && (
-                  <View
-                    style={[styles.comingSoonBadge, { backgroundColor: theme.backgroundElement }]}
-                  >
-                    <Text variant="caption" color="textTertiary">
-                      coming soon
-                    </Text>
-                  </View>
-                )}
               </View>
-            );
-          })}
+            ))}
         </View>
       </Card>
     </View>
@@ -145,10 +127,5 @@ const styles = StyleSheet.create({
   },
   checkLabel: {
     flex: 1,
-  },
-  comingSoonBadge: {
-    borderRadius: Radii.pill,
-    paddingHorizontal: Spacing.two,
-    paddingVertical: 2,
   },
 });

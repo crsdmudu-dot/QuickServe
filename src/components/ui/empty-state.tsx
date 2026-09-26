@@ -11,9 +11,20 @@ export type EmptyStateProps = {
   message: string;
   actionLabel?: string;
   onAction?: () => void;
+  /** Optional second, less prominent action shown under the main one (for example "Delete account"). */
+  secondaryActionLabel?: string;
+  onSecondaryAction?: () => void;
 };
 
-export function EmptyState({ icon, title, message, actionLabel, onAction }: EmptyStateProps) {
+export function EmptyState({
+  icon,
+  title,
+  message,
+  actionLabel,
+  onAction,
+  secondaryActionLabel,
+  onSecondaryAction,
+}: EmptyStateProps) {
   const theme = useTheme();
   return (
     <View style={styles.container}>
@@ -27,6 +38,9 @@ export function EmptyState({ icon, title, message, actionLabel, onAction }: Empt
         {message}
       </Text>
       {actionLabel && onAction ? <Button label={actionLabel} onPress={onAction} /> : null}
+      {secondaryActionLabel && onSecondaryAction ? (
+        <Button label={secondaryActionLabel} variant="ghost" onPress={onSecondaryAction} />
+      ) : null}
     </View>
   );
 }

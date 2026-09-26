@@ -9,7 +9,7 @@ import { ServiceGuaranteesCard } from '@/components/customer/service-guarantees-
 // Mock trust constants to control content in tests
 jest.mock('@/constants/trust', () => ({
   SERVICE_GUARANTEES: [
-    { title: 'Vetted professionals', body: 'Every provider is background-checked.' },
+    { title: 'Vetted professionals', body: 'Every provider is reviewed and approved.' },
     { title: 'Secure payment', body: 'Payments are processed through secure channels.' },
     { title: 'On-time commitment', body: 'Providers commit to your agreed time window.' },
   ],
@@ -30,7 +30,7 @@ describe('ServiceGuaranteesCard', () => {
 
   it('renders all guarantee body text', () => {
     render(<ServiceGuaranteesCard />);
-    expect(screen.getByText('Every provider is background-checked.')).toBeOnTheScreen();
+    expect(screen.getByText('Every provider is reviewed and approved.')).toBeOnTheScreen();
     expect(screen.getByText('Payments are processed through secure channels.')).toBeOnTheScreen();
     expect(screen.getByText('Providers commit to your agreed time window.')).toBeOnTheScreen();
   });

@@ -56,14 +56,11 @@ describe('ReceiptView', () => {
     expect(screen.getByText('Total')).toBeOnTheScreen();
   });
 
-  it('renders download placeholder button as disabled', () => {
+  it('shows no download/share buttons while receipt export does not exist (App Store 2.1)', () => {
     render(<ReceiptView receipt={RECEIPT} />);
-    expect(screen.getByText('Download (Coming soon)')).toBeOnTheScreen();
-  });
-
-  it('renders share placeholder button as disabled', () => {
-    render(<ReceiptView receipt={RECEIPT} />);
-    expect(screen.getByText('Share (Coming soon)')).toBeOnTheScreen();
+    expect(screen.queryByText(/Coming soon/i)).toBeNull();
+    expect(screen.queryByText('Download PDF')).toBeNull();
+    expect(screen.queryByText('Share')).toBeNull();
   });
 
   it('shows the booking id in the meta section', () => {

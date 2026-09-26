@@ -415,7 +415,6 @@ export default function BookingDetailScreen() {
                   autoCapitalize="none"
                 />
                 <Button label="Pay with M-Pesa" onPress={handlePayMpesa} disabled={payingMpesa} />
-                <Button label="Card — coming soon" variant="ghost" disabled />
                 {payError ? <Text variant="caption" color="error">{payError}</Text> : null}
               </View>
             )}

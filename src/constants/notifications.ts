@@ -459,4 +459,4 @@ export const PREFERENCE_TOGGLES: {
 /** Note constant: in-app notification history is always written regardless of preferences. */
 export const NOTIFICATION_HISTORY_NOTE =
   'In-app notification history is always saved, regardless of your preferences. ' +
-  'Toggle settings only affect push, email, and SMS delivery.';
+  'Toggle settings only affect push notification delivery.';

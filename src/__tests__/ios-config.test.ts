@@ -84,20 +84,34 @@ describe('permission strings present', () => {
   });
 });
 
-describe('no camera permission introduced', () => {
-  test('app.json declares no camera usage/permission', () => {
+describe('camera and microphone switched off', () => {
+  // The image picker only opens the photo library. Its plugin adds camera and microphone strings
+  // (iOS) and permissions (Android) unless they are set to false; `false` deletes the iOS strings
+  // and blocks the Android permissions (App Store 5.1.1, Google Play permissions policy).
+  test('image picker camera and microphone are explicitly disabled', () => {
+    const opts = pluginOpts('expo-image-picker');
+    expect(opts.cameraPermission).toBe(false);
+    expect(opts.microphonePermission).toBe(false);
+  });
+  test('app.json declares no camera usage string and no camera package', () => {
     expect(raw).not.toContain('NSCameraUsageDescription');
-    expect(raw).not.toContain('cameraPermission');
     expect(raw).not.toContain('expo-camera');
   });
 });
 
-describe('associated domains scaffold', () => {
-  test('inert placeholder applinks entry present', () => {
-    expect(Array.isArray(expo.ios.associatedDomains)).toBe(true);
-    const has = expo.ios.associatedDomains.some(
-      (d: string) => d.startsWith('applinks:') && d.includes('REPLACE_ME'),
-    );
-    expect(has).toBe(true);
+describe('no associated domains until a real domain is set up', () => {
+  // Universal Links follow launch (owner decision, 2026-09-26). The old placeholder entry
+  // (applinks:REPLACE_ME...) named a domain nobody controls, so it is removed rather than shipped.
+  test('ios.associatedDomains is absent and no placeholder remains', () => {
+    expect(expo.ios.associatedDomains).toBeUndefined();
+    expect(raw).not.toContain('REPLACE_ME');
+  });
+});
+
+describe('export compliance', () => {
+  // The app uses only the operating system's standard HTTPS, which is exempt (owner confirmed,
+  // 2026-09-26), so App Store Connect does not ask the encryption question at every upload.
+  test('ios.config.usesNonExemptEncryption is false', () => {
+    expect(expo.ios.config.usesNonExemptEncryption).toBe(false);
   });
 });

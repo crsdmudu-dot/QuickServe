@@ -5,7 +5,7 @@
  * getPaymentForBooking), builds a Receipt via buildReceipt (pure, no mutation),
  * and renders it with ReceiptView.
  *
- * Download/Share are placeholder-disabled (canDownloadReceipt === false).
+ * Download/Share are not shown until receipt export exists (canDownloadReceipt === false).
  * NO payment/wallet/promo mutation, NO charge recomputation.
  *
  * Slice 34: new pushed route (`/booking/receipt?id=<bookingId>`).

@@ -2,7 +2,7 @@
  * Tests for ProfileCompletionCard.
  *
  * Verifies: percentage shown, remaining count shown, done items shown,
- * future-ready items muted with "coming soon".
+ * future-ready items NOT shown and no "coming soon" text (App Store 2.1).
  */
 import { render, screen } from '@testing-library/react-native';
 import { ProfileCompletionCard } from '@/components/customer/profile-completion-card';
@@ -79,11 +79,12 @@ describe('ProfileCompletionCard', () => {
     expect(screen.getByText('Default address')).toBeOnTheScreen();
   });
 
-  it('renders "coming soon" for future-ready items', () => {
+  it('does not show future-ready items or any "coming soon" text', () => {
     render(<ProfileCompletionCard completion={PARTIAL_COMPLETION} />);
-    // 3 future-ready items each get a "coming soon" badge
-    const comingSoonBadges = screen.getAllByText('coming soon');
-    expect(comingSoonBadges).toHaveLength(3);
+    expect(screen.queryByText('coming soon')).toBeNull();
+    expect(screen.queryByText('Language')).toBeNull();
+    expect(screen.queryByText('Communication preferences')).toBeNull();
+    expect(screen.queryByText('Notification preferences')).toBeNull();
   });
 
   it('renders the progress bar track', () => {
