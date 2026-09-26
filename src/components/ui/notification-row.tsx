@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { type AppNotification } from '@/lib/notifications';
+import { safeInternalRoute } from '@/lib/safe-route';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 
@@ -23,11 +24,12 @@ export function NotificationRow({ notification, onPress }: NotificationRowProps)
   const theme = useTheme();
   const { title, body, is_read, created_at } = notification;
 
-  // Always call onPress (preserves mark-read side-effect), then deep-link if
-  // the notification carries a route (route-less rows rely on the parent screen).
+  // Always call onPress (preserves mark-read side-effect), then deep-link if the notification carries a
+  // plain in-app route (S11-1: an outside link is ignored; route-less rows rely on the parent screen).
   function handlePress() {
     onPress();
-    if (notification.route) router.push(notification.route as never);
+    const route = safeInternalRoute(notification.route);
+    if (route) router.push(route as never);
   }
 
   return (

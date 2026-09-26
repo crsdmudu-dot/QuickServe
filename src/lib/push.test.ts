@@ -116,6 +116,14 @@ describe('routeForNotificationData', () => {
   it('returns null for an empty route string', () => {
     expect(routeForNotificationData({ route: '' })).toBeNull();
   });
+
+  // S11-1: a push tap may only open an in-app screen, never an outside link.
+  it.each(['https://evil.example/login', '//evil.example', 'mailto:x@evil.example', 'javascript:alert(1)'])(
+    'returns null for an outside route (%s)',
+    (route) => {
+      expect(routeForNotificationData({ type: 'system', route })).toBeNull();
+    },
+  );
 });
 
 // ── registerForPushNotifications ─────────────────────────────────────────────
