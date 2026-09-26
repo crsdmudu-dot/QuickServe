@@ -4,7 +4,9 @@
  * Sections:
  *   1. Favorite services — FavoriteServiceToggle per service; optimistic add/remove with revert.
  *   2. Default address — read-only display + link to /saved-addresses.
- *   3. Future-ready preferences — language / communication / notification (display-only "coming soon").
+ *
+ * Language and communication preferences do not exist yet, so they are not shown (App Store 2.1:
+ * no "coming soon" placeholders in a submitted app).
  */
 
 import { router } from 'expo-router';
@@ -12,9 +14,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { FUTURE_READY_PREFERENCES } from '@/constants/customer-profile';
 import { useServices } from '@/services/services-provider';
-import { MaxContentWidth, Radii, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
   getFavoriteServiceIds,
@@ -191,41 +192,6 @@ export default function PreferencesScreen() {
             </Card>
           )}
         </View>
-
-        {/* ── 3. Future-ready preferences (display-only) ──────────────── */}
-        <View style={styles.section}>
-          <SectionHeader title="More preferences" />
-          <Card elevation="e1">
-            <View style={styles.futureList}>
-              {FUTURE_READY_PREFERENCES.map((pref, index) => (
-                <View
-                  key={pref.key}
-                  style={[
-                    styles.futureRow,
-                    index < FUTURE_READY_PREFERENCES.length - 1 && {
-                      borderBottomWidth: StyleSheet.hairlineWidth,
-                      borderBottomColor: theme.border,
-                    },
-                  ]}
-                >
-                  <Text variant="label" color="textTertiary" style={styles.futureLabel}>
-                    {pref.label}
-                  </Text>
-                  <View
-                    style={[
-                      styles.comingSoonBadge,
-                      { backgroundColor: theme.backgroundElement },
-                    ]}
-                  >
-                    <Text variant="caption" color="textTertiary">
-                      coming soon
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </Card>
-        </View>
       </SafeAreaView>
     </ScrollView>
   );
@@ -277,22 +243,5 @@ const styles = StyleSheet.create({
   addressInfo: {
     flex: 1,
     gap: Spacing.one,
-  },
-  futureList: {
-    gap: 0,
-  },
-  futureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: Spacing.three,
-    gap: Spacing.two,
-  },
-  futureLabel: {
-    flex: 1,
-  },
-  comingSoonBadge: {
-    borderRadius: Radii.pill,
-    paddingHorizontal: Spacing.two,
-    paddingVertical: 2,
   },
 });

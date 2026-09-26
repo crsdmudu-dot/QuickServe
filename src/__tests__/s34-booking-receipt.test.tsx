@@ -68,9 +68,6 @@ jest.mock('@/components/customer/receipt-view', () => ({
       <View testID="receipt-view">
         <Text testID="receipt-total">{`receipt-total-${receipt.total}`}</Text>
         <Text testID="receipt-status">{`receipt-status-${receipt.status}`}</Text>
-        {/* Download/share placeholders — always disabled */}
-        <Text testID="download-disabled">Download (Coming soon)</Text>
-        <Text testID="share-disabled">Share (Coming soon)</Text>
       </View>
     );
   },
@@ -161,15 +158,6 @@ describe('ReceiptScreen (Slice 34)', () => {
     expect(mockApplyWalletToPayment).not.toHaveBeenCalled();
     expect(mockRedeemPromo).not.toHaveBeenCalled();
     expect(mockInitiateMpesaPayment).not.toHaveBeenCalled();
-  });
-
-  it('shows download and share as disabled placeholders', async () => {
-    mockGetBookingById.mockResolvedValue(BASE_BOOKING);
-    mockGetPaymentForBooking.mockResolvedValue(BASE_PAYMENT);
-    render(<ReceiptScreen />);
-    await screen.findByTestId('receipt-view');
-    expect(screen.getByTestId('download-disabled')).toBeOnTheScreen();
-    expect(screen.getByTestId('share-disabled')).toBeOnTheScreen();
   });
 
   it('renders with wallet-applied and promo-discount in receipt', async () => {

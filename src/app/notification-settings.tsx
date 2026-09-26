@@ -6,15 +6,15 @@
  *
  * Groups:
  *   Updates:   Booking updates, Payments, Quality, System (functional toggles)
- *   Channels:  Push notifications (functional), Email (future-ready/disabled),
- *              SMS (future-ready/disabled)
+ *   Channels:  Push notifications (functional)
  *
- * Email and SMS are shown as DISABLED "coming soon" placeholders — they do
- * NOT trigger any delivery and do NOT write to the DB.
+ * Email and SMS delivery do not exist yet, so they are not shown at all (App Store
+ * 2.1: no placeholder features in a submitted app). The email_enabled / sms_enabled
+ * columns stay in the data model for later.
  *
  * IMPORTANT: These preferences do NOT suppress in-app notification history.
  * Every notification is always saved to the durable in-app inbox regardless
- * of these settings. Toggles only affect push, email, and SMS delivery.
+ * of these settings. Toggles only affect push delivery.
  *
  * Changes applied optimistically; on failure the switch reverts and an error
  * message is shown.
@@ -54,23 +54,6 @@ const FUNCTIONAL_ROWS: { label: string; key: PrefKey; description?: string }[] =
   { label: 'Chat messages',      key: 'chat_enabled',     description: 'In-app chat and new message alerts.'     },
   { label: 'Marketing',          key: 'marketing_enabled', description: 'Special offers, promotions, and discounts.' },
   { label: 'Push notifications', key: 'push_enabled',     description: 'Receive push notifications on this device.' },
-];
-
-/**
- * Future-ready (coming soon) channel rows — shown DISABLED; do NOT write to DB,
- * do NOT trigger any delivery. They are read-only placeholders.
- */
-const FUTURE_ROWS: { label: string; key: PrefKey; description: string }[] = [
-  {
-    key: 'email_enabled',
-    label: 'Email notifications',
-    description: 'Coming soon — email delivery is not yet available.',
-  },
-  {
-    key: 'sms_enabled',
-    label: 'SMS notifications',
-    description: 'Coming soon — SMS delivery is not yet available.',
-  },
 ];
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -173,35 +156,6 @@ export default function NotificationSettingsScreen() {
                 </View>
               ))}
             </View>
-
-            {/* ── Future-ready (coming soon) rows — disabled, no write ── */}
-            <Text variant="label" color="textSecondary" style={styles.groupHeader}>
-              Coming soon
-            </Text>
-            <View style={styles.rows}>
-              {FUTURE_ROWS.map(({ label, key, description }) => (
-                <View
-                  key={key}
-                  style={[styles.row, styles.rowDisabled, { borderBottomColor: theme.border }]}
-                >
-                  <View style={styles.rowText}>
-                    <Text variant="body" color="textTertiary">{label}</Text>
-                    <Text variant="caption" color="textTertiary">
-                      {description}
-                    </Text>
-                  </View>
-                  {/* Disabled Switch — read-only, does NOT write to DB */}
-                  <Switch
-                    testID={'switch-' + key}
-                    value={false}
-                    disabled
-                    onValueChange={() => { /* future-ready: no-op */ }}
-                    thumbColor={theme.neutral400}
-                    trackColor={{ false: theme.backgroundElement, true: theme.primaryTint }}
-                  />
-                </View>
-              ))}
-            </View>
           </>
         )}
 
@@ -252,9 +206,6 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.three,
     borderBottomWidth: StyleSheet.hairlineWidth,
     gap: Spacing.two,
-  },
-  rowDisabled: {
-    opacity: 0.55,
   },
   rowText: {
     flex: 1,

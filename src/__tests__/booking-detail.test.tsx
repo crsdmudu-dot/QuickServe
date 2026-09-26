@@ -478,6 +478,8 @@ describe('BookingDetailScreen', () => {
 
     // Wait for the M-Pesa form to appear.
     const payBtn = await screen.findByText('Pay with M-Pesa');
+    // M-Pesa is the only payment method: no disabled card placeholder (App Store 2.1 / 2.3.1).
+    expect(screen.queryByText(/Card/)).toBeNull();
 
     // Type a phone number into the phone input (identified by placeholder).
     const phoneInput = screen.getByPlaceholderText('07XX XXX XXX');

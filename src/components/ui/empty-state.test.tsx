@@ -15,4 +15,26 @@ describe('EmptyState', () => {
     fireEvent.press(screen.getByText('Reset'));
     expect(onAction).toHaveBeenCalledTimes(1);
   });
+  it('renders and fires the secondary action when provided', () => {
+    const onAction = jest.fn();
+    const onSecondary = jest.fn();
+    render(
+      <EmptyState
+        icon="⏳"
+        title="Awaiting approval"
+        message="Under review."
+        actionLabel="Sign out"
+        onAction={onAction}
+        secondaryActionLabel="Delete account"
+        onSecondaryAction={onSecondary}
+      />,
+    );
+    fireEvent.press(screen.getByText('Delete account'));
+    expect(onSecondary).toHaveBeenCalledTimes(1);
+    expect(onAction).not.toHaveBeenCalled();
+  });
+  it('renders no secondary action when none is provided', () => {
+    render(<EmptyState icon="📭" title="Empty" message="Nothing here." actionLabel="Reset" onAction={jest.fn()} />);
+    expect(screen.queryByText('Delete account')).toBeNull();
+  });
 });

@@ -72,6 +72,15 @@ describe('NotificationSettingsScreen', () => {
     });
   });
 
+  it('shows no email/SMS placeholder rows (App Store 2.1: no "coming soon" features)', async () => {
+    render(<NotificationSettingsScreen />);
+    await waitFor(() => expect(screen.getByTestId('switch-push_enabled')).toBeOnTheScreen());
+    expect(screen.queryByTestId('switch-email_enabled')).toBeNull();
+    expect(screen.queryByTestId('switch-sms_enabled')).toBeNull();
+    expect(screen.queryByText('Coming soon')).toBeNull();
+    expect(screen.queryByText(/email|SMS/)).toBeNull();
+  });
+
   it('switch values match the mocked preferences', async () => {
     render(<NotificationSettingsScreen />);
     await waitFor(() => {
