@@ -14,6 +14,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { CURRENT_TERMS_VERSION } from '@/constants/terms';
+import { databaseLabel } from '../../scripts/check-terms-release';
 
 const MIGRATIONS = path.join(__dirname, '../../supabase/migrations');
 const raw = fs.readFileSync(path.join(MIGRATIONS, '0068_terms_acceptance.sql'), 'utf-8');
@@ -34,10 +35,14 @@ describe('0068 — Terms acceptance gate', () => {
     expect(raw.includes('\r')).toBe(false);
   });
 
-  it("the database Terms version equals the app's CURRENT_TERMS_VERSION", () => {
+  it("the database Terms version (the LAST migration that defines it) equals the app's CURRENT_TERMS_VERSION", () => {
+    // 0068 defines the first label; once 0068 is on QA a new label comes as a later forward migration, so the label
+    // the database will use is the last definition (the same rule as scripts/check-terms-release.ts).
     const m = /create or replace function public\.current_terms_version\(\)[\s\S]*?select '([^']+)'::text/.exec(raw);
     expect(m).not.toBeNull();
-    expect(m![1]).toBe(CURRENT_TERMS_VERSION);
+    const latest = databaseLabel(path.join(__dirname, '../..'));
+    expect(latest.unparsed).toBeNull();
+    expect(latest.label).toBe(CURRENT_TERMS_VERSION);
     expect(body('current_terms_version')).toContain('immutable');
     expect(flat).toContain('revoke execute on function public.current_terms_version() from public, anon, authenticated;');
     expect(flat).not.toMatch(/grant execute on function public\.current_terms_version\(/);
