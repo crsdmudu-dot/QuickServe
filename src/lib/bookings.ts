@@ -299,6 +299,13 @@ export async function assignProvider(
       status: 'provider_assigned' as BookingStatus,
     })
     .eq('id', id);
+  // 0066: the database refuses to pair a customer and a provider who block each other.
+  if (error?.message === 'blocked_pair') {
+    return {
+      ok: false,
+      error: 'This customer and provider have blocked each other. Choose another provider.',
+    };
+  }
   if (error) return { ok: false, error: 'Could not assign provider. Please try again.' };
   return { ok: true };
 }

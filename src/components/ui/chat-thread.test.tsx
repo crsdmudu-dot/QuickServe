@@ -9,6 +9,15 @@
 
 // The report panel (F5.1) imports @/lib/moderation, which creates the Supabase client. Mock it so
 // this suite needs no Supabase env; the report flow itself is tested in report-form.test.tsx.
+// F5.2: the chat thread checks and creates blocks through @/lib/blocks (which creates the Supabase
+// client). Mocked so the suite needs no Supabase env.
+jest.mock('@/lib/blocks', () => ({
+  blockUser: jest.fn().mockResolvedValue({ ok: true }),
+  isBookingChatBlocked: jest.fn().mockResolvedValue(false),
+  adminBlockedProviderIds: jest.fn().mockResolvedValue([]),
+  CHAT_BLOCKED_NOTICE: "Chat isn't available for this booking. You can still cancel the booking or contact support.",
+}));
+
 jest.mock('@/lib/moderation', () => ({
   REPORT_REASONS: [{ key: 'harassment', label: 'Harassment or bullying' }],
   REPORT_CONFIRMATION: 'Thanks for letting us know. Our team reviews every report within 24 hours.',
@@ -255,5 +264,72 @@ describe('ChatThread — reporting', () => {
     render(<ChatThread bookingId="b1" booking={MY_BOOKING} mode="readonly" />);
     expect(await screen.findByText('Hidden by moderation')).toBeOnTheScreen();
     expect(screen.queryByTestId('chat-report-person')).toBeNull();
+  });
+});
+
+// ── Blocking (store-compliance F5.2) ─────────────────────────────────────────
+
+describe('ChatThread — blocking', () => {
+  const MY_BOOKING = { customer_id: 'me', assigned_provider_id: 'prov', status: 'in_progress' };
+  const blocks = jest.requireMock('@/lib/blocks') as {
+    blockUser: jest.Mock;
+    isBookingChatBlocked: jest.Mock;
+    CHAT_BLOCKED_NOTICE: string;
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetChatPeerName.mockResolvedValue('Provider Name');
+    mockGetBookingMessages.mockResolvedValue([A_MESSAGE]);
+    blocks.isBookingChatBlocked.mockResolvedValue(false);
+    blocks.blockUser.mockResolvedValue({ ok: true });
+  });
+
+  it('Block asks for confirmation, blocks the other person and replaces the input with the notice', async () => {
+    render(<ChatThread bookingId="b1" booking={MY_BOOKING} mode="participant" />);
+    await screen.findByText('hi');
+    fireEvent.press(screen.getByTestId('chat-block-person'));
+    expect(screen.getByText('Block Provider Name?')).toBeOnTheScreen();
+    expect(blocks.blockUser).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByTestId('chat-block-yes'));
+    expect(await screen.findByTestId('chat-blocked-notice')).toHaveTextContent(blocks.CHAT_BLOCKED_NOTICE);
+    expect(blocks.blockUser).toHaveBeenCalledWith('prov');
+    expect(screen.queryByPlaceholderText('Type a message…')).toBeNull();
+    expect(screen.queryByTestId('chat-block-person')).toBeNull();
+  });
+
+  it('Cancel closes the confirmation without blocking', async () => {
+    render(<ChatThread bookingId="b1" booking={MY_BOOKING} mode="participant" />);
+    await screen.findByText('hi');
+    fireEvent.press(screen.getByTestId('chat-block-person'));
+    fireEvent.press(screen.getByTestId('chat-block-cancel'));
+    expect(screen.queryByTestId('chat-block-confirm')).toBeNull();
+    expect(blocks.blockUser).not.toHaveBeenCalled();
+    expect(screen.getByPlaceholderText('Type a message…')).toBeOnTheScreen();
+  });
+
+  it('when the pair already block each other, both see the notice instead of the input', async () => {
+    blocks.isBookingChatBlocked.mockResolvedValue(true);
+    render(<ChatThread bookingId="b1" booking={MY_BOOKING} mode="participant" />);
+    expect(await screen.findByTestId('chat-blocked-notice')).toBeOnTheScreen();
+    expect(screen.queryByPlaceholderText('Type a message…')).toBeNull();
+    expect(blocks.isBookingChatBlocked).toHaveBeenCalledWith('b1');
+  });
+
+  it('a failed block keeps the chat open and says so', async () => {
+    blocks.blockUser.mockResolvedValue({ ok: false, error: 'Could not block this person. Please try again.' });
+    render(<ChatThread bookingId="b1" booking={MY_BOOKING} mode="participant" />);
+    await screen.findByText('hi');
+    fireEvent.press(screen.getByTestId('chat-block-person'));
+    fireEvent.press(screen.getByTestId('chat-block-yes'));
+    expect(await screen.findByText('Could not block this person. Please try again.')).toBeOnTheScreen();
+    expect(screen.getByPlaceholderText('Type a message…')).toBeOnTheScreen();
+  });
+
+  it('the admin viewer never checks or offers blocking', async () => {
+    render(<ChatThread bookingId="b1" booking={MY_BOOKING} mode="readonly" />);
+    await screen.findByText('hi');
+    expect(blocks.isBookingChatBlocked).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('chat-block-person')).toBeNull();
   });
 });

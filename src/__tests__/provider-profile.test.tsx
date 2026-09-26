@@ -170,6 +170,13 @@ describe('ProviderProfileScreen — approved', () => {
     expect(router.push).toHaveBeenCalledWith('/notification-settings');
   });
 
+  it('navigates to /blocked-users when "Blocked people" is pressed (F5.2)', async () => {
+    render(<ProviderProfileScreen />);
+    await screen.findByText('Jane Smith');
+    fireEvent.press(screen.getByText('Blocked people'));
+    expect(router.push).toHaveBeenCalledWith('/blocked-users');
+  });
+
   it('renders the rating breakdown section with recommend % and strength chips', async () => {
     render(<ProviderProfileScreen />);
     await screen.findByText('Jane Smith');

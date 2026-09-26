@@ -90,6 +90,13 @@ describe('ProfileScreen', () => {
     expect(router.push).toHaveBeenCalledWith('/wallet');
   });
 
+  it('navigates to /blocked-users when "Blocked people" is pressed (F5.2)', async () => {
+    render(<ProfileScreen />);
+    await waitFor(() => expect(screen.getByText('Blocked people')).toBeOnTheScreen());
+    fireEvent.press(screen.getByText('Blocked people'));
+    expect(router.push).toHaveBeenCalledWith('/blocked-users');
+  });
+
   it('navigates to /saved-addresses when "Saved addresses" is pressed', async () => {
     render(<ProfileScreen />);
     await waitFor(() => expect(screen.getByText('Saved addresses')).toBeOnTheScreen());

@@ -10,11 +10,13 @@ import { useAuth } from '@/auth/auth-context';
 import { Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { MessageBubble } from '@/components/ui/message-bubble';
 import { ReportForm } from '@/components/ui/report-form';
 import { Text } from '@/components/ui/text';
+import { blockUser, CHAT_BLOCKED_NOTICE, isBookingChatBlocked } from '@/lib/blocks';
 import {
   getChatPeerName,
   getBookingMessages,
@@ -55,12 +57,18 @@ export function ChatThread({ bookingId, booking, mode }: ChatThreadProps) {
   const [reportTarget, setReportTarget] = useState<
     { type: 'message' | 'user'; id: string; title: string } | null
   >(null);
+  // True while either person blocks the other: the input is replaced by a neutral notice.
+  const [chatBlocked, setChatBlocked] = useState(false);
+  // True while the "Block …?" confirmation is showing.
+  const [confirmingBlock, setConfirmingBlock] = useState(false);
+  const [blockError, setBlockError] = useState<string | null>(null);
 
   // ── Load data on mount ───────────────────────────────────────────────────
   useEffect(() => {
     getBookingMessages(bookingId).then(setMessages);
     if (mode === 'participant') {
       getChatPeerName(bookingId).then(setPeerName);
+      isBookingChatBlocked(bookingId).then(setChatBlocked);
     }
   }, [bookingId, mode]);
 
@@ -80,6 +88,19 @@ export function ChatThread({ bookingId, booking, mode }: ChatThreadProps) {
         ? booking.customer_id
         : null;
   const canReport = mode === 'participant' && counterpartId != null;
+
+  // ── Block handler ────────────────────────────────────────────────────────
+  async function handleConfirmBlock() {
+    if (!counterpartId) return;
+    setBlockError(null);
+    const r = await blockUser(counterpartId);
+    if (r.ok) {
+      setConfirmingBlock(false);
+      setChatBlocked(true);
+    } else {
+      setBlockError(r.error ?? 'Could not block this person. Please try again.');
+    }
+  }
 
   // ── Send handler ─────────────────────────────────────────────────────────
   async function handleSend() {
@@ -101,19 +122,30 @@ export function ChatThread({ bookingId, booking, mode }: ChatThreadProps) {
         <View style={styles.headerRow}>
           <Text variant="heading">{headingText}</Text>
           {canReport ? (
-            <Button
-              label="Report"
-              variant="ghost"
-              size="sm"
-              testID="chat-report-person"
-              onPress={() =>
-                setReportTarget({
-                  type: 'user',
-                  id: counterpartId as string,
-                  title: `Report ${peerName ?? 'this person'}`,
-                })
-              }
-            />
+            <View style={styles.headerActions}>
+              <Button
+                label="Report"
+                variant="ghost"
+                size="sm"
+                testID="chat-report-person"
+                onPress={() =>
+                  setReportTarget({
+                    type: 'user',
+                    id: counterpartId as string,
+                    title: `Report ${peerName ?? 'this person'}`,
+                  })
+                }
+              />
+              {!chatBlocked ? (
+                <Button
+                  label="Block"
+                  variant="ghost"
+                  size="sm"
+                  testID="chat-block-person"
+                  onPress={() => setConfirmingBlock(true)}
+                />
+              ) : null}
+            </View>
           ) : null}
         </View>
         {canReport ? (
@@ -169,6 +201,37 @@ export function ChatThread({ bookingId, booking, mode }: ChatThreadProps) {
         )}
       </ScrollView>
 
+      {/* Block confirmation */}
+      {confirmingBlock ? (
+        <Card elevation="e1" testID="chat-block-confirm">
+          <View style={styles.confirm}>
+            <Text variant="heading">Block {peerName ?? 'this person'}?</Text>
+            <Text variant="body" color="textSecondary">
+              You won&apos;t be able to message each other, and KwikServe won&apos;t match you together
+              on future bookings. You can unblock them later from your profile.
+            </Text>
+            {blockError ? (
+              <Text variant="caption" color="error">
+                {blockError}
+              </Text>
+            ) : null}
+            <View style={styles.headerActions}>
+              <Button label="Block" size="sm" testID="chat-block-yes" onPress={handleConfirmBlock} />
+              <Button
+                label="Cancel"
+                variant="ghost"
+                size="sm"
+                testID="chat-block-cancel"
+                onPress={() => {
+                  setConfirmingBlock(false);
+                  setBlockError(null);
+                }}
+              />
+            </View>
+          </View>
+        </Card>
+      ) : null}
+
       {/* Report panel — opened from the header or by long-pressing a message */}
       {reportTarget ? (
         <ReportForm
@@ -186,6 +249,10 @@ export function ChatThread({ bookingId, booking, mode }: ChatThreadProps) {
           {terminal ? (
             <Text variant="caption" color="textSecondary">
               This conversation is closed.
+            </Text>
+          ) : chatBlocked ? (
+            <Text variant="caption" color="textSecondary" testID="chat-blocked-notice">
+              {CHAT_BLOCKED_NOTICE}
             </Text>
           ) : (
             <>
@@ -226,6 +293,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  confirm: {
     gap: Spacing.two,
   },
   scroll: {

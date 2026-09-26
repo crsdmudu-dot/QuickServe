@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -136,6 +136,12 @@ export default function ProfileScreen() {
             label="Trust & Safety"
             variant="secondary"
             onPress={() => router.push('/trust')}
+          />
+          <Button
+            label="Blocked people"
+            variant="secondary"
+            testID="profile-blocked-people"
+            onPress={() => router.push('/blocked-users' as Href)}
           />
           <Button label="Sign out / Switch role" onPress={signOut} />
           <Button

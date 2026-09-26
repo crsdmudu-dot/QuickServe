@@ -134,6 +134,12 @@ const ALLOWLIST_F5: Record<string, { kind: Kind; why: string }> = {
   'public.admin_set_message_hidden(uuid,boolean,uuid,text)': { kind: 'admin', why: 'moderation: hide a chat message' },
   'public.admin_set_review_hidden(uuid,boolean,uuid,text)': { kind: 'admin', why: 'moderation: hide a review' },
   'public.admin_clear_profile_text(uuid,uuid,text)': { kind: 'admin', why: "moderation: clear a provider's bio and skills" },
+  // 0066: blocks
+  'public.block_user(uuid)': { kind: 'caller', why: 'the caller blocks a counterpart or an approved provider; active users only' },
+  'public.unblock_user(uuid)': { kind: 'caller', why: "removes only the caller's own block" },
+  'public.get_my_blocked_users()': { kind: 'caller', why: "the caller's own block list" },
+  'public.booking_chat_blocked(uuid)': { kind: 'admin-or-caller', why: "yes/no for the booking's participants or an admin; also used by the chat insert policy" },
+  'public.admin_blocked_provider_ids(uuid)': { kind: 'admin', why: 'dispatch warning on the admin assign screen' },
 };
 
 const ALLOWLIST: Record<string, { kind: Kind; why: string }> = { ...ALLOWLIST_0064, ...ALLOWLIST_F5 };
@@ -239,8 +245,8 @@ describe('function EXECUTE privilege audit (M7) and 0064', () => {
 
     it('the allowlist holds 68 reviewed entries as of 0064 plus the F5 entries, and exactly three may be called by anon', () => {
       expect(Object.keys(ALLOWLIST_0064)).toHaveLength(68);
-      expect(Object.keys(ALLOWLIST_F5)).toHaveLength(7);
-      expect(Object.keys(ALLOWLIST)).toHaveLength(68 + 7);
+      expect(Object.keys(ALLOWLIST_F5)).toHaveLength(12);
+      expect(Object.keys(ALLOWLIST)).toHaveLength(68 + 12);
       const anon = [...model.functions.values()].filter((f) => f.securityDefiner && !isTriggerFunction(f) && anonOrPublic(f)).map((f) => f.key);
       expect(anon.sort()).toEqual(['public.deletion_path_frozen(text,text)', 'public.is_active_user()', 'public.is_admin()']);
     });

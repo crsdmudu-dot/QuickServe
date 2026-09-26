@@ -453,6 +453,19 @@ describe('assignProvider', () => {
       assigned_provider_phone: '0700', status: 'provider_assigned',
     });
   });
+  it('assignProvider explains a refused blocked pair (0066) in plain words', async () => {
+    mockUpdate.mockReturnValue({ eq: (...a: unknown[]) => mockUpdateEq(...a) });
+    mockUpdateEq.mockResolvedValue({ error: { message: 'blocked_pair', code: 'P0001' } });
+    expect(await assignProvider('b1', { name: 'Jane', phone: '0700', providerId: 'p1' })).toEqual({
+      ok: false,
+      error: 'This customer and provider have blocked each other. Choose another provider.',
+    });
+    mockUpdateEq.mockResolvedValue({ error: { message: 'something else', code: 'XX000' } });
+    expect(await assignProvider('b1', { name: 'Jane', phone: '0700', providerId: 'p1' })).toEqual({
+      ok: false,
+      error: 'Could not assign provider. Please try again.',
+    });
+  });
 });
 
 describe('updateAdminNotes', () => {

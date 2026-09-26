@@ -328,6 +328,13 @@ export default function ProviderProfileScreen() {
               onPress={() => router.push('/notification-settings')}
             />
 
+            <Button
+              label="Blocked people"
+              variant="secondary"
+              testID="profile-blocked-people"
+              onPress={() => router.push('/blocked-users' as Href)}
+            />
+
             <Button label="Sign out" variant="ghost" onPress={signOut} />
             <Button
               label="Delete account"
