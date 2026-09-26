@@ -37,7 +37,11 @@ const readMigrations = (): Migration[] =>
     .sort()
     .map((file) => ({ file, sql: fs.readFileSync(path.join(MIGRATIONS, file), 'utf-8') }));
 
-/** Columns an admin may change through the API: exactly what the admin web writes (checked below). */
+/**
+ * Columns the 0063 admin policy leaves writable for an admin. Until R6 this was exactly what the admin web wrote.
+ * R6 (0070) removed the photo input: profile_photo_url stays unpinned in the policy, but the 0070 CHECK only allows it
+ * to be empty, so no photo can be stored by any path (checked below). The admin web sends ADMIN_SENT.
+ */
 const ADMIN_WRITABLE = [
   'approval_status', // setProviderApproval
   'is_verified', // Verify toggle
@@ -45,8 +49,10 @@ const ADMIN_WRITABLE = [
   'bio', // Save profile
   'years_experience', // Save profile
   'skills', // Save profile
-  'profile_photo_url', // Save profile
+  'profile_photo_url', // policy only: empty-only by the 0070 CHECK; not sent by the admin web since R6
 ];
+/** What the admin web actually sends (checked below). */
+const ADMIN_SENT = ADMIN_WRITABLE.filter((c) => c !== 'profile_photo_url');
 
 /** Columns a user may NOT change on their own row (0001 + 0005 + 0008/0009, plus 0056's deletion state). */
 const OWN_PINNED = [
@@ -244,13 +250,25 @@ describe('0063 Parts B and C (O1, O3) - profile update authority', () => {
     for (const c of ['role', 'deleted_at', 'deletion_status', 'average_rating', 'review_count', 'completed_jobs_count']) expect(pinned.has(c)).toBe(true);
   });
 
-  it('O1: the admin-writable list is exactly what the admin web sends', () => {
+  it('O1: the admin web sends exactly the admin-writable columns except the photo (R6)', () => {
     // adminUpdateProviderProfile(id, { ... }) call sites in apps/admin, plus setProviderApproval -> approval_status.
     const sent = adminCallKeys('adminUpdateProviderProfile');
     const providers = fs.readFileSync(path.join(ROOT, 'src/lib/providers.ts'), 'utf-8');
     expect(providers).toMatch(/export async function setProviderApproval[\s\S]*?\.update\(\{ approval_status: status \}\)/);
     sent.add('approval_status');
-    expect([...sent].sort()).toEqual([...ADMIN_WRITABLE].sort());
+    expect([...sent].sort()).toEqual([...ADMIN_SENT].sort());
+  });
+
+  it('R6: the photo column left writable by the policies can only be empty (0070 CHECK), so no path stores a photo', () => {
+    const r6 = readMigrations().find((m) => m.file.startsWith('0070_'));
+    expect(r6).toBeDefined();
+    const flat = r6!.sql.replace(/--.*$/gm, '').replace(/\s+/g, ' ').toLowerCase();
+    expect(flat).toContain('add constraint profiles_no_photo_at_launch check (profile_photo_url is null)');
+    expect(flat).not.toMatch(/not valid/);
+    // No later migration may drop it without a reviewed photo upload.
+    for (const m of readMigrations().filter((x) => x.file > r6!.file)) {
+      expect({ file: m.file, drops: /drop constraint (if exists )?profiles_no_photo_at_launch/i.test(m.sql) }).toEqual({ file: m.file, drops: false });
+    }
   });
 
   it('the only profiles writes in app and admin code are the three helpers in src/lib/providers.ts', () => {

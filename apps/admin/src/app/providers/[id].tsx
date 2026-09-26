@@ -83,7 +83,6 @@ export default function AdminWebProviderDetailScreen() {
   const [bio, setBio] = useState('');
   const [yearsExp, setYearsExp] = useState('');
   const [skills, setSkills] = useState(''); // comma-separated
-  const [photoUrl, setPhotoUrl] = useState('');
 
   // ── Right column state ─────────────────────────────────────────────────
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -112,7 +111,6 @@ export default function AdminWebProviderDetailScreen() {
         setBio(p.bio ?? '');
         setYearsExp(p.years_experience != null ? String(p.years_experience) : '');
         setSkills(p.skills ? p.skills.join(', ') : '');
-        setPhotoUrl(p.profile_photo_url ?? '');
       }
     });
 
@@ -182,7 +180,6 @@ export default function AdminWebProviderDetailScreen() {
       bio,
       years_experience: yearsExp !== '' ? Number(yearsExp) || null : null,
       skills: skillsArray.length > 0 ? skillsArray : null,
-      profile_photo_url: photoUrl || null,
       availability_status: profile.availability_status,
     });
     if (!result.ok) {
@@ -295,12 +292,7 @@ export default function AdminWebProviderDetailScreen() {
         onChangeText={setSkills}
         placeholder="e.g. Plumbing, Electrical"
       />
-      <Input
-        label="Profile photo URL"
-        value={photoUrl}
-        onChangeText={setPhotoUrl}
-        placeholder="https://…"
-      />
+      {/* No profile photos at launch (R6, migration 0070): avatars show initials. */}
       <Button label="Save profile" onPress={handleSaveProfile} />
 
       {/* Operations — internal notes for this provider (admin-only, additive) */}

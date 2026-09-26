@@ -19,9 +19,8 @@ export type ProviderProfile = {
   availability_status: 'available' | 'unavailable';
 };
 
-/** Fields a provider can edit on their own profile. */
+/** Fields a provider can edit on their own profile. No photo: not available at launch (R6, migration 0070). */
 export type EditableProviderFields = {
-  profile_photo_url?: string;
   bio?: string;
   years_experience?: number;
   skills?: string[];

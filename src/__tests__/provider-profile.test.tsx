@@ -138,6 +138,15 @@ describe('ProviderProfileScreen — approved', () => {
     expect(screen.getByText(/5 jobs completed/)).toBeOnTheScreen();
   });
 
+  it('offers no photo link, and saving the profile sends no photo field (R6: no photos at launch)', async () => {
+    render(<ProviderProfileScreen />);
+    await screen.findByText('Jane Smith');
+    expect(screen.queryByText('Profile photo URL')).toBeNull();
+    fireEvent.press(screen.getByText('Save'));
+    await waitFor(() => expect(mockUpdateMyProviderProfile).toHaveBeenCalled());
+    expect(mockUpdateMyProviderProfile.mock.calls[0][0]).not.toHaveProperty('profile_photo_url');
+  });
+
   it('toggles availability and calls updateMyProviderProfile with unavailable', async () => {
     render(<ProviderProfileScreen />);
     // Wait for profile to load so availability state is initialised.

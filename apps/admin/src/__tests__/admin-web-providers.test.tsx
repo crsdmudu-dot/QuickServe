@@ -304,6 +304,15 @@ describe('AdminWebProviderDetailScreen (detail)', () => {
     );
   });
 
+  it('offers no photo link, and Save profile sends no photo field (R6: no photos at launch)', async () => {
+    render(<AdminWebProviderDetailScreen />);
+    await screen.findByText('Jane Doe');
+    expect(screen.queryByText('Profile photo URL')).toBeNull();
+    fireEvent.press(screen.getByText('Save profile'));
+    await waitFor(() => expect(mockAdminUpdateProviderProfile).toHaveBeenCalled());
+    expect(mockAdminUpdateProviderProfile.mock.calls[0][1]).not.toHaveProperty('profile_photo_url');
+  });
+
   it('calls adminUpdateProviderProfile with is_verified toggled when Verify is pressed', async () => {
     render(<AdminWebProviderDetailScreen />);
     await screen.findByText('Jane Doe');

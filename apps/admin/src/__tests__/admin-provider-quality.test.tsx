@@ -75,7 +75,7 @@ jest.mock('@/lib/provider-completeness', () => ({
   calculateProviderCompleteness: () => ({
     percent: 80,
     items: [
-      { key: 'photo', label: 'Profile photo', done: true, futureReady: false },
+      { key: 'availability', label: 'Availability configured', done: true, futureReady: false },
     ],
     missing: [],
   }),
@@ -210,7 +210,7 @@ const MOCK_BREAKDOWN = {
 const MOCK_COMPLETENESS = {
   percent: 80,
   items: [
-    { key: 'photo', label: 'Profile photo', done: true, futureReady: false },
+    { key: 'availability', label: 'Availability configured', done: true, futureReady: false },
     { key: 'bio', label: 'Bio', done: true, futureReady: false },
   ],
   missing: ['experience'],
