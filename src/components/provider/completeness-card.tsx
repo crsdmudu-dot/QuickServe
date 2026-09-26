@@ -1,7 +1,8 @@
 // completeness-card.tsx — Provider profile completeness card.
 // Shows a % progress bar, a per-item checklist (done/remaining),
-// future-ready items shown muted with a "coming soon" hint,
 // and a summary "N tasks remaining" line.
+// Future-ready items (features that do not exist yet) are NOT shown: a submitted app
+// must not advertise "coming soon" features (App Store 2.1).
 // NO import of @/lib/operations or any private admin tables.
 
 import { StyleSheet, View } from 'react-native';
@@ -56,22 +57,8 @@ export function CompletenessCard({ completeness }: CompletenessCardProps) {
       {/* ── Checklist ── */}
       <View style={styles.checklist}>
         {items.map((item) => {
-          if (item.futureReady) {
-            // Future-ready items — muted with "coming soon"
-            return (
-              <View key={item.key} style={styles.row}>
-                <Text variant="caption" color="textTertiary" style={styles.checkIcon}>
-                  ○
-                </Text>
-                <Text variant="caption" color="textTertiary" style={styles.itemLabel}>
-                  {item.label}
-                </Text>
-                <Text variant="caption" color="textTertiary" style={styles.comingSoon}>
-                  coming soon
-                </Text>
-              </View>
-            );
-          }
+          // Future-ready items are not shown (they are also excluded from the percentage).
+          if (item.futureReady) return null;
 
           return (
             <View key={item.key} style={styles.row}>
@@ -129,9 +116,5 @@ const styles = StyleSheet.create({
   },
   itemLabel: {
     flex: 1,
-  },
-  comingSoon: {
-    fontSize: 10,
-    fontStyle: 'italic',
   },
 });

@@ -4,7 +4,7 @@
  * Verifies:
  *   - Favorite-service toggles render; toggle calls add/removeFavoriteService optimistically.
  *   - Default address is shown + "Manage" navigates to /saved-addresses.
- *   - Future-ready prefs are shown as "coming soon" (disabled, no writes).
+ *   - No "coming soon" placeholder preferences are shown (App Store 2.1).
  */
 
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
@@ -111,19 +111,12 @@ describe('PreferencesScreen', () => {
     expect(router.push).toHaveBeenCalledWith('/saved-addresses');
   });
 
-  it('renders future-ready preferences as "coming soon"', async () => {
+  it('shows no "coming soon" placeholder preferences', async () => {
     render(<PreferencesScreen />);
-    await waitFor(() =>
-      expect(screen.getAllByText('coming soon').length).toBeGreaterThanOrEqual(3),
-    );
-  });
-
-  it('does NOT call addFavoriteService or removeFavoriteService when viewing future-ready prefs', async () => {
-    render(<PreferencesScreen />);
-    await waitFor(() =>
-      expect(screen.getAllByText('coming soon').length).toBeGreaterThanOrEqual(3),
-    );
-    // No writes to favorites from the "coming soon" rows
+    await waitFor(() => expect(screen.getByText('Manage')).toBeOnTheScreen());
+    expect(screen.queryByText('coming soon')).toBeNull();
+    expect(screen.queryByText('More preferences')).toBeNull();
+    // Viewing the screen writes nothing.
     expect(mockAddFavoriteService).not.toHaveBeenCalled();
     expect(mockRemoveFavoriteService).not.toHaveBeenCalled();
   });

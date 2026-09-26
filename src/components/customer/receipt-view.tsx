@@ -1,7 +1,7 @@
 // receipt-view.tsx — Full receipt layout for a completed payment.
 // Shows payment status/method/date + PaymentBreakdownCard.
-// Download/Share buttons are placeholder-disabled ("Coming soon")
-// when canDownloadReceipt is false (which it currently always is).
+// Download/Share buttons appear only once receipt export exists (canDownloadReceipt);
+// today it does not, so no disabled "Coming soon" placeholders are shown (App Store 2.1).
 // No payment/wallet/promo mutation.
 
 import { StyleSheet, View } from 'react-native';
@@ -19,9 +19,9 @@ import { PaymentBreakdownCard } from '@/components/customer/payment-breakdown-ca
 
 export type ReceiptViewProps = {
   receipt: Receipt;
-  /** Placeholder callback — currently always disabled. */
+  /** Used only when receipt export exists (canDownloadReceipt); not shown today. */
   onDownload?: () => void;
-  /** Placeholder callback — currently always disabled. */
+  /** Used only when receipt export exists (canDownloadReceipt); not shown today. */
   onShare?: () => void;
 };
 
@@ -71,21 +71,13 @@ export function ReceiptView({ receipt, onDownload, onShare }: ReceiptViewProps) 
       {/* ── Breakdown ── */}
       <PaymentBreakdownCard receipt={receipt} />
 
-      {/* ── Download / Share placeholders ── */}
-      <View style={styles.actions}>
-        <Button
-          label={canDownloadReceipt ? 'Download PDF' : 'Download (Coming soon)'}
-          variant="secondary"
-          disabled={!canDownloadReceipt}
-          onPress={canDownloadReceipt ? onDownload : undefined}
-        />
-        <Button
-          label={canDownloadReceipt ? 'Share' : 'Share (Coming soon)'}
-          variant="secondary"
-          disabled={!canDownloadReceipt}
-          onPress={canDownloadReceipt ? onShare : undefined}
-        />
-      </View>
+      {/* ── Download / Share — only when receipt export exists ── */}
+      {canDownloadReceipt ? (
+        <View style={styles.actions}>
+          <Button label="Download PDF" variant="secondary" onPress={onDownload} />
+          <Button label="Share" variant="secondary" onPress={onShare} />
+        </View>
+      ) : null}
     </View>
   );
 }

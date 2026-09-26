@@ -7,11 +7,13 @@
 export const SERVICE_GUARANTEES: { title: string; body: string }[] = [
   {
     title: 'Vetted professionals',
-    body: 'Every provider on KwikServe is background-checked and onboarded through a structured approval process before serving customers.',
+    // Owner confirmed 2026-09-26: team review and approval, not background checks (App Store 2.3.1).
+    body: 'Every provider on KwikServe is reviewed and approved by our team before they can take jobs.',
   },
   {
     title: 'Secure payment',
-    body: 'Payments are processed through secure channels. Your card and M-Pesa details are never shared with providers.',
+    // M-Pesa is the only payment method at launch (card payments follow launch).
+    body: 'Payments are processed through secure channels. Your M-Pesa details are never shared with providers.',
   },
   {
     title: 'On-time commitment',
@@ -78,7 +80,7 @@ export const CUSTOMER_TIPS: { title: string; body: string }[] = [
  * These are factual statements — no fabricated numbers.
  */
 export const TRUST_MESSAGES: string[] = [
-  'All providers are background-checked and individually approved.',
+  'All providers are reviewed and individually approved by our team.',
   'Your payment is protected until the job is confirmed complete.',
   'Rate your provider after every booking to keep quality high.',
   'Need help? Our support team is always a message away.',

@@ -4,7 +4,7 @@
  * Verifies:
  *   - Shows percentage value.
  *   - Done items marked ✓; remaining items not.
- *   - Future-ready items shown muted with "coming soon".
+ *   - Future-ready items are NOT shown and there is no "coming soon" text (App Store 2.1).
  *   - "N tasks remaining" summary line.
  *   - "All active items complete!" when no missing items.
  */
@@ -58,16 +58,11 @@ describe('CompletenessCard', () => {
     expect(checks.length).toBe(2);
   });
 
-  it('shows future-ready items with "coming soon" label', () => {
+  it('does not show future-ready items or any "coming soon" text', () => {
     render(<CompletenessCard completeness={PARTIAL_COMPLETENESS} />);
-    const comingSoon = screen.getAllByText('coming soon');
-    expect(comingSoon.length).toBe(2);
-  });
-
-  it('renders future-ready item labels', () => {
-    render(<CompletenessCard completeness={PARTIAL_COMPLETENESS} />);
-    expect(screen.getByText('Government verification')).toBeOnTheScreen();
-    expect(screen.getByText('Payment details')).toBeOnTheScreen();
+    expect(screen.queryByText('coming soon')).toBeNull();
+    expect(screen.queryByText('Government verification')).toBeNull();
+    expect(screen.queryByText('Payment details')).toBeNull();
   });
 
   it('renders all item labels', () => {

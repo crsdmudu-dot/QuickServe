@@ -2,7 +2,8 @@
  * Tests for src/app/trust.tsx (Slice 34 Task 5)
  *
  * Verifies:
- *   - TrustSignalCard is rendered with signals
+ *   - No sample provider card with invented figures is shown (App Store 2.3.1)
+ *   - The vetting text claims only team review and approval (owner, 2026-09-26)
  *   - ServiceGuaranteesCard is rendered
  *   - SafetyTipsCard is rendered
  *   - Verified provider explanation section (VerifiedBadge) is rendered
@@ -62,15 +63,15 @@ describe('TrustScreen', () => {
     expect(screen.getAllByText('Verified by KwikServe').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('renders TrustSignalCard with illustrative signals', () => {
+  it('shows no sample provider card with invented figures', () => {
     render(<TrustScreen />);
-    const card = screen.getByTestId('trust-signal-card');
-    expect(card).toBeOnTheScreen();
-    // The illustrative signals include verified, jobs_100, top_rated
-    const label = card.props.accessibilityLabel as string;
-    expect(label).toContain('verified');
-    expect(label).toContain('jobs_100');
-    expect(label).toContain('top_rated');
+    expect(screen.queryByTestId('trust-signal-card')).toBeNull();
+  });
+
+  it('claims team review and approval only, not background, ID or skills checks', () => {
+    render(<TrustScreen />);
+    expect(screen.getByText(/reviewed and approved by our team/)).toBeOnTheScreen();
+    expect(screen.queryByText(/background check|identity verification|skills assessment/i)).toBeNull();
   });
 
   it('renders ServiceGuaranteesCard', () => {

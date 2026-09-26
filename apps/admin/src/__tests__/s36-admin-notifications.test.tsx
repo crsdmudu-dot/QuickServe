@@ -141,7 +141,7 @@ jest.mock('@/constants/notifications', () => ({
   ],
   NOTIFICATION_HISTORY_NOTE:
     'In-app notification history is always saved, regardless of your preferences. ' +
-    'Toggle settings only affect push, email, and SMS delivery.',
+    'Toggle settings only affect push notification delivery.',
 }));
 
 // ── use-paginated-list mock ───────────────────────────────────────────────────
@@ -629,13 +629,13 @@ describe('AdminBroadcastScreen', () => {
 // 3. Notification Preferences Extension
 // ════════════════════════════════════════════════════════════════════════════════
 
-describe('NotificationSettingsScreen (extended with Quality/System/Email/SMS)', () => {
+describe('NotificationSettingsScreen (Quality/System toggles; no email/SMS placeholders)', () => {
   it('renders the durable-history note', async () => {
     render(<NotificationSettingsScreen />);
     expect(
       await screen.findByText(
         'In-app notification history is always saved, regardless of your preferences. ' +
-        'Toggle settings only affect push, email, and SMS delivery.',
+        'Toggle settings only affect push notification delivery.',
       ),
     ).toBeOnTheScreen();
   });
@@ -687,36 +687,23 @@ describe('NotificationSettingsScreen (extended with Quality/System/Email/SMS)', 
     );
   });
 
-  it('renders Email switch as disabled (future-ready)', async () => {
+  // Email and SMS delivery do not exist yet, so the shared screen shows no placeholder rows for
+  // them (App Store 2.1). These checks mirror src/__tests__/notification-settings.test.tsx.
+  it('shows no Email or SMS switches', async () => {
     render(<NotificationSettingsScreen />);
-    const emailSwitch = await screen.findByTestId('switch-email_enabled');
-    expect(emailSwitch.props.disabled).toBe(true);
+    await waitFor(() => expect(screen.getByTestId('switch-push_enabled')).toBeOnTheScreen());
+    expect(screen.queryByTestId('switch-email_enabled')).toBeNull();
+    expect(screen.queryByTestId('switch-sms_enabled')).toBeNull();
   });
 
-  it('renders SMS switch as disabled (future-ready)', async () => {
+  it('never writes email_enabled or sms_enabled', async () => {
     render(<NotificationSettingsScreen />);
-    const smsSwitch = await screen.findByTestId('switch-sms_enabled');
-    expect(smsSwitch.props.disabled).toBe(true);
-  });
-
-  it('Email switch has value=false (not writeable)', async () => {
-    render(<NotificationSettingsScreen />);
-    const emailSwitch = await screen.findByTestId('switch-email_enabled');
-    expect(emailSwitch.props.value).toBe(false);
-  });
-
-  it('SMS switch has value=false (not writeable)', async () => {
-    render(<NotificationSettingsScreen />);
-    const smsSwitch = await screen.findByTestId('switch-sms_enabled');
-    expect(smsSwitch.props.value).toBe(false);
-  });
-
-  it('updateNotificationPreferences is NOT called for email_enabled', async () => {
-    render(<NotificationSettingsScreen />);
-    await screen.findByTestId('switch-email_enabled');
-    // Disabled switch — cannot be toggled; confirm update is never called for it
+    await waitFor(() => expect(screen.getByTestId('switch-push_enabled')).toBeOnTheScreen());
     expect(mockUpdateNotificationPreferences).not.toHaveBeenCalledWith(
       expect.objectContaining({ email_enabled: expect.anything() }),
+    );
+    expect(mockUpdateNotificationPreferences).not.toHaveBeenCalledWith(
+      expect.objectContaining({ sms_enabled: expect.anything() }),
     );
   });
 
@@ -750,9 +737,10 @@ describe('NotificationSettingsScreen (extended with Quality/System/Email/SMS)', 
     );
   });
 
-  it('shows "Coming soon" section for future-ready channels', async () => {
+  it('shows no "Coming soon" section', async () => {
     render(<NotificationSettingsScreen />);
-    expect(await screen.findByText('Coming soon')).toBeOnTheScreen();
+    await waitFor(() => expect(screen.getByTestId('switch-push_enabled')).toBeOnTheScreen());
+    expect(screen.queryByText('Coming soon')).toBeNull();
   });
 });
 
