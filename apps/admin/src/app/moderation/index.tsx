@@ -9,6 +9,7 @@
  *   - Hide / Unhide the reported chat message or review
  *   - Clear the provider's bio and skills (reported people who are providers)
  *   - Close the report: "Action taken" or "Dismiss", with an optional note
+ *   - Suspend or lift the reported customer or provider (F5.6), linked to the report
  *
  * Data comes from admin_get_content_reports (0065), which only answers active admins.
  * Wrapped by AdminShell via the _layout.tsx — this screen only returns its content.
@@ -18,6 +19,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { PageMeta } from '@admin/components/page-meta';
+import { AccountSuspensionPanel } from '@admin/components/operations/account-suspension-panel';
 import { Spacing } from '@/constants/theme';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -65,7 +67,10 @@ function ReportCard({
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [showSuspension, setShowSuspension] = useState(false);
   const overdue = isOverdue(report);
+  const canSuspend =
+    !!report.reported_user_id && (report.reported_role === 'customer' || report.reported_role === 'provider');
   const age = reportAgeHours(report.created_at);
 
   async function run(action: () => Promise<{ ok: boolean; error?: string }>) {
@@ -187,6 +192,21 @@ function ReportCard({
           <Text variant="caption" color="error">
             {error}
           </Text>
+        ) : null}
+
+        {canSuspend ? (
+          <>
+            <Button
+              label={showSuspension ? 'Hide account suspension' : 'Account suspension…'}
+              variant="ghost"
+              size="sm"
+              testID={`report-suspension-toggle-${report.report_id}`}
+              onPress={() => setShowSuspension((v) => !v)}
+            />
+            {showSuspension ? (
+              <AccountSuspensionPanel userId={report.reported_user_id as string} reportId={report.report_id} />
+            ) : null}
+          </>
         ) : null}
       </View>
     </Card>

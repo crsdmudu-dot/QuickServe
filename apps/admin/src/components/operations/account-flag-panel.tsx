@@ -109,7 +109,8 @@ export function AccountFlagPanel({ subjectId, subjectRole }: AccountFlagPanelPro
       {/* Record-only notice — always visible */}
       <Text variant="caption" color="textSecondary" style={styles.noticeLabel}>
         Record only — this does NOT block login, booking, or dispatch. It is an
-        operational record and recommendation for follow-up.
+        operational record and recommendation for follow-up. To actually stop someone
+        using KwikServe, use Account suspension.
       </Text>
 
       {/* Flags list */}

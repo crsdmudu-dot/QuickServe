@@ -36,6 +36,7 @@
     "supabase/functions/place-details/index.ts",
     "supabase/functions/tracking-map/index.ts",
     "supabase/functions/delete-account/index.ts",
-    "supabase/functions/deletion-worker/index.ts"
+    "supabase/functions/deletion-worker/index.ts",
+    "supabase/functions/admin-account-suspension/index.ts"
   ]
 }

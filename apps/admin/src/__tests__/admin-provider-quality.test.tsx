@@ -174,6 +174,15 @@ jest.mock('@/lib/operations', () => ({
   createSupportCase: jest.fn().mockResolvedValue({ ok: true, id: 'new-case-1' }),
 }));
 
+// ── @/lib/suspension mock (AccountSuspensionPanel on providers/[id], F5.6b) ───
+
+jest.mock('@/lib/suspension', () => ({
+  getLatestSuspension: jest.fn().mockResolvedValue({ ok: true, suspension: null }),
+  suspendAccount: jest.fn(),
+  liftSuspension: jest.fn(),
+  retrySignInBlock: jest.fn(),
+}));
+
 // ── @/auth/auth-context mock ──────────────────────────────────────────────────
 
 jest.mock('@/auth/auth-context', () => ({

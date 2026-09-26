@@ -30,3 +30,8 @@ verify_jwt = true
 # closed. Deploy with `--no-verify-jwt` (the run sheet records the exact command).
 [functions.deletion-worker]
 verify_jwt = false
+
+# Admin account suspension (F5.6b). Called from the admin web with the admin's own session: the gateway verifies the
+# JWT, and the handler requires an active admin. CORS answers only the exact ADMIN_ORIGIN secret.
+[functions.admin-account-suspension]
+verify_jwt = true

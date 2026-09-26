@@ -156,6 +156,14 @@ jest.mock('@/lib/operations', () => ({
   createSupportCase: jest.fn().mockResolvedValue({ ok: true, id: 'new-case-1' }),
 }));
 
+// AccountSuspensionPanel (F5.6b) reads the latest suspension; the provider has never been suspended here.
+jest.mock('@/lib/suspension', () => ({
+  getLatestSuspension: jest.fn().mockResolvedValue({ ok: true, suspension: null }),
+  suspendAccount: jest.fn(),
+  liftSuspension: jest.fn(),
+  retrySignInBlock: jest.fn(),
+}));
+
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
@@ -322,6 +330,13 @@ describe('AdminWebProviderDetailScreen (detail)', () => {
     render(<AdminWebProviderDetailScreen />);
     await screen.findByText('Jane Doe');
     expect(await screen.findByText('Account flags')).toBeOnTheScreen();
+  });
+
+  it('renders the Account suspension panel for this provider (F5.6b)', async () => {
+    render(<AdminWebProviderDetailScreen />);
+    await screen.findByText('Jane Doe');
+    expect(await screen.findByText('Account suspension')).toBeOnTheScreen();
+    expect(await screen.findByText('Not suspended')).toBeOnTheScreen();
   });
 
   it('renders InternalNotesPanel with "Internal notes" section header', async () => {

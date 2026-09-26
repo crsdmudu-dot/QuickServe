@@ -1,9 +1,11 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { AppState } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
 
 import type { Role } from '@/constants/roles';
 import { supabase } from '@/lib/supabase';
-import { mapAuthError } from '@/lib/auth-errors';
+import { isAccountSuspended } from '@/lib/account-state';
+import { ACCOUNT_BLOCKED_MESSAGE, mapAuthError } from '@/lib/auth-errors';
 import { classifyAuthLinkRequest, type AuthLinkRequestOutcome } from '@/lib/auth-link-request';
 import { mobileAuthRedirectUrl, type AuthLinkType } from '@/lib/auth-links';
 import { unregisterForPushNotifications } from '@/lib/push';
@@ -106,6 +108,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (s.user.id !== resolvedUserId.current) setIsLoading(true);
         const p = await fetchProfile(s.user.id);
         if (!active) return;
+        // A suspended account is refused its own profile (0069), so "no role" may mean suspended. Ask the database
+        // and, if so, end the session on this device with a neutral message (F5.6).
+        if (!p.error && p.role === null && (await isAccountSuspended())) {
+          if (!active) return;
+          setAuthError(ACCOUNT_BLOCKED_MESSAGE);
+          await supabase.auth.signOut({ scope: 'local' });
+          // Settle into the signed-out state now; the SIGNED_OUT event that follows is then a no-op.
+          return applySession(null);
+        }
         resolvedUserId.current = s.user.id;
         setRole(p.role);
         setApprovalStatus(p.approvalStatus);
@@ -137,6 +148,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sub.subscription.unsubscribe();
     };
   }, []);
+
+  // A suspension can happen while the app is open. When it returns to the foreground, check again (F5.6).
+  const signedInUserId = session?.user?.id ?? null;
+  useEffect(() => {
+    if (!signedInUserId) return;
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next !== 'active') return;
+      void isAccountSuspended().then(async (suspended) => {
+        if (!suspended) return;
+        setAuthError(ACCOUNT_BLOCKED_MESSAGE);
+        await supabase.auth.signOut({ scope: 'local' });
+      });
+    });
+    // `?.`: the React Native Jest preset's AppState mock returns no subscription object.
+    return () => sub?.remove();
+  }, [signedInUserId]);
 
   function selectRole(r: Role) {
     setPendingRole(r);

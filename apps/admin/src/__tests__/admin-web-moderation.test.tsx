@@ -21,6 +21,16 @@ jest.mock('@/lib/supabase', () => ({
   supabase: { rpc: (...args: unknown[]) => mockRpc(...args) },
 }));
 
+// The suspension panel (F5.6b) has its own tests; here only its placement and inputs are checked.
+const mockGetLatestSuspension = jest.fn().mockResolvedValue({ ok: true, suspension: null });
+const mockSuspendAccount = jest.fn().mockResolvedValue({ ok: true, signInBlock: 'banned', recorded: true });
+jest.mock('@/lib/suspension', () => ({
+  getLatestSuspension: (...args: unknown[]) => mockGetLatestSuspension(...args),
+  suspendAccount: (...args: unknown[]) => mockSuspendAccount(...args),
+  liftSuspension: jest.fn(),
+  retrySignInBlock: jest.fn(),
+}));
+
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import AdminWebModerationScreen from '@admin/app/moderation/index';
@@ -169,6 +179,28 @@ describe('AdminWebModerationScreen', () => {
     fireEvent.press(screen.getByTestId('moderation-filter-actioned'));
     expect(await screen.findByText('Could not load reports.')).toBeOnTheScreen();
     expect(screen.getByText('Retry')).toBeOnTheScreen();
+  });
+
+  it('opens the suspension panel for the reported provider, linked to the report (F5.6b)', async () => {
+    render(<AdminWebModerationScreen />);
+    await screen.findByText('Synthetic rude message');
+    expect(screen.queryByTestId('suspension-panel')).toBeNull();
+    fireEvent.press(screen.getByTestId('report-suspension-toggle-rep-msg-1'));
+    expect(await screen.findByText('Not suspended')).toBeOnTheScreen();
+    expect(mockGetLatestSuspension).toHaveBeenCalledWith('prov-1');
+    fireEvent.changeText(screen.getByTestId('suspension-reason'), 'Repeated harassment in chat');
+    fireEvent.press(screen.getByTestId('suspension-suspend'));
+    fireEvent.press(screen.getByTestId('suspension-confirm'));
+    await waitFor(() =>
+      expect(mockSuspendAccount).toHaveBeenCalledWith({ userId: 'prov-1', reason: 'Repeated harassment in chat', reportId: 'rep-msg-1' }),
+    );
+  });
+
+  it('offers no suspension for a report without a customer or provider behind it', async () => {
+    queue.open = [{ ...MESSAGE_REPORT, report_id: 'rep-x', reported_user_id: null, reported_role: null }];
+    render(<AdminWebModerationScreen />);
+    await screen.findByText('Synthetic rude message');
+    expect(screen.queryByTestId('report-suspension-toggle-rep-x')).toBeNull();
   });
 });
 

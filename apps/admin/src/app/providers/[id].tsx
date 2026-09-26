@@ -39,6 +39,7 @@ import {
 import { formatKes } from '@/lib/currency';
 
 import { resolvePayoutStatus } from '@/lib/payout-status';
+import { AccountSuspensionPanel } from '@admin/components/operations/account-suspension-panel';
 
 /** Payout is recorded on the Earnings & Payouts screen; this detail view is read-only. */
 const PAYOUT_STATUS_LABELS: Record<string, string> = {
@@ -304,6 +305,9 @@ export default function AdminWebProviderDetailScreen() {
 
       {/* Operations — internal notes for this provider (admin-only, additive) */}
       <InternalNotesPanel subjectType="provider" subjectId={id} />
+
+      {/* Safety — suspend or lift this provider (enforced; F5.6) */}
+      <AccountSuspensionPanel userId={id} />
 
       {/* Operations — account flags / suspension records (record-only) */}
       <AccountFlagPanel subjectId={id} subjectRole="provider" />

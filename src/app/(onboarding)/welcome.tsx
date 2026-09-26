@@ -5,11 +5,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useAuth } from '@/auth/auth-context';
+import { ACCOUNT_BLOCKED_MESSAGE } from '@/lib/auth-errors';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 
 export default function WelcomeScreen() {
   const theme = useTheme();
+  // Only the "account can't sign in" notice is shown here (a suspension that ended the session, F5.6); other
+  // sign-in errors belong to the sign-in screen.
+  const { authError } = useAuth();
+  const blocked = authError === ACCOUNT_BLOCKED_MESSAGE;
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
@@ -32,6 +38,11 @@ export default function WelcomeScreen() {
 
       {/* CTA section */}
       <View style={styles.cta}>
+        {blocked ? (
+          <Text variant="caption" color="error" style={styles.notice} accessibilityRole="alert" testID="welcome-account-blocked">
+            {ACCOUNT_BLOCKED_MESSAGE}
+          </Text>
+        ) : null}
         <Button label="Get Started" fullWidth size="lg" onPress={() => router.push('/role-select')} />
         <View style={styles.loginRow}>
           <Text variant="body" color="textSecondary">Already have an account? </Text>
@@ -97,5 +108,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  notice: {
+    textAlign: 'center',
   },
 });
