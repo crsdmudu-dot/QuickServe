@@ -14,7 +14,9 @@
       "icon": "./assets/expo.icon",
       "bundleIdentifier": "ke.co.hiredcorp.kwikserve",
       "buildNumber": "1",
-      "associatedDomains": ["applinks:REPLACE_ME.quickserve.app"]
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -25,7 +27,9 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "ke.co.hiredcorp.kwikserve",
-      "versionCode": 1
+      "versionCode": 1,
+      "allowBackup": false,
+      "blockedPermissions": ["android.permission.SYSTEM_ALERT_WINDOW"]
     },
     "web": {
       "output": "static",
@@ -48,14 +52,19 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "KwikServe needs photo access to attach job photos."
+          "photosPermission": "KwikServe needs photo access to attach job photos.",
+          "cameraPermission": false,
+          "microphonePermission": false
         }
       ],
       "expo-notifications",
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "KwikServe shares your live location with the customer only while you are travelling to and performing an active job."
+          "locationWhenInUsePermission": "KwikServe shares your live location with the customer only while you are travelling to and performing an active job.",
+          "locationAlwaysAndWhenInUsePermission": false,
+          "locationAlwaysPermission": false,
+          "motionUsagePermission": false
         }
       ],
       ["@sentry/react-native/expo", { "organization": "", "project": "" }]
