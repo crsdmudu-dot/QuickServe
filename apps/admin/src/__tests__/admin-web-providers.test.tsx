@@ -8,6 +8,14 @@
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
+// The shared chat thread and review card (F5.1) import @/lib/moderation, which creates the
+// Supabase client. Mock it so this suite needs no Supabase env.
+jest.mock('@/lib/moderation', () => ({
+  REPORT_REASONS: [{ key: 'harassment', label: 'Harassment or bullying' }],
+  REPORT_CONFIRMATION: 'Thanks for letting us know. Our team reviews every report within 24 hours.',
+  reportContent: jest.fn().mockResolvedValue({ ok: true }),
+}));
+
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'prov1' }),
   router: { push: jest.fn() },

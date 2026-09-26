@@ -222,7 +222,7 @@ export default function ProviderProfileScreen() {
             </>
           )}
           {reviews.map((r) => (
-            <ReviewCard key={r.id} review={r} />
+            <ReviewCard key={r.id} review={r} reportable />
           ))}
         </View>
 

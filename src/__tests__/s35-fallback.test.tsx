@@ -15,6 +15,14 @@
 
 // ── Mocks (all at module scope so they apply to imports below) ─────────────────
 
+// The report panel (F5.1) imports @/lib/moderation, which creates the Supabase client. Mock it so
+// this suite needs no Supabase env; the report flow itself is tested in report-form.test.tsx.
+jest.mock('@/lib/moderation', () => ({
+  REPORT_REASONS: [{ key: 'harassment', label: 'Harassment or bullying' }],
+  REPORT_CONFIRMATION: 'Thanks for letting us know. Our team reviews every report within 24 hours.',
+  reportContent: jest.fn().mockResolvedValue({ ok: true }),
+}));
+
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'b1' }),
   router: { push: jest.fn(), replace: jest.fn() },

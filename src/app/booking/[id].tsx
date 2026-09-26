@@ -42,6 +42,7 @@ import { Card } from '@/components/ui/card';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
 import { ProfessionalCard } from '@/components/ui/professional-card';
+import { ReportForm } from '@/components/ui/report-form';
 import { PhotoGallery } from '@/components/ui/photo-gallery';
 import { PhotoUploadButton } from '@/components/ui/photo-upload-button';
 import { ActivityTimeline } from '@/components/ui/activity-timeline';
@@ -63,6 +64,8 @@ export default function BookingDetailScreen() {
 
   const [booking, setBooking] = useState<Booking | null>(null);
   const [professional, setProfessional] = useState<Professional | null>(null);
+  // True while the "Report provider" panel is open.
+  const [reportingProvider, setReportingProvider] = useState(false);
   const [photos, setPhotos] = useState<BookingPhotoView[]>([]);
   const [activity, setActivity] = useState<BookingActivity[]>([]);
   const [review, setReview] = useState<Review | null>(null);
@@ -462,6 +465,22 @@ export default function BookingDetailScreen() {
           <View style={styles.section}>
             <SectionHeader title="Assigned Professional" />
             <ProfessionalCard professional={professional} />
+            {booking.assigned_provider_id && reportingProvider ? (
+              <ReportForm
+                title="Report this provider"
+                targetType="user"
+                targetId={booking.assigned_provider_id}
+                onClose={() => setReportingProvider(false)}
+              />
+            ) : booking.assigned_provider_id ? (
+              <Button
+                label="Report provider"
+                variant="ghost"
+                size="sm"
+                testID="report-provider"
+                onPress={() => setReportingProvider(true)}
+              />
+            ) : null}
           </View>
         ) : booking.assigned_provider_name ? (
           <View style={styles.section}>

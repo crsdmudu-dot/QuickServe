@@ -7,6 +7,14 @@
 
 // ── Mocks (must appear before imports) ────────────────────────────────────
 
+// The report panel (F5.1) imports @/lib/moderation, which creates the Supabase client. Mock it so
+// this suite needs no Supabase env; the report flow itself is tested in report-form.test.tsx.
+jest.mock('@/lib/moderation', () => ({
+  REPORT_REASONS: [{ key: 'harassment', label: 'Harassment or bullying' }],
+  REPORT_CONFIRMATION: 'Thanks for letting us know. Our team reviews every report within 24 hours.',
+  reportContent: jest.fn().mockResolvedValue({ ok: true }),
+}));
+
 jest.mock('@/auth/auth-context', () => ({
   useAuth: () => ({ session: { user: { id: 'me' } } }),
 }));
@@ -187,5 +195,65 @@ describe('ChatThread', () => {
 
     // Send button must NOT be present in readonly mode.
     expect(screen.queryByText('Send')).toBeNull();
+  });
+});
+
+// ── Reporting (store-compliance F5.1) ────────────────────────────────────────
+
+describe('ChatThread — reporting', () => {
+  // Here the signed-in user ('me') is the booking's customer, so there is a counterpart to report.
+  const MY_BOOKING = { customer_id: 'me', assigned_provider_id: 'prov', status: 'in_progress' };
+  const PEER_MESSAGE = { ...A_MESSAGE, id: 'm2', sender_id: 'prov', message_text: 'rude words' };
+  const { reportContent } = jest.requireMock('@/lib/moderation') as { reportContent: jest.Mock };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetChatPeerName.mockResolvedValue('Provider Name');
+    mockGetBookingMessages.mockResolvedValue([A_MESSAGE, PEER_MESSAGE]);
+  });
+
+  it('a participant can report the other person from the header', async () => {
+    render(<ChatThread bookingId="b1" booking={MY_BOOKING} mode="participant" />);
+    await screen.findByText('rude words');
+    fireEvent.press(screen.getByTestId('chat-report-person'));
+    expect(await screen.findByText('Report Provider Name')).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('report-reason-harassment'));
+    fireEvent.press(screen.getByTestId('report-send'));
+    expect(await screen.findByTestId('report-form-sent')).toBeOnTheScreen();
+    expect(reportContent).toHaveBeenCalledWith('user', 'prov', 'harassment');
+  });
+
+  it("long-pressing the other person's message opens a report for that message", async () => {
+    render(<ChatThread bookingId="b1" booking={MY_BOOKING} mode="participant" />);
+    await screen.findByText('rude words');
+    expect(screen.getByText('Long-press a message to report it.')).toBeOnTheScreen();
+    fireEvent(screen.getByTestId('message-m2'), 'longPress');
+    expect(await screen.findByText('Report this message')).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('report-reason-harassment'));
+    fireEvent.press(screen.getByTestId('report-send'));
+    await screen.findByTestId('report-form-sent');
+    expect(reportContent).toHaveBeenCalledWith('message', 'm2', 'harassment');
+  });
+
+  it('your own messages cannot be long-pressed to report', async () => {
+    render(<ChatThread bookingId="b1" booking={MY_BOOKING} mode="participant" />);
+    await screen.findByText('hi');
+    fireEvent(screen.getByTestId('message-m1'), 'longPress');
+    expect(screen.queryByTestId('report-form')).toBeNull();
+  });
+
+  it('someone who is not in the booking gets no report action', async () => {
+    render(<ChatThread bookingId="b1" booking={BASE_BOOKING} mode="participant" />);
+    await screen.findByText('rude words');
+    expect(screen.queryByTestId('chat-report-person')).toBeNull();
+  });
+
+  it('the admin viewer labels hidden messages and offers no report action', async () => {
+    mockGetBookingMessages.mockResolvedValue([
+      { ...PEER_MESSAGE, hidden_at: '2026-09-26T10:00:00Z', hidden_by: 'admin' },
+    ]);
+    render(<ChatThread bookingId="b1" booking={MY_BOOKING} mode="readonly" />);
+    expect(await screen.findByText('Hidden by moderation')).toBeOnTheScreen();
+    expect(screen.queryByTestId('chat-report-person')).toBeNull();
   });
 });

@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { MessageBubble } from '@/components/ui/message-bubble';
+import { ReportForm } from '@/components/ui/report-form';
 import { Text } from '@/components/ui/text';
 import {
   getChatPeerName,
@@ -50,6 +51,10 @@ export function ChatThread({ bookingId, booking, mode }: ChatThreadProps) {
   const [peerName, setPeerName] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // What the participant is reporting, if the report panel is open.
+  const [reportTarget, setReportTarget] = useState<
+    { type: 'message' | 'user'; id: string; title: string } | null
+  >(null);
 
   // ── Load data on mount ───────────────────────────────────────────────────
   useEffect(() => {
@@ -66,6 +71,15 @@ export function ChatThread({ bookingId, booking, mode }: ChatThreadProps) {
 
   // Header text differs by mode.
   const headingText = mode === 'readonly' ? 'Conversation' : peerName ?? 'Chat';
+
+  // The other person in this booking (only a participant has one).
+  const counterpartId =
+    currentUserId === booking.customer_id
+      ? booking.assigned_provider_id
+      : currentUserId != null && currentUserId === booking.assigned_provider_id
+        ? booking.customer_id
+        : null;
+  const canReport = mode === 'participant' && counterpartId != null;
 
   // ── Send handler ─────────────────────────────────────────────────────────
   async function handleSend() {
@@ -84,7 +98,29 @@ export function ChatThread({ bookingId, booking, mode }: ChatThreadProps) {
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: theme.border }]}>
-        <Text variant="heading">{headingText}</Text>
+        <View style={styles.headerRow}>
+          <Text variant="heading">{headingText}</Text>
+          {canReport ? (
+            <Button
+              label="Report"
+              variant="ghost"
+              size="sm"
+              testID="chat-report-person"
+              onPress={() =>
+                setReportTarget({
+                  type: 'user',
+                  id: counterpartId as string,
+                  title: `Report ${peerName ?? 'this person'}`,
+                })
+              }
+            />
+          ) : null}
+        </View>
+        {canReport ? (
+          <Text variant="caption" color="textSecondary">
+            Long-press a message to report it.
+          </Text>
+        ) : null}
       </View>
 
       {/* Message list */}
@@ -101,12 +137,19 @@ export function ChatThread({ bookingId, booking, mode }: ChatThreadProps) {
         ) : (
           messages.map((m) => {
             if (mode === 'participant') {
+              const fromPeer = m.sender_id !== currentUserId;
               return (
                 <MessageBubble
                   key={m.id}
+                  testID={`message-${m.id}`}
                   text={m.message_text}
                   timestamp={m.created_at}
-                  align={m.sender_id === currentUserId ? 'right' : 'left'}
+                  align={fromPeer ? 'left' : 'right'}
+                  onLongPress={
+                    fromPeer && canReport
+                      ? () => setReportTarget({ type: 'message', id: m.id, title: 'Report this message' })
+                      : undefined
+                  }
                 />
               );
             }
@@ -114,15 +157,28 @@ export function ChatThread({ bookingId, booking, mode }: ChatThreadProps) {
             return (
               <MessageBubble
                 key={m.id}
+                testID={`message-${m.id}`}
                 text={m.message_text}
                 timestamp={m.created_at}
                 align="left"
                 label={labelSender(m.sender_id, booking)}
+                note={m.hidden_at ? 'Hidden by moderation' : undefined}
               />
             );
           })
         )}
       </ScrollView>
+
+      {/* Report panel — opened from the header or by long-pressing a message */}
+      {reportTarget ? (
+        <ReportForm
+          key={`${reportTarget.type}-${reportTarget.id}`}
+          title={reportTarget.title}
+          targetType={reportTarget.type}
+          targetId={reportTarget.id}
+          onClose={() => setReportTarget(null)}
+        />
+      ) : null}
 
       {/* Send area — only for participant mode */}
       {mode === 'participant' && (
@@ -164,6 +220,13 @@ const styles = StyleSheet.create({
   header: {
     paddingBottom: Spacing.two,
     borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: Spacing.one,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
   },
   scroll: {
     flex: 1,

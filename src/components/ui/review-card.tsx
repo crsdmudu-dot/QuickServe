@@ -2,18 +2,26 @@
 // Enriched with Ratings v2 fields: category ratings, would-recommend, and tag chips.
 // LEGACY FALLBACK: when all v2 fields are absent the card renders exactly as before
 // (stars + comment + date only), so existing tests remain green.
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { Review } from '@/lib/reviews';
 import { REVIEW_TAGS } from '@/lib/reviews';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { ReportForm } from '@/components/ui/report-form';
 import { Text } from '@/components/ui/text';
 import { RatingStars } from '@/components/ui/rating-stars';
 
 export type ReviewCardProps = {
   review: Review;
+  /**
+   * Shows a "Report review" action and the report panel under the card. Only the reviewed
+   * provider's screens pass this; the server also refuses anyone else.
+   */
+  reportable?: boolean;
 };
 
 // ── Category config ───────────────────────────────────────────────────────────
@@ -29,8 +37,9 @@ const CATEGORIES: { label: string; key: keyof Review }[] = [
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function ReviewCard({ review }: ReviewCardProps) {
+export function ReviewCard({ review, reportable = false }: ReviewCardProps) {
   const theme = useTheme();
+  const [reporting, setReporting] = useState(false);
   const date = new Date(review.created_at).toLocaleDateString();
 
   // Determine whether any v2 category field is present
@@ -42,7 +51,7 @@ export function ReviewCard({ review }: ReviewCardProps) {
     return found ? found.label : key;
   });
 
-  return (
+  const card = (
     <Card elevation="e1">
       <View style={styles.content}>
         {/* ── Overall stars (always shown) ── */}
@@ -94,8 +103,36 @@ export function ReviewCard({ review }: ReviewCardProps) {
         <Text variant="caption" color="textSecondary">
           {date}
         </Text>
+
+        {/* ── Report action (opt-in) ── */}
+        {reportable && !reporting ? (
+          <Button
+            label="Report review"
+            variant="ghost"
+            size="sm"
+            testID={`review-report-${review.id}`}
+            onPress={() => setReporting(true)}
+          />
+        ) : null}
       </View>
     </Card>
+  );
+
+  // Without the report action the card renders exactly as before.
+  if (!reportable) return card;
+
+  return (
+    <View style={styles.reportable}>
+      {card}
+      {reporting ? (
+        <ReportForm
+          title="Report this review"
+          targetType="review"
+          targetId={review.id}
+          onClose={() => setReporting(false)}
+        />
+      ) : null}
+    </View>
   );
 }
 
@@ -103,6 +140,9 @@ export function ReviewCard({ review }: ReviewCardProps) {
 
 const styles = StyleSheet.create({
   content: {
+    gap: Spacing.two,
+  },
+  reportable: {
     gap: Spacing.two,
   },
   categoryBlock: {

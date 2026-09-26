@@ -11,6 +11,9 @@ export type BookingMessage = {
   message_text: string;
   created_at: string;
   read_at: string | null;
+  /** Set when an admin hid the message (0065). Participants never receive hidden rows; admins do. */
+  hidden_at?: string | null;
+  hidden_by?: string | null;
 };
 
 // ── Queries ────────────────────────────────────────────────────────────────

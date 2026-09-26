@@ -2,7 +2,7 @@
 // chat screen.  Renders an outgoing (right) or incoming (left) bubble with
 // optional sender label and localised timestamp.
 
-import { StyleSheet, View, type ViewProps } from 'react-native';
+import { Pressable, StyleSheet, View, type ViewProps } from 'react-native';
 
 import { Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -19,6 +19,10 @@ export type MessageBubbleProps = {
   label?: string;
   /** testID forwarded to the outer bubble View for style assertions in tests. */
   testID?: ViewProps['testID'];
+  /** Optional long-press action (used to report the other person's message). */
+  onLongPress?: () => void;
+  /** Optional short note under the text, e.g. "Hidden by moderation" in the admin viewer. */
+  note?: string;
 };
 
 /**
@@ -33,6 +37,8 @@ export function MessageBubble({
   align,
   label,
   testID,
+  onLongPress,
+  note,
 }: MessageBubbleProps) {
   const theme = useTheme();
 
@@ -40,14 +46,13 @@ export function MessageBubble({
   const backgroundColor =
     align === 'right' ? theme.primarySurface : theme.surfaceMuted;
 
-  return (
-    <View
-      testID={testID}
-      style={[
-        styles.bubble,
-        { backgroundColor, alignSelf: align === 'right' ? 'flex-end' : 'flex-start' },
-      ]}
-    >
+  const bubbleStyle = [
+    styles.bubble,
+    { backgroundColor, alignSelf: align === 'right' ? ('flex-end' as const) : ('flex-start' as const) },
+  ];
+
+  const content = (
+    <>
       {label != null && (
         <Text variant="caption" color="textSecondary">
           {label}
@@ -56,9 +61,35 @@ export function MessageBubble({
 
       <Text variant="body">{text}</Text>
 
+      {note != null && (
+        <Text variant="caption" color="error">
+          {note}
+        </Text>
+      )}
+
       <Text variant="caption" color="textSecondary">
         {new Date(timestamp).toLocaleTimeString()}
       </Text>
+    </>
+  );
+
+  // A long-press target is only added when there is an action; plain bubbles stay plain Views.
+  if (onLongPress) {
+    return (
+      <Pressable
+        testID={testID}
+        style={bubbleStyle}
+        onLongPress={onLongPress}
+        accessibilityHint="Long-press to report this message"
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
+  return (
+    <View testID={testID} style={bubbleStyle}>
+      {content}
     </View>
   );
 }

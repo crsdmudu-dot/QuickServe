@@ -38,6 +38,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Payment Attempts', route: '/payment-attempts', segment: 'payment-attempts' },
   { label: 'Earnings & Payouts', route: '/earnings', segment: 'earnings' },
   { label: 'Reviews', route: '/reviews', segment: 'reviews' },
+  { label: 'Moderation', route: '/moderation', segment: 'moderation' },
   { label: 'Services', route: '/services', segment: 'services' },
   { label: 'Operations', route: '/operations', segment: 'operations' },
   { label: 'Notifications', route: '/notifications', segment: 'notifications' },

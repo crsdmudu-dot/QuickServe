@@ -13,6 +13,14 @@
  * Case D: photos section shown with PhotoGallery and upload button.
  */
 
+// The report panel (F5.1) imports @/lib/moderation, which creates the Supabase client. Mock it so
+// this suite needs no Supabase env; the report flow itself is tested in report-form.test.tsx.
+jest.mock('@/lib/moderation', () => ({
+  REPORT_REASONS: [{ key: 'harassment', label: 'Harassment or bullying' }],
+  REPORT_CONFIRMATION: 'Thanks for letting us know. Our team reviews every report within 24 hours.',
+  reportContent: jest.fn().mockResolvedValue({ ok: true }),
+}));
+
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'b1' }),
   router: { push: jest.fn(), replace: jest.fn(), back: jest.fn(), canGoBack: jest.fn(() => true) },
@@ -828,5 +836,50 @@ describe('BookingDetailScreen', () => {
       expect(await screen.findByText('Booking Detail')).toBeOnTheScreen();
       expect(screen.queryByText('Service Details')).toBeNull();
     });
+  });
+});
+
+describe('BookingDetailScreen — report provider (F5.1)', () => {
+  const { reportContent } = jest.requireMock('@/lib/moderation') as { reportContent: jest.Mock };
+
+  it('the customer can report the assigned in-app provider', async () => {
+    reportContent.mockClear();
+    mockGetBookingById.mockResolvedValue({
+      ...BASE_BOOKING,
+      status: 'provider_assigned' as const,
+      assigned_provider_id: 'p1',
+      assigned_provider_name: 'Jane',
+      assigned_provider_phone: '0700',
+    });
+    mockGetBookingProfessional.mockResolvedValue({
+      full_name: 'Jane',
+      skills: ['Plumbing'],
+      is_verified: true,
+      completed_jobs_count: 5,
+      profile_photo_url: null,
+    });
+
+    render(<BookingDetailScreen />);
+    await screen.findByText('Jane');
+    fireEvent.press(screen.getByTestId('report-provider'));
+    expect(screen.getByText('Report this provider')).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('report-reason-harassment'));
+    fireEvent.press(screen.getByTestId('report-send'));
+    expect(await screen.findByTestId('report-form-sent')).toBeOnTheScreen();
+    expect(reportContent).toHaveBeenCalledWith('user', 'p1', 'harassment');
+  });
+
+  it('a manually dispatched provider (no app account) has no report action', async () => {
+    mockGetBookingById.mockResolvedValue({
+      ...BASE_BOOKING,
+      status: 'provider_assigned' as const,
+      assigned_provider_id: null,
+      assigned_provider_name: 'Bob',
+      assigned_provider_phone: '0711',
+    });
+    mockGetBookingProfessional.mockResolvedValue(null);
+    render(<BookingDetailScreen />);
+    await screen.findByText('Bob');
+    expect(screen.queryByTestId('report-provider')).toBeNull();
   });
 });
