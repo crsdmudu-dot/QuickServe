@@ -143,6 +143,10 @@ const ALLOWLIST_F5: Record<string, { kind: Kind; why: string }> = {
   // 0068: Terms acceptance
   'public.accept_terms(text,text)': { kind: 'caller', why: "records the caller's own acceptance of the current Terms version only; active users only" },
   'public.has_accepted_current_terms()': { kind: 'rls-helper', why: 'restrictive chat/review insert policies and the bio trigger; yes/no about the caller (never granted to anon)' },
+  // 0069: suspension (set_suspension_ban_state is service-role only, so it is not listed)
+  'public.admin_suspend_account(uuid,text,uuid)': { kind: 'admin', why: 'moderation: suspend a customer or provider; the acting admin is the caller' },
+  'public.admin_lift_account_suspension(uuid,text)': { kind: 'admin', why: 'moderation: lift a suspension; the acting admin is the caller' },
+  'public.get_my_account_state()': { kind: 'caller', why: "the caller's own account state (active, suspended or deleted)" },
 };
 
 const ALLOWLIST: Record<string, { kind: Kind; why: string }> = { ...ALLOWLIST_0064, ...ALLOWLIST_F5 };
@@ -248,8 +252,8 @@ describe('function EXECUTE privilege audit (M7) and 0064', () => {
 
     it('the allowlist holds 68 reviewed entries as of 0064 plus the F5 entries, and exactly three may be called by anon', () => {
       expect(Object.keys(ALLOWLIST_0064)).toHaveLength(68);
-      expect(Object.keys(ALLOWLIST_F5)).toHaveLength(14);
-      expect(Object.keys(ALLOWLIST)).toHaveLength(68 + 14);
+      expect(Object.keys(ALLOWLIST_F5)).toHaveLength(17);
+      expect(Object.keys(ALLOWLIST)).toHaveLength(68 + 17);
       const anon = [...model.functions.values()].filter((f) => f.securityDefiner && !isTriggerFunction(f) && anonOrPublic(f)).map((f) => f.key);
       expect(anon.sort()).toEqual(['public.deletion_path_frozen(text,text)', 'public.is_active_user()', 'public.is_admin()']);
     });

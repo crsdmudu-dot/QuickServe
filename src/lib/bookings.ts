@@ -1,5 +1,6 @@
 // bookings.ts — Supabase helpers for creating and reading bookings.
 import { supabase } from '@/lib/supabase';
+import { CONTENT_NOT_ALLOWED_MESSAGE, isContentNotAllowed } from '@/lib/content-filter';
 import type { QuoteStatus } from '@/lib/quotes';
 import type { SchedulingType, TimeWindow, Recurrence } from '@/lib/scheduling';
 import { serviceDetailsPrimaryValue, type ServiceDetailsSnapshot } from '@/lib/service-details';
@@ -140,6 +141,8 @@ export async function createBooking(
         .maybeSingle();
       if (existing?.id) return { ok: true, id: existing.id, recovered: true };
     }
+    // Booking notes and access notes pass through the language filter (F5.3, extended to bookings in 0069).
+    if (isContentNotAllowed(error)) return { ok: false, error: CONTENT_NOT_ALLOWED_MESSAGE };
     return { ok: false, error: 'Could not create booking. Please try again.' };
   }
   return { ok: true, id: row.id };

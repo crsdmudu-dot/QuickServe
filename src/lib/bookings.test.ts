@@ -108,6 +108,17 @@ describe('createBooking', () => {
       ok: false, error: 'Could not create booking. Please try again.',
     });
   });
+  it('maps the language filter refusal of booking notes to the friendly message (0069, F53-1)', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    mockInsert.mockReturnValue({
+      select: () => ({ single: () => Promise.resolve({ data: null, error: { code: 'P0001', message: 'content_not_allowed' } }) }),
+    });
+    expect(await createBooking({ serviceId: 's', address: 'a', scheduledFor: 't', notes: 'x', idempotencyKey: 'k1' })).toEqual({
+      ok: false, error: 'Please remove offensive language and try again.',
+    });
+    // A filter refusal is not a duplicate: no recovery lookup runs.
+    expect(mockMaybeSingle).not.toHaveBeenCalled();
+  });
   it('createBooking returns the new id on success', async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
     mockInsert.mockReturnValue({ select: () => ({ single: () => Promise.resolve({ data: { id: 'bk1' }, error: null }) }) });
