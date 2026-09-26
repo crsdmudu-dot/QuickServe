@@ -35,6 +35,6 @@ describe('TermsConsent', () => {
     expect(screen.queryByText('Read the Terms')).toBeNull();
     process.env.EXPO_PUBLIC_WEBSITE_URL = 'https://kwikserve.example';
     rerender(<TermsConsent checked={false} onChange={jest.fn()} />);
-    expect(screen.getByText('Read the Terms')).toBeOnTheScreen();
+    expect(screen.getByRole('link', { name: 'Read the Terms' })).toBeOnTheScreen();
   });
 });

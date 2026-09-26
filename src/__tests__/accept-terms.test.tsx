@@ -6,12 +6,15 @@ import { Linking } from 'react-native';
 
 import AcceptTermsScreen from '@/app/accept-terms';
 import { TERMS_KEY_POINTS } from '@/constants/terms';
+import { SUPPORT_EMAIL } from '@/lib/support';
 
 // jest.mock calls are hoisted above the imports by babel-jest.
 const mockAccept = jest.fn();
 const mockSignOut = jest.fn();
+const mockPush = jest.fn();
 jest.mock('@/auth/terms-gate', () => ({ useTermsGate: () => ({ status: 'required', accept: mockAccept }) }));
 jest.mock('@/auth/auth-context', () => ({ useAuth: () => ({ signOut: mockSignOut }) }));
+jest.mock('expo-router', () => ({ router: { push: (...a: unknown[]) => mockPush(...a) } }));
 
 const savedUrl = process.env.EXPO_PUBLIC_WEBSITE_URL;
 beforeEach(() => {
@@ -35,9 +38,20 @@ describe('AcceptTermsScreen', () => {
     process.env.EXPO_PUBLIC_WEBSITE_URL = 'https://kwikserve.example';
     const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
     render(<AcceptTermsScreen />);
+    expect(screen.getByRole('link', { name: 'Read the full Terms' })).toBeOnTheScreen();
     fireEvent.press(screen.getByText('Read the full Terms'));
     expect(open).toHaveBeenCalledWith('https://kwikserve.example/terms');
     open.mockRestore();
+  });
+
+  it('never traps someone who declines: account deletion and support stay reachable', () => {
+    render(<AcceptTermsScreen />);
+    const del = screen.getByTestId('accept-terms-delete-account');
+    expect(del.props.accessibilityRole).toBe('link');
+    fireEvent.press(del);
+    expect(mockPush).toHaveBeenCalledWith('/account/delete');
+    expect(mockAccept).not.toHaveBeenCalled();
+    expect(screen.getByText(SUPPORT_EMAIL)).toBeOnTheScreen();
   });
 
   it('"I agree" records the acceptance', async () => {

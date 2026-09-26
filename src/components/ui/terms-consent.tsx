@@ -38,7 +38,12 @@ export function TermsConsent({ checked, onChange, error }: TermsConsentProps) {
         </Text>
       </Pressable>
       {url ? (
-        <Text variant="label" color="primary" onPress={() => void Linking.openURL(url)} style={styles.link}>
+        <Text
+          variant="label"
+          color="primary"
+          accessibilityRole="link"
+          onPress={() => void Linking.openURL(url)}
+          style={styles.link}>
           Read the Terms
         </Text>
       ) : null}

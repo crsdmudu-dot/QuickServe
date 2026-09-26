@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { Linking, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router, type Href } from 'expo-router';
 
 import { Spacing } from '@/constants/theme';
 import { TERMS_KEY_POINTS, termsUrl } from '@/constants/terms';
@@ -12,6 +13,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/auth/auth-context';
 import { useTermsGate } from '@/auth/terms-gate';
 import { Button } from '@/components/ui/button';
+import { SupportLink } from '@/components/ui/support-link';
 import { Text } from '@/components/ui/text';
 
 export default function AcceptTermsScreen() {
@@ -54,7 +56,12 @@ export default function AcceptTermsScreen() {
         </View>
 
         {url ? (
-          <Text variant="label" color="primary" onPress={() => void Linking.openURL(url)} style={styles.link}>
+          <Text
+            variant="label"
+            color="primary"
+            accessibilityRole="link"
+            onPress={() => void Linking.openURL(url)}
+            style={styles.link}>
             Read the full Terms
           </Text>
         ) : null}
@@ -67,6 +74,20 @@ export default function AcceptTermsScreen() {
             </Text>
           ) : null}
           <Button testID="accept-terms-sign-out" label="Sign out" variant="ghost" fullWidth onPress={() => void signOut()} />
+        </View>
+
+        {/* Declining the Terms must never trap anyone: deletion and support stay reachable (store rule). */}
+        <View style={styles.footer}>
+          <Text
+            testID="accept-terms-delete-account"
+            variant="label"
+            color="textSecondary"
+            accessibilityRole="link"
+            onPress={() => router.push('/account/delete' as Href)}
+            style={styles.center}>
+            Delete my account
+          </Text>
+          <SupportLink prompt="Questions about the Terms?" />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -83,5 +104,6 @@ const styles = StyleSheet.create({
   pointText: { flex: 1 },
   link: { marginTop: Spacing.three },
   actions: { gap: Spacing.two, marginTop: Spacing.four },
+  footer: { gap: Spacing.three, marginTop: Spacing.five, alignItems: 'center' },
   center: { textAlign: 'center' },
 });

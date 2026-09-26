@@ -57,6 +57,16 @@ describe('resolveRootRedirect — Terms gate (F5.4)', () => {
     expect(resolveRootRedirect({ ...signedIn, segments: ['accept-terms'], termsRequired: true })).toBeNull();
   });
 
+  it('never traps someone who declines: account deletion stays reachable without accepting', () => {
+    expect(resolveRootRedirect({ ...signedIn, segments: ['account', 'delete'], termsRequired: true })).toBeNull();
+    expect(resolveRootRedirect({ ...signedIn, role: 'provider', segments: ['account', 'delete'], termsRequired: true })).toBeNull();
+    // Only the deletion screen is exempt, not the rest of a segment that happens to share its name.
+    expect(resolveRootRedirect({ ...signedIn, segments: ['account'], termsRequired: true })).toBe('/accept-terms');
+    expect(resolveRootRedirect({ ...signedIn, segments: ['account', 'other'], termsRequired: true })).toBe('/accept-terms');
+    // Signed out, the deletion screen still leads to welcome, as before.
+    expect(resolveRootRedirect({ ...base, segments: ['account', 'delete'] })).toBe('/welcome');
+  });
+
   it('sends them to their home once accepted (or when the screen is opened without need)', () => {
     expect(resolveRootRedirect({ ...signedIn, segments: ['accept-terms'], termsRequired: false })).toBe('/home');
     expect(resolveRootRedirect({ ...signedIn, role: 'provider', segments: ['accept-terms'] })).toBe('/provider');

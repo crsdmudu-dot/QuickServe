@@ -22,7 +22,9 @@ export type RootRedirectTarget = '/welcome' | '/accept-terms' | ReturnType<typeo
  *  - While a recovery is active, ordinary role routing is held so the user reaches the
  *    set-password step before landing on a role home.
  *  - Otherwise: signed out outside onboarding → welcome.
- *  - Signed in without the current Terms accepted (F5.4) → the Terms screen, wherever they are.
+ *  - Signed in without the current Terms accepted (F5.4) → the Terms screen, wherever they are,
+ *    except account deletion: someone who declines the Terms must still be able to delete their
+ *    account (store rule; the Terms screen links to it).
  *  - Signed in with a role inside onboarding, or on the Terms screen once accepted → role home.
  */
 export function resolveRootRedirect(input: RootRedirectInput): RootRedirectTarget | null {
@@ -35,8 +37,9 @@ export function resolveRootRedirect(input: RootRedirectInput): RootRedirectTarge
   if (recoveryActive) return null;
   const inOnboarding = first === '(onboarding)';
   const onTermsScreen = first === 'accept-terms';
+  const onAccountDeletion = first === 'account' && segments[1] === 'delete';
   if (!signedIn && !inOnboarding) return '/welcome';
-  if (signedIn && termsRequired && !onTermsScreen) return '/accept-terms';
+  if (signedIn && termsRequired && !onTermsScreen && !onAccountDeletion) return '/accept-terms';
   if (signedIn && role && (inOnboarding || (onTermsScreen && !termsRequired))) return roleHref(role);
   return null;
 }
