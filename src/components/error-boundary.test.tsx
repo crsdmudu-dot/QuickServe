@@ -96,7 +96,7 @@ describe('ErrorBoundary', () => {
       fireEvent.press(screen.getByRole('link'));
       await waitFor(() => expect(openURL).toHaveBeenCalledTimes(1));
       const url = openURL.mock.calls[0][0] as string;
-      expect(url).toBe('mailto:support@hiredcorp.co.ke');
+      expect(url).toBe('mailto:support@kwikserve.co.ke');
       expect(url).not.toMatch(/Test explosion|componentStack|[?#&]/);
     } finally {
       openURL.mockRestore();

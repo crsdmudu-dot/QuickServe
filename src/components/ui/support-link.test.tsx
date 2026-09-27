@@ -33,7 +33,7 @@ describe('SupportLink', () => {
     render(<SupportLink />);
     fireEvent.press(screen.getByRole('link'));
     await waitFor(() => expect(openURL).toHaveBeenCalledTimes(1));
-    expect(openURL).toHaveBeenCalledWith('mailto:support@hiredcorp.co.ke');
+    expect(openURL).toHaveBeenCalledWith('mailto:support@kwikserve.co.ke');
   });
 
   // canOpenURL uses queryIntentActivities / LSApplicationQueriesSchemes, which would make this
@@ -57,7 +57,7 @@ describe('SupportLink', () => {
     render(<SupportLink />);
     const link = screen.getByRole('link');
     expect(link).toBeOnTheScreen();
-    expect(link.props.accessibilityLabel).toBe(`Email KwikServe support at ${SUPPORT_EMAIL}`);
+    expect(link.props.accessibilityLabel).toBe(`Email KwikServe Support at ${SUPPORT_EMAIL}`);
   });
 
   it('keeps the address selectable so it can be copied when no mail app is configured', () => {

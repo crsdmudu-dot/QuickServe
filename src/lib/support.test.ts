@@ -3,8 +3,8 @@ import { Platform } from 'react-native';
 import { SUPPORT_EMAIL, buildSupportMailtoUrl } from './support';
 
 describe('SUPPORT_EMAIL', () => {
-  it('is the verified Hired Corp support mailbox', () => {
-    expect(SUPPORT_EMAIL).toBe('support@hiredcorp.co.ke');
+  it('is the KwikServe support mailbox', () => {
+    expect(SUPPORT_EMAIL).toBe('support@kwikserve.co.ke');
   });
 });
 
@@ -16,7 +16,7 @@ describe('buildSupportMailtoUrl', () => {
 
   it.each(['ios', 'android', 'web'])('is the same bare mailto on %s', (os) => {
     (Platform as { OS: string }).OS = os;
-    expect(buildSupportMailtoUrl()).toBe('mailto:support@hiredcorp.co.ke');
+    expect(buildSupportMailtoUrl()).toBe('mailto:support@kwikserve.co.ke');
   });
 
   // The Auth surfaces that carry this link are rendered on routes that received a one-time token.

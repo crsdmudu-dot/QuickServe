@@ -64,7 +64,7 @@ export default function SupportPage() {
               <div>
                 <h3 className="text-heading font-semibold text-ink">Contact Us</h3>
                 <p className="text-label text-textSecondary mt-1">
-                  Email our team or reach us on social media — we respond to all enquiries.
+                  Email {BRAND.supportName} — we respond to all enquiries.
                 </p>
               </div>
             </Link>
@@ -136,15 +136,14 @@ export default function SupportPage() {
             title="When to Expect a Reply"
           />
           <p className="text-body text-textSecondary">
-            For email enquiries sent to{' '}
+            For email enquiries sent to {BRAND.supportName} at{' '}
             <a
               href={`mailto:${BRAND.email}`}
               className="text-primary underline underline-offset-2 hover:text-primaryDark"
             >
               {BRAND.email}
             </a>
-            , we typically respond within one business day. Social media DMs are answered during
-            business hours.
+            , we typically respond within one business day.
           </p>
         </div>
       </section>

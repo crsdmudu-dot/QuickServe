@@ -2,7 +2,7 @@ import { Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
 import { Spacing } from '@/constants/theme';
-import { SUPPORT_EMAIL, buildSupportMailtoUrl } from '@/lib/support';
+import { SUPPORT_EMAIL, SUPPORT_NAME, buildSupportMailtoUrl } from '@/lib/support';
 
 /**
  * SupportLink — offers the support mailbox wherever a user may need help.
@@ -24,7 +24,7 @@ export function SupportLink({ prompt = 'Need help?' }: { prompt?: string }) {
       </Text>
       <Pressable
         accessibilityRole="link"
-        accessibilityLabel={`Email KwikServe support at ${SUPPORT_EMAIL}`}
+        accessibilityLabel={`Email ${SUPPORT_NAME} at ${SUPPORT_EMAIL}`}
         onPress={() => {
           // Fail quietly: a missing mail client must not take down the screen this sits on, which
           // is often already an error state.

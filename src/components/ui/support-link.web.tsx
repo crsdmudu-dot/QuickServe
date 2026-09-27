@@ -2,7 +2,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/ui/text';
 import { Spacing } from '@/constants/theme';
-import { SUPPORT_EMAIL, buildSupportMailtoUrl } from '@/lib/support';
+import { SUPPORT_EMAIL, SUPPORT_NAME, buildSupportMailtoUrl } from '@/lib/support';
 
 /**
  * SupportLink (web) — the same affordance as the native file, but as a real anchor.
@@ -32,7 +32,7 @@ export function SupportLink({ prompt = 'Need help?' }: { prompt?: string }) {
       </Text>
       <a
         href={buildSupportMailtoUrl()}
-        aria-label={`Email KwikServe support at ${SUPPORT_EMAIL}`}
+        aria-label={`Email ${SUPPORT_NAME} at ${SUPPORT_EMAIL}`}
         style={anchorStyle}
       >
         <Text variant="label" color="primary" selectable style={styles.address}>

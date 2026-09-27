@@ -13,7 +13,7 @@ import CtaSection from '@/components/CtaSection';
 export const metadata = buildMetadata({
   title: 'Contact KwikServe — Get in Touch',
   description:
-    'Get in touch with the KwikServe team. Email us, find us on social media, or visit our FAQ and Support pages for quick answers.',
+    'Get in touch with the KwikServe team. Email KwikServe Support, or visit our FAQ and Support pages for quick answers.',
   path: '/contact',
 });
 
@@ -29,7 +29,7 @@ export default function ContactPage() {
             as="h1"
             eyebrow="Get in Touch"
             title="Contact KwikServe"
-            subtitle="Have a question, feedback, or enquiry? We'd love to hear from you. Reach out via email or social media — our team will get back to you as soon as possible."
+            subtitle="Have a question, feedback, or enquiry? We'd love to hear from you. Email us and our team will get back to you as soon as possible."
             align="center"
           />
         </div>
@@ -50,7 +50,7 @@ export default function ContactPage() {
               <span className="text-3xl" role="img" aria-label="Email">📧</span>
               <h3 className="text-heading font-semibold text-ink">Email</h3>
               <p className="text-label text-textSecondary">
-                For general enquiries, feedback, or partnership requests:
+                For general enquiries, feedback, or partnership requests, email {BRAND.supportName}:
               </p>
               <a
                 href={`mailto:${BRAND.email}`}
