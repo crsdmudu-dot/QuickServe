@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Spacing } from '@/constants/theme';
@@ -27,61 +28,69 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text variant="display" style={styles.heading}>Welcome back</Text>
-        <Text variant="body" color="textSecondary">
-          Sign in to continue.
-        </Text>
-      </View>
-
-      {/* Form */}
-      <View style={styles.form}>
-        <Input
-          label="Email"
-          value={email}
-          onChangeText={setEmail}
-          placeholder="you@example.com"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          error={errors.email}
-        />
-        <Input
-          label="Password"
-          value={password}
-          onChangeText={setPassword}
-          placeholder="Your password"
-          secureTextEntry
-          autoCapitalize="none"
-          error={errors.password}
-        />
-
-        <View style={styles.forgotRow}>
-          <Text variant="label" color="primary" onPress={() => router.push('/forgot-password')}>
-            Forgot password?
+      {/* Keeps the field being typed in visible above the keyboard; Continue and any sign-in
+          message can be scrolled to (see src/app/_layout.tsx). */}
+      <KeyboardAwareScrollView
+        bottomOffset={Spacing.five}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <Text variant="display" style={styles.heading}>Welcome back</Text>
+          <Text variant="body" color="textSecondary">
+            Sign in to continue.
           </Text>
         </View>
-        <View style={styles.actions}>
-          <Button label="Continue" fullWidth size="lg" onPress={submit} />
-          {authError ? (
-            <Text variant="caption" color="error" style={styles.authError}>
-              {authError}
-            </Text>
-          ) : null}
-          {profileError ? (
-            <Text variant="caption" color="error" style={styles.authError}>
-              {profileError}
-            </Text>
-          ) : null}
-        </View>
 
-        <View style={styles.linkRow}>
-          <Text variant="body" color="textSecondary">New here? </Text>
-          <Text variant="label" color="primary" onPress={() => router.push('/register')}>
-            Register
-          </Text>
+        {/* Form */}
+        <View style={styles.form}>
+          <Input
+            label="Email"
+            value={email}
+            onChangeText={setEmail}
+            placeholder="you@example.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            error={errors.email}
+          />
+          <Input
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            placeholder="Your password"
+            secureTextEntry
+            autoCapitalize="none"
+            error={errors.password}
+          />
+
+          <View style={styles.forgotRow}>
+            <Text variant="label" color="primary" onPress={() => router.push('/forgot-password')}>
+              Forgot password?
+            </Text>
+          </View>
+          <View style={styles.actions}>
+            <Button label="Continue" fullWidth size="lg" onPress={submit} />
+            {authError ? (
+              <Text variant="caption" color="error" style={styles.authError}>
+                {authError}
+              </Text>
+            ) : null}
+            {profileError ? (
+              <Text variant="caption" color="error" style={styles.authError}>
+                {profileError}
+              </Text>
+            ) : null}
+          </View>
+
+          <View style={styles.linkRow}>
+            <Text variant="body" color="textSecondary">New here? </Text>
+            <Text variant="label" color="primary" onPress={() => router.push('/register')}>
+              Register
+            </Text>
+          </View>
         </View>
-      </View>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

@@ -17,7 +17,8 @@
 
 import { useLocalSearchParams, router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Spacing } from '@/constants/theme';
@@ -271,7 +272,10 @@ export default function BookingDetailScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
       {backHeader}
-      <ScrollView
+      {/* Keeps the M-Pesa phone, promo code or review field being typed in visible above the
+          keyboard; their buttons can be scrolled to (see src/app/_layout.tsx). */}
+      <KeyboardAwareScrollView
+        bottomOffset={Spacing.five}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
@@ -645,7 +649,7 @@ export default function BookingDetailScreen() {
             </View>
           )
         ) : null}
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

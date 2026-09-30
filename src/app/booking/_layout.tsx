@@ -18,6 +18,9 @@ export default function BookingLayout() {
           all — the Phase 6G finding). It now renders the same in-content Back control, so hide
           the native header for the same reason. */}
       <Stack.Screen name="address" options={{ headerShown: false }} />
+      {/* Tracking is not part of booking, so it gets its own header title (it showed "Book a service").
+          "Tracking", not "Track your provider": the screen already shows that as its page title. */}
+      <Stack.Screen name="track/[id]" options={{ title: 'Tracking' }} />
     </Stack>
   );
 }

@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/auth/auth-context';
@@ -58,56 +59,64 @@ export default function ForgotPasswordScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
-      <View style={styles.header}>
-        <Text variant="display" style={styles.heading}>
-          Forgot your password?
-        </Text>
-        <Text variant="body" color="textSecondary">
-          Enter your email and we&apos;ll send you a link to set a new password.
-        </Text>
-      </View>
-
-      {status !== 'idle' && status !== 'sending' && isNeutralSuccess(status) ? (
-        <View style={styles.form}>
-          <Text variant="body" color="text" accessibilityRole="alert">
-            {AUTH_LINK_REQUEST_COPY.resetSent}
+      {/* Keeps the email field visible above the keyboard; "Send reset link" can be scrolled to
+          (see src/app/_layout.tsx). */}
+      <KeyboardAwareScrollView
+        bottomOffset={Spacing.five}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <Text variant="display" style={styles.heading}>
+            Forgot your password?
           </Text>
-          <Text variant="caption" color="textSecondary">
-            Open the link on this phone to continue. It expires after a short time.
+          <Text variant="body" color="textSecondary">
+            Enter your email and we&apos;ll send you a link to set a new password.
           </Text>
-          {status === 'sent-rate-limited' ? (
-            <Text variant="caption" color="textSecondary">
-              {AUTH_LINK_REQUEST_COPY.rateLimitHint}
-            </Text>
-          ) : null}
         </View>
-      ) : (
-        <View style={styles.form}>
-          <Input
-            label="Email"
-            value={email}
-            onChangeText={setEmail}
-            placeholder="you@example.com"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            error={error}
-          />
-          <View style={styles.actions}>
-            <Button label="Send reset link" fullWidth size="lg" onPress={submit} loading={status === 'sending'} />
-            {status !== 'idle' && status !== 'sending' ? (
-              <Text variant="caption" color="error" style={styles.centered} accessibilityRole="alert">
-                {authLinkFailureCopy(status)}
+
+        {status !== 'idle' && status !== 'sending' && isNeutralSuccess(status) ? (
+          <View style={styles.form}>
+            <Text variant="body" color="text" accessibilityRole="alert">
+              {AUTH_LINK_REQUEST_COPY.resetSent}
+            </Text>
+            <Text variant="caption" color="textSecondary">
+              Open the link on this phone to continue. It expires after a short time.
+            </Text>
+            {status === 'sent-rate-limited' ? (
+              <Text variant="caption" color="textSecondary">
+                {AUTH_LINK_REQUEST_COPY.rateLimitHint}
               </Text>
             ) : null}
           </View>
-        </View>
-      )}
+        ) : (
+          <View style={styles.form}>
+            <Input
+              label="Email"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="you@example.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              error={error}
+            />
+            <View style={styles.actions}>
+              <Button label="Send reset link" fullWidth size="lg" onPress={submit} loading={status === 'sending'} />
+              {status !== 'idle' && status !== 'sending' ? (
+                <Text variant="caption" color="error" style={styles.centered} accessibilityRole="alert">
+                  {authLinkFailureCopy(status)}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+        )}
 
-      <View style={styles.linkRow}>
-        <Text variant="label" color="primary" onPress={() => router.replace('/signin')}>
-          Back to sign in
-        </Text>
-      </View>
+        <View style={styles.linkRow}>
+          <Text variant="label" color="primary" onPress={() => router.replace('/signin')}>
+            Back to sign in
+          </Text>
+        </View>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

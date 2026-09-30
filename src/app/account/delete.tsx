@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/auth/auth-context';
@@ -71,8 +72,11 @@ export default function DeleteAccountScreen() {
     setError(outcome.error);
   }
 
+  // KeyboardAwareScrollView keeps the confirmation or password field being typed in visible above
+  // the keyboard; the delete button below them can be scrolled to (see src/app/_layout.tsx).
   return (
-    <ScrollView
+    <KeyboardAwareScrollView
+      bottomOffset={Spacing.five}
       style={{ backgroundColor: theme.background }}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
@@ -217,7 +221,7 @@ export default function DeleteAccountScreen() {
           </>
         )}
       </SafeAreaView>
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 }
 

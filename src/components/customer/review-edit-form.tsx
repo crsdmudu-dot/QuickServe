@@ -5,7 +5,7 @@
 // also guards (shows a message if the review is not editable).
 
 import { useState } from 'react';
-import { StyleSheet, View, ScrollView, Pressable } from 'react-native';
+import { StyleSheet, View, Pressable } from 'react-native';
 
 import { Radii, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -119,8 +119,11 @@ export function ReviewEditForm({ review, onSaved, onCancel }: ReviewEditFormProp
 
   // ── Form ──────────────────────────────────────────────────────────────────────
 
+  // A plain View, not a ScrollView: the form is shown inside Booking Detail, which already scrolls
+  // (and keeps the field being typed in above the keyboard). A second, nested ScrollView here hid
+  // this form's fields from that keyboard handling.
   return (
-    <ScrollView contentContainerStyle={styles.form} testID="review-edit-form">
+    <View style={styles.form} testID="review-edit-form">
       {/* ── Overall rating ── */}
       <View style={styles.section}>
         <Text variant="label" weight="semibold">
@@ -273,7 +276,7 @@ export function ReviewEditForm({ review, onSaved, onCancel }: ReviewEditFormProp
           />
         )}
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
