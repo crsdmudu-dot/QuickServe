@@ -94,9 +94,11 @@ export const ACHIEVEMENTS: {
 
 // ── Profile Completeness Items ─────────────────────────────────────────────
 
-/** Keys for each completeness item. */
+/**
+ * Keys for each completeness item. There is no photo item: profile photos are not available at launch (R6,
+ * migration 0070), and a provider must be able to reach 100% with what is available.
+ */
 export type CompletenessItemKey =
-  | 'photo'
   | 'bio'
   | 'experience'
   | 'service_categories'
@@ -116,7 +118,6 @@ export const PROFILE_COMPLETENESS_ITEMS: {
   futureReady?: boolean;
 }[] = [
   // ── Active items (included in the %) ─────────────────────────────────────
-  { key: 'photo',                label: 'Profile photo'         },
   { key: 'bio',                  label: 'Bio'                   },
   { key: 'experience',           label: 'Years of experience'   },
   { key: 'service_categories',   label: 'Service categories'    },

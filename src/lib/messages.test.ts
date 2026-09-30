@@ -130,3 +130,20 @@ describe('labelSender', () => {
     expect(labelSender('other', booking)).toBe('Unknown');
   });
 });
+
+describe('sendBookingMessage — objectionable-language filter (0067)', () => {
+  it('explains a filtered message in plain words', async () => {
+    getUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    insert.mockResolvedValue({ error: { message: 'content_not_allowed', code: 'P0001' } });
+    expect(await sendBookingMessage('b1', 'rude text')).toEqual({ ok: false, error: 'Please remove offensive language and try again.' });
+  });
+
+  it('other insert errors keep the generic message', async () => {
+    getUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    insert.mockResolvedValue({ error: { message: 'new row violates row-level security policy', code: '42501' } });
+    expect(await sendBookingMessage('b1', 'hello')).toEqual({
+      ok: false,
+      error: 'Could not send message. Please try again.',
+    });
+  });
+});

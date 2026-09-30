@@ -1,15 +1,18 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { AppState } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
 
 import type { Role } from '@/constants/roles';
 import { supabase } from '@/lib/supabase';
-import { mapAuthError } from '@/lib/auth-errors';
+import { isAccountSuspended } from '@/lib/account-state';
+import { ACCOUNT_BLOCKED_MESSAGE, mapAuthError } from '@/lib/auth-errors';
 import { classifyAuthLinkRequest, type AuthLinkRequestOutcome } from '@/lib/auth-link-request';
 import { mobileAuthRedirectUrl, type AuthLinkType } from '@/lib/auth-links';
 import { unregisterForPushNotifications } from '@/lib/push';
 import { normalizeEmail } from '@/lib/validation';
 
-type SignUpValues = { fullName: string; email: string; phone: string; password: string };
+/** acceptedTermsVersion: the Terms version the person agreed to on the register screen (F5.4). */
+type SignUpValues = { fullName: string; email: string; phone: string; password: string; acceptedTermsVersion?: string };
 
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
 
@@ -105,6 +108,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (s.user.id !== resolvedUserId.current) setIsLoading(true);
         const p = await fetchProfile(s.user.id);
         if (!active) return;
+        // A suspended account is refused its own profile (0069), so "no role" may mean suspended. Ask the database
+        // and, if so, end the session on this device with a neutral message (F5.6).
+        if (!p.error && p.role === null && (await isAccountSuspended())) {
+          if (!active) return;
+          setAuthError(ACCOUNT_BLOCKED_MESSAGE);
+          await supabase.auth.signOut({ scope: 'local' });
+          // Settle into the signed-out state now; the SIGNED_OUT event that follows is then a no-op.
+          return applySession(null);
+        }
         resolvedUserId.current = s.user.id;
         setRole(p.role);
         setApprovalStatus(p.approvalStatus);
@@ -137,6 +149,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // A suspension can happen while the app is open. When it returns to the foreground, check again (F5.6).
+  const signedInUserId = session?.user?.id ?? null;
+  useEffect(() => {
+    if (!signedInUserId) return;
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next !== 'active') return;
+      void isAccountSuspended().then(async (suspended) => {
+        if (!suspended) return;
+        setAuthError(ACCOUNT_BLOCKED_MESSAGE);
+        await supabase.auth.signOut({ scope: 'local' });
+      });
+    });
+    // `?.`: the React Native Jest preset's AppState mock returns no subscription object.
+    return () => sub?.remove();
+  }, [signedInUserId]);
+
   function selectRole(r: Role) {
     setPendingRole(r);
   }
@@ -147,7 +175,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: v.email,
       password: v.password,
       options: {
-        data: { full_name: v.fullName, phone: v.phone, role: pendingRole },
+        // terms_version: the agreed Terms version, recorded server-side at first sign-in (src/auth/terms-gate.tsx).
+        data: {
+          full_name: v.fullName,
+          phone: v.phone,
+          role: pendingRole,
+          ...(v.acceptedTermsVersion ? { terms_version: v.acceptedTermsVersion } : {}),
+        },
         emailRedirectTo: mobileAuthRedirectUrl('signup'),
       },
     });

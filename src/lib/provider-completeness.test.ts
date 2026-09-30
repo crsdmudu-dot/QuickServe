@@ -1,5 +1,8 @@
 // provider-completeness.test.ts — Tests for src/lib/provider-completeness.ts
 // Verifies pure completeness derivation; no DB, no mocks needed.
+//
+// R6 (migration 0070): profile photos are not available at launch, so there is no photo item. A provider reaches 100%
+// with the 5 available items: bio, years of experience, service categories, contact details and availability.
 
 import { calculateProviderCompleteness } from '@/lib/provider-completeness';
 import type { ProviderProfile } from '@/lib/providers';
@@ -26,10 +29,9 @@ function makeProfile(overrides: Partial<ProviderProfile> = {}): ProviderProfile 
   };
 }
 
-/** A full ProviderProfile with all active items completed. */
+/** A full ProviderProfile with every available item completed — and no photo, as at launch. */
 function makeFullProfile(): ProviderProfile {
   return makeProfile({
-    profile_photo_url: 'https://example.com/photo.jpg',
     bio: 'Experienced plumber with 10 years in the field.',
     years_experience: 10,
     skills: ['plumbing', 'pipe-fitting'],
@@ -54,21 +56,21 @@ describe('calculateProviderCompleteness — null profile', () => {
     }
   });
 
-  it('missing list contains all 6 active item labels for null profile', () => {
+  it('missing list contains all 5 active item labels for null profile', () => {
     const result = calculateProviderCompleteness(null);
-    expect(result.missing).toHaveLength(6);
+    expect(result.missing).toHaveLength(5);
   });
 
-  it('items array still has 8 entries (6 active + 2 future-ready) for null profile', () => {
+  it('items array still has 7 entries (5 active + 2 future-ready) for null profile', () => {
     const result = calculateProviderCompleteness(null);
-    expect(result.items).toHaveLength(8);
+    expect(result.items).toHaveLength(7);
   });
 });
 
 // ── Full profile → 100% ────────────────────────────────────────────────────
 
 describe('calculateProviderCompleteness — full profile', () => {
-  it('returns percent 100 for a fully complete profile', () => {
+  it('returns percent 100 for a fully complete profile without a photo', () => {
     const result = calculateProviderCompleteness(makeFullProfile());
     expect(result.percent).toBe(100);
   });
@@ -84,6 +86,23 @@ describe('calculateProviderCompleteness — full profile', () => {
   it('missing list is empty', () => {
     const result = calculateProviderCompleteness(makeFullProfile());
     expect(result.missing).toHaveLength(0);
+  });
+});
+
+// ── No photo item at launch (R6) ───────────────────────────────────────────
+
+describe('calculateProviderCompleteness — no photo item (R6)', () => {
+  it('lists no photo item, active or future-ready', () => {
+    const result = calculateProviderCompleteness(null);
+    expect(result.items.map((i) => i.label)).not.toContain('Profile photo');
+    expect(result.items.map((i) => i.key as string)).not.toContain('photo');
+  });
+
+  it('a stored photo link neither counts nor appears: the result is the same with or without one', () => {
+    for (const base of [makeProfile(), makeFullProfile()]) {
+      const withLink = calculateProviderCompleteness({ ...base, profile_photo_url: 'https://x.com/p.jpg' });
+      expect(withLink).toEqual(calculateProviderCompleteness({ ...base, profile_photo_url: null }));
+    }
   });
 });
 
@@ -109,7 +128,7 @@ describe('calculateProviderCompleteness — future-ready items excluded from %',
   });
 
   it('percent 100 is achievable without completing future-ready items', () => {
-    // Full profile has all 6 active items done; no future-ready completed
+    // Full profile has all 5 active items done; no future-ready completed
     const result = calculateProviderCompleteness(makeFullProfile());
     expect(result.percent).toBe(100);
   });
@@ -125,14 +144,6 @@ describe('calculateProviderCompleteness — future-ready items excluded from %',
 // ── Individual item toggles ────────────────────────────────────────────────
 
 describe('calculateProviderCompleteness — individual item toggles', () => {
-  it('photo: done when profile_photo_url is set', () => {
-    const r1 = calculateProviderCompleteness(makeProfile({ profile_photo_url: 'https://x.com/p.jpg' }));
-    expect(r1.items.find((i) => i.key === 'photo')?.done).toBe(true);
-
-    const r2 = calculateProviderCompleteness(makeProfile({ profile_photo_url: null }));
-    expect(r2.items.find((i) => i.key === 'photo')?.done).toBe(false);
-  });
-
   it('bio: done when bio is a non-empty string (trims whitespace)', () => {
     const r1 = calculateProviderCompleteness(makeProfile({ bio: 'Hello' }));
     expect(r1.items.find((i) => i.key === 'bio')?.done).toBe(true);
@@ -186,43 +197,36 @@ describe('calculateProviderCompleteness — individual item toggles', () => {
 // ── Percentage math ────────────────────────────────────────────────────────
 
 describe('calculateProviderCompleteness — percentage math', () => {
-  it('returns 17 when only availability (1 of 6) is done (base profile)', () => {
+  it('returns 20 when only availability (1 of 5) is done (base profile)', () => {
     const result = calculateProviderCompleteness(makeProfile()); // all null/falsy except availability_status
-    // availability_status is always set → 1/6 active items done
-    // Math.round(100 * 1/6) = Math.round(16.67) = 17
-    expect(result.percent).toBe(17);
+    // availability_status is always set → 1/5 active items done → 20
+    expect(result.percent).toBe(20);
   });
 
-  it('returns 50 when exactly 3 of 6 active items are done', () => {
-    // Done: photo (1) + bio (2) + availability (3). Not done: experience, skills, phone.
+  it('returns 60 when exactly 3 of 5 active items are done', () => {
+    // Done: bio (1) + experience (2) + availability (3). Not done: skills, phone.
     const result = calculateProviderCompleteness(
       makeProfile({
-        profile_photo_url: 'https://x.com/p.jpg',
         bio: 'Some bio',
-        years_experience: null,
+        years_experience: 4,
         skills: null,
         phone: null,
         availability_status: 'available',
       }),
     );
-    // Math.round(100 * 3/6) = 50
-    expect(result.percent).toBe(50);
+    // Math.round(100 * 3/5) = 60
+    expect(result.percent).toBe(60);
   });
 
-  it('returns 100 when all 6 active items are done', () => {
+  it('returns 100 when all 5 active items are done', () => {
     const result = calculateProviderCompleteness(makeFullProfile());
     expect(result.percent).toBe(100);
   });
 
   it('missing list matches active items not done', () => {
-    const result = calculateProviderCompleteness(makeProfile({ profile_photo_url: 'https://x.com/p.jpg' }));
-    // Done: photo, availability. Not done: bio, experience, service_categories, contact_details
-    expect(result.missing).toContain('Bio');
-    expect(result.missing).toContain('Years of experience');
-    expect(result.missing).toContain('Service categories');
-    expect(result.missing).toContain('Contact details');
-    expect(result.missing).not.toContain('Profile photo');
-    expect(result.missing).not.toContain('Availability configured');
+    const result = calculateProviderCompleteness(makeProfile());
+    // Done: availability. Not done: bio, experience, service_categories, contact_details
+    expect(result.missing).toEqual(['Bio', 'Years of experience', 'Service categories', 'Contact details']);
   });
 
   it('is deterministic — same input always gives same output', () => {
@@ -236,10 +240,10 @@ describe('calculateProviderCompleteness — percentage math', () => {
 // ── items array structure ──────────────────────────────────────────────────
 
 describe('calculateProviderCompleteness — items array', () => {
-  it('always returns 8 items (6 active + 2 future-ready)', () => {
-    expect(calculateProviderCompleteness(null).items).toHaveLength(8);
-    expect(calculateProviderCompleteness(makeProfile()).items).toHaveLength(8);
-    expect(calculateProviderCompleteness(makeFullProfile()).items).toHaveLength(8);
+  it('always returns 7 items (5 active + 2 future-ready)', () => {
+    expect(calculateProviderCompleteness(null).items).toHaveLength(7);
+    expect(calculateProviderCompleteness(makeProfile()).items).toHaveLength(7);
+    expect(calculateProviderCompleteness(makeFullProfile()).items).toHaveLength(7);
   });
 
   it('each item has key, label, done, and futureReady fields', () => {

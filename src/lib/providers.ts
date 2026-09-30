@@ -1,5 +1,7 @@
 // providers.ts — Supabase helpers for reading and approving service providers.
 import { supabase } from '@/lib/supabase';
+import { CONTENT_NOT_ALLOWED_MESSAGE, isContentNotAllowed } from '@/lib/content-filter';
+import { TERMS_NOT_ACCEPTED_MESSAGE, isTermsNotAccepted } from '@/lib/terms';
 
 export type ProviderProfile = {
   id: string;
@@ -17,9 +19,8 @@ export type ProviderProfile = {
   availability_status: 'available' | 'unavailable';
 };
 
-/** Fields a provider can edit on their own profile. */
+/** Fields a provider can edit on their own profile. No photo: not available at launch (R6, migration 0070). */
 export type EditableProviderFields = {
-  profile_photo_url?: string;
   bio?: string;
   years_experience?: number;
   skills?: string[];
@@ -84,6 +85,8 @@ export async function updateMyProviderProfile(
     .from('profiles')
     .update(fields)
     .eq('id', data.user.id);
+  if (isContentNotAllowed(error)) return { ok: false, error: CONTENT_NOT_ALLOWED_MESSAGE };
+  if (isTermsNotAccepted(error)) return { ok: false, error: TERMS_NOT_ACCEPTED_MESSAGE };
   if (error) return { ok: false, error: 'Could not update profile. Please try again.' };
   return { ok: true };
 }
@@ -97,6 +100,7 @@ export async function adminUpdateProviderProfile(
     .from('profiles')
     .update(fields)
     .eq('id', id);
+  if (isContentNotAllowed(error)) return { ok: false, error: CONTENT_NOT_ALLOWED_MESSAGE };
   if (error) return { ok: false, error: 'Could not update provider profile. Please try again.' };
   return { ok: true };
 }

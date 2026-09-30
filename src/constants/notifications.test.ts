@@ -289,6 +289,15 @@ describe('resolveNotificationDeepLink', () => {
     expect(resolveNotificationDeepLink(n)).toBe('/custom/route');
   });
 
+  // S11-1: an outside link in the route column is ignored, never followed.
+  it.each(['https://evil.example/login', '//evil.example', 'javascript:alert(1)'])(
+    'ignores an outside route (%s) and uses the type-based fallback instead',
+    (route) => {
+      expect(resolveNotificationDeepLink(makeNotification({ route, type: 'booking_assigned', booking_id: 'b9' }))).toBe('/booking/b9');
+      expect(resolveNotificationDeepLink(makeNotification({ route, type: 'totally_unknown' }))).toBeNull();
+    },
+  );
+
   it('booking types with booking_id → /booking/:id', () => {
     expect(resolveNotificationDeepLink(makeNotification({ type: 'booking_assigned', booking_id: 'b1' }))).toBe('/booking/b1');
     expect(resolveNotificationDeepLink(makeNotification({ type: 'booking_accepted', booking_id: 'b2' }))).toBe('/booking/b2');

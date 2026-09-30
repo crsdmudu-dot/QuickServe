@@ -17,7 +17,7 @@ import type { CompletenessResult } from '@/lib/provider-completeness';
 const PARTIAL_COMPLETENESS: CompletenessResult = {
   percent: 67,
   items: [
-    { key: 'photo',               label: 'Profile photo',           done: true,  futureReady: false },
+    { key: 'availability',        label: 'Availability configured', done: true,  futureReady: false },
     { key: 'bio',                 label: 'Bio',                     done: true,  futureReady: false },
     { key: 'experience',          label: 'Years of experience',     done: false, futureReady: false },
     { key: 'government_verification', label: 'Government verification', done: false, futureReady: true },
@@ -29,7 +29,7 @@ const PARTIAL_COMPLETENESS: CompletenessResult = {
 const COMPLETE_COMPLETENESS: CompletenessResult = {
   percent: 100,
   items: [
-    { key: 'photo', label: 'Profile photo', done: true, futureReady: false },
+    { key: 'availability', label: 'Availability configured', done: true, futureReady: false },
     { key: 'bio',   label: 'Bio',           done: true, futureReady: false },
   ],
   missing: [],
@@ -67,7 +67,7 @@ describe('CompletenessCard', () => {
 
   it('renders all item labels', () => {
     render(<CompletenessCard completeness={PARTIAL_COMPLETENESS} />);
-    expect(screen.getByText('Profile photo')).toBeOnTheScreen();
+    expect(screen.getByText('Availability configured')).toBeOnTheScreen();
     expect(screen.getByText('Bio')).toBeOnTheScreen();
     expect(screen.getByText('Years of experience')).toBeOnTheScreen();
   });
@@ -76,7 +76,7 @@ describe('CompletenessCard', () => {
     const multi: CompletenessResult = {
       percent: 50,
       items: [
-        { key: 'photo',       label: 'Profile photo',       done: true,  futureReady: false },
+        { key: 'availability', label: 'Availability configured', done: true,  futureReady: false },
         { key: 'bio',         label: 'Bio',                 done: false, futureReady: false },
         { key: 'experience',  label: 'Years of experience', done: false, futureReady: false },
       ],

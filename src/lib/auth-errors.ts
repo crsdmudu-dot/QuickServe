@@ -1,6 +1,15 @@
+import { SUPPORT_EMAIL } from '@/lib/support';
+
+/**
+ * Shown when an account is blocked from signing in (suspended, F5.6). Deliberately neutral: it does not say why, and
+ * deleted accounts are blocked the same way.
+ */
+export const ACCOUNT_BLOCKED_MESSAGE = `This account can't sign in. If you think this is a mistake, contact ${SUPPORT_EMAIL}.`;
+
 export function mapAuthError(error: { message?: string } | null | undefined): string {
   const m = error?.message?.toLowerCase() ?? '';
   if (m.includes('invalid login credentials')) return 'Incorrect email or password.';
+  if (m.includes('user is banned') || m.includes('user_banned')) return ACCOUNT_BLOCKED_MESSAGE;
   if (m.includes('already registered') || m.includes('already exists')) {
     return 'An account with this email already exists.';
   }

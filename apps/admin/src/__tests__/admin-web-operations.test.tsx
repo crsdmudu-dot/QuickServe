@@ -58,6 +58,16 @@ jest.mock('@/lib/operations', () => ({
   createSupportCase: (...args: unknown[]) => mockCreateSupportCase(...args),
 }));
 
+// ── @/lib/suspension mock (AccountSuspensionPanel on the case detail, F5.6b) ──
+
+const mockGetLatestSuspension = jest.fn().mockResolvedValue({ ok: true, suspension: null });
+jest.mock('@/lib/suspension', () => ({
+  getLatestSuspension: (...args: unknown[]) => mockGetLatestSuspension(...args),
+  suspendAccount: jest.fn(),
+  liftSuspension: jest.fn(),
+  retrySignInBlock: jest.fn(),
+}));
+
 // ── @/lib/supabase mock (for "Assign to me" path in detail screen) ────────────
 
 jest.mock('@/lib/supabase', () => ({
@@ -228,6 +238,13 @@ describe('AdminWebOperationDetailScreen (detail)', () => {
     render(<AdminWebOperationDetailScreen />);
     await screen.findByText('Test case subject');
     expect(screen.getByText('Timeline')).toBeOnTheScreen();
+  });
+
+  it("renders the Account suspension panel for the case's customer (F5.6b)", async () => {
+    render(<AdminWebOperationDetailScreen />);
+    await screen.findByText('Test case subject');
+    expect(await screen.findByText('Account suspension')).toBeOnTheScreen();
+    await waitFor(() => expect(mockGetLatestSuspension).toHaveBeenCalledWith('cust1'));
   });
 
   it('renders EvidenceLinks section ("Case evidence")', async () => {

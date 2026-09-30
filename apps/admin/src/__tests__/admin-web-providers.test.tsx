@@ -8,6 +8,14 @@
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
+// The shared chat thread and review card (F5.1) import @/lib/moderation, which creates the
+// Supabase client. Mock it so this suite needs no Supabase env.
+jest.mock('@/lib/moderation', () => ({
+  REPORT_REASONS: [{ key: 'harassment', label: 'Harassment or bullying' }],
+  REPORT_CONFIRMATION: 'Thanks for letting us know. Our team reviews every report within 24 hours.',
+  reportContent: jest.fn().mockResolvedValue({ ok: true }),
+}));
+
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'prov1' }),
   router: { push: jest.fn() },
@@ -146,6 +154,14 @@ jest.mock('@/lib/operations', () => ({
   setDisputeOutcome: jest.fn().mockResolvedValue({ ok: true }),
   addSupportCaseNote: jest.fn().mockResolvedValue({ ok: true }),
   createSupportCase: jest.fn().mockResolvedValue({ ok: true, id: 'new-case-1' }),
+}));
+
+// AccountSuspensionPanel (F5.6b) reads the latest suspension; the provider has never been suspended here.
+jest.mock('@/lib/suspension', () => ({
+  getLatestSuspension: jest.fn().mockResolvedValue({ ok: true, suspension: null }),
+  suspendAccount: jest.fn(),
+  liftSuspension: jest.fn(),
+  retrySignInBlock: jest.fn(),
 }));
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
@@ -288,6 +304,15 @@ describe('AdminWebProviderDetailScreen (detail)', () => {
     );
   });
 
+  it('offers no photo link, and Save profile sends no photo field (R6: no photos at launch)', async () => {
+    render(<AdminWebProviderDetailScreen />);
+    await screen.findByText('Jane Doe');
+    expect(screen.queryByText('Profile photo URL')).toBeNull();
+    fireEvent.press(screen.getByText('Save profile'));
+    await waitFor(() => expect(mockAdminUpdateProviderProfile).toHaveBeenCalled());
+    expect(mockAdminUpdateProviderProfile.mock.calls[0][1]).not.toHaveProperty('profile_photo_url');
+  });
+
   it('calls adminUpdateProviderProfile with is_verified toggled when Verify is pressed', async () => {
     render(<AdminWebProviderDetailScreen />);
     await screen.findByText('Jane Doe');
@@ -314,6 +339,13 @@ describe('AdminWebProviderDetailScreen (detail)', () => {
     render(<AdminWebProviderDetailScreen />);
     await screen.findByText('Jane Doe');
     expect(await screen.findByText('Account flags')).toBeOnTheScreen();
+  });
+
+  it('renders the Account suspension panel for this provider (F5.6b)', async () => {
+    render(<AdminWebProviderDetailScreen />);
+    await screen.findByText('Jane Doe');
+    expect(await screen.findByText('Account suspension')).toBeOnTheScreen();
+    expect(await screen.findByText('Not suspended')).toBeOnTheScreen();
   });
 
   it('renders InternalNotesPanel with "Internal notes" section header', async () => {

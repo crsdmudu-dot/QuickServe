@@ -18,6 +18,23 @@ const pastIso     = new Date(Date.now() - 2 * 86_400_000).toISOString();
 
 // ── Shared mocks ────────────────────────────────────────────────────────────
 
+// The shared chat thread and review card (F5.1) import @/lib/moderation, which creates the
+// Supabase client. Mock it so this suite needs no Supabase env.
+// F5.2: the chat thread checks and creates blocks through @/lib/blocks (which creates the Supabase
+// client). Mocked so the suite needs no Supabase env.
+jest.mock('@/lib/blocks', () => ({
+  blockUser: jest.fn().mockResolvedValue({ ok: true }),
+  isBookingChatBlocked: jest.fn().mockResolvedValue(false),
+  adminBlockedProviderIds: jest.fn().mockResolvedValue([]),
+  CHAT_BLOCKED_NOTICE: "Chat isn't available for this booking. You can still cancel the booking or contact support.",
+}));
+
+jest.mock('@/lib/moderation', () => ({
+  REPORT_REASONS: [{ key: 'harassment', label: 'Harassment or bullying' }],
+  REPORT_CONFIRMATION: 'Thanks for letting us know. Our team reviews every report within 24 hours.',
+  reportContent: jest.fn().mockResolvedValue({ ok: true }),
+}));
+
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'bk1' }),
   router: { push: jest.fn() },
@@ -603,5 +620,35 @@ describe('AdminWebBookingsScreen — desktop layout', () => {
     expect(row != null).toBe(true);
     const style = flatStyle(row.props.style);
     expect(style.paddingHorizontal ?? 0).toBe(0);
+  });
+});
+
+describe('AdminWebBookingDetailScreen — blocked pairs (F5.2)', () => {
+  const blocks = jest.requireMock('@/lib/blocks') as { adminBlockedProviderIds: jest.Mock };
+
+  beforeEach(() => {
+    mockAssignProvider.mockClear();
+    blocks.adminBlockedProviderIds.mockReset();
+  });
+
+  it('a provider blocked with this customer is labelled and cannot be assigned', async () => {
+    blocks.adminBlockedProviderIds.mockResolvedValue(['p1']);
+    render(<AdminWebBookingDetailScreen />);
+    await screen.findByText('House Cleaning');
+    await waitFor(() => expect(blocks.adminBlockedProviderIds).toHaveBeenCalledWith(MOCK_BOOKING.customer_id));
+    fireEvent.press(screen.getByText('In-app'));
+    expect(await screen.findByText(/Blocked with this customer/)).toBeOnTheScreen();
+    fireEvent.press(screen.getByText('Ali Hassan'));
+    expect(mockAssignProvider).not.toHaveBeenCalled();
+  });
+
+  it('an unblocked provider is still assignable', async () => {
+    blocks.adminBlockedProviderIds.mockResolvedValue([]);
+    render(<AdminWebBookingDetailScreen />);
+    await screen.findByText('House Cleaning');
+    fireEvent.press(screen.getByText('In-app'));
+    fireEvent.press(await screen.findByText('Ali Hassan'));
+    expect(screen.queryByText(/Blocked with this customer/)).toBeNull();
+    await waitFor(() => expect(mockAssignProvider).toHaveBeenCalled());
   });
 });

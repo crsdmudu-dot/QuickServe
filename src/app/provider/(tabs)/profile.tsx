@@ -56,7 +56,6 @@ type ScreenState = {
   bio: string;
   yearsExp: string;
   skillsText: string;
-  photoUrl: string;
   availability: 'available' | 'unavailable';
 };
 
@@ -65,7 +64,6 @@ const initial: ScreenState = {
   bio: '',
   yearsExp: '',
   skillsText: '',
-  photoUrl: '',
   availability: 'available',
 };
 
@@ -75,7 +73,6 @@ function fromProfile(p: ProviderProfile): ScreenState {
     bio: p.bio ?? '',
     yearsExp: p.years_experience != null ? String(p.years_experience) : '',
     skillsText: p.skills ? p.skills.join(', ') : '',
-    photoUrl: p.profile_photo_url ?? '',
     availability: p.availability_status ?? 'available',
   };
 }
@@ -179,7 +176,6 @@ export default function ProviderProfileScreen() {
       bio: state.bio,
       years_experience: Number(state.yearsExp) || undefined,
       skills: skillsArray.length > 0 ? skillsArray : undefined,
-      profile_photo_url: state.photoUrl || undefined,
       availability_status: state.availability,
     });
     if (!result.ok) {
@@ -222,7 +218,7 @@ export default function ProviderProfileScreen() {
             </>
           )}
           {reviews.map((r) => (
-            <ReviewCard key={r.id} review={r} />
+            <ReviewCard key={r.id} review={r} reportable />
           ))}
         </View>
 
@@ -286,13 +282,7 @@ export default function ProviderProfileScreen() {
               onChangeText={(v) => patch('skillsText', v)}
               placeholder="e.g. Plumbing, Tiling"
             />
-            <Input
-              label="Profile photo URL"
-              value={state.photoUrl}
-              onChangeText={(v) => patch('photoUrl', v)}
-              placeholder="https://…"
-              autoCapitalize="none"
-            />
+            {/* No profile photos at launch (R6, migration 0070): the avatar shows initials. */}
 
             {/* Availability toggle — immediately saves to the server */}
             <Button
@@ -326,6 +316,13 @@ export default function ProviderProfileScreen() {
               label="Notification settings"
               variant="secondary"
               onPress={() => router.push('/notification-settings')}
+            />
+
+            <Button
+              label="Blocked people"
+              variant="secondary"
+              testID="profile-blocked-people"
+              onPress={() => router.push('/blocked-users' as Href)}
             />
 
             <Button label="Sign out" variant="ghost" onPress={signOut} />

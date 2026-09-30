@@ -14,6 +14,14 @@
 
 // ── expo-router mock ───────────────────────────────────────────────────────────
 
+// The report panel (F5.1) imports @/lib/moderation, which creates the Supabase client. Mock it so
+// this suite needs no Supabase env; the report flow itself is tested in report-form.test.tsx.
+jest.mock('@/lib/moderation', () => ({
+  REPORT_REASONS: [{ key: 'harassment', label: 'Harassment or bullying' }],
+  REPORT_CONFIRMATION: 'Thanks for letting us know. Our team reviews every report within 24 hours.',
+  reportContent: jest.fn().mockResolvedValue({ ok: true }),
+}));
+
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'prov1' }),
   router: { push: jest.fn() },
@@ -62,7 +70,7 @@ jest.mock('@/lib/provider-completeness', () => ({
   calculateProviderCompleteness: () => ({
     percent: 80,
     items: [
-      { key: 'photo', label: 'Profile photo', done: true, futureReady: false },
+      { key: 'availability', label: 'Availability configured', done: true, futureReady: false },
     ],
     missing: [],
   }),
@@ -182,7 +190,7 @@ const MOCK_BREAKDOWN = {
 const MOCK_COMPLETENESS = {
   percent: 80,
   items: [
-    { key: 'photo', label: 'Profile photo', done: true, futureReady: false },
+    { key: 'availability', label: 'Availability configured', done: true, futureReady: false },
     { key: 'bio', label: 'Bio', done: true, futureReady: false },
   ],
   missing: ['experience'],

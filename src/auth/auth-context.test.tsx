@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { Pressable, Text } from 'react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { AppState, Pressable, Text } from 'react-native';
 import { AuthProvider, useAuth } from '@/auth/auth-context';
 
 const mockSignUp = jest.fn();
@@ -27,6 +27,9 @@ jest.mock('@/lib/push', () => ({
   unregisterForPushNotifications: (...a: unknown[]) => mockUnregister(...a),
 }));
 
+const mockIsSuspended = jest.fn().mockResolvedValue(false);
+jest.mock('@/lib/account-state', () => ({ isAccountSuspended: (...a: unknown[]) => mockIsSuspended(...a) }));
+
 function Probe() {
   const { isLoading, role, signedIn, authError, selectRole, signUp: su, signIn, signOut: so } = useAuth();
   return (
@@ -34,6 +37,7 @@ function Probe() {
       <Text>{isLoading ? 'loading' : `ready:${role ?? 'none'}:${signedIn}:${authError ?? '-'}`}</Text>
       <Pressable onPress={() => selectRole('provider')}><Text>select</Text></Pressable>
       <Pressable onPress={() => su({ fullName: 'A', email: 'a@b', phone: '07', password: 'pw' })}><Text>signup</Text></Pressable>
+      <Pressable onPress={() => su({ fullName: 'A', email: 'a@b', phone: '07', password: 'pw', acceptedTermsVersion: 'draft-2026-09-26' })}><Text>signup-terms</Text></Pressable>
       <Pressable onPress={() => signIn('a@b', 'pw')}><Text>signin</Text></Pressable>
       <Pressable onPress={() => so()}><Text>signout</Text></Pressable>
     </>
@@ -45,6 +49,63 @@ beforeEach(() => {
   mockOnAuthStateChange.mockReturnValue({ data: { subscription: { unsubscribe: jest.fn() } } });
   mockUnregister.mockReset();
   mockUnregister.mockResolvedValue(undefined);
+  mockIsSuspended.mockReset();
+  mockIsSuspended.mockResolvedValue(false);
+});
+
+describe('suspended accounts (F5.6)', () => {
+  const BLOCKED = "This account can't sign in. If you think this is a mistake, contact support@hiredcorp.co.ke.";
+
+  it('a session whose profile is hidden and whose account is suspended is signed out on this device, with the neutral message', async () => {
+    mockGetSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } });
+    mockMaybeSingle.mockResolvedValue({ data: null, error: null });
+    mockIsSuspended.mockResolvedValue(true);
+    render(<AuthProvider><Probe /></AuthProvider>);
+    await waitFor(() => expect(screen.getByText(`ready:none:false:${BLOCKED}`)).toBeOnTheScreen());
+    expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
+  });
+
+  it('a missing profile that is not a suspension is left alone', async () => {
+    mockGetSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } });
+    mockMaybeSingle.mockResolvedValue({ data: null, error: null });
+    render(<AuthProvider><Probe /></AuthProvider>);
+    await waitFor(() => expect(screen.getByText('ready:none:true:-')).toBeOnTheScreen());
+    expect(mockIsSuspended).toHaveBeenCalledTimes(1);
+    expect(mockSignOut).not.toHaveBeenCalled();
+  });
+
+  it('an ordinary sign-in with a readable profile makes no extra account-state call', async () => {
+    mockGetSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } });
+    mockMaybeSingle.mockResolvedValue({ data: { role: 'customer', approval_status: 'approved' }, error: null });
+    render(<AuthProvider><Probe /></AuthProvider>);
+    await waitFor(() => expect(screen.getByText('ready:customer:true:-')).toBeOnTheScreen());
+    expect(mockIsSuspended).not.toHaveBeenCalled();
+  });
+
+  it('checks again when the app returns to the foreground, and signs out only when suspended', async () => {
+    const handlers: ((s: string) => void)[] = [];
+    const spy = jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, handler) => {
+      handlers.push(handler as (s: string) => void);
+      return { remove: jest.fn() } as unknown as ReturnType<typeof AppState.addEventListener>;
+    });
+    mockGetSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } });
+    mockMaybeSingle.mockResolvedValue({ data: { role: 'customer', approval_status: 'approved' }, error: null });
+    render(<AuthProvider><Probe /></AuthProvider>);
+    await waitFor(() => expect(screen.getByText('ready:customer:true:-')).toBeOnTheScreen());
+    const onChange = handlers[handlers.length - 1];
+
+    await act(async () => onChange('background'));
+    expect(mockIsSuspended).not.toHaveBeenCalled();
+    await act(async () => onChange('active'));
+    expect(mockIsSuspended).toHaveBeenCalledTimes(1);
+    expect(mockSignOut).not.toHaveBeenCalled();
+
+    mockIsSuspended.mockResolvedValue(true);
+    await act(async () => onChange('active'));
+    await waitFor(() => expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' }));
+    await waitFor(() => expect(screen.getByText(`ready:customer:true:${BLOCKED}`)).toBeOnTheScreen());
+    spy.mockRestore();
+  });
 });
 
 it('loads with no session', async () => {
@@ -85,6 +146,20 @@ it('signUp passes role metadata and signOut calls supabase', async () => {
   ));
   fireEvent.press(screen.getByText('signout'));
   await waitFor(() => expect(mockSignOut).toHaveBeenCalled());
+});
+
+it('signUp carries the Terms version agreed on the register screen (F5.4)', async () => {
+  mockGetSession.mockResolvedValue({ data: { session: null } });
+  mockSignUp.mockResolvedValue({ error: null });
+  render(<AuthProvider><Probe /></AuthProvider>);
+  await waitFor(() => expect(screen.getByText('ready:none:false:-')).toBeOnTheScreen());
+  fireEvent.press(screen.getByText('select'));
+  fireEvent.press(screen.getByText('signup-terms'));
+  await waitFor(() => expect(mockSignUp).toHaveBeenCalledWith(
+    expect.objectContaining({
+      options: expect.objectContaining({ data: { full_name: 'A', phone: '07', role: 'provider', terms_version: 'draft-2026-09-26' } }),
+    }),
+  ));
 });
 
 it('signOut unregisters this device push token BEFORE supabase signOut (Phase 4E.1)', async () => {

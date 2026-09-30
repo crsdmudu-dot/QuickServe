@@ -29,4 +29,9 @@ appId: ke.co.hiredcorp.kwikserve
 - tapOn: "Continue"
 # iOS may prompt for notifications after sign-in; decline (never grant unrelated permissions).
 - runFlow: { when: { visible: "Don.t Allow" }, commands: [ { tapOn: "Don.t Allow" } ] }
+# F5.4: a test account that has not accepted the current Terms is shown "Before you continue" once after
+# sign-in (and again after a Terms version change). Accept it if it appears. The Terms check runs after
+# sign-in, so wait briefly for it; an account that has already accepted never sees it (costs up to 8 s).
+- extendedWaitUntil: { visible: { id: "accept-terms-agree" }, timeout: 8000, optional: true }
+- runFlow: { when: { visible: { id: "accept-terms-agree" } }, commands: [ { tapOn: { id: "accept-terms-agree" } } ] }
 - extendedWaitUntil: { visible: "What service do you need today?", timeout: 25000 }

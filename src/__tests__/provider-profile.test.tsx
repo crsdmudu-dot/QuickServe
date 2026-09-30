@@ -5,6 +5,14 @@
  * so no network calls are made. Uses findBy* for async data loads.
  */
 
+// The report panel (F5.1) imports @/lib/moderation, which creates the Supabase client. Mock it so
+// this suite needs no Supabase env; the report flow itself is tested in report-form.test.tsx.
+jest.mock('@/lib/moderation', () => ({
+  REPORT_REASONS: [{ key: 'harassment', label: 'Harassment or bullying' }],
+  REPORT_CONFIRMATION: 'Thanks for letting us know. Our team reviews every report within 24 hours.',
+  reportContent: jest.fn().mockResolvedValue({ ok: true }),
+}));
+
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 
 const mockGetProviderProfile = jest.fn().mockResolvedValue({
@@ -130,6 +138,15 @@ describe('ProviderProfileScreen — approved', () => {
     expect(screen.getByText(/5 jobs completed/)).toBeOnTheScreen();
   });
 
+  it('offers no photo link, and saving the profile sends no photo field (R6: no photos at launch)', async () => {
+    render(<ProviderProfileScreen />);
+    await screen.findByText('Jane Smith');
+    expect(screen.queryByText('Profile photo URL')).toBeNull();
+    fireEvent.press(screen.getByText('Save'));
+    await waitFor(() => expect(mockUpdateMyProviderProfile).toHaveBeenCalled());
+    expect(mockUpdateMyProviderProfile.mock.calls[0][0]).not.toHaveProperty('profile_photo_url');
+  });
+
   it('toggles availability and calls updateMyProviderProfile with unavailable', async () => {
     render(<ProviderProfileScreen />);
     // Wait for profile to load so availability state is initialised.
@@ -160,6 +177,13 @@ describe('ProviderProfileScreen — approved', () => {
     await screen.findByText('Jane Smith');
     fireEvent.press(screen.getByText('Notification settings'));
     expect(router.push).toHaveBeenCalledWith('/notification-settings');
+  });
+
+  it('navigates to /blocked-users when "Blocked people" is pressed (F5.2)', async () => {
+    render(<ProviderProfileScreen />);
+    await screen.findByText('Jane Smith');
+    fireEvent.press(screen.getByText('Blocked people'));
+    expect(router.push).toHaveBeenCalledWith('/blocked-users');
   });
 
   it('renders the rating breakdown section with recommend % and strength chips', async () => {

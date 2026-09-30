@@ -47,6 +47,8 @@ describe('AdminSidebar', () => {
     expect(screen.getByText('Payment Attempts')).toBeOnTheScreen();
     expect(screen.getByText('Earnings & Payouts')).toBeOnTheScreen();
     expect(screen.getByText('Reviews')).toBeOnTheScreen();
+    // F5.1: the moderation queue for user reports.
+    expect(screen.getByText('Moderation')).toBeOnTheScreen();
   });
 
   it('renders a Sign out control', () => {

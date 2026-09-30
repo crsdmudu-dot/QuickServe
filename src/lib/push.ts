@@ -3,6 +3,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
+import { safeInternalRoute } from '@/lib/safe-route';
 
 /** Key under which the id of the last cold-start notification response we navigated
  *  from is persisted. Android keeps the last notification response across app
@@ -16,11 +17,11 @@ function isExpoGo(): boolean {
   return Constants.appOwnership === 'expo' || Constants.executionEnvironment === 'storeClient';
 }
 
-/** Pure: resolve a notification's data payload to an expo-router path, or null. */
+/** Pure: resolve a notification's data payload to an expo-router path, or null.
+ *  Only a plain in-app path is followed (S11-1); an outside link or anything else is ignored. */
 export function routeForNotificationData(data: unknown): string | null {
   if (data && typeof data === 'object') {
-    const route = (data as Record<string, unknown>).route;
-    if (typeof route === 'string' && route.length > 0) return route;
+    return safeInternalRoute((data as Record<string, unknown>).route);
   }
   return null;
 }

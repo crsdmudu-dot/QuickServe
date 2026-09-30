@@ -36,6 +36,7 @@ import {
 } from '@admin/lib/quotes-admin';
 import { getPaymentForBooking, type Payment } from '@/lib/payments';
 import { getApprovedProviders, type ProviderProfile } from '@/lib/providers';
+import { adminBlockedProviderIds } from '@/lib/blocks';
 import {
   getBookingPhotos,
   deleteBookingPhoto,
@@ -86,6 +87,8 @@ export default function AdminWebBookingDetailScreen() {
   const [providerName, setProviderName] = useState('');
   const [providerPhone, setProviderPhone] = useState('');
   const [approvedProviders, setApprovedProviders] = useState<ProviderProfile[]>([]);
+  // Providers who block this customer or whom the customer blocks (F5.2): shown, but not assignable.
+  const [blockedProviderIds, setBlockedProviderIds] = useState<string[]>([]);
 
   // ── Admin notes state ──────────────────────────────────────────────────
   const [adminNotes, setAdminNotes] = useState('');
@@ -111,6 +114,7 @@ export default function AdminWebBookingDetailScreen() {
     getBookingById(id).then((b) => {
       if (b) {
         setBooking(b);
+        adminBlockedProviderIds(b.customer_id).then(setBlockedProviderIds);
         setAdminNotes(b.admin_notes ?? '');
         setAmountInput(
           b.quoted_amount?.toString() ??
@@ -399,14 +403,28 @@ export default function AdminWebBookingDetailScreen() {
               No approved providers available.
             </Text>
           )}
-          {approvedProviders.map((p) => (
-            <Card key={p.id} onPress={() => handleAssignInApp(p)} style={styles.providerCard}>
-              <Text variant="heading">{p.full_name ?? 'Unknown'}</Text>
-              <Text variant="caption" color="textSecondary">
-                {p.phone ?? '—'}
-              </Text>
-            </Card>
-          ))}
+          {approvedProviders.map((p) => {
+            // A blocked pair cannot be assigned (the database refuses it too), so the card is not
+            // pressable and says why.
+            const blocked = blockedProviderIds.includes(p.id);
+            return (
+              <Card
+                key={p.id}
+                testID={`assign-provider-${p.id}`}
+                onPress={blocked ? undefined : () => handleAssignInApp(p)}
+                style={styles.providerCard}>
+                <Text variant="heading">{p.full_name ?? 'Unknown'}</Text>
+                <Text variant="caption" color="textSecondary">
+                  {p.phone ?? '—'}
+                </Text>
+                {blocked ? (
+                  <Text variant="caption" color="error">
+                    Blocked with this customer — can&apos;t be assigned
+                  </Text>
+                ) : null}
+              </Card>
+            );
+          })}
         </>
       )}
 

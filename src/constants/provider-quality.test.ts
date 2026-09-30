@@ -200,8 +200,8 @@ describe('ACHIEVEMENTS', () => {
 // ── PROFILE_COMPLETENESS_ITEMS ─────────────────────────────────────────────
 
 describe('PROFILE_COMPLETENESS_ITEMS', () => {
+  // No photo item: profile photos are not available at launch (R6, migration 0070).
   const EXPECTED_ACTIVE_KEYS: CompletenessItemKey[] = [
-    'photo',
     'bio',
     'experience',
     'service_categories',
@@ -213,13 +213,18 @@ describe('PROFILE_COMPLETENESS_ITEMS', () => {
     'payment_details',
   ];
 
-  it('has exactly 8 entries total (6 active + 2 future-ready)', () => {
-    expect(PROFILE_COMPLETENESS_ITEMS).toHaveLength(8);
+  it('has exactly 7 entries total (5 active + 2 future-ready)', () => {
+    expect(PROFILE_COMPLETENESS_ITEMS).toHaveLength(7);
   });
 
-  it('has exactly 6 active items (futureReady falsy)', () => {
+  it('has exactly 5 active items (futureReady falsy)', () => {
     const active = PROFILE_COMPLETENESS_ITEMS.filter((i) => !i.futureReady);
-    expect(active).toHaveLength(6);
+    expect(active).toHaveLength(5);
+  });
+
+  it('has no photo item at all, active or future-ready (R6)', () => {
+    expect(PROFILE_COMPLETENESS_ITEMS.map((i) => i.key as string)).not.toContain('photo');
+    expect(PROFILE_COMPLETENESS_ITEMS.map((i) => i.label)).not.toContain('Profile photo');
   });
 
   it('has exactly 2 future-ready items', () => {
@@ -227,7 +232,7 @@ describe('PROFILE_COMPLETENESS_ITEMS', () => {
     expect(futureReady).toHaveLength(2);
   });
 
-  it('contains all 6 active keys', () => {
+  it('contains all 5 active keys', () => {
     const activeKeys = PROFILE_COMPLETENESS_ITEMS.filter((i) => !i.futureReady).map((i) => i.key);
     for (const key of EXPECTED_ACTIVE_KEYS) {
       expect(activeKeys).toContain(key);

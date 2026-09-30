@@ -169,7 +169,7 @@ export default function ProviderQualityDashboardScreen() {
             </Text>
           ) : (
             dashboard.recentReviews.map((r) => (
-              <ReviewCard key={r.id} review={r} />
+              <ReviewCard key={r.id} review={r} reportable />
             ))
           )}
 

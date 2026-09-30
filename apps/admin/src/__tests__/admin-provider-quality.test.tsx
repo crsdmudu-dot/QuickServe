@@ -19,6 +19,14 @@ import AdminWebProviderDetailScreen from '@admin/app/providers/[id]';
 
 // ── expo-router mock ───────────────────────────────────────────────────────────
 
+// The shared chat thread and review card (F5.1) import @/lib/moderation, which creates the
+// Supabase client. Mock it so this suite needs no Supabase env.
+jest.mock('@/lib/moderation', () => ({
+  REPORT_REASONS: [{ key: 'harassment', label: 'Harassment or bullying' }],
+  REPORT_CONFIRMATION: 'Thanks for letting us know. Our team reviews every report within 24 hours.',
+  reportContent: jest.fn().mockResolvedValue({ ok: true }),
+}));
+
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'prov1' }),
   router: { push: jest.fn() },
@@ -67,7 +75,7 @@ jest.mock('@/lib/provider-completeness', () => ({
   calculateProviderCompleteness: () => ({
     percent: 80,
     items: [
-      { key: 'photo', label: 'Profile photo', done: true, futureReady: false },
+      { key: 'availability', label: 'Availability configured', done: true, futureReady: false },
     ],
     missing: [],
   }),
@@ -166,6 +174,15 @@ jest.mock('@/lib/operations', () => ({
   createSupportCase: jest.fn().mockResolvedValue({ ok: true, id: 'new-case-1' }),
 }));
 
+// ── @/lib/suspension mock (AccountSuspensionPanel on providers/[id], F5.6b) ───
+
+jest.mock('@/lib/suspension', () => ({
+  getLatestSuspension: jest.fn().mockResolvedValue({ ok: true, suspension: null }),
+  suspendAccount: jest.fn(),
+  liftSuspension: jest.fn(),
+  retrySignInBlock: jest.fn(),
+}));
+
 // ── @/auth/auth-context mock ──────────────────────────────────────────────────
 
 jest.mock('@/auth/auth-context', () => ({
@@ -193,7 +210,7 @@ const MOCK_BREAKDOWN = {
 const MOCK_COMPLETENESS = {
   percent: 80,
   items: [
-    { key: 'photo', label: 'Profile photo', done: true, futureReady: false },
+    { key: 'availability', label: 'Availability configured', done: true, futureReady: false },
     { key: 'bio', label: 'Bio', done: true, futureReady: false },
   ],
   missing: ['experience'],

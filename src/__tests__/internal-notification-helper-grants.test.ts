@@ -45,6 +45,8 @@ const LEGITIMATE_CALLERS = [
   'tg_notify_provider_pending',
   'mpesa_ops_alert_sweep',
   'record_mpesa_callback_event',
+  // 0065: alerts the approved admins when a user reports content (no content, no names).
+  'report_content',
   'tg_push_bookings',
   'tg_push_payments',
   'tg_push_booking_messages',

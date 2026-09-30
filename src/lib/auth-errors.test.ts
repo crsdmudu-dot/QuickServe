@@ -1,8 +1,13 @@
-import { mapAuthError } from '@/lib/auth-errors';
+import { ACCOUNT_BLOCKED_MESSAGE, mapAuthError } from '@/lib/auth-errors';
 
 describe('mapAuthError', () => {
   it('maps invalid credentials', () => {
     expect(mapAuthError({ message: 'Invalid login credentials' })).toBe('Incorrect email or password.');
+  });
+  it('maps a blocked (banned) sign-in to the neutral message with the support address (F5.6)', () => {
+    expect(ACCOUNT_BLOCKED_MESSAGE).toBe("This account can't sign in. If you think this is a mistake, contact support@hiredcorp.co.ke.");
+    expect(mapAuthError({ message: 'User is banned' })).toBe(ACCOUNT_BLOCKED_MESSAGE);
+    expect(mapAuthError({ message: 'user_banned' })).toBe(ACCOUNT_BLOCKED_MESSAGE);
   });
   it('maps already-registered', () => {
     expect(mapAuthError({ message: 'User already registered' })).toBe('An account with this email already exists.');

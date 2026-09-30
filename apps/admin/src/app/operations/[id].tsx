@@ -55,6 +55,7 @@ import { CaseTimeline } from '@admin/components/operations/case-timeline';
 import { EvidenceLinks } from '@admin/components/operations/evidence-links';
 import { InternalNotesPanel } from '@admin/components/operations/internal-notes-panel';
 import { AccountFlagPanel } from '@admin/components/operations/account-flag-panel';
+import { AccountSuspensionPanel } from '@admin/components/operations/account-suspension-panel';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -547,9 +548,15 @@ export default function AdminWebOperationDetailScreen() {
 
         {/* ── Account flag panel (for customer or provider) ───────────── */}
         {caseData.customer_id ? (
-          <AccountFlagPanel subjectId={caseData.customer_id} subjectRole="customer" />
+          <>
+            <AccountSuspensionPanel userId={caseData.customer_id} />
+            <AccountFlagPanel subjectId={caseData.customer_id} subjectRole="customer" />
+          </>
         ) : caseData.provider_id ? (
-          <AccountFlagPanel subjectId={caseData.provider_id} subjectRole="provider" />
+          <>
+            <AccountSuspensionPanel userId={caseData.provider_id} />
+            <AccountFlagPanel subjectId={caseData.provider_id} subjectRole="provider" />
+          </>
         ) : null}
 
         {/* ── Internal notes panel (most relevant present context) ─────── */}

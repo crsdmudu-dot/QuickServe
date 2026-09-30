@@ -102,3 +102,27 @@ describe('adminUpdateProviderProfile', () => {
     expect(mockUpdateEq).toHaveBeenCalledWith('id', 'p1');
   });
 });
+
+describe('provider profile — objectionable-language filter (0067)', () => {
+  it('updateMyProviderProfile explains a filtered bio in plain words', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'p1' } } });
+    mockUpdate.mockReturnValue({ eq: (...a: unknown[]) => mockUpdateEq(...a) });
+    mockUpdateEq.mockResolvedValue({ error: { message: 'content_not_allowed', code: 'P0001' } });
+    expect(await updateMyProviderProfile({ bio: 'rude' })).toEqual({ ok: false, error: 'Please remove offensive language and try again.' });
+  });
+
+  it('adminUpdateProviderProfile explains it too', async () => {
+    mockUpdate.mockReturnValue({ eq: (...a: unknown[]) => mockUpdateEq(...a) });
+    mockUpdateEq.mockResolvedValue({ error: { message: 'content_not_allowed', code: 'P0001' } });
+    expect(await adminUpdateProviderProfile('p1', { bio: 'rude' })).toEqual({ ok: false, error: 'Please remove offensive language and try again.' });
+  });
+});
+
+describe('provider profile — Terms gate (0068)', () => {
+  it('updateMyProviderProfile explains the Terms refusal in plain words', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'p1' } } });
+    mockUpdate.mockReturnValue({ eq: (...a: unknown[]) => mockUpdateEq(...a) });
+    mockUpdateEq.mockResolvedValue({ error: { message: 'terms_not_accepted', code: 'P0001' } });
+    expect(await updateMyProviderProfile({ bio: 'New bio' })).toEqual({ ok: false, error: 'Please accept the Terms of Service first.' });
+  });
+});

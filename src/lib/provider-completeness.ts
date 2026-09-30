@@ -32,8 +32,6 @@ export type CompletenessResult = {
 function isDone(key: CompletenessItemKey, profile: ProviderProfile | null): boolean {
   if (!profile) return false;
   switch (key) {
-    case 'photo':
-      return !!profile.profile_photo_url;
     case 'bio':
       return !!profile.bio && profile.bio.trim().length > 0;
     case 'experience':

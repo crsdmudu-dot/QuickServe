@@ -1,5 +1,6 @@
 // messages.ts — Supabase helpers for in-app chat on bookings.
 import { supabase } from '@/lib/supabase';
+import { CONTENT_NOT_ALLOWED_MESSAGE, isContentNotAllowed } from '@/lib/content-filter';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -11,6 +12,9 @@ export type BookingMessage = {
   message_text: string;
   created_at: string;
   read_at: string | null;
+  /** Set when an admin hid the message (0065). Participants never receive hidden rows; admins do. */
+  hidden_at?: string | null;
+  hidden_by?: string | null;
 };
 
 // ── Queries ────────────────────────────────────────────────────────────────
@@ -56,6 +60,7 @@ export async function sendBookingMessage(
   });
 
   // 4. Map error to a friendly message.
+  if (isContentNotAllowed(error)) return { ok: false, error: CONTENT_NOT_ALLOWED_MESSAGE };
   if (error) return { ok: false, error: 'Could not send message. Please try again.' };
   return { ok: true };
 }

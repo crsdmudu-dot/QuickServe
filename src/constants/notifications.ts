@@ -2,6 +2,7 @@
 // PURE constants only — no DB calls, no network, no writes.
 
 import { type AppNotification, type NotificationPreferences } from '@/lib/notifications';
+import { safeInternalRoute } from '@/lib/safe-route';
 
 // ── Core Types ─────────────────────────────────────────────────────────────
 
@@ -311,8 +312,10 @@ export function filterMatches(n: AppNotification, filter: NotificationFilter): b
  * Returns null when unresolvable. Never throws.
  */
 export function resolveNotificationDeepLink(n: AppNotification): string | null {
-  // 1. Prefer the DB-written route column
-  if (n.route) return n.route;
+  // 1. Prefer the DB-written route column — but only a plain in-app path (S11-1).
+  //    An unsafe route (e.g. an outside https:// link) is ignored and the type-based fallback below is used.
+  const safeRoute = safeInternalRoute(n.route);
+  if (safeRoute) return safeRoute;
 
   const type = n.type ?? '';
   const meta = n.metadata_json ?? {};

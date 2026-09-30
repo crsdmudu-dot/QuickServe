@@ -149,8 +149,8 @@ After approval the provider can edit their profile on the **Profile** tab
 - [ ] Enter a **Bio** describing their expertise.
 - [ ] Set **Years of experience** (numeric input).
 - [ ] Set **Skills** (free-text or list of their service categories).
-- [ ] Set **Profile photo URL** (if a hosted image URL is available).
-  Expected: Saved to `profiles.profile_photo_url`; photo appears in the profile header avatar.
+- [ ] Confirm there is **no photo field**: profile photos are not available at launch (R6, migration 0070).
+  Expected: the avatar shows the provider's initials; the profile checklist can reach 100% without a photo.
 - [ ] Tap **Save** — no error toast; reload confirms the values persisted. (qa-e2e P-12)
 
 ### 2d. Availability

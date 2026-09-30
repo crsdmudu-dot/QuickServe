@@ -108,6 +108,17 @@ describe('createBooking', () => {
       ok: false, error: 'Could not create booking. Please try again.',
     });
   });
+  it('maps the language filter refusal of booking notes to the friendly message (0069, F53-1)', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+    mockInsert.mockReturnValue({
+      select: () => ({ single: () => Promise.resolve({ data: null, error: { code: 'P0001', message: 'content_not_allowed' } }) }),
+    });
+    expect(await createBooking({ serviceId: 's', address: 'a', scheduledFor: 't', notes: 'x', idempotencyKey: 'k1' })).toEqual({
+      ok: false, error: 'Please remove offensive language and try again.',
+    });
+    // A filter refusal is not a duplicate: no recovery lookup runs.
+    expect(mockMaybeSingle).not.toHaveBeenCalled();
+  });
   it('createBooking returns the new id on success', async () => {
     mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
     mockInsert.mockReturnValue({ select: () => ({ single: () => Promise.resolve({ data: { id: 'bk1' }, error: null }) }) });
@@ -451,6 +462,19 @@ describe('assignProvider', () => {
     expect(mockUpdate).toHaveBeenCalledWith({
       assigned_provider_id: 'p1', assigned_provider_name: 'Jane',
       assigned_provider_phone: '0700', status: 'provider_assigned',
+    });
+  });
+  it('assignProvider explains a refused blocked pair (0066) in plain words', async () => {
+    mockUpdate.mockReturnValue({ eq: (...a: unknown[]) => mockUpdateEq(...a) });
+    mockUpdateEq.mockResolvedValue({ error: { message: 'blocked_pair', code: 'P0001' } });
+    expect(await assignProvider('b1', { name: 'Jane', phone: '0700', providerId: 'p1' })).toEqual({
+      ok: false,
+      error: 'This customer and provider have blocked each other. Choose another provider.',
+    });
+    mockUpdateEq.mockResolvedValue({ error: { message: 'something else', code: 'XX000' } });
+    expect(await assignProvider('b1', { name: 'Jane', phone: '0700', providerId: 'p1' })).toEqual({
+      ok: false,
+      error: 'Could not assign provider. Please try again.',
     });
   });
 });

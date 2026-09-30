@@ -60,4 +60,16 @@ describe('NotificationRow', () => {
     fireEvent.press(screen.getByText('Booking confirmed'));
     expect(router.push).not.toHaveBeenCalled();
   });
+
+  // S11-1: a notification may only open an in-app screen, never an outside link.
+  it.each(['https://evil.example/login', '//evil.example', 'mailto:x@evil.example', 'javascript:alert(1)'])(
+    'ignores an outside route (%s) but still marks the row as read',
+    (route) => {
+      const onPress = jest.fn();
+      render(<NotificationRow notification={{ ...base, route }} onPress={onPress} />);
+      fireEvent.press(screen.getByText('Booking confirmed'));
+      expect(onPress).toHaveBeenCalledTimes(1);
+      expect(router.push).not.toHaveBeenCalled();
+    },
+  );
 });
