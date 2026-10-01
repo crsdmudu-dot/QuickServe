@@ -6,6 +6,7 @@ export default function ProviderLayout() {
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="job/[id]" options={{ headerShown: true, title: 'Job' }} />
+      <Stack.Screen name="job/chat/[id]" options={{ headerShown: true, title: 'Chat' }} />
       <Stack.Screen name="quality" options={{ headerShown: true, title: 'Quality Dashboard' }} />
       <Stack.Screen name="code-of-conduct" options={{ headerShown: true, title: 'Code of Conduct' }} />
     </Stack>

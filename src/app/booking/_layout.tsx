@@ -21,6 +21,8 @@ export default function BookingLayout() {
       {/* Tracking is not part of booking, so it gets its own header title (it showed "Book a service").
           "Tracking", not "Track your provider": the screen already shows that as its page title. */}
       <Stack.Screen name="track/[id]" options={{ title: 'Tracking' }} />
+      {/* Chat is not part of booking either, so it gets its own header title (it showed "Book a service"). */}
+      <Stack.Screen name="chat/[id]" options={{ title: 'Chat' }} />
     </Stack>
   );
 }
