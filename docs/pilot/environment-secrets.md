@@ -57,7 +57,9 @@ These values run **inside Edge Functions only** and are never sent to the client
 | `DARAJA_BASE_URL` | `supabase secrets set DARAJA_BASE_URL=<url>` | No (server config) | Daraja base URL (sandbox or live) |
 | `DARAJA_CALLBACK_URL` | `supabase secrets set DARAJA_CALLBACK_URL=<url>` | No (server config) | Must include `?token=<MPESA_CALLBACK_SECRET>` |
 | `MPESA_CALLBACK_SECRET` | `supabase secrets set MPESA_CALLBACK_SECRET=<value>` | **No** | Shared secret appended as `?token=` to callback URL; gates unauthorized Daraja POSTs |
-| `MPESA_MODE` | `supabase secrets set MPESA_MODE=<mock\|sandbox\|live>` | No (server config) | Controls Daraja mode; `mock` safe for testing |
+| `MPESA_MODE` | `supabase secrets set MPESA_MODE=<disabled\|mock\|sandbox\|live>` | No (server config) | Controls Daraja mode. `disabled` is the kill switch; unset or unknown values also mean `disabled`. `mock` is for QA/local testing only and is refused on Production (behaves as `disabled`) |
+| `DARAJA_TRANSACTION_TYPE` | `supabase secrets set DARAJA_TRANSACTION_TYPE=CustomerBuyGoodsOnline` | No (server config) | Optional, Till only. Unset = `CustomerPayBillOnline` (Paybill, unchanged). Any other value makes payments unavailable |
+| `DARAJA_PARTY_B` | `supabase secrets set DARAJA_PARTY_B=<till number>` | No (server config) | Optional, Till only. Unset = `DARAJA_SHORTCODE` (Paybill, unchanged) |
 
 ### Set all Daraja secrets at once
 

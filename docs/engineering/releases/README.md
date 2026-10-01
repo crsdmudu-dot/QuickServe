@@ -143,7 +143,8 @@ Verified risks from repository state (no speculation):
   is empty, `ios.associatedDomains` contains `REPLACE_ME.quickserve.app`, and the Sentry plugin
   `organization`/`project` are empty. Builds/push/deep-links depend on these being filled
   (`docs/pilot/android-release.md`, `ios-release.md`).
-- **Payments default to mock** — `MPESA_MODE` defaults to `mock`; real settlement requires
+- **Payments default to disabled** — an unset or unknown `MPESA_MODE` means `disabled` (no
+  payment can start), and `mock` is refused on Production; real settlement requires
   `sandbox`/`live` config and is **not certified** (see [qa/](../qa/README.md) §10).
 - **Backend Release Candidate is frozen with known open items** — RC1 fixed B2 (`0033`) and F4
   (`0034`); F3 (provider forward-skip, P2) and last-write-wins concurrency on booking mutations

@@ -25,6 +25,8 @@ jest.mock('@/lib/moderation', () => ({
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'b1' }),
+  // P7: the screen refreshes the payment on focus; a no-op here (the first focus is skipped anyway).
+  useFocusEffect: jest.fn(),
   router: { push: jest.fn(), replace: jest.fn() },
 }));
 

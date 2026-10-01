@@ -102,7 +102,7 @@ where created_at > now() - interval '1 hour';
 ```
 
 **Alert threshold:** > 20 % failed attempts in any 1-hour window → investigate Daraja status
-or set `MPESA_MODE=mock` as a kill switch.
+or set `MPESA_MODE=disabled` as a kill switch (never `mock` on Production).
 
 ### Stale / ambiguous attempts (operational queue)
 
@@ -129,9 +129,13 @@ confirm and the evidence-free cancel were removed in 0045.)
 ### M-Pesa kill switch
 
 ```bash
-supabase secrets set MPESA_MODE=mock
-supabase functions deploy mpesa-stk-push
+supabase secrets set MPESA_MODE=disabled
 ```
+
+No redeploy is needed. New payment requests answer 503 `payments_unavailable` and create no
+attempt; requests already sent still settle through their callbacks. `mock` is refused on
+Production in code (it behaves as `disabled`), and an unset or unknown value is also `disabled`.
+See [`mpesa-operations-runbook.md`](./mpesa-operations-runbook.md) §5.
 
 ---
 

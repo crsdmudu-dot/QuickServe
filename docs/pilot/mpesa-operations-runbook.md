@@ -115,9 +115,20 @@ leave the attempt blocking and escalate; do not resolve.
 
 ## 5. Kill switch
 
-Set `MPESA_MODE=mock` on the Production Edge secrets to stop initiating live STK requests.
-Callbacks for already-sent requests are still processed (the callback function does not read
-`MPESA_MODE`).
+Set `MPESA_MODE=disabled` on the Production Edge secrets to stop initiating STK requests (no
+redeploy needed). `mpesa-stk-push` then answers 503 `payments_unavailable` before it reads or
+writes anything, so **no attempt row is created**, and the app shows "M-PESA payments are
+temporarily unavailable…". Callbacks for already-sent requests are still processed (the callback
+function does not read `MPESA_MODE`); timed-out attempts are reconciled through the portal as
+in §4.
+
+- **Never use `mock` on Production.** Since update 50 the function refuses it in code: `mock` on
+  the Production project behaves as `disabled`. `mock` is for development and QA only.
+- **Unset, empty or unknown values also mean `disabled`** (fail closed). A typo can no longer
+  turn live payments into mock payments.
+- `sandbox` and `live` also answer `payments_unavailable` when a `DARAJA_*` setting is missing,
+  when `live` does not use `https://api.safaricom.co.ke`, when `sandbox` uses it, or when the
+  Daraja OAuth call fails. The function log names the setting, never its value.
 
 ## 6. Unmatched / orphan callback procedure (migration 0054)
 
@@ -126,9 +137,11 @@ attempt is stored as **evidence** in `mpesa_callback_events` and shown on the Pa
 page under **Unmatched M-PESA callback evidence**, with one admin alert per new piece of
 evidence (`admin_mpesa_orphan_callback`). Classifications: `unknown_checkout_request_id`
 (no attempt carries that id — including a callback that arrived before the attempt's id was
-saved), `missing_checkout_request_id`, `malformed_authenticated_callback` (valid JSON that is
-not a Daraja callback, **or** bytes that are not JSON at all — those are kept only as a SHA-256
-of the raw bytes, with no fields). Identical redeliveries only increase the delivery count; a
+saved, and since update 50 also a success claim for an id Safaricom's STK Push Query says it does
+not know — see §7), `missing_checkout_request_id`, `malformed_authenticated_callback` (valid JSON
+that is not a Daraja callback, **or** a callback whose `ResultCode` is not a plain whole number —
+for example 0.4, "0" or 1e0 — which is never applied and whose code is not stored, **or** bytes
+that are not JSON at all — those are kept only as a SHA-256 of the raw bytes, with no fields). Identical redeliveries only increase the delivery count; a
 callback with the same CheckoutRequestID but different content is a second row and its own
 alert. "Identical" means the same JSON value: object-key order and whitespace do not matter;
 a different number, a different string, or a re-ordered array counts as different evidence (a
@@ -167,8 +180,29 @@ without a notification — so check the page, not only your notifications.
 - **Escalate rather than act** whenever portal evidence and callback evidence disagree, or when a
   success-like callback has no exact attempt match.
 
-## 7. Not yet available
+## 7. Success confirmation (STK Push Query) and what is not yet available
 
-- STK Push **Query** (`/mpesa/stkpushquery/v1/query`) is not implemented. Operators must use
-  the Safaricom business portal for disambiguation. If added later it must feed the same
-  evidence checks as the callback path and never settle on its own.
+Since update 50, `mpesa-callback` confirms every **success** callback with Safaricom (STK Push
+**Query**, `/mpesa/stkpushquery/v1/query`) before the database sees it. The query never settles
+anything on its own: a confirmed success still goes through the same certified 0050 checks
+(exact amount, unused receipt).
+
+| Query answer | What the callback does | What you do |
+|---|---|---|
+| Success | Applied exactly as before | Nothing new |
+| Definite "unknown CheckoutRequestID" | **Not applied.** Recorded as orphan evidence (`unknown_checkout_request_id`, §6) with the usual "Unmatched M-PESA success callback — investigate" alert, then answered 409. Log line: `… answered unknown_request; recorded as evidence` | Treat as a possible **forged callback**: the callback secret may have leaked. Follow §6 for the evidence row; check the portal; if nothing was collected, rotate `MPESA_CALLBACK_SECRET` and `DARAJA_CALLBACK_URL` together. |
+| Definite "not successful" (a known request that failed) | **Not applied, not recorded**, answered 409. Log line: `success claim refused; M-PESA answered not_successful` | The same: a possible forged callback. The real attempt follows its own callback or the timeout path. |
+| Still processing, rate-limited, unreachable or unrecognised (after 3 tries) | **Not applied**, answered 500 so Safaricom may redeliver. Log line: `success not yet confirmed by M-PESA after retries` | Nothing special: the attempt times out and you reconcile it from the portal as in §4. This is **never** a forgery verdict. |
+
+Failure callbacks and callbacks without a CheckoutRequestID are not queried (they cannot settle
+anything). The query needs `DARAJA_BASE_URL`, `DARAJA_CONSUMER_KEY`, `DARAJA_CONSUMER_SECRET`,
+`DARAJA_SHORTCODE` and `DARAJA_PASSKEY` to stay set while requests are in flight, including after
+payments are switched to `disabled`.
+
+Not yet available:
+
+- The query is **not** used to disambiguate timed-out or discrepant attempts; operators still use
+  the Safaricom business portal for that (§4).
+- A success claim refused as **not successful** leaves only the function log line above; it is
+  not stored in `mpesa_callback_events` (none of that table's classifications describes a known
+  request that failed, and adding one needs a migration).

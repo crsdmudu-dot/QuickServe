@@ -111,6 +111,67 @@ describe('initiateMpesaPayment', () => {
     });
     expect(res).toEqual({ ok: false, error: 'Payment is not pending.' });
   });
+
+  // ── P7: the function's stable error code, read from the non-2xx answer ──
+
+  /** What the Supabase client returns for a non-2xx answer: `error.context` is the response. */
+  function httpError(body: unknown) {
+    return { data: null, error: { name: 'FunctionsHttpError', message: 'non-2xx', context: { json: async () => body } } };
+  }
+  const INPUT = { paymentId: 'pay1', amount: 1500, phone: '0712345678', accountReference: 'bk1' };
+
+  it('payments_unavailable (MPESA_MODE disabled) → the unavailable text and its code', async () => {
+    invoke.mockResolvedValue(httpError({ ok: false, code: 'payments_unavailable', error: 'server words' }));
+    const res = await initiateMpesaPayment(INPUT);
+    expect(res).toEqual({
+      ok: false,
+      code: 'payments_unavailable',
+      error:
+        'M-PESA payments are temporarily unavailable. Your booking is safe. Please do not pay by any other method; we will notify you when you can pay.',
+    });
+  });
+
+  it('status_unknown → tells the customer not to pay again (no longer "please try again")', async () => {
+    invoke.mockResolvedValue(httpError({ ok: false, code: 'status_unknown' }));
+    const res = await initiateMpesaPayment(INPUT);
+    expect(res.code).toBe('status_unknown');
+    expect(res.error).toMatch(/Do not pay again/);
+    expect(res.error).not.toMatch(/try again/);
+  });
+
+  it('amount_not_payable → the amount text', async () => {
+    invoke.mockResolvedValue(httpError({ ok: false, code: 'amount_not_payable' }));
+    const res = await initiateMpesaPayment(INPUT);
+    expect(res.code).toBe('amount_not_payable');
+    expect(res.error).toMatch(/cannot be paid with M-PESA/);
+  });
+
+  it('an unknown code, an unreadable body or a missing body → the generic text, no code', async () => {
+    const unreadable = {
+      message: 'x',
+      context: {
+        json: async () => {
+          throw new SyntaxError('html');
+        },
+      },
+    };
+    for (const error of [
+      httpError({ ok: false, code: 'brand_new_code' }).error,
+      httpError(null).error,
+      unreadable,
+      { message: 'network', context: new TypeError('fetch failed') },
+    ]) {
+      invoke.mockResolvedValue({ data: null, error });
+      const res = await initiateMpesaPayment(INPUT);
+      expect(res).toEqual({ ok: false, error: 'Could not start payment. Please try again.' });
+    }
+  });
+
+  it('a code on a 200 answer with ok:false is read too', async () => {
+    invoke.mockResolvedValue({ data: { ok: false, code: 'job_not_completed', error: 'server words' }, error: null });
+    const res = await initiateMpesaPayment(INPUT);
+    expect(res).toEqual({ ok: false, code: 'job_not_completed', error: 'You can pay once the job is marked completed.' });
+  });
 });
 
 // ── getPaymentAttempts ─────────────────────────────────────────────────────

@@ -7,7 +7,7 @@ Set these via `supabase secrets set KEY=VALUE …` before deploying to sandbox o
 
 | Secret | Description |
 |---|---|
-| `MPESA_MODE` | `mock` (default), `sandbox`, or `live`. Controls which code path runs server-side. |
+| `MPESA_MODE` | `disabled` (the default: unset, empty or unknown values mean `disabled`), `mock` (QA/local only; refused on Production), `sandbox`, or `live`. Controls which code path runs server-side. |
 | `DARAJA_BASE_URL` | Daraja base URL. Sandbox: `https://sandbox.safaricom.co.ke`. Live: `https://api.safaricom.co.ke`. |
 | `DARAJA_CONSUMER_KEY` | Consumer Key from the Safaricom developer portal. |
 | `DARAJA_CONSUMER_SECRET` | Consumer Secret from the Safaricom developer portal. |
@@ -15,6 +15,8 @@ Set these via `supabase secrets set KEY=VALUE …` before deploying to sandbox o
 | `DARAJA_PASSKEY` | Lipa Na M-Pesa Online passkey. |
 | `DARAJA_CALLBACK_URL` | Public HTTPS URL that Daraja POSTs the STK result to. **Must** include `?token=<MPESA_CALLBACK_SECRET>` so the callback is authenticated. Example: `https://<project-ref>.supabase.co/functions/v1/mpesa-callback?token=<MPESA_CALLBACK_SECRET>` |
 | `MPESA_CALLBACK_SECRET` | High-entropy shared secret appended to the callback URL. Used by `mpesa-callback` to reject unauthorized POSTs. |
+| `DARAJA_TRANSACTION_TYPE` | Optional (Till only): `CustomerBuyGoodsOnline`. Unset = `CustomerPayBillOnline` (Paybill, unchanged). |
+| `DARAJA_PARTY_B` | Optional (Till only): the till number that receives the money. Unset = `DARAJA_SHORTCODE` (Paybill, unchanged). |
 
 > **Auto-provided by the Edge runtime — do NOT set manually:**
 > `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
@@ -59,11 +61,12 @@ supabase functions deploy mpesa-stk-push mpesa-callback
 
 | Value | Behaviour |
 |---|---|
-| `mock` | No Daraja secrets required. The function returns a synthetic `checkoutRequestId` immediately. The app is fully usable for development and UI testing. |
-| `sandbox` | Hits the real Daraja sandbox (`sandbox.safaricom.co.ke`). Requires all Daraja secrets. Use Safaricom's test MSISDNs. |
-| `live` | Hits the production Daraja API (`api.safaricom.co.ke`). Requires all Daraja secrets. Real money is moved. |
+| `disabled` | Payments off. The function answers 503 `payments_unavailable` before reading or writing anything, so no attempt is created. An unset, empty or unknown value also means `disabled` (fail closed). |
+| `mock` | No Daraja secrets required. The function returns a synthetic `checkoutRequestId` immediately. The app is fully usable for development and UI testing. **Refused in code on the Production project, where it behaves as `disabled`.** |
+| `sandbox` | Hits the real Daraja sandbox (`sandbox.safaricom.co.ke`). Requires all Daraja secrets; the production host is refused. Use Safaricom's test MSISDNs. |
+| `live` | Hits the production Daraja API. Requires all Daraja secrets and `DARAJA_BASE_URL` exactly `https://api.safaricom.co.ke`. Real money is moved. |
 
-The mode is **server-side only**. The React Native client is completely mode-agnostic — it calls `mpesa-stk-push` and polls the result regardless of mode.
+The mode is **server-side only**. The React Native client is mode-agnostic: it calls `mpesa-stk-push`, then refreshes the payment and its attempts every 5 s for up to 3 minutes (and when the booking screen regains focus), whatever the mode. It shows the text for the function's error `code` (for example `payments_unavailable`).
 
 ---
 
