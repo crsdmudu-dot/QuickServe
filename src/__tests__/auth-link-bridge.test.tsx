@@ -212,7 +212,7 @@ describe('AuthLinkBridge — product branding', () => {
 // fragment or route to a mail client.
 // ---------------------------------------------------------------------------
 describe('AuthLinkBridge — support access', () => {
-  const SUPPORT = 'support@hiredcorp.co.ke';
+  const SUPPORT = 'support@kwikserve.co.ke';
 
   it('offers the support address on the invalid / expired branch', () => {
     render(<AuthLinkBridge type="recovery" browser={fakeBrowser(frag({ token_hash: 'short', type: 'recovery', redirect_to: REC }))} />);
@@ -236,7 +236,7 @@ describe('AuthLinkBridge — support access', () => {
       fireEvent.press(screen.getByRole('link'));
       await waitFor(() => expect(openURL).toHaveBeenCalledTimes(1));
       const url = openURL.mock.calls[0][0] as string;
-      expect(url).toBe('mailto:support@hiredcorp.co.ke');
+      expect(url).toBe('mailto:support@kwikserve.co.ke');
       expect(url).not.toContain(HASH);
       expect(url).not.toMatch(/token|recovery|redirect|[?#&]/i);
     } finally {

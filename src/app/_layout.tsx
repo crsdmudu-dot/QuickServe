@@ -1,6 +1,7 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useRouter, useSegments, type Href } from 'expo-router';
 import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AuthProvider, useAuth } from '@/auth/auth-context';
@@ -52,20 +53,26 @@ function RootNavigator() {
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AuthProvider>
-        <TermsGateProvider>
-          <ServicesProvider>
-            <BookingDraftProvider>
-              <OfflineBanner />
-              <ErrorBoundary>
-                <RootNavigator />
-              </ErrorBoundary>
-            </BookingDraftProvider>
-          </ServicesProvider>
-        </TermsGateProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    // KeyboardProvider tracks the on-screen keyboard for the whole app, so screens can keep the
+    // field being typed in visible above it (form buttons below the field stay reachable by
+    // scrolling). Android no longer resizes the screen for the keyboard (edge-to-edge), and iOS
+    // never did, so the app has to do it itself.
+    <KeyboardProvider>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <AnimatedSplashOverlay />
+        <AuthProvider>
+          <TermsGateProvider>
+            <ServicesProvider>
+              <BookingDraftProvider>
+                <OfflineBanner />
+                <ErrorBoundary>
+                  <RootNavigator />
+                </ErrorBoundary>
+              </BookingDraftProvider>
+            </ServicesProvider>
+          </TermsGateProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </KeyboardProvider>
   );
 }

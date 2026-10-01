@@ -219,8 +219,8 @@ export const TRUST_BADGES: { icon: string; label: string; description: string }[
   },
   {
     icon: '🎧',
-    label: '24/7 Support',
-    description: 'Our support team is available around the clock.',
+    label: 'Email Support',
+    description: 'Questions? Email our support team.',
   },
   {
     icon: '😊',
@@ -272,7 +272,7 @@ export const FAQ_ITEMS: { question: string; answer: string }[] = [
   {
     question: 'How do I get support?',
     answer:
-      'You can reach our support team through the Contact page on this website, or by emailing support@hiredcorp.co.ke.',
+      'You can reach our support team through the Contact page on this website, or by emailing support@kwikserve.co.ke.',
   },
 ];
 

@@ -16,7 +16,8 @@
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Spacing } from '@/constants/theme';
@@ -118,7 +119,10 @@ export default function ServiceDetailsScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
       {backHeader}
-      <ScrollView
+      {/* Keeps the service question being typed in (ServiceDetailsForm) visible above the
+          keyboard; Continue can be scrolled to (see src/app/_layout.tsx). */}
+      <KeyboardAwareScrollView
+        bottomOffset={Spacing.five}
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -185,7 +189,7 @@ export default function ServiceDetailsScreen() {
             </>
           )}
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

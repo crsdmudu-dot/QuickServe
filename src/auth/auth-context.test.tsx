@@ -54,7 +54,7 @@ beforeEach(() => {
 });
 
 describe('suspended accounts (F5.6)', () => {
-  const BLOCKED = "This account can't sign in. If you think this is a mistake, contact support@hiredcorp.co.ke.";
+  const BLOCKED = "This account can't sign in. If you think this is a mistake, contact support@kwikserve.co.ke.";
 
   it('a session whose profile is hidden and whose account is suspended is signed out on this device, with the neutral message', async () => {
     mockGetSession.mockResolvedValue({ data: { session: { user: { id: 'u1' } } } });

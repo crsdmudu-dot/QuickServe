@@ -93,7 +93,7 @@ It must be publicly accessible via a URL (not gated behind a login).
 
 | Channel | Details |
 |---------|---------|
-| Support email | Set up a dedicated address, e.g. `support@quickserve.app` |
+| Support email | Set up a dedicated address, e.g. `support@kwikserve.co.ke` |
 | Support phone | Optional for pilot; a WhatsApp number is acceptable |
 | Response SLA | Pilot: best effort within 4 h during business hours (EAT) |
 
@@ -101,8 +101,8 @@ It must be publicly accessible via a URL (not gated behind a login).
 
 Add a **Support / Legal** section to the Profile screen (all user types) with the following rows:
 
-- "Contact Support" → open email client with `support@quickserve.app` pre-filled (using
-  `Linking.openURL('mailto:support@quickserve.app')`).
+- "Contact Support" → open email client with `support@kwikserve.co.ke` pre-filled (using
+  `Linking.openURL('mailto:support@kwikserve.co.ke')`).
 - "Privacy Policy" → open the hosted Privacy Policy URL in the in-app browser
   (`expo-web-browser` or `Linking.openURL`).
 - "Terms of Service" → open the hosted ToS URL.
@@ -131,7 +131,7 @@ During the pilot, payments are processed via M-Pesa (Safaricom Daraja). The foll
 
 - Refunds during the pilot are **manual and admin-handled**. There is no automated refund flow.
 - If a customer is entitled to a refund (e.g. provider did not show, service was cancelled),
-  they contact support at `support@quickserve.app` with the booking ID and M-Pesa confirmation code.
+  they contact support at `support@kwikserve.co.ke` with the booking ID and M-Pesa confirmation code.
 - An admin reviews the case and initiates a manual M-Pesa reversal or transfer within 3–5 business
   days.
 - Refund policy must be stated in the ToS and visible at the point of payment.
@@ -231,7 +231,7 @@ These apply for the duration of the pilot and should be communicated to all test
 - Communicate clearly through the in-app chat; do not take discussions off-platform during the pilot.
 - Upload genuine portfolio/profile photos; no stock photos or misleading images.
 - Do not solicit direct payment outside the app; all pilot transactions go through M-Pesa via the app.
-- Report any safety concerns immediately to `support@quickserve.app`.
+- Report any safety concerns immediately to `support@kwikserve.co.ke`.
 
 ### Both
 

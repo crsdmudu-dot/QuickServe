@@ -144,7 +144,7 @@ describe.each(NAMES)('%s — route and link shape', (name) => {
   test('exactly one CTA link and one mailto support link', () => {
     const all = hrefs(readTemplate(name));
     expect(all).toHaveLength(2);
-    expect(all.filter((h) => h.startsWith('mailto:'))).toEqual(['mailto:support@hiredcorp.co.ke']);
+    expect(all.filter((h) => h.startsWith('mailto:'))).toEqual(['mailto:support@kwikserve.co.ke']);
     expect(all.filter((h) => !h.startsWith('mailto:'))).toHaveLength(1);
   });
 });
@@ -169,8 +169,8 @@ describe.each(NAMES)('%s — identity', (name) => {
     expect(text).toContain('Hired Corp Limited');
   });
 
-  test('offers the verified support mailbox as readable text', () => {
-    expect(visibleText(readTemplate(name))).toContain('support@hiredcorp.co.ke');
+  test('offers the support mailbox as readable text', () => {
+    expect(visibleText(readTemplate(name))).toContain('support@kwikserve.co.ke');
   });
 
   test('explains why the message was received', () => {

@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Spacing } from '@/constants/theme';
@@ -88,7 +89,10 @@ export default function RegisterScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
-      <ScrollView
+      {/* Keeps the field being typed in visible above the keyboard; the Terms box and Create
+          account can be scrolled to (see src/app/_layout.tsx). */}
+      <KeyboardAwareScrollView
+        bottomOffset={Spacing.five}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
@@ -169,7 +173,7 @@ export default function RegisterScreen() {
             </Text>
           </View>
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

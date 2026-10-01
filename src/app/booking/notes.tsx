@@ -9,7 +9,8 @@
 
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Spacing } from '@/constants/theme';
@@ -40,7 +41,10 @@ export default function NotesScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
-      <ScrollView
+      {/* Keeps the Notes box visible above the keyboard; Continue can be scrolled to
+          (see src/app/_layout.tsx). */}
+      <KeyboardAwareScrollView
+        bottomOffset={Spacing.five}
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -91,7 +95,7 @@ export default function NotesScreen() {
 
           <Button label="Continue" fullWidth onPress={handleContinue} />
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

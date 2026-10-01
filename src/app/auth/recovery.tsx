@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/auth/auth-context';
@@ -181,23 +182,27 @@ export default function RecoveryScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <View style={styles.header}>
-            <Text variant="display" style={styles.heading}>
-              Reset your password
-            </Text>
-          </View>
-          {body}
-        </ScrollView>
-      </KeyboardAvoidingView>
+      {/* Keeps the new-password field being typed in visible above the keyboard on both Android
+          and iOS; the button can be scrolled to (see src/app/_layout.tsx). The previous React
+          Native KeyboardAvoidingView did nothing on Android. */}
+      <KeyboardAwareScrollView
+        bottomOffset={Spacing.five}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.header}>
+          <Text variant="display" style={styles.heading}>
+            Reset your password
+          </Text>
+        </View>
+        {body}
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  flex: { flex: 1 },
   content: { paddingHorizontal: Spacing.four, paddingBottom: Spacing.five },
   header: { paddingTop: Spacing.five, paddingBottom: Spacing.four, gap: Spacing.two },
   heading: { letterSpacing: -0.5 },

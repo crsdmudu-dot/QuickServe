@@ -11,6 +11,7 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { StyleSheet } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/hooks/use-theme';
@@ -38,12 +39,21 @@ export default function ProviderChatScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
-      <ChatThread bookingId={id} booking={booking} mode="participant" />
+      {/* The message box sits at the bottom of the chat. When the keyboard opens, this view adds
+          bottom padding equal to the keyboard's height, so the thread gets shorter and the message
+          box and Send stay just above the keyboard. automaticOffset makes it measure its own
+          position on screen (below the header), so no header height is hard-coded. It lives here,
+          not inside ChatThread, so the admin website (read-only chat) does not load the keyboard
+          library (see src/app/_layout.tsx). */}
+      <KeyboardAvoidingView behavior="padding" automaticOffset style={styles.keyboard} testID="chat-keyboard-avoiding">
+        <ChatThread bookingId={id} booking={booking} mode="participant" />
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  keyboard: { flex: 1 },
   loading: { padding: Spacing.four },
 });

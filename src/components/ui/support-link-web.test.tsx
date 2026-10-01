@@ -39,7 +39,7 @@ describe('SupportLink (web)', () => {
   });
 
   it('carries the exact static mailto href', () => {
-    expect(anchorNode()?.props.href).toBe('mailto:support@hiredcorp.co.ke');
+    expect(anchorNode()?.props.href).toBe('mailto:support@kwikserve.co.ke');
   });
 
   it('has no click-only substitute standing in for the href', () => {
@@ -68,7 +68,7 @@ describe('SupportLink (web)', () => {
   });
 
   it('exposes an explicit accessible label', () => {
-    expect(anchorNode()?.props['aria-label']).toBe(`Email KwikServe support at ${SUPPORT_EMAIL}`);
+    expect(anchorNode()?.props['aria-label']).toBe(`Email KwikServe Support at ${SUPPORT_EMAIL}`);
   });
 
   it('keeps the address visible and selectable inside the anchor', () => {

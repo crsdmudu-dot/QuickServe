@@ -1,7 +1,7 @@
 // support-contact.test.tsx — the website support-access contract.
 //
 // One cross-cutting requirement, pinned in one place: whenever a visitor needs help on the
-// KwikServe website they must be offered the verified Hired Corp support mailbox, and only that
+// KwikServe website they must be offered the KwikServe support mailbox, and only that
 // mailbox. The contract spans the brand constant (lib/site.ts), the FAQ copy (content/site.ts),
 // the shared footer and the four assistance/legal pages, so it is asserted here rather than
 // scattered across lib/content/components/pages suites where no single file could express it.
@@ -23,8 +23,8 @@ import ContactPage from '@/app/contact/page';
 import PrivacyPage from '@/app/privacy/page';
 import TermsPage from '@/app/terms/page';
 
-/** The one live support mailbox. Verified in the Auth email templates and certified in QA. */
-const SUPPORT_EMAIL = 'support@hiredcorp.co.ke';
+/** The one support mailbox the website offers, shared with the app and Auth email templates. */
+const SUPPORT_EMAIL = 'support@kwikserve.co.ke';
 const SUPPORT_MAILTO = `mailto:${SUPPORT_EMAIL}`;
 
 /** The address this replaced. It must never reappear in website source or in rendered output. */
@@ -71,7 +71,7 @@ function filesContaining(needle: string): string[] {
 // ---------------------------------------------------------------------------
 
 describe('canonical website support address', () => {
-  it('is exactly the Hired Corp support mailbox', () => {
+  it('is exactly the KwikServe support mailbox', () => {
     expect(BRAND.email).toBe(SUPPORT_EMAIL);
   });
 

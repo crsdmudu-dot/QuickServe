@@ -53,7 +53,7 @@ export default function FaqPage() {
           <SectionHeading
             eyebrow="Still Have Questions?"
             title="We're Here to Help"
-            subtitle="Our support team is available around the clock. Reach out and we'll get back to you quickly."
+            subtitle="Can't find your answer? Email our support team and we'll get back to you."
             align="center"
           />
         </div>

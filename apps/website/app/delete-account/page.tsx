@@ -59,7 +59,7 @@ export default function DeleteAccountPage() {
           <div className="flex flex-col gap-3">
             <h2 className="text-heading font-bold text-ink">2. Can&apos;t sign in? Ask us</h2>
             <p className="text-body text-textSecondary">
-              Email{' '}
+              Email {BRAND.supportName} at{' '}
               <a
                 href={`mailto:${BRAND.email}?subject=${encodeURIComponent(REQUEST_SUBJECT)}`}
                 className="text-primary underline underline-offset-2 hover:text-primaryDark"

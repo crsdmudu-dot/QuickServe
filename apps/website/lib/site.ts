@@ -11,7 +11,9 @@ export const BRAND = {
   tagline: 'Trusted home services in Nairobi',
   description:
     'KwikServe connects customers in Nairobi with verified professionals for home, auto, delivery, and personal-care services.',
-  email: 'support@hiredcorp.co.ke',
+  email: 'support@kwikserve.co.ke',
+  // The name shown with the address; the app uses the same (SUPPORT_NAME in src/lib/support.ts).
+  supportName: 'KwikServe Support',
   socials: [
     'https://twitter.com/quickserveke', // PLACEHOLDER
     'https://facebook.com/quickserveke', // PLACEHOLDER

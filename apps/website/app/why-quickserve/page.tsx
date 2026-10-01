@@ -103,8 +103,8 @@ export default function WhyQuickServePage() {
           </p>
           <p className="text-body text-textSecondary">
             You see the full price before you confirm. You track your pro in real time. You pay
-            securely through the app — and if anything goes wrong, our support team is available
-            around the clock.
+            securely through the app — and if anything goes wrong, you can email KwikServe
+            Support for help.
           </p>
         </div>
       </section>

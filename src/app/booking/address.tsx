@@ -16,7 +16,8 @@
 
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Spacing } from '@/constants/theme';
@@ -156,7 +157,10 @@ export default function AddressScreen() {
       <View style={styles.headerRow}>
         <Button label="← Back" variant="ghost" onPress={handleBack} testID="booking-address-back" />
       </View>
-      <ScrollView
+      {/* Keeps the address or apartment-detail field being typed in (incl. Access notes) visible
+          above the keyboard; Continue can be scrolled to (see src/app/_layout.tsx). */}
+      <KeyboardAwareScrollView
+        bottomOffset={Spacing.five}
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -292,7 +296,7 @@ export default function AddressScreen() {
 
           <Button label="Continue" fullWidth onPress={handleContinue} />
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

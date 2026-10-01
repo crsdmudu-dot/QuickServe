@@ -1,6 +1,6 @@
 /**
  * support-access.test.tsx — the standing requirement that a user who needs help is offered a route
- * to the verified support mailbox.
+ * to the support mailbox.
  *
  * Covered here: the terminal and blocking mobile surfaces (Auth invalid states, the root not-found
  * screen) and the two profile screens that are the discoverable entry point. The global error
@@ -60,7 +60,7 @@ jest.mock('@/lib/earnings', () => ({
 }));
 
 const HASH = 'a'.repeat(64);
-const SUPPORT_URL = 'mailto:support@hiredcorp.co.ke';
+const SUPPORT_URL = 'mailto:support@kwikserve.co.ke';
 
 const useAuthMock = useAuth as jest.Mock;
 const useParamsMock = useLocalSearchParams as unknown as jest.Mock;
