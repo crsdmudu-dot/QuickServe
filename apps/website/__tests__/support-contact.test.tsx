@@ -2,7 +2,7 @@
 //
 // One cross-cutting requirement, pinned in one place: whenever a visitor needs help on the
 // KwikServe website they must be offered the KwikServe support mailbox, and only that
-// mailbox. The contract spans the brand constant (lib/site.ts), the FAQ copy (content/site.ts),
+// mailbox. The contract spans the brand constant (lib/site.ts), the Home FAQ preview (content/site.ts),
 // the shared footer and the four assistance/legal pages, so it is asserted here rather than
 // scattered across lib/content/components/pages suites where no single file could express it.
 //
@@ -15,8 +15,9 @@ import { join } from 'node:path';
 import { render, screen } from '@testing-library/react';
 
 import { BRAND, SITE_URL } from '@/lib/site';
-import { FAQ_ITEMS, NAV_LINKS } from '@/content/site';
+import { FAQ_PREVIEW_QUESTIONS, NAV_LINKS } from '@/content/site';
 
+import Home from '@/app/page';
 import MarketingFooter from '@/components/MarketingFooter';
 import SupportPage from '@/app/support/page';
 import ContactPage from '@/app/contact/page';
@@ -159,15 +160,13 @@ describe('support copy', () => {
     expect(filesContaining('in-app chat')).toEqual([]);
   });
 
-  it('claims no chat channel in the FAQ answer', () => {
-    const answer = FAQ_ITEMS.find((item) => /support/i.test(item.question))?.answer ?? '';
-    expect(answer).not.toMatch(/chat/i);
-  });
-
-  it('directs the user to email the support mailbox in the FAQ answer', () => {
-    const answer = FAQ_ITEMS.find((item) => /support/i.test(item.question))?.answer ?? '';
-    expect(answer).toContain(SUPPORT_EMAIL);
-    expect(answer).toMatch(/email/i);
+  it('the Home FAQ preview restates no support answer: its support question links to the FAQ page (F-127c-2)', () => {
+    // The answer is part of the approved FAQ text (content/faq.md), which only the FAQ page renders.
+    const question = FAQ_PREVIEW_QUESTIONS.find((q) => /support/i.test(q)) ?? '';
+    expect(question).toBeTruthy();
+    const { container } = render(<Home />);
+    expect(screen.getByRole('link', { name: question })).toHaveAttribute('href', '/faq');
+    expect(container.textContent ?? '').not.toMatch(/chat/i);
   });
 
   it('offers no chat channel on the rendered Support page', () => {
@@ -181,8 +180,8 @@ describe('support copy', () => {
 // ---------------------------------------------------------------------------
 
 describe('unrelated site values are unchanged', () => {
-  it('keeps the canonical site URL', () => {
-    expect(SITE_URL).toBe('https://quickserve.co.ke');
+  it('uses the kwikserve.co.ke canonical site URL', () => {
+    expect(SITE_URL).toBe('https://kwikserve.co.ke');
   });
 
   it('keeps the brand name and tagline', () => {

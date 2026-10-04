@@ -18,7 +18,7 @@ import CtaSection from '@/components/CtaSection';
 
 export const metadata = buildMetadata({
   title: 'Become a Service Provider in Nairobi — Join KwikServe',
-  description: `Grow your business as a service provider in Nairobi. Join KwikServe, get a steady stream of jobs, set your own hours, and keep more of your earnings. ${SEO_PHRASES[5]} — apply free today.`,
+  description: `Grow your business as a service provider in Nairobi. Join KwikServe, get bookings for the services you offer and set your own availability. ${SEO_PHRASES[5]} — joining is free.`,
   path: '/become-a-provider',
 });
 
@@ -38,8 +38,8 @@ export default function BecomeAProviderPage() {
           </h1>
           <p className="text-body text-textSecondary max-w-2xl">
             Whether you&apos;re a plumber, electrician, cleaner, mechanic, or beautician — KwikServe
-            connects you with customers who need your skills right now. Get a steady stream of jobs,
-            set your own schedule, and build a reputation that drives repeat business.
+            connects you with customers who need your skills. Get bookings for the services you
+            offer, set your own availability, and build your reputation.
           </p>
           {/* Prominent provider CTA near top */}
           <div className="flex flex-col sm:flex-row items-center gap-4 mt-2">
@@ -56,7 +56,7 @@ export default function BecomeAProviderPage() {
               {SECONDARY_CTA.label}
             </Link>
           </div>
-          <p className="text-caption text-textTertiary">Free to join · No upfront fees · Get paid fast</p>
+          <p className="text-caption text-textTertiary">Free to join · No upfront fees · Payouts by M-PESA</p>
         </div>
       </section>
 
@@ -90,31 +90,31 @@ export default function BecomeAProviderPage() {
         <div className="max-w-4xl mx-auto flex flex-col gap-10">
           <SectionHeading
             eyebrow="Getting Started"
-            title="Apply in Minutes"
-            subtitle="Joining KwikServe as a service provider is quick, free, and straightforward."
+            title="How to Join"
+            subtitle="Joining KwikServe as a service provider is free and straightforward."
             align="center"
           />
           <ol className="grid grid-cols-1 sm:grid-cols-2 gap-6 list-none">
             {[
               {
                 step: 1,
-                title: 'Submit your application',
-                body: 'Fill in your name, skills, and service area via the app or Contact page. Takes under 5 minutes.',
+                title: 'Sign up in the app',
+                body: 'Sign up as a provider in the KwikServe app.',
               },
               {
                 step: 2,
-                title: 'Complete verification',
-                body: 'We verify your identity and skills to protect customers and uphold our quality standard.',
+                title: 'Complete your profile',
+                body: 'Add your services, skills and experience. We may ask to see a licence or certificate for regulated work.',
               },
               {
                 step: 3,
-                title: 'Get approved & go live',
-                body: 'Once approved, your profile is visible to customers in your area and jobs start coming in.',
+                title: 'Start taking bookings',
+                body: 'Once your provider account is active, you can take the bookings our team assigns to you.',
               },
               {
                 step: 4,
                 title: 'Earn, grow & repeat',
-                body: 'Complete jobs, collect great reviews, build your reputation, and watch your bookings grow.',
+                body: 'Complete jobs, earn good ratings and build your reputation.',
               },
             ].map(({ step, title, body }) => (
               <li key={step} className="bg-surface border border-border rounded-lg p-6 flex flex-col gap-3">
@@ -139,10 +139,10 @@ export default function BecomeAProviderPage() {
             title="We Welcome All Skilled Professionals"
           />
           <p className="text-body text-textSecondary">
-            If you are skilled, reliable, and passionate about delivering great service, we want you
-            on the KwikServe platform. We currently onboard professionals in Nairobi across all 19+
-            service categories — from electricians and plumbers to cleaners, mechanics, beauticians,
-            and delivery riders. Expansion to other Kenyan cities is underway.
+            If you are skilled, reliable and 18 or over, we want you on the KwikServe platform. We
+            onboard professionals in Kenya across the 19 service categories in the app — from
+            electricians and plumbers to cleaners, mechanics, beauticians and delivery riders. You
+            must hold any licence the law requires for the services you offer.
           </p>
           <p className="text-body text-textSecondary">
             Questions about the process? Visit our{' '}
@@ -163,7 +163,7 @@ export default function BecomeAProviderPage() {
       {/* ------------------------------------------------------------------ */}
       <CtaSection
         heading="Ready to Start Earning?"
-        body="Join hundreds of professionals already growing their business on KwikServe. Apply today — it's free."
+        body="Sign up in the KwikServe app. Joining is free."
         primaryCta={PROVIDER_CTA}
         secondaryCta={SECONDARY_CTA}
       />
