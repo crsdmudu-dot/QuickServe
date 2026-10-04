@@ -125,6 +125,15 @@ describe('AdminWebModerationScreen', () => {
     );
   });
 
+  it('a person report carries the booking-photo check (C-124-2); a chat message report does not', async () => {
+    render(<AdminWebModerationScreen />);
+    await screen.findByText('Synthetic bio text');
+    expect(screen.getByTestId('report-photo-check-rep-user-1')).toHaveTextContent(
+      /Check the photos on the bookings these two people share, delete any that break the rules .*then decide on suspension\./,
+    );
+    expect(screen.queryByTestId('report-photo-check-rep-msg-1')).toBeNull();
+  });
+
   it('"Action taken" and "Dismiss" close the report with the right outcome', async () => {
     render(<AdminWebModerationScreen />);
     await screen.findByText('Synthetic rude message');
