@@ -4,14 +4,14 @@
     "slug": "QuickServe",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/kwikserve-icon-1024.png",
     "scheme": ["kwikserve", "quickserve"],
     "userInterfaceStyle": "automatic",
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": "./assets/images/kwikserve-icon-1024.png",
       "bundleIdentifier": "ke.co.hiredcorp.kwikserve",
       "buildNumber": "1",
       "config": {
@@ -20,10 +20,10 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#00875A",
+        "foregroundImage": "./assets/images/kwikserve-adaptive-foreground.png",
+        "backgroundImage": "./assets/images/kwikserve-adaptive-background.png",
+        "monochromeImage": "./assets/images/kwikserve-adaptive-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "ke.co.hiredcorp.kwikserve",
@@ -33,19 +33,16 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/kwikserve-favicon-48.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#FFFFFF",
-          "image": "./assets/images/splash-icon.png",
-          "android": {
-            "image": "./assets/images/splash-icon.png",
-            "imageWidth": 76
-          }
+          "backgroundColor": "#00875A",
+          "image": "./assets/images/kwikserve-splash-mark.png",
+          "imageWidth": 200
         }
       ],
       "@react-native-community/datetimepicker",
