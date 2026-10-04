@@ -2,12 +2,13 @@
 //
 // PM stage 127c, F-127c-10. In commit A, content/ holds no approved text, so the checks on the real files are SKIPPED
 // (Vitest reports them as skipped, not passed). When content/delete-account.md or content/privacy.md exists, they
-// render the real page and look for the store elements in helpers/approved-texts.ts. The H-1 check runs on all five
-// content-rendered pages in both states.
+// render the real page and look for the store elements in helpers/approved-texts.ts. When content/faq.md exists, the
+// Home FAQ preview questions must be question headings of the approved FAQ (PM stage 127d, F-127d-2). The H-1 check
+// runs on all five content-rendered pages in both states.
 //
 // The checks themselves are always tested on synthetic FIXTURE text below (a complete sample passes; a sample missing
 // one element fails on exactly that element), so a skipped real-file check is never an untested one.
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ComponentType } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -22,9 +23,18 @@ import LegalMarkdown from '@/components/LegalMarkdown';
 import { parseLegalMarkdown } from '@/lib/legal-markdown';
 import { canonicalText, findElements } from '../scripts/check-legal-pages.mjs';
 
-import { DELETION_PAGE_CHECKS, H1_OLD_PHRASES, PRIVACY_PAGE_CHECKS, h1PhrasesIn, missingElements } from './helpers/approved-texts';
+import { FAQ_PREVIEW_QUESTIONS } from '@/content/site';
+import {
+  DELETION_PAGE_CHECKS,
+  H1_OLD_PHRASES,
+  PRIVACY_PAGE_CHECKS,
+  h1PhrasesIn,
+  missingElements,
+  unmatchedPreviewQuestions,
+} from './helpers/approved-texts';
 
 const WEBSITE_ROOT = join(__dirname, '..');
+const FAQ_FIXTURE = join(__dirname, 'fixtures', 'legal', 'faq.fixture.md');
 const approvedFileExists = (name: string) => existsSync(join(WEBSITE_ROOT, 'content', name));
 
 /** The real page's approved-text container, as built (the tests run with apps/website as the working directory). */
@@ -44,6 +54,15 @@ describe.runIf(approvedFileExists('delete-account.md'))('the approved account-de
 describe.runIf(approvedFileExists('privacy.md'))('the approved Privacy Policy (content/privacy.md)', () => {
   it('carries every store element (Apple 5.1.1(i); Google Play User Data)', () => {
     expect(missingElements(PRIVACY_PAGE_CHECKS, container(PrivacyPage, 'privacy'))).toEqual([]);
+  });
+});
+
+// PM stage 127d, F-127d-2: the Home page lists FAQ_PREVIEW_QUESTIONS (content/site.ts), linking to /faq. Once the
+// approved FAQ is in content/, every listed question must be one of its question headings, word for word, so the Home
+// page never words a question differently from the approved text. Commit B reconciles the list with the approved FAQ.
+describe.runIf(approvedFileExists('faq.md'))('the Home FAQ preview against the approved FAQ (content/faq.md)', () => {
+  it('each Home FAQ preview question is a question heading on the approved FAQ page', () => {
+    expect(unmatchedPreviewQuestions(FAQ_PREVIEW_QUESTIONS, container(FaqPage, 'faq'))).toEqual([]);
   });
 });
 
@@ -152,6 +171,20 @@ describe('the store-element checks fire correctly (positive and negative control
     expect(missingElements(PRIVACY_PAGE_CHECKS, renderFixture(moved))).toEqual(
       expect.arrayContaining(['has a "Your rights" section', 'the rights section covers access', 'the rights section covers deletion']),
     );
+  });
+
+  // The FAQ preview pin, on the FIXTURE FAQ under __tests__/fixtures/legal/ (its question headings are
+  // "A synthetic question?" and "Another synthetic question?").
+  it('the FAQ preview pin passes when every preview question is a FIXTURE FAQ question heading', () => {
+    const fixtureFaq = renderFixture(readFileSync(FAQ_FIXTURE, 'utf8'));
+    expect(unmatchedPreviewQuestions(['A synthetic question?', 'Another synthetic question?'], fixtureFaq)).toEqual([]);
+  });
+
+  it('the FAQ preview pin fails on exactly the preview question worded differently from the FIXTURE FAQ', () => {
+    const fixtureFaq = renderFixture(readFileSync(FAQ_FIXTURE, 'utf8'));
+    expect(unmatchedPreviewQuestions(['A synthetic question?', 'Another synthetic question currently?'], fixtureFaq)).toEqual([
+      'Another synthetic question currently?',
+    ]);
   });
 
   it('the H-1 check finds each of the five phrases, whatever the case and spacing', () => {

@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // scripts/check-legal-pages.mjs — proves that each built page shows exactly its approved text (PM stage 127, F-127-5).
 //
 // For each of the five pages (terms, privacy, delete-account, support, faq) it compares:

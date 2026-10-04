@@ -78,6 +78,17 @@ export const PRIVACY_PAGE_CHECKS: readonly Check[] = [
   { element: 'links to the account-deletion page', ok: (h) => hasHref(h, /^\/delete-account\/?$/) },
 ];
 
+/**
+ * The Home page FAQ preview questions (content/site.ts FAQ_PREVIEW_QUESTIONS) that are NOT, in canonical text, equal
+ * to a question heading (h2-h6) of the FAQ page's approved-text container. An empty list means every preview question
+ * appears on the approved FAQ page word for word (PM stage 127d, F-127d-2). Body text never counts: a question must be
+ * a heading.
+ */
+export function unmatchedPreviewQuestions(questions: readonly string[], containerHtml: string): string[] {
+  const onPage = new Set(headings(containerHtml));
+  return questions.filter((question) => !onPage.has(canonicalText(question)));
+}
+
 /** The elements a page's approved-text container lacks (an empty list means every element is there). */
 export function missingElements(checks: readonly Check[], containerHtml: string): string[] {
   const text = canonicalText(containerHtml);
