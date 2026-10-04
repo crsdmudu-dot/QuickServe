@@ -1,5 +1,7 @@
 import { Stack } from 'expo-router';
 
+import { CANCEL_HEADER, CANCEL_LIST_HEADER, HELP_HEADER } from '@/constants/cancellation-copy';
+
 export default function BookingLayout() {
   return (
     <Stack screenOptions={{ headerShown: true, title: 'Book a service' }}>
@@ -23,6 +25,10 @@ export default function BookingLayout() {
       <Stack.Screen name="track/[id]" options={{ title: 'Tracking' }} />
       {/* Chat is not part of booking either, so it gets its own header title (it showed "Book a service"). */}
       <Stack.Screen name="chat/[id]" options={{ title: 'Chat' }} />
+      {/* Update 74, customer cancellation. Titles are DRAFT (src/constants/cancellation-copy.ts). */}
+      <Stack.Screen name="cancel/index" options={{ title: CANCEL_LIST_HEADER }} />
+      <Stack.Screen name="cancel/[id]" options={{ title: CANCEL_HEADER }} />
+      <Stack.Screen name="help/[id]" options={{ title: HELP_HEADER }} />
     </Stack>
   );
 }

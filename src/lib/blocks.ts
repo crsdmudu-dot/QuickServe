@@ -4,6 +4,7 @@
 // will not assign them to the same booking. Everything is enforced by the 0066 database functions
 // and rules; these helpers only call them.
 import { supabase } from '@/lib/supabase';
+import { CHAT_BLOCKED_NOTICE_CUSTOMER_TEXT } from '@/constants/cancellation-copy';
 
 /** One row of the signed-in user's block list. */
 export type BlockedUser = {
@@ -15,18 +16,19 @@ export type BlockedUser = {
 };
 
 /**
- * Shown in place of the chat input while either person blocks the other.
- *
- * WORDING (D-12 / C-05, Update 72b): the owner's wording of 2026-10-02 11:16 (O-72-1), still pending the owner's
- * signed approval.
- * - The email is a request that support acts on, not an automatic cancellation. The text must never say or imply
- *   that sending the email cancels the booking (a test checks this).
- * - It is valid only while the app has no in-app cancel (O-CANCEL1). It must change again in the release that ships
- *   in-app cancellation (Update 74).
- * - The name and address must still equal SUPPORT_NAME and SUPPORT_EMAIL in src/lib/support.ts (a test checks it).
+ * Shown in place of the chat input while either person blocks the other. The text depends on the reader
+ * (PM stage 95 (c); Update 74):
+ *  - provider (and any build without in-app cancellation): the owner's wording of 2026-10-02 11:16
+ *    (O-72-1). The email is a request, never an automatic cancellation;
+ *  - customer (Update 74, DRAFT): points to Cancel booking / Get help on the booking screen, email for
+ *    anything else (src/constants/cancellation-copy.ts).
+ * Both name SUPPORT_NAME and SUPPORT_EMAIL (src/lib/support.ts).
  */
-export const CHAT_BLOCKED_NOTICE =
+export const CHAT_BLOCKED_NOTICE_PROVIDER =
   "Chat isn't available for this booking. To request cancellation, email KwikServe Support at support@kwikserve.co.ke.";
+export const CHAT_BLOCKED_NOTICE_CUSTOMER = CHAT_BLOCKED_NOTICE_CUSTOMER_TEXT;
+/** Kept for existing imports: the provider wording. */
+export const CHAT_BLOCKED_NOTICE = CHAT_BLOCKED_NOTICE_PROVIDER;
 
 export async function blockUser(userId: string): Promise<{ ok: boolean; error?: string }> {
   const { error } = await supabase.rpc('block_user', { p_user_id: userId });

@@ -149,7 +149,19 @@ const ALLOWLIST_F5: Record<string, { kind: Kind; why: string }> = {
   'public.get_my_account_state()': { kind: 'caller', why: "the caller's own account state (active, suspended or deleted)" },
 };
 
-const ALLOWLIST: Record<string, { kind: Kind; why: string }> = { ...ALLOWLIST_0064, ...ALLOWLIST_F5 };
+/**
+ * Update 74, customer cancellation in the app (provisional migrations 0077 = H1, the terminal guard;
+ * 0078 = H2, the location lock; 0079 = the feature; the final numbers are assigned at merge). The guard
+ * trigger function of 0077 is a trigger function, so it is exempt; 0078 re-creates an existing function.
+ */
+const ALLOWLIST_U74: Record<string, { kind: Kind; why: string }> = {
+  'public.customer_cancel_booking(uuid,text,uuid)': {
+    kind: 'caller',
+    why: "cancels only the caller's own booking, under a row lock, before work starts; active users only",
+  },
+};
+
+const ALLOWLIST: Record<string, { kind: Kind; why: string }> = { ...ALLOWLIST_0064, ...ALLOWLIST_F5, ...ALLOWLIST_U74 };
 
 /** The 49 functions 0064 Part B takes away from PUBLIC and anon (O2). */
 const O2_SWEPT = Object.keys(ALLOWLIST_0064).filter(
@@ -250,10 +262,11 @@ describe('function EXECUTE privilege audit (M7) and 0064', () => {
       expect(auditViolations(model, ALLOWLIST, policyText)).toEqual([]);
     });
 
-    it('the allowlist holds 68 reviewed entries as of 0064 plus the F5 entries, and exactly three may be called by anon', () => {
+    it('the allowlist holds 68 reviewed entries as of 0064 plus the F5 and Update 74 entries, and exactly three may be called by anon', () => {
       expect(Object.keys(ALLOWLIST_0064)).toHaveLength(68);
       expect(Object.keys(ALLOWLIST_F5)).toHaveLength(17);
-      expect(Object.keys(ALLOWLIST)).toHaveLength(68 + 17);
+      expect(Object.keys(ALLOWLIST_U74)).toHaveLength(1);
+      expect(Object.keys(ALLOWLIST)).toHaveLength(68 + 17 + 1);
       const anon = [...model.functions.values()].filter((f) => f.securityDefiner && !isTriggerFunction(f) && anonOrPublic(f)).map((f) => f.key);
       expect(anon.sort()).toEqual(['public.deletion_path_frozen(text,text)', 'public.is_active_user()', 'public.is_admin()']);
     });

@@ -108,7 +108,9 @@ export const DELETE_CONFIRMATION_WORD = 'DELETE';
 export const DELETION_BLOCKER_COPY: Record<DeletionBlocker, string> = {
   active_booking: 'You have a booking that is not yet completed or cancelled.',
   pending_payment_attempt: 'A payment is still being processed.',
-  unsettled_payment: 'A payment on one of your bookings has not been settled.',
+  // Update 74 (DRAFT): a cancellation in the app closes its own payment; only a booking KwikServe cancelled can leave one open.
+  unsettled_payment:
+    'A payment on one of your bookings has not been settled. If that booking was cancelled by KwikServe, email KwikServe Support at support@kwikserve.co.ke and we will close the payment.',
   unpaid_provider_earning: 'You have earnings that have not been paid out yet.',
   positive_wallet_balance: 'Your wallet still has a balance.',
   open_support_case: 'A support case involving your account is still open.',

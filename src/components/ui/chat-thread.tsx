@@ -16,7 +16,12 @@ import { Input } from '@/components/ui/input';
 import { MessageBubble } from '@/components/ui/message-bubble';
 import { ReportForm } from '@/components/ui/report-form';
 import { Text } from '@/components/ui/text';
-import { blockUser, CHAT_BLOCKED_NOTICE, isBookingChatBlocked } from '@/lib/blocks';
+import {
+  blockUser,
+  CHAT_BLOCKED_NOTICE_CUSTOMER,
+  CHAT_BLOCKED_NOTICE_PROVIDER,
+  isBookingChatBlocked,
+} from '@/lib/blocks';
 import {
   getChatPeerName,
   getBookingMessages,
@@ -88,6 +93,11 @@ export function ChatThread({ bookingId, booking, mode }: ChatThreadProps) {
         ? booking.customer_id
         : null;
   const canReport = mode === 'participant' && counterpartId != null;
+  // Update 74 (PM stage 95 (c)): the blocked-chat notice depends on who reads it.
+  const blockedNotice =
+    currentUserId != null && currentUserId === booking.customer_id
+      ? CHAT_BLOCKED_NOTICE_CUSTOMER
+      : CHAT_BLOCKED_NOTICE_PROVIDER;
 
   // ── Block handler ────────────────────────────────────────────────────────
   async function handleConfirmBlock() {
@@ -252,7 +262,7 @@ export function ChatThread({ bookingId, booking, mode }: ChatThreadProps) {
             </Text>
           ) : chatBlocked ? (
             <Text variant="caption" color="textSecondary" testID="chat-blocked-notice">
-              {CHAT_BLOCKED_NOTICE}
+              {blockedNotice}
             </Text>
           ) : (
             <>

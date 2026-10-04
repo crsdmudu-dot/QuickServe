@@ -1,0 +1,42 @@
+# Update 74 — a customer cancels a booking in the app before work starts (steps 1–5).
+#
+# NOT RUN YET (written 2026-10-02; to run later on a QA build, Maestro first, per the owner's 09-30 rule).
+# Prerequisite (QA only, set up by qa/native/backend.mjs in the QA window, never Production): the customer
+# has ONE open ${SERVICE} booking that is pending, accepted, or assigned to an in-app provider (assigned
+# or on the way), with no payment request and no wallet or promo applied.
+# Backend check afterwards (QA, read-only): status 'cancelled'; one booking_cancellations row with
+# from_status and reason_code 'plans_changed'; one provider notice; one admin notice; no location row.
+#
+# Params via -e: CUST_EMAIL, CUST_PW, SERVICE (for example "House Cleaning"). Credentials are never stored here.
+appId: ke.co.hiredcorp.kwikserve
+---
+- runFlow: steps/login-customer.yaml
+- tapOn: "My Bookings"
+# iOS groups the booking-card texts into one combined accessibility label; .*…* matches it.
+- extendedWaitUntil: { visible: ".*${SERVICE}.*", timeout: 15000 }
+- tapOn: ".*${SERVICE}.*"
+- extendedWaitUntil: { visible: "Booking Detail", timeout: 15000 }
+- runFlow: { when: { visible: "No thanks" }, commands: [ { tapOn: "No thanks" } ] }
+# Step 1: Cancel booking is offered (Get help is not).
+- scrollUntilVisible: { element: { id: "booking-cancel" }, direction: DOWN, timeout: 15000 }
+- assertNotVisible: { id: "booking-help" }
+- tapOn: { id: "booking-cancel" }
+# Step 2: the booking and what cancelling means.
+- extendedWaitUntil: { visible: "Cancel this booking?", timeout: 15000 }
+- assertVisible: { id: "cancel-consequences" }
+- assertVisible: "There is nothing to pay for this booking."
+- assertNotVisible: ".*[Rr]efund.*"
+# Step 3: an optional reason (a radio; tapping it again would clear it).
+- scrollUntilVisible: { element: { id: "cancel-reason-plans_changed" }, direction: DOWN, timeout: 10000 }
+- tapOn: { id: "cancel-reason-plans_changed" }
+# Step 4: one confirmation.
+- scrollUntilVisible: { element: { id: "cancel-confirm" }, direction: DOWN, timeout: 10000 }
+- tapOn: { id: "cancel-confirm" }
+# Step 5: a clear result.
+- extendedWaitUntil: { visible: "Booking cancelled", timeout: 20000 }
+- assertVisible: "There is nothing to pay."
+- tapOn: { id: "cancel-back-to-booking" }
+# The booking screen reloads on focus: the cancelled banner shows and Cancel booking is gone.
+- extendedWaitUntil: { visible: { id: "progress-cancelled" }, timeout: 15000 }
+- assertNotVisible: { id: "booking-cancel" }
+- scrollUntilVisible: { element: { id: "booking-rebook" }, direction: DOWN, timeout: 10000 }
