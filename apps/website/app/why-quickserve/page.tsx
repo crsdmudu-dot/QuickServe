@@ -18,7 +18,7 @@ import CtaSection from '@/components/CtaSection';
 
 export const metadata = buildMetadata({
   title: 'Why Choose KwikServe — Trusted Home Services in Nairobi',
-  description: `Discover why KwikServe is Nairobi's most trusted on-demand services platform. Vetted professionals, transparent pricing, real-time tracking, and ${SEO_PHRASES[5]} delivered to your door.`,
+  description: `See what KwikServe offers: upfront quotes, real-time tracking, M-PESA payment after the job and ${SEO_PHRASES[5]} at your door.`,
   path: '/why-quickserve',
 });
 
@@ -34,7 +34,7 @@ export default function WhyQuickServePage() {
             as="h1"
             eyebrow="Our Promise"
             title="Why Choose KwikServe"
-            subtitle={`We raise the bar on every booking. ${SEO_PHRASES[5]} — vetted, on time, and backed by transparent pricing so you can relax and let the pros handle it.`}
+            subtitle={`${SEO_PHRASES[5]}, with a quote before any work starts, so you can relax and let the pros handle it.`}
             align="center"
           />
         </div>
@@ -74,7 +74,7 @@ export default function WhyQuickServePage() {
             subtitle="Every interaction on KwikServe is designed around your safety, satisfaction, and peace of mind."
             align="center"
           />
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
             {TRUST_BADGES.map((badge) => (
               <TrustBadge
                 key={badge.label}
@@ -97,14 +97,13 @@ export default function WhyQuickServePage() {
             title="What Sets Us Apart"
           />
           <p className="text-body text-textSecondary">
-            Unlike informal referrals or classifieds, every professional on KwikServe has been
-            identity-verified, skill-assessed, and approved before their first job. We enforce
-            punctuality, monitor reviews, and remove providers who fall below our standards.
+            You can report or block anyone in the app, our team reviews every report within 24 hours,
+            and we can suspend providers who break our rules.
           </p>
           <p className="text-body text-textSecondary">
-            You see the full price before you confirm. You track your pro in real time. You pay
-            securely through the app — and if anything goes wrong, you can email KwikServe
-            Support for help.
+            You see the price in a quote before you accept it. You can follow your provider on the
+            map while they are on the way. You pay with M-PESA in the app after the job — and if
+            anything goes wrong, you can email KwikServe Support for help.
           </p>
         </div>
       </section>
@@ -114,7 +113,7 @@ export default function WhyQuickServePage() {
       {/* ------------------------------------------------------------------ */}
       <CtaSection
         heading="Experience the KwikServe Difference"
-        body="Join thousands of satisfied customers across Nairobi. Book your first service today."
+        body="Book your first service in the KwikServe app."
         primaryCta={PRIMARY_CTA}
         secondaryCta={PROVIDER_CTA}
       />

@@ -1,6 +1,6 @@
 // app/contact/page.tsx — Static contact information page.
 // Server component — NO form submission, NO backend, NO Supabase.
-// Only static contact info: mailto links, social links, pointers to FAQ and support.
+// Only static contact info: the support mailto link and pointers to FAQ and support. No social links (none exist).
 
 import Link from 'next/link';
 import { buildMetadata } from '@/lib/site';
@@ -65,7 +65,7 @@ export default function ContactPage() {
               <span className="text-3xl" role="img" aria-label="Support">🎧</span>
               <h3 className="text-heading font-semibold text-ink">Help & Support</h3>
               <p className="text-label text-textSecondary">
-                For booking issues, account questions, or urgent help:
+                For booking issues and account questions:
               </p>
               <Link
                 href="/support"
@@ -90,21 +90,14 @@ export default function ContactPage() {
               </Link>
             </div>
 
-            {/* Social — handles not yet claimed; shown as coming soon, no live links */}
+            {/* Who runs KwikServe */}
             <div className="bg-surface border border-border rounded-lg p-6 flex flex-col gap-3">
-              <span className="text-3xl" role="img" aria-label="Social media">💬</span>
-              <h3 className="text-heading font-semibold text-ink">Social Media</h3>
+              <span className="text-3xl" role="img" aria-label="Company">🏢</span>
+              <h3 className="text-heading font-semibold text-ink">Who Runs KwikServe</h3>
               <p className="text-label text-textSecondary">
-                Our social media channels are coming soon. Check back later!
+                KwikServe is operated by Hired Corp Limited, a company registered in Kenya. If anyone
+                is in danger, contact the police or emergency services first, and then tell us.
               </p>
-              <ul className="flex flex-col gap-1">
-                {(['Twitter / X', 'Facebook', 'Instagram'] as const).map((platform) => (
-                  <li key={platform} className="text-label text-textSecondary">
-                    {platform}{' '}
-                    <span className="text-xs font-medium text-textSecondary opacity-60">(coming soon)</span>
-                  </li>
-                ))}
-              </ul>
             </div>
           </div>
         </div>
@@ -137,7 +130,7 @@ export default function ContactPage() {
       {/* ------------------------------------------------------------------ */}
       <CtaSection
         heading="Ready to Book a Service?"
-        body="Download the KwikServe app and book a vetted professional in under a minute."
+        body="Book home, auto, delivery and personal-care services in the KwikServe app."
         primaryCta={PRIMARY_CTA}
       />
     </>

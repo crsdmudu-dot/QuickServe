@@ -1,0 +1,19 @@
+# apps/website/public/_headers — response headers for the public website (kwikserve.co.ke).
+#
+# `npm run build` copies public/ into out/, and the kwikserve-website Worker serves out/ as static assets with no
+# script, so this file is the only way the site sends security headers. It follows decision D3 option 1 (PM stage 127;
+# owner build basis 2026-10-04): the three lines the admin deployment already serves (apps/admin/public/_headers),
+# plus a Permissions-Policy that turns off browser features this site never uses.
+#
+# Deliberately NOT here:
+#   - X-Robots-Tag: the site, and above all the Terms, Privacy and account-deletion pages, must stay indexable (D8 (a)).
+#   - Strict-Transport-Security: HSTS is a separate zone decision; includeSubDomains or preload would bind every
+#     hostname under kwikserve.co.ke, including the mail names.
+#   - Content-Security-Policy: a later, reviewed change (report-only first).
+# The offline check is check-headers-file.mjs (package 79 checker) on the built out/ folder.
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()

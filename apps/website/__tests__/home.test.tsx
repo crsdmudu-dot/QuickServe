@@ -2,7 +2,6 @@
 
 import { render, screen, getAllByRole } from '@testing-library/react';
 import Home from '@/app/page';
-import { STAT_PLACEHOLDERS } from '@/content/site';
 
 describe('Home page', () => {
   // -------------------------------------------------------------------------
@@ -68,16 +67,6 @@ describe('Home page', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Stat placeholder value
-  // -------------------------------------------------------------------------
-  it('renders a stat placeholder value from STAT_PLACEHOLDERS', () => {
-    render(<Home />);
-    // At least one stat value (e.g. "10,000+") should be present
-    const firstStat = STAT_PLACEHOLDERS[0];
-    expect(screen.getByText(firstStat.value)).toBeInTheDocument();
-  });
-
-  // -------------------------------------------------------------------------
   // FAQ "See all FAQs" link
   // -------------------------------------------------------------------------
   it('renders a "See all FAQs" link pointing to /faq', () => {
@@ -88,24 +77,14 @@ describe('Home page', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Social proof placeholder caption
+  // No placeholder social proof (stage-04 F2-2 / M6): no invented figures or testimonials
   // -------------------------------------------------------------------------
-  it('labels social-proof stats as illustrative placeholders', () => {
-    render(<Home />);
-    // The caption containing "Illustrative placeholder figures" should be present
-    expect(
-      screen.getByText(/illustrative placeholder figures/i)
-    ).toBeInTheDocument();
-  });
-
-  // -------------------------------------------------------------------------
-  // Testimonial placeholder caption
-  // -------------------------------------------------------------------------
-  it('labels testimonials as illustrative', () => {
-    render(<Home />);
-    // Both the testimonials section and stats section have "Illustrative" captions —
-    // use getAllByText since duplicates are expected and intentional.
-    const illustrativeNodes = screen.getAllByText(/illustrative/i, { selector: 'p' });
-    expect(illustrativeNodes.length).toBeGreaterThanOrEqual(1);
+  it('renders no placeholder figures, testimonials or "illustrative" captions', () => {
+    const { container } = render(<Home />);
+    const text = container.textContent ?? '';
+    expect(text).not.toMatch(/illustrative|placeholder|testimonial/i);
+    expect(text).not.toContain('10,000+');
+    expect(text).not.toContain('4.9');
+    expect(container.querySelector('blockquote')).toBeNull();
   });
 });

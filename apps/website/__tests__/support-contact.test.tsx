@@ -181,8 +181,8 @@ describe('support copy', () => {
 // ---------------------------------------------------------------------------
 
 describe('unrelated site values are unchanged', () => {
-  it('keeps the canonical site URL', () => {
-    expect(SITE_URL).toBe('https://quickserve.co.ke');
+  it('uses the kwikserve.co.ke canonical site URL', () => {
+    expect(SITE_URL).toBe('https://kwikserve.co.ke');
   });
 
   it('keeps the brand name and tagline', () => {

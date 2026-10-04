@@ -8,7 +8,6 @@ import {
   PROVIDER_CTA,
   SECONDARY_CTA,
   DOWNLOAD_CTA,
-  STAT_PLACEHOLDERS,
   FAQ_ITEMS,
 } from '@/content/site';
 
@@ -103,15 +102,23 @@ describe('CTA hrefs', () => {
   });
 });
 
-describe('STAT_PLACEHOLDERS', () => {
-  it('is non-empty', () => {
-    expect(STAT_PLACEHOLDERS.length).toBeGreaterThan(0);
+describe('placeholder social proof', () => {
+  it('exports no placeholder stats or testimonials (stage-04 F2-2 / M6)', async () => {
+    const content = await import('@/content/site');
+    expect('STAT_PLACEHOLDERS' in content).toBe(false);
+    expect('TESTIMONIAL_PLACEHOLDERS' in content).toBe(false);
   });
 });
 
-describe('FAQ_ITEMS', () => {
-  it('has at least 6 entries', () => {
-    expect(FAQ_ITEMS.length).toBeGreaterThanOrEqual(6);
+describe('FAQ_ITEMS (the Home page preview; the FAQ page renders content/faq.md)', () => {
+  it('holds exactly the 4 entries the Home page shows', () => {
+    expect(FAQ_ITEMS).toHaveLength(4);
+  });
+
+  it('carries no provider review or approval claim (D10 (b), H-93-1)', () => {
+    for (const item of FAQ_ITEMS) {
+      expect(`${item.question} ${item.answer}`).not.toMatch(/approved by our team|reviewed and approved|are providers checked/i);
+    }
   });
 
   it('every entry has a question and an answer', () => {

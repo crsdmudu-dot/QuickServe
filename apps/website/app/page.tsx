@@ -11,8 +11,6 @@ import {
   PROVIDER_BENEFITS,
   TRUST_BADGES,
   FAQ_ITEMS,
-  STAT_PLACEHOLDERS,
-  TESTIMONIAL_PLACEHOLDERS,
   PRIMARY_CTA,
   PROVIDER_CTA,
   DOWNLOAD_CTA,
@@ -25,15 +23,13 @@ import ServiceCategoryCard from '@/components/ServiceCategoryCard';
 import TrustBadge from '@/components/TrustBadge';
 import StepCard from '@/components/StepCard';
 import BenefitItem from '@/components/BenefitItem';
-import TestimonialCard from '@/components/TestimonialCard';
-import StatCard from '@/components/StatCard';
 import FaqItem from '@/components/FaqItem';
 import CtaSection from '@/components/CtaSection';
 
 // Page-level metadata overrides layout defaults for /
 export const metadata = buildMetadata({
   title: 'KwikServe — Book Trusted Home Services in Nairobi',
-  description: `Book ${SEO_PHRASES[0]}, ${SEO_PHRASES[1]}, ${SEO_PHRASES[3]}, and more — all on demand. ${SEO_PHRASES[5]}: vetted professionals, transparent pricing, real-time tracking.`,
+  description: `Book ${SEO_PHRASES[0]}, ${SEO_PHRASES[1]}, ${SEO_PHRASES[3]}, and more — all on demand. ${SEO_PHRASES[5]}: upfront quotes, real-time tracking and M-PESA payment after the job.`,
   path: '/',
 });
 
@@ -51,7 +47,7 @@ export default function Home() {
       {/* ------------------------------------------------------------------ */}
       <Hero
         headline="Your Trusted Home Services Platform in Nairobi"
-        subheadline="Book vetted professionals in under a minute — transparent pricing, real-time tracking, and guaranteed quality across 19+ services."
+        subheadline="Upfront quotes, real-time tracking and M-PESA payment after the job, across 19 services."
         supporting="Cleaning · Plumbing · Electrical · Delivery · Beauty & more"
         primaryCta={PRIMARY_CTA}
         secondaryCta={PROVIDER_CTA}
@@ -92,7 +88,7 @@ export default function Home() {
             subtitle="Every interaction on KwikServe is designed around your safety, satisfaction, and peace of mind."
             align="center"
           />
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
             {TRUST_BADGES.map((badge) => (
               <TrustBadge
                 key={badge.label}
@@ -133,7 +129,7 @@ export default function Home() {
       {/* ------------------------------------------------------------------ */}
       <CtaSection
         heading="Ready to Book Your First Service?"
-        body="Join thousands of customers across Nairobi who trust KwikServe for fast, reliable, professional services."
+        body="Book home, auto, delivery and personal-care services in a few taps."
         primaryCta={PRIMARY_CTA}
         secondaryCta={PROVIDER_CTA}
       />
@@ -217,54 +213,6 @@ export default function Home() {
       </section>
 
       {/* ------------------------------------------------------------------ */}
-      {/* 8. Testimonials (placeholder)                                       */}
-      {/* ------------------------------------------------------------------ */}
-      <section className="py-16 px-6 bg-background">
-        <div className="max-w-7xl mx-auto flex flex-col gap-10">
-          <SectionHeading
-            eyebrow="Testimonials"
-            title="What People Are Saying"
-            subtitle="Hear from customers and providers who use KwikServe every day."
-            align="center"
-          />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {TESTIMONIAL_PLACEHOLDERS.map((testimonial) => (
-              <TestimonialCard
-                key={testimonial.author}
-                quote={testimonial.quote}
-                author={testimonial.author}
-                role={testimonial.role}
-              />
-            ))}
-          </div>
-          <p className="text-caption text-textTertiary text-center" aria-label="Testimonials disclaimer">
-            Illustrative — these are representative examples, not verified customer reviews. Real reviews coming soon.
-          </p>
-        </div>
-      </section>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* 9. Social Proof / Stats (placeholder)                               */}
-      {/* ------------------------------------------------------------------ */}
-      <section className="py-16 px-6 bg-primarySurface">
-        <div className="max-w-7xl mx-auto flex flex-col gap-10">
-          <SectionHeading
-            eyebrow="By the Numbers"
-            title="KwikServe at a Glance"
-            align="center"
-          />
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-            {STAT_PLACEHOLDERS.map((stat) => (
-              <StatCard key={stat.label} value={stat.value} label={stat.label} />
-            ))}
-          </div>
-          <p className="text-caption text-textTertiary text-center">
-            Illustrative placeholder figures — not live data. These numbers will be replaced with verified metrics before public launch.
-          </p>
-        </div>
-      </section>
-
-      {/* ------------------------------------------------------------------ */}
       {/* 10. FAQ Preview                                                     */}
       {/* ------------------------------------------------------------------ */}
       <section className="py-16 px-6 bg-background">
@@ -295,7 +243,7 @@ export default function Home() {
       {/* ------------------------------------------------------------------ */}
       <CtaSection
         heading="Get the KwikServe App"
-        body="Download for Android or iOS and book your first service in under a minute."
+        body="Coming soon to Android and iOS."
         primaryCta={DOWNLOAD_CTA}
       />
 
@@ -304,7 +252,7 @@ export default function Home() {
       {/* ------------------------------------------------------------------ */}
       <CtaSection
         heading="Join KwikServe Today"
-        body="Whether you need a service or want to offer one — KwikServe connects you to the right people, fast."
+        body="Whether you need a service or want to offer one, KwikServe connects you with the right people."
         primaryCta={PRIMARY_CTA}
         secondaryCta={PROVIDER_CTA}
       />

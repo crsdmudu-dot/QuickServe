@@ -1,0 +1,43 @@
+// apps/website/wrangler.jsonc — the PUBLIC website kwikserve.co.ke, as its own Cloudflare Worker (assets only).
+//
+// It hosts ONLY the static export of apps/website (`npm run build` here writes ./out). It is a separate Worker,
+// `kwikserve-website`: the admin Worker `quickserve` (apps/admin/wrangler.jsonc) is never touched by it, and this
+// Worker is not connected to Workers Builds, so a merge to main never deploys it. It is deployed only by a reviewed,
+// owner-approved `npx wrangler deploy -c apps/website/wrangler.jsonc` from the repository root, after
+// `npm run check:terms-release` prints TERMS RELEASE OK.
+//
+// `directory` is relative to THIS file, so "./out" resolves to apps/website/out.
+// - not_found_handling "404-page": an unknown path gets out/404.html with status 404 (Next.js writes it).
+// - html_handling "auto-trailing-slash": the export writes terms/index.html etc. (trailingSlash: true), so /terms
+//   redirects to /terms/; the app links to <EXPO_PUBLIC_WEBSITE_URL>/terms.
+// - The security headers come from public/_headers (copied into out/); the Worker has no script to set them.
+// - routes: both hostnames are Workers Custom Domains. Cloudflare creates their DNS records and certificates itself,
+//   which requires that NO DNS record exists on either hostname first (delete the placeholder A 127.0.0.1 on the apex
+//   and the www record immediately before the deploy; Update 42 step 8). Mail records (MX, SPF, DMARC, the DKIM and
+//   `mail` CNAMEs) are on other names or record types and are not affected.
+//   PROVISIONAL: the www route follows decision D5 option (a), "serve both", until the owner decides D5 (O4a). If D5
+//   changes, this route changes in a reviewed fix commit.
+// - workers_dev false and preview_urls false: the site is reachable only on kwikserve.co.ke and www.kwikserve.co.ke.
+// - observability off (decision D7 (a); PM stage 127 F-127-7): Workers Logs are not enabled for this site.
+//
+// There is deliberately no Worker script (`main`), no bindings, no secrets and no environment variables here.
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "kwikserve-website",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./out",
+    "not_found_handling": "404-page",
+    "html_handling": "auto-trailing-slash"
+  },
+  "routes": [
+    { "pattern": "kwikserve.co.ke", "custom_domain": true },
+    // PROVISIONAL (D5 (a), pending the owner's O4a decision): www serves the same site.
+    { "pattern": "www.kwikserve.co.ke", "custom_domain": true }
+  ],
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": {
+    "enabled": false
+  }
+}

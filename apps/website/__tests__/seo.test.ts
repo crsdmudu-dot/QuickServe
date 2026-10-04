@@ -14,18 +14,18 @@ describe('sitemap()', () => {
     expect(entries).toHaveLength(13);
   });
 
-  it('includes https://quickserve.co.ke/ (home)', () => {
+  it('includes https://kwikserve.co.ke/ (home)', () => {
     const urls = entries.map((e) => e.url);
-    expect(urls).toContain('https://quickserve.co.ke/');
+    expect(urls).toContain('https://kwikserve.co.ke/');
   });
 
-  it('includes https://quickserve.co.ke/services', () => {
+  it('includes https://kwikserve.co.ke/services', () => {
     const urls = entries.map((e) => e.url);
-    expect(urls).toContain('https://quickserve.co.ke/services');
+    expect(urls).toContain('https://kwikserve.co.ke/services');
   });
 
   it('home entry has priority 1', () => {
-    const home = entries.find((e) => e.url === 'https://quickserve.co.ke/');
+    const home = entries.find((e) => e.url === 'https://kwikserve.co.ke/');
     expect(home?.priority).toBe(1.0);
   });
 
@@ -52,12 +52,12 @@ describe('robots()', () => {
     expect(allowsAll).toBe(true);
   });
 
-  it('sitemap points to https://quickserve.co.ke/sitemap.xml', () => {
-    expect(result.sitemap).toBe('https://quickserve.co.ke/sitemap.xml');
+  it('sitemap points to https://kwikserve.co.ke/sitemap.xml', () => {
+    expect(result.sitemap).toBe('https://kwikserve.co.ke/sitemap.xml');
   });
 
-  it('host is https://quickserve.co.ke', () => {
-    expect(result.host).toBe('https://quickserve.co.ke');
+  it('host is https://kwikserve.co.ke', () => {
+    expect(result.host).toBe('https://kwikserve.co.ke');
   });
 });
 
@@ -73,9 +73,9 @@ describe('Home page metadata', () => {
     expect(pageMetadata.description).toBeTruthy();
   });
 
-  it('canonical URL is https://quickserve.co.ke/', () => {
+  it('canonical URL is https://kwikserve.co.ke/', () => {
     const alternates = pageMetadata.alternates as { canonical?: string };
-    expect(alternates?.canonical).toBe('https://quickserve.co.ke/');
+    expect(alternates?.canonical).toBe('https://kwikserve.co.ke/');
   });
 
   it('openGraph.url is set', () => {

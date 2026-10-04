@@ -3,3 +3,4 @@ supabase/migrations/005[0-9]_*.sql -text
 supabase/migrations/006[0-9]_*.sql -text
 supabase/migrations/007[0-9]_*.sql -text
 apps/website/content/terms-*.md -text
+apps/website/content/*.md -text

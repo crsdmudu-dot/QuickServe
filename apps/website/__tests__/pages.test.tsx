@@ -25,7 +25,6 @@ import { metadata as homeMeta } from '@/app/page';
 import {
   SERVICE_CATEGORIES,
   PROVIDER_BENEFITS,
-  FAQ_ITEMS,
 } from '@/content/site';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -101,10 +100,11 @@ describe('/why-quickserve page', () => {
     expect(h1.textContent).toMatch(/Why Choose KwikServe/i);
   });
 
-  it('renders trust badges', () => {
+  it('renders trust badges, and no "approved providers" badge (D10 (b), H-93-1)', () => {
     render(<WhyQuickServePage />);
-    expect(screen.getAllByText('Verified Providers').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Secure Payments').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Live Job Status').length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText(/approved providers/i)).toBeNull();
   });
 
   it('has a defined, non-empty metadata title', () => {
@@ -183,20 +183,9 @@ describe('/faq page', () => {
     expect(h1.textContent).toMatch(/Frequently Asked Questions/i);
   });
 
-  it('renders ≥6 FAQ questions', () => {
+  it('collapses no answer: the FAQ text is static, from content/faq.md (legal-pages.test.tsx)', () => {
     render(<FaqPage />);
-    // FAQ questions are rendered as buttons (FaqItem uses a button toggle)
-    const questions = FAQ_ITEMS.slice(0, 6).map((item) => item.question);
-    for (const q of questions) {
-      expect(screen.getByRole('button', { name: new RegExp(q, 'i') })).toBeInTheDocument();
-    }
-  });
-
-  it('renders all 8 FAQ items', () => {
-    render(<FaqPage />);
-    const buttons = screen.getAllByRole('button');
-    // All FAQ items render as toggle buttons
-    expect(buttons.length).toBeGreaterThanOrEqual(FAQ_ITEMS.length);
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
   });
 
   it('has a defined, non-empty metadata title', () => {
@@ -231,7 +220,7 @@ describe('/contact page', () => {
     expect(forms.length).toBe(0);
   });
 
-  it('renders no live outbound anchor to placeholder social domains', () => {
+  it('renders no outbound anchor to social media domains', () => {
     // Placeholder social URLs must not be rendered as live <a href="..."> links.
     const { container } = render(<ContactPage />);
     const anchors = Array.from(container.querySelectorAll('a'));
@@ -243,11 +232,9 @@ describe('/contact page', () => {
     expect(liveLinks.length).toBe(0);
   });
 
-  it('shows a coming-soon notice for social channels', () => {
-    render(<ContactPage />);
-    // The "coming soon" text indicates social handles are not yet active.
-    const comingSoonElements = screen.getAllByText(/coming soon/i);
-    expect(comingSoonElements.length).toBeGreaterThanOrEqual(1);
+  it('advertises no social media channel (none exist)', () => {
+    const { container } = render(<ContactPage />);
+    expect(container.textContent ?? '').not.toMatch(/social media|twitter|facebook|instagram/i);
   });
 
   it('has a defined, non-empty metadata title', () => {
@@ -259,20 +246,17 @@ describe('/contact page', () => {
 // 8. /support
 // =============================================================================
 describe('/support page', () => {
-  it('renders a single <h1> containing "Help & Support"', () => {
+  it('renders a single <h1> about support', () => {
     render(<SupportPage />);
     const h1 = screen.getByRole('heading', { level: 1 });
     expect(h1).toBeInTheDocument();
-    expect(h1.textContent).toMatch(/Help & Support/i);
+    expect(h1.textContent).toMatch(/Support/i);
   });
 
-  it('links to /faq and /contact', () => {
+  it('links to /contact (the closing call to action)', () => {
     render(<SupportPage />);
     const links = screen.getAllByRole('link');
-    const faqLink = links.find((el) => el.getAttribute('href') === '/faq');
-    const contactLink = links.find((el) => el.getAttribute('href') === '/contact');
-    expect(faqLink).toBeDefined();
-    expect(contactLink).toBeDefined();
+    expect(links.some((el) => el.getAttribute('href') === '/contact')).toBe(true);
   });
 
   it('has a defined, non-empty metadata title', () => {
@@ -316,6 +300,10 @@ describe('/download page', () => {
 // =============================================================================
 // 10. /privacy
 // =============================================================================
+// The Privacy, Terms and account-deletion pages render the owner's approved files (content/…) and have no wording of
+// their own; their structure, the version line and the page-to-approved-file equality (F-127-5) are tested in
+// legal-pages.test.tsx against FIXTURE texts. These tests hold in both states: before the approved files are added
+// (a notice) and after (the approved text).
 describe('/privacy page', () => {
   it('renders a single <h1> containing "Privacy Policy"', () => {
     render(<PrivacyPage />);
@@ -329,68 +317,6 @@ describe('/privacy page', () => {
     const text = document.body.textContent ?? '';
     expect(text).not.toMatch(/placeholder/i);
     expect(text).not.toMatch(/pending legal review/i);
-  });
-
-  it('names the operating entity', () => {
-    render(<PrivacyPage />);
-    expect(document.body.textContent ?? '').toMatch(/Hired Corp Limited/);
-  });
-
-  it.each([
-    ['authentication and account management', /Authentication and account management/i],
-    ['bookings and fulfilment', /Bookings and service fulfilment/i],
-    ['payments and M-PESA', /Payments and M-PESA records/i],
-    ['provider verification and payouts', /Provider verification and payouts/i],
-    ['location data', /Location data/i],
-    ['notifications and device tokens', /Notifications and device tokens/i],
-    ['support, safety, fraud and audit', /Support, safety, fraud prevention and audit/i],
-    ['processors', /Service providers we use/i],
-    ['account deletion', /Deleting your account/i],
-    ['retention', /How long we keep data/i],
-    ['security', /How we protect your data/i],
-    ['rights', /Your rights/i],
-    ['contact', /Contact us/i],
-    ['complaints', /Complaints/i],
-    ['policy updates', /Changes to this policy/i],
-  ])('covers %s', (_label, pattern) => {
-    render(<PrivacyPage />);
-    expect(screen.getByRole('heading', { level: 2, name: pattern })).toBeInTheDocument();
-  });
-
-  it('explains deletion, tombstoning and the admin exclusion, and links to /delete-account', () => {
-    render(<PrivacyPage />);
-    const text = document.body.textContent ?? '';
-    expect(text).toMatch(/Your account record itself is not erased/i);
-    expect(text).toMatch(/it is not anonymous/i);
-    expect(text).toMatch(/we stop serving your data to any device/i);
-    expect(text).toMatch(/Administrator accounts cannot be deleted/i);
-    expect(screen.getByRole('link', { name: /delete your account/i })).toHaveAttribute(
-      'href',
-      '/delete-account',
-    );
-  });
-
-  it('states reasonable-necessity retention with purpose limitation and no fixed period', () => {
-    render(<PrivacyPage />);
-    const text = document.body.textContent ?? '';
-    expect(text).toMatch(/only where it is still needed for the purpose/i);
-    expect(text).toMatch(/legal obligation/i);
-    expect(text).toMatch(/not use retained records for marketing, profiling or any other unrelated purpose/i);
-    expect(text).toMatch(/Some retained records still contain personal information and we do not edit them/i);
-    expect(text).toMatch(/may show you, your home or your belongings/i);
-    expect(text).not.toMatch(/\b\d+\s*(years?|months?|days?)\b/i);
-  });
-
-  it('names the Kenyan supervisory authority for complaints', () => {
-    render(<PrivacyPage />);
-    expect(document.body.textContent ?? '').toMatch(/Office of the Data Protection Commissioner/i);
-  });
-
-  it('lists the rights the policy must offer', () => {
-    render(<PrivacyPage />);
-    const text = document.body.textContent ?? '';
-    const rights = [/access a copy/i, /corrected/i, /object to/i, /restrict/i, /delete your data/i];
-    for (const right of rights) expect(text).toMatch(right);
   });
 
   it('has a defined, non-empty metadata title', () => {
@@ -409,9 +335,11 @@ describe('/terms page', () => {
     expect(h1.textContent).toMatch(/Terms of Service/i);
   });
 
-  it('renders the "pending legal review" placeholder notice', () => {
+  it('carries no placeholder or "pending legal review" status (the placeholder Terms page is gone)', () => {
     render(<TermsPage />);
-    expect(screen.getByText(/placeholder policy pending legal review/i)).toBeInTheDocument();
+    const text = document.body.textContent ?? '';
+    expect(text).not.toMatch(/placeholder/i);
+    expect(text).not.toMatch(/pending legal review/i);
   });
 
   it('has a defined, non-empty metadata title', () => {
@@ -471,75 +399,21 @@ describe('Cross-page admin-link guard', () => {
 });
 
 // ── /delete-account — Google Play public deletion page ───────────────────────
+// The page renders the approved file content/delete-account.md (legal-pages.test.tsx tests it against FIXTURE texts).
 describe('DeleteAccountPage', () => {
-  it('renders the h1, the in-app path, the email request route and legal links', () => {
+  it('renders a single h1 about deleting the account', () => {
     render(<DeleteAccountPage />);
-    expect(screen.getByRole('heading', { level: 1, name: /delete your kwikserve account/i })).toBeInTheDocument();
-    expect(screen.getByText(/delete it yourself in the app/i)).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: /sign in.*ask us/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /privacy policy/i })).toHaveAttribute('href', '/privacy');
-    expect(screen.getByRole('link', { name: /terms of service/i })).toHaveAttribute('href', '/terms');
-    const mail = screen.getAllByRole('link').find((a) => (a.getAttribute('href') ?? '').startsWith('mailto:'));
-    expect(mail?.getAttribute('href')).toMatch(/subject=Account%20deletion%20request/);
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/delete/i);
   });
 
-  it('states what is deleted and what is kept without quoting an unapproved retention period', () => {
-    render(<DeleteAccountPage />);
-    expect(screen.getByText(/what is deleted/i)).toBeInTheDocument();
-    expect(screen.getByText(/what is kept, and why/i)).toBeInTheDocument();
-    expect(document.body.textContent ?? '').not.toMatch(/\b\d+\s*(years?|months?|days?)\b/i);
-  });
-
-  it('states that access ends on completion without promising other devices sign out', () => {
+  it('carries no placeholder wording and none of the withdrawn H-1 photo wording', () => {
     render(<DeleteAccountPage />);
     const text = document.body.textContent ?? '';
-    expect(text).toMatch(/we stop serving your data to any device/i);
-    expect(text).toMatch(/may keep showing its last screen/i);
-    expect(text).not.toMatch(/signed out everywhere immediately/i);
-    expect(text).not.toMatch(/every device is signed out/i);
+    expect(text).not.toMatch(/placeholder|pending legal review/i);
+    expect(text).not.toMatch(/photos attached to those bookings|kept exactly as (?:they were )?uploaded|kept as uploaded/i);
   });
 
-  it('discloses support notes, safety records and retained booking photos', () => {
-    render(<DeleteAccountPage />);
-    const text = document.body.textContent ?? '';
-    expect(text).toMatch(/support cases, internal notes and safety or fraud records/i);
-    expect(text).toMatch(/photos attached to those bookings/i);
-  });
-
-  it('states the purpose limitation and the real access scope', () => {
-    render(<DeleteAccountPage />);
-    const text = document.body.textContent ?? '';
-    expect(text).toMatch(/only where one of these still applies/i);
-    expect(text).toMatch(/the other person on a booking you shared/i);
-    expect(text).toMatch(/do not gain access to your payment records/i);
-    expect(text).toMatch(/not use retained records for marketing, profiling or any other unrelated purpose/i);
-  });
-
-  it('states affirmatively that photos and notes can still identify the user', () => {
-    render(<DeleteAccountPage />);
-    const text = document.body.textContent ?? '';
-    expect(text).toMatch(/Some retained records still contain personal information, and we do not edit/i);
-    expect(text).toMatch(/may show you, your home or your belongings/i);
-    expect(text).toMatch(/may name or describe you/i);
-  });
-
-  it('states that the account record is retained, linked and not anonymous', () => {
-    render(<DeleteAccountPage />);
-    const text = document.body.textContent ?? '';
-    expect(text).toMatch(/Your account record itself is not erased/i);
-    expect(text).toMatch(/linked by an internal identifier/i);
-    expect(text).toMatch(/it is not anonymous/i);
-  });
-
-  it('promises no end-of-retention deletion while no such process is implemented', () => {
-    render(<DeleteAccountPage />);
-    expect(document.body.textContent ?? '').not.toMatch(/fully anonymised/i);
-  });
-
-  it('describes identity verification for the email request route', () => {
-    render(<DeleteAccountPage />);
-    expect(document.body.textContent ?? '').toMatch(
-      /we verify the request by replying to that registered address/i,
-    );
+  it('has a defined, non-empty metadata title', () => {
+    expect(resolveTitle(deleteAccountMeta)).toBeTruthy();
   });
 });

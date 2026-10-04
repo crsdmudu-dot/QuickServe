@@ -10,9 +10,9 @@ import StepCard from '@/components/StepCard';
 import CtaSection from '@/components/CtaSection';
 
 export const metadata = buildMetadata({
-  title: 'How KwikServe Works — Book a Service in Minutes',
+  title: 'How KwikServe Works — Book a Service Step by Step',
   description:
-    'Discover how KwikServe makes booking home services in Nairobi simple: choose a service, set your location, get matched with a verified professional, and track them in real time.',
+    'Discover how KwikServe makes booking home services in Nairobi simple: choose a service, set your location, get a quote in the app, and follow your provider in real time.',
   path: '/how-it-works',
 });
 
@@ -53,27 +53,24 @@ export default function HowItWorksPage() {
       </section>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Why it's fast & reliable                                            */}
+      {/* What to expect                                                      */}
       {/* ------------------------------------------------------------------ */}
       <section className="py-16 px-6 bg-surfaceMuted">
         <div className="max-w-4xl mx-auto flex flex-col gap-6">
           <SectionHeading
-            eyebrow="Our Promise"
-            title="Fast, Reliable & Transparent"
+            eyebrow="What to Expect"
+            title="Clear and Transparent"
             subtitle="Every step of the process is designed to give you confidence — from the moment you open the app to the moment the job is done."
           />
           <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-label text-textSecondary list-none">
             <li className="bg-surface border border-border rounded-lg p-5">
-              <span className="font-semibold text-ink">Upfront pricing</span> — you see the price before you confirm.
-            </li>
-            <li className="bg-surface border border-border rounded-lg p-5">
-              <span className="font-semibold text-ink">Verified professionals</span> — every provider is identity- and skill-verified.
+              <span className="font-semibold text-ink">Upfront quotes</span> — you see the price in a quote before you accept it.
             </li>
             <li className="bg-surface border border-border rounded-lg p-5">
               <span className="font-semibold text-ink">Real-time tracking</span> — follow your pro on the map as they travel to you.
             </li>
             <li className="bg-surface border border-border rounded-lg p-5">
-              <span className="font-semibold text-ink">Secure payment</span> — pay safely in the app after the job is complete.
+              <span className="font-semibold text-ink">M-PESA payment</span> — pay with M-PESA in the app after the job is complete.
             </li>
           </ul>
         </div>
@@ -84,7 +81,7 @@ export default function HowItWorksPage() {
       {/* ------------------------------------------------------------------ */}
       <CtaSection
         heading="Ready to Try It?"
-        body="Book your first service in under a minute and experience the KwikServe difference."
+        body="Book your first service in the KwikServe app."
         primaryCta={PRIMARY_CTA}
         secondaryCta={PROVIDER_CTA}
       />

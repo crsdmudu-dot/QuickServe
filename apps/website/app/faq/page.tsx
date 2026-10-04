@@ -1,67 +1,30 @@
-// app/faq/page.tsx — Frequently asked questions page.
-// Server component — no data fetching, no hooks, no Supabase.
-// All FAQ content mapped from content/site.ts FAQ_ITEMS.
+// app/faq/page.tsx — the Frequently Asked Questions page.
+// Server component, rendered once at build time — no client code, no Supabase.
+//
+// The questions and answers are the approved file content/faq.md, rendered in full (no collapsed answers, so every
+// word is in the page) inside one data-legal-doc="faq" container. It has no version line. While the file is absent
+// the page shows a short notice (components/LegalDocument.tsx). The closing call to action is page chrome, outside the
+// approved text. (The Home page's short FAQ preview still uses FAQ_ITEMS in content/site.ts.)
 
 import { buildMetadata } from '@/lib/site';
-import { FAQ_ITEMS, PRIMARY_CTA, SECONDARY_CTA } from '@/content/site';
-
-import SectionHeading from '@/components/SectionHeading';
-import FaqItem from '@/components/FaqItem';
+import { readContentFile } from '@/lib/legal-content';
+import { PRIMARY_CTA, SECONDARY_CTA } from '@/content/site';
+import { LEGAL_PAGES } from '@/content/legal-pages';
+import LegalDocument from '@/components/LegalDocument';
 import CtaSection from '@/components/CtaSection';
 
+const PAGE = LEGAL_PAGES.faq;
+
 export const metadata = buildMetadata({
-  title: 'Frequently Asked Questions — KwikServe',
-  description:
-    'Find answers to the most common questions about KwikServe: how booking works, payment options, provider verification, coverage areas, the mobile app, and how to get support.',
+  title: PAGE.title,
+  description: PAGE.description,
   path: '/faq',
 });
 
 export default function FaqPage() {
   return (
     <>
-      {/* ------------------------------------------------------------------ */}
-      {/* Page header — single <h1>                                           */}
-      {/* ------------------------------------------------------------------ */}
-      <section className="bg-primarySurface py-20 px-6">
-        <div className="max-w-3xl mx-auto text-center flex flex-col items-center gap-6">
-          <SectionHeading
-            as="h1"
-            eyebrow="Help Centre"
-            title="Frequently Asked Questions"
-            subtitle="Can't find what you're looking for? Visit our support page or contact us directly."
-            align="center"
-          />
-        </div>
-      </section>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* All FAQ items                                                       */}
-      {/* ------------------------------------------------------------------ */}
-      <section className="py-16 px-6 bg-background">
-        <div className="max-w-3xl mx-auto flex flex-col gap-3">
-          {FAQ_ITEMS.map((item) => (
-            <FaqItem key={item.question} question={item.question} answer={item.answer} />
-          ))}
-        </div>
-      </section>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Still need help?                                                    */}
-      {/* ------------------------------------------------------------------ */}
-      <section className="py-16 px-6 bg-surfaceMuted">
-        <div className="max-w-3xl mx-auto flex flex-col gap-4">
-          <SectionHeading
-            eyebrow="Still Have Questions?"
-            title="We're Here to Help"
-            subtitle="Can't find your answer? Email our support team and we'll get back to you."
-            align="center"
-          />
-        </div>
-      </section>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Closing CTA                                                         */}
-      {/* ------------------------------------------------------------------ */}
+      <LegalDocument page={PAGE} text={readContentFile('faq.md')} marker={null} />
       <CtaSection
         heading="Ready to Book or Need More Help?"
         body="Book your first service, or contact our support team for any question not answered above."
