@@ -194,6 +194,15 @@ anything on its own: a confirmed success still goes through the same certified 0
 | Definite "not successful" (a known request that failed) | **Not applied, not recorded**, answered 409. Log line: `success claim refused; M-PESA answered not_successful` | The same: a possible forged callback. The real attempt follows its own callback or the timeout path. |
 | Still processing, rate-limited, unreachable or unrecognised (after 3 tries) | **Not applied**, answered 500 so Safaricom may redeliver. Log line: `success not yet confirmed by M-PESA after retries` | Nothing special: the attempt times out and you reconcile it from the portal as in §4. This is **never** a forgery verdict. |
 
+**A burst means the token has leaked (lead PM S45-1).** A burst of callback-evidence alerts
+(refused or forged success claims: "Unmatched M-PESA success callback — investigate" alerts, or
+`success claim refused` lines in the `mpesa-callback` log) **with no matching transaction in the
+M-PESA portal** (the Utility Account statement, §8) means the callback token is assumed
+**leaked**. Rotate the callback token **at once** (§9), then re-check the portal, the Payment
+attempts page and the callback log. Do not wait for the daily check. The alert text "money may
+have moved" can appear on a forged claim; the portal decides. A single refused claim that the
+portal does not explain is handled the same way at the daily check (§8).
+
 Failure callbacks and callbacks without a CheckoutRequestID are not queried (they cannot settle
 anything). The query needs `DARAJA_BASE_URL`, `DARAJA_CONSUMER_KEY`, `DARAJA_CONSUMER_SECRET`,
 `DARAJA_SHORTCODE` and `DARAJA_PASSKEY` to stay set while requests are in flight, including after
@@ -205,4 +214,64 @@ Not yet available:
   the Safaricom business portal for that (§4).
 - A success claim refused as **not successful** leaves only the function log line above; it is
   not stored in `mpesa_callback_events` (none of that table's classifications describes a known
-  request that failed, and adding one needs a migration).
+  request that failed, and adding one needs a migration). The daily log check in §8 is the
+  control for it until then.
+
+## 8. Daily controls while live (launch-week C9)
+
+Do these **every day** while `MPESA_MODE=live`, and again after any alert. Write one line per day
+in the private launch log (date, who, and the results below). The log stays private: it holds
+receipt codes, so it never goes into a chat, a report or the repository.
+
+1. **Callback log check (known-ID refusals).** Supabase dashboard → Edge Functions →
+   `mpesa-callback` → Logs, the last 24 hours. Search for `success claim refused` (it covers
+   `M-PESA answered not_successful`, a known CheckoutRequestID that Safaricom says did not
+   succeed and that is **only** in this log, and `answered unknown_request; recorded as
+   evidence`) and for `success not yet confirmed by M-PESA after retries`.
+   - For every `success claim refused` line, look for a matching transaction in the Utility
+     Account statement (step 2). **Any line the portal does not explain: treat it as a forged
+     claim and rotate the callback token now (§9).** More than one in a short time is the S45-1
+     burst in §7: rotate at once, without waiting for this check.
+   - A `not yet confirmed` line is not a forgery: its attempt follows the timeout path (§4).
+   - Log line: "callback log: N refused, all explained yes/no; M not confirmed".
+2. **Statement check (collections).** The view-only portal operator signs in to the M-PESA
+   Organization Portal → Transaction → Account Statement → **Utility Account** (customer Paybill
+   payments land there), Completion Time = the previous day 00:00–23:59, Debit/Credit Both.
+   - Every M-PESA payment that became `paid` that day (admin web → Payments) has exactly one
+     "Pay Bill Online" row with the **same amount** and the **same receipt**.
+   - Every "Pay Bill Online" row belongs to exactly one paid payment, or to an attempt you are
+     reconciling now (§4). A row that matches nothing: escalate; never confirm an attempt from
+     phone or amount alone.
+   - Log line per booking: `#<first 8 characters>`, the customer's receipt code, matched yes/no.
+3. **Refund check (R1b).** Refunds are sent from the owner's own M-PESA (send-money to the
+   payer's number) and do **not** appear in the organisation's statements. Match every entry of
+   the refund register (date and time, amount, M-PESA transaction code, masked payer number)
+   with the sender's own M-PESA statement. The register is the only record of refunds: keep it
+   without gaps. Log line: "refunds: N entries, all matched yes/no".
+4. **Payment attempts page.** Admin web → Payment attempts: no attempt left in "Reconciliation
+   required" or "Investigate discrepancy" at the end of the day, and every new piece of
+   "Unmatched M-PESA callback evidence" reviewed (§6).
+5. **Payouts only after a match.** Pay a provider only for bookings marked matched in step 2.
+6. **Any mismatch:** set `MPESA_MODE=disabled` first (§5), then investigate. Never set `mock`.
+
+## 9. Rotating the callback token
+
+The token is the `?token=` part of `DARAJA_CALLBACK_URL`, and it must equal
+`MPESA_CALLBACK_SECRET`. Change **both names together**, back to back (in one save where the
+dashboard allows it, or one `supabase secrets set` call naming both):
+
+- in the Supabase dashboard → Edge Functions → Secrets (Production project; check the project
+  reference in the address bar first), or in your own terminal with history switched off;
+- generate the new value yourself (at least 32 random characters, for example
+  `openssl rand -hex 32`); never paste it into a chat, a ticket, a shared terminal or a report;
+- no redeploy is needed (on 2026-09-11, `MPESA_MODE` changes on Production took effect without
+  one), and no Safaricom registration is needed: the callback URL travels to Safaricom inside
+  every STK request. (The older steps in `backend-readiness.md` §11, "Rotate secrets after
+  leakage", set the two names in separate calls and add a redeploy and a re-registration; this
+  section replaces them for the M-PESA callback token.)
+
+When: at once for a leak (§7, §8). Otherwise only while no request is in flight (no attempt
+`initiated` or `pending`). A request already sent carries the **old** token, so its callback is
+refused with 401 after the rotation; that attempt then times out and is reconciled from the
+portal (§4). Afterwards: the next genuine callback must be applied (its payment becomes `paid`)
+and the log must show no 401 for it.
