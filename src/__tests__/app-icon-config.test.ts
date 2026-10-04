@@ -107,3 +107,51 @@ describe('approved artwork', () => {
     for (const n of named) expect(Object.keys(APPROVED)).toContain(n);
   });
 });
+
+/**
+ * C-128-5 (PM stage 128, F-128-6(a)): the Expo template's image files stay on disk until a later
+ * clean-up, so no app.json value may name one, in any slot (a future platform override included).
+ */
+describe('no template image in app.json', () => {
+  /** The names PM stage 128 C-128-5 lists, searched in the whole expo config. */
+  const C_128_5 = ['/icon.png"', 'android-icon-', 'splash-icon', 'favicon.png', 'expo.icon'];
+
+  /** Every image the Expo template put in assets/ (all from the initial commit, 7c0f1ed). */
+  const TEMPLATE_IMAGES = [
+    'assets/expo.icon',
+    'assets/images/android-icon-background.png',
+    'assets/images/android-icon-foreground.png',
+    'assets/images/android-icon-monochrome.png',
+    'assets/images/expo-badge-white.png',
+    'assets/images/expo-badge.png',
+    'assets/images/expo-logo.png',
+    'assets/images/favicon.png',
+    'assets/images/icon.png',
+    'assets/images/logo-glow.png',
+    'assets/images/react-logo.png',
+    'assets/images/react-logo@2x.png',
+    'assets/images/react-logo@3x.png',
+    'assets/images/splash-icon.png',
+    'assets/images/tabIcons/',
+    'assets/images/tutorial-web.png',
+  ];
+
+  /** Every string value anywhere in the expo config. */
+  function allStrings(value: unknown): string[] {
+    if (typeof value === 'string') return [value];
+    if (Array.isArray(value)) return value.flatMap(allStrings);
+    if (value && typeof value === 'object') return Object.values(value).flatMap(allStrings);
+    return [];
+  }
+
+  test('the whole config contains none of the C-128-5 template names', () => {
+    const text = JSON.stringify(expo);
+    expect(C_128_5.filter((name) => text.includes(name))).toEqual([]);
+  });
+
+  test('no value in the config names a template image', () => {
+    const values = allStrings(expo).map((s) => s.replace(/^\.\//, ''));
+    const offenders = values.filter((v) => TEMPLATE_IMAGES.some((t) => v.startsWith(t)));
+    expect(offenders).toEqual([]);
+  });
+});
