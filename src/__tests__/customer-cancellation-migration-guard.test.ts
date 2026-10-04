@@ -1,6 +1,6 @@
 /**
- * Guard for Update 74's feature migration (customer cancellation in the app). Its number is PROVISIONAL
- * (0079 locally); the final number is assigned at merge, so this guard finds the files by name.
+ * Guard for Update 74's feature migration (customer cancellation in the app). Its number is final
+ * (0076; numbering N1, PM stage 119); this guard finds the files by name.
  * The two hardening migrations have their own guards: H1, the terminal-status guard
  * (booking-terminal-guard-migration.test.ts), and H2, the location lock
  * (provider-location-lock-migration.test.ts).
@@ -35,11 +35,11 @@ const one = (suffix: string) => {
   expect(found).toHaveLength(1);
   return found[0];
 };
-const H1 = one('_provisional_booking_terminal_status_guard.sql');
-const H2 = one('_provisional_provider_location_share_lock.sql');
+const H1 = one('_booking_terminal_status_guard.sql');
+const H2 = one('_provider_location_share_lock.sql');
 // H3 is independent of the feature, so a tree without it is valid.
-const H3_FILES = files.filter((f) => f.endsWith('_provisional_provider_location_visibility.sql'));
-const CANCEL = one('_provisional_customer_booking_cancellation.sql');
+const H3_FILES = files.filter((f) => f.endsWith('_provider_location_visibility.sql'));
+const CANCEL = one('_customer_booking_cancellation.sql');
 const rawOf = (f: string) => fs.readFileSync(path.join(MIGRATIONS, f), 'utf-8');
 const flatOf = (raw: string) =>
   raw
@@ -69,20 +69,20 @@ function sqlArray(name: string): string[] {
   return (m as RegExpExecArray)[1].split(',').map((s) => s.trim().replace(/^'|'$/g, ''));
 }
 
-describe('Update 74 feature migration: provisional numbering and its dependency on H1 and H2', () => {
-  it('is byte-exact (no CR bytes) and named as provisional', () => {
+describe('Update 74 feature migration: final numbering and its dependency on H1 and H2', () => {
+  it('is byte-exact (no CR bytes) and carries its final number', () => {
     expect(cancelRaw.includes('\r')).toBe(false);
-    expect(cancelRaw).toMatch(/PROVISIONAL NUMBER/);
+    expect(cancelRaw).toMatch(/FINAL NUMBER 0076\./);
   });
 
   it('sorts after H1 and H2, and its self-check requires the enabled H1 trigger on its function and H2', () => {
     expect(files.indexOf(CANCEL)).toBeGreaterThan(files.indexOf(H1));
     expect(files.indexOf(CANCEL)).toBeGreaterThan(files.indexOf(H2));
-    expect(cancel).toContain("raise exception 'provisional 0079 self-check: h2 (the location lock, provisional 0078) is not applied'");
+    expect(cancel).toContain("raise exception '0076 self-check: h2 (the location lock, 0074) is not applied'");
     expect(cancel).toContain("position('for share' in coalesce(pg_get_functiondef(to_regprocedure(");
     expect(cancel).toContain("tgname = 'trg_bookings_terminal_guard'");
     expect(cancel).toContain("tgfoid = to_regprocedure('public.tg_bookings_terminal_guard()')");
-    expect(cancel).toContain("raise exception 'provisional 0079 self-check: h1 (the terminal guard, provisional 0077) is not applied'");
+    expect(cancel).toContain("raise exception '0076 self-check: h1 (the terminal guard, 0073) is not applied'");
   });
 
   it('re-creates nothing that H1, H2 or H3 own, and they refer to nothing of the feature', () => {

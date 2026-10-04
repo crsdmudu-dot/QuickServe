@@ -1,15 +1,16 @@
--- 0079_provisional_customer_booking_cancellation.sql - Update 74, the feature: customers cancel in the app.
+-- 0076_customer_booking_cancellation.sql - Update 74, the feature: customers cancel in the app.
 --
--- PROVISIONAL NUMBER. The final number is assigned when this is merged (see H1's header, provisional
--- 0077).
+-- FINAL NUMBER 0076. U74 precedes the v1 activation on every environment (PM stage 119; numbering N1:
+-- H1 0073, H2 0074, H3 0075, the feature 0076). Two packages must never hold the same number, and the
+-- Supabase CLI refuses a lower number once a higher one is recorded on an environment.
 --
--- REQUIRES H1 (provisional 0077, the terminal-status guard) AND H2 (provisional 0078, the location lock).
+-- REQUIRES H1 (0073, the terminal-status guard) AND H2 (0074, the location lock).
 -- Without H1 a provider's in-flight status change could turn a customer's cancellation back into
 -- 'in_progress' (P1). Without H2 a location write in flight at the moment of cancellation could re-create
 -- the tracking row this function deletes (P4). The owner chose Option B (2026-10-03 19:19), and PM stage
 -- 107 requires H2 to be live no later than the feature, so the self-check below stops this file unless
 -- both are in place. H1 and H2 themselves depend on nothing and stay independently releasable. U74-H3
--- (the location visibility, provisional 0076) is independent of this file.
+-- (the location visibility, 0075) is independent of this file.
 --
 -- DECIDED POLICY. The owner's decisions of 2026-10-03 19:19 EAT
 -- (kwikserve-updates/74e-cancellation-owner-decisions/00-OWNER-DECISIONS-2026-10-03-1919.md, items 1-8)
@@ -331,34 +332,34 @@ begin
   if not exists (select 1 from pg_trigger
                   where tgrelid = 'public.bookings'::regclass and tgname = 'trg_bookings_terminal_guard' and not tgisinternal
                     and tgfoid = to_regprocedure('public.tg_bookings_terminal_guard()') and tgenabled = 'O') then
-    raise exception 'provisional 0079 self-check: H1 (the terminal guard, provisional 0077) is not applied';
+    raise exception '0076 self-check: H1 (the terminal guard, 0073) is not applied';
   end if;
   if position('for share' in coalesce(pg_get_functiondef(to_regprocedure(
        'public.upsert_provider_location(uuid, double precision, double precision, double precision, double precision)')), '')) = 0 then
-    raise exception 'provisional 0079 self-check: H2 (the location lock, provisional 0078) is not applied';
+    raise exception '0076 self-check: H2 (the location lock, 0074) is not applied';
   end if;
   if not exists (select 1 from pg_trigger
                   where tgrelid = 'public.bookings'::regclass and tgname = 'trg_bookings_customer_cancel_notice'
                     and not tgisinternal and tgenabled = 'O') then
-    raise exception 'provisional 0079 self-check: the customer notice trigger is missing';
+    raise exception '0076 self-check: the customer notice trigger is missing';
   end if;
   if has_function_privilege('authenticated', 'public.tg_bookings_customer_cancel_notice()'::regprocedure, 'EXECUTE')
      or has_function_privilege('anon', 'public.tg_bookings_customer_cancel_notice()'::regprocedure, 'EXECUTE') then
-    raise exception 'provisional 0079 self-check: the customer notice function is executable by a client role';
+    raise exception '0076 self-check: the customer notice function is executable by a client role';
   end if;
   if has_function_privilege('anon', rpc, 'EXECUTE') then
-    raise exception 'provisional 0079 self-check: customer_cancel_booking is executable by anon';
+    raise exception '0076 self-check: customer_cancel_booking is executable by anon';
   end if;
   if not has_function_privilege('authenticated', rpc, 'EXECUTE') then
-    raise exception 'provisional 0079 self-check: customer_cancel_booking is not executable by authenticated';
+    raise exception '0076 self-check: customer_cancel_booking is not executable by authenticated';
   end if;
   if has_table_privilege('authenticated', 'public.booking_cancellations', 'INSERT')
      or has_table_privilege('authenticated', 'public.booking_cancellations', 'UPDATE')
      or has_table_privilege('authenticated', 'public.booking_cancellations', 'DELETE')
      or has_table_privilege('anon', 'public.booking_cancellations', 'SELECT') then
-    raise exception 'provisional 0079 self-check: a client role can write or anon can read booking_cancellations';
+    raise exception '0076 self-check: a client role can write or anon can read booking_cancellations';
   end if;
   if not has_function_privilege('authenticated', 'public.accept_quote(uuid)'::regprocedure, 'EXECUTE') then
-    raise exception 'provisional 0079 self-check: accept_quote lost its authenticated grant';
+    raise exception '0076 self-check: accept_quote lost its authenticated grant';
   end if;
 end $$;

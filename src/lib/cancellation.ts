@@ -1,6 +1,6 @@
 // cancellation.ts — Update 74: the customer's cancel call and the admin's read of the cancellation record.
 //
-// The server function customer_cancel_booking (supabase/migrations/0079_provisional_…) decides everything
+// The server function customer_cancel_booking (supabase/migrations/0076_customer_booking_cancellation) decides everything
 // under a row lock and answers with a stable code. This module turns that answer into one of five results
 // the screens handle. Nothing here retries by itself: the screen offers "Try again" with the SAME key, so
 // a repeat of a request that already went through returns "already cancelled" and changes nothing.

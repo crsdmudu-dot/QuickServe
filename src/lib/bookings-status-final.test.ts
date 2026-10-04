@@ -1,5 +1,5 @@
 /**
- * Update 74: updateBookingStatus turns the terminal-state guard's refusal (hardening H1, provisional migration 0077,
+ * Update 74: updateBookingStatus turns the terminal-state guard's refusal (hardening H1, migration 0073,
  * 'booking_status_final') into a plain message and a code the provider screen reloads on; any other
  * error keeps the existing generic text.
  */

@@ -8,7 +8,7 @@
  * decision changes one place here.
  *
  * The server decides; this is the app's mirror, used only to choose which button to show. The server has
- * the same block at the top of customer_cancel_booking (supabase/migrations/0079_provisional_…); the guard
+ * the same block at the top of customer_cancel_booking (supabase/migrations/0076_customer_booking_cancellation); the guard
  * test src/__tests__/customer-cancellation-migration-guard.test.ts fails if the two ever differ.
  */
 import type { BookingStatus } from '@/constants/booking-status';

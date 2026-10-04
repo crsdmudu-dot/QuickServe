@@ -150,9 +150,9 @@ const ALLOWLIST_F5: Record<string, { kind: Kind; why: string }> = {
 };
 
 /**
- * Update 74, customer cancellation in the app (provisional migrations 0077 = H1, the terminal guard;
- * 0078 = H2, the location lock; 0079 = the feature; the final numbers are assigned at merge). The guard
- * trigger function of 0077 is a trigger function, so it is exempt; 0078 re-creates an existing function.
+ * Update 74, customer cancellation in the app (migrations 0073 = H1, the terminal guard;
+ * 0074 = H2, the location lock; 0076 = the feature; final numbers per PM stage 119). The guard
+ * trigger function of 0073 is a trigger function, so it is exempt; 0074 re-creates an existing function.
  */
 const ALLOWLIST_U74: Record<string, { kind: Kind; why: string }> = {
   'public.customer_cancel_booking(uuid,text,uuid)': {

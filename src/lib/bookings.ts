@@ -285,7 +285,7 @@ export async function updateBookingStatus(
     .update({ status })
     .eq('id', id);
   // Update 74: the database's terminal-state guard refuses a non-admin's change of a cancelled or completed
-  // booking (hardening H1, provisional migration 0077). Say so plainly, so the provider's screen can reload.
+  // booking (hardening H1, migration 0073). Say so plainly, so the provider's screen can reload.
   if (error?.message === 'booking_status_final') {
     return { ok: false, error: PROVIDER_STATUS_FINAL, code: 'booking_final' };
   }
