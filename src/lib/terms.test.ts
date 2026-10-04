@@ -2,7 +2,7 @@
  * Tests for src/lib/terms.ts and src/constants/terms.ts (F5.4 Terms acceptance).
  */
 import { acceptCurrentTerms, getMyTermsStatus, isTermsNotAccepted, TERMS_NOT_ACCEPTED_MESSAGE } from '@/lib/terms';
-import { CURRENT_TERMS_VERSION, TERMS_KEY_POINTS, termsUrl } from '@/constants/terms';
+import { CURRENT_TERMS_VERSION, TERMS_KEY_POINTS, privacyUrl, termsUrl, websiteOrigin } from '@/constants/terms';
 
 const mockMaybeSingle = jest.fn();
 const mockEq = jest.fn();
@@ -77,6 +77,38 @@ describe('constants/terms', () => {
     expect(termsUrl()).toBe('https://kwikserve.example/terms');
     process.env.EXPO_PUBLIC_WEBSITE_URL = 'https://kwikserve.example/evil path';
     expect(termsUrl()).toBeNull();
+  });
+
+  // D-12: the Privacy Policy link follows the same rule as the Terms link (one website origin, https only).
+  it('shows no Privacy Policy link until an https website address is configured', () => {
+    delete process.env.EXPO_PUBLIC_WEBSITE_URL;
+    expect(privacyUrl()).toBeNull();
+    process.env.EXPO_PUBLIC_WEBSITE_URL = '';
+    expect(privacyUrl()).toBeNull();
+    process.env.EXPO_PUBLIC_WEBSITE_URL = 'http://kwikserve.example';
+    expect(privacyUrl()).toBeNull();
+    process.env.EXPO_PUBLIC_WEBSITE_URL = 'https://kwikserve.example/evil path';
+    expect(privacyUrl()).toBeNull();
+    process.env.EXPO_PUBLIC_WEBSITE_URL = 'https://kwikserve.example/some/path';
+    expect(privacyUrl()).toBeNull();
+    process.env.EXPO_PUBLIC_WEBSITE_URL = 'javascript:alert(1)';
+    expect(privacyUrl()).toBeNull();
+  });
+
+  it('builds the Privacy Policy address with its trailing slash', () => {
+    process.env.EXPO_PUBLIC_WEBSITE_URL = 'https://kwikserve.co.ke';
+    expect(privacyUrl()).toBe('https://kwikserve.co.ke/privacy/');
+    process.env.EXPO_PUBLIC_WEBSITE_URL = ' https://kwikserve.co.ke// ';
+    expect(privacyUrl()).toBe('https://kwikserve.co.ke/privacy/');
+  });
+
+  it('builds the Terms and Privacy addresses from the same website origin', () => {
+    process.env.EXPO_PUBLIC_WEBSITE_URL = 'https://kwikserve.example/';
+    expect(websiteOrigin()).toBe('https://kwikserve.example');
+    expect(termsUrl()).toBe(`${websiteOrigin()}/terms`);
+    expect(privacyUrl()).toBe(`${websiteOrigin()}/privacy/`);
+    delete process.env.EXPO_PUBLIC_WEBSITE_URL;
+    expect(websiteOrigin()).toBeNull();
   });
 
   it('the key points include the owner-approved 24-hour report promise', () => {

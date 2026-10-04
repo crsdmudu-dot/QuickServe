@@ -14,9 +14,19 @@ export type BlockedUser = {
   blocked_at: string;
 };
 
-/** Shown in place of the chat input while either person blocks the other. */
+/**
+ * Shown in place of the chat input while either person blocks the other.
+ *
+ * WORDING (D-12 / C-05, Update 72b): the owner's wording of 2026-10-02 11:16 (O-72-1), still pending the owner's
+ * signed approval.
+ * - The email is a request that support acts on, not an automatic cancellation. The text must never say or imply
+ *   that sending the email cancels the booking (a test checks this).
+ * - It is valid only while the app has no in-app cancel (O-CANCEL1). It must change again in the release that ships
+ *   in-app cancellation (Update 74).
+ * - The name and address must still equal SUPPORT_NAME and SUPPORT_EMAIL in src/lib/support.ts (a test checks it).
+ */
 export const CHAT_BLOCKED_NOTICE =
-  "Chat isn't available for this booking. You can still cancel the booking or contact support.";
+  "Chat isn't available for this booking. To request cancellation, email KwikServe Support at support@kwikserve.co.ke.";
 
 export async function blockUser(userId: string): Promise<{ ok: boolean; error?: string }> {
   const { error } = await supabase.rpc('block_user', { p_user_id: userId });

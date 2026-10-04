@@ -24,6 +24,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PrivacyLink } from '@/components/ui/privacy-link';
 import { SupportLink } from '@/components/ui/support-link';
 import { ProfileCompletionCard } from '@/components/customer/profile-completion-card';
 
@@ -150,6 +151,8 @@ export default function ProfileScreen() {
             onPress={() => router.push('/account/delete')}
             testID="profile-delete-account"
           />
+          {/* D-12: the Privacy Policy on the website (hidden until the website address is configured). */}
+          <PrivacyLink testID="profile-privacy-link" />
           <SupportLink />
         </View>
       </SafeAreaView>

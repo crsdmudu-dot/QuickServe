@@ -6,8 +6,10 @@
  *   - ProfileCompletionCard is rendered
  *   - "Preferences" link navigates to /preferences
  *   - "Trust & Safety" link navigates to /trust
+ *   - the Privacy Policy link opens the website page (D-12), only when the website address is configured
  */
 
+import { Linking } from 'react-native';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 // ── Mocks ──────────────────────────────────────────────────────────────────────
@@ -125,5 +127,32 @@ describe('ProfileScreen', () => {
     await waitFor(() => expect(screen.getByText('Trust & Safety')).toBeOnTheScreen());
     fireEvent.press(screen.getByText('Trust & Safety'));
     expect(router.push).toHaveBeenCalledWith('/trust');
+  });
+});
+
+// D-12: the Privacy Policy is reachable from the Profile screen (App Store 5.1.1(i), Google Play User Data).
+describe('ProfileScreen — Privacy Policy link', () => {
+  const savedUrl = process.env.EXPO_PUBLIC_WEBSITE_URL;
+  afterEach(() => {
+    if (savedUrl === undefined) delete process.env.EXPO_PUBLIC_WEBSITE_URL;
+    else process.env.EXPO_PUBLIC_WEBSITE_URL = savedUrl;
+  });
+
+  it('opens the Privacy Policy on the website once the website address is configured', async () => {
+    process.env.EXPO_PUBLIC_WEBSITE_URL = 'https://kwikserve.example';
+    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    render(<ProfileScreen />);
+    await waitFor(() => expect(screen.getByTestId('profile-completion-card')).toBeOnTheScreen());
+    expect(screen.getByRole('link', { name: 'Privacy Policy' })).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('profile-privacy-link'));
+    expect(open).toHaveBeenCalledWith('https://kwikserve.example/privacy/');
+    open.mockRestore();
+  });
+
+  it('shows no Privacy Policy link while the website address is not configured', async () => {
+    delete process.env.EXPO_PUBLIC_WEBSITE_URL;
+    render(<ProfileScreen />);
+    await waitFor(() => expect(screen.getByTestId('profile-completion-card')).toBeOnTheScreen());
+    expect(screen.queryByTestId('profile-privacy-link')).toBeNull();
   });
 });

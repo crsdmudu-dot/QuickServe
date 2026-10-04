@@ -29,6 +29,7 @@ import {
 } from '@/lib/earnings';
 
 import { resolvePayoutStatus } from '@/lib/payout-status';
+import { PrivacyLink } from '@/components/ui/privacy-link';
 import { SupportLink } from '@/components/ui/support-link';
 
 /** Provider view is READ-ONLY: there is no payout action anywhere on this screen. */
@@ -119,6 +120,7 @@ export default function ProviderProfileScreen() {
   // ── Gate screens ──────────────────────────────────────────────────────────
   // Pending and declined providers can still delete their account (App Store 5.1.1(v) and
   // Google Play's account-deletion policy require it for every account that can be created).
+  // They can also still read the Privacy Policy (D-12), since this is their Profile screen too.
 
   if (approvalStatus === 'pending') {
     return (
@@ -132,6 +134,7 @@ export default function ProviderProfileScreen() {
           secondaryActionLabel="Delete account"
           onSecondaryAction={() => router.push('/account/delete' as Href)}
         />
+        <PrivacyLink testID="profile-privacy-link" style={styles.gateLink} />
       </SafeAreaView>
     );
   }
@@ -148,6 +151,7 @@ export default function ProviderProfileScreen() {
           secondaryActionLabel="Delete account"
           onSecondaryAction={() => router.push('/account/delete' as Href)}
         />
+        <PrivacyLink testID="profile-privacy-link" style={styles.gateLink} />
       </SafeAreaView>
     );
   }
@@ -337,6 +341,8 @@ export default function ProviderProfileScreen() {
               onPress={() => router.push('/account/delete' as Href)}
               testID="profile-delete-account"
             />
+            {/* D-12: the Privacy Policy on the website (hidden until the website address is configured). */}
+            <PrivacyLink testID="profile-privacy-link" />
             <SupportLink />
           </View>
         </View>
@@ -347,6 +353,7 @@ export default function ProviderProfileScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  gateLink: { alignSelf: 'center' },
   scroll: {
     padding: Spacing.four,
     gap: Spacing.five,

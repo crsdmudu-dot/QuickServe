@@ -4,6 +4,7 @@
  * Mocks expo-router, @/auth/auth-context, @/lib/providers, and @/lib/reviews
  * so no network calls are made. Uses findBy* for async data loads.
  */
+import { Linking } from 'react-native';
 
 // The report panel (F5.1) imports @/lib/moderation, which creates the Supabase client. Mock it so
 // this suite needs no Supabase env; the report flow itself is tested in report-form.test.tsx.
@@ -293,5 +294,46 @@ describe('ProviderProfileScreen — rejected', () => {
     render(<ProviderProfileScreen />);
     fireEvent.press(screen.getByText('Delete account'));
     expect(router.push).toHaveBeenCalledWith('/account/delete');
+  });
+});
+
+// D-12: the Privacy Policy is reachable from the provider Profile screen in every approval state
+// (App Store 5.1.1(i), Google Play User Data), and only once the website address is configured.
+describe('ProviderProfileScreen — Privacy Policy link', () => {
+  const savedUrl = process.env.EXPO_PUBLIC_WEBSITE_URL;
+  afterEach(() => {
+    mockApprovalStatus = 'approved';
+    if (savedUrl === undefined) delete process.env.EXPO_PUBLIC_WEBSITE_URL;
+    else process.env.EXPO_PUBLIC_WEBSITE_URL = savedUrl;
+  });
+
+  it('opens the Privacy Policy on the website for an approved provider', async () => {
+    mockApprovalStatus = 'approved';
+    process.env.EXPO_PUBLIC_WEBSITE_URL = 'https://kwikserve.example';
+    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    render(<ProviderProfileScreen />);
+    await screen.findByText('Jane Smith');
+    expect(screen.getByRole('link', { name: 'Privacy Policy' })).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('profile-privacy-link'));
+    expect(open).toHaveBeenCalledWith('https://kwikserve.example/privacy/');
+    open.mockRestore();
+  });
+
+  it.each(['pending', 'rejected'])('offers the Privacy Policy link on the %s gate screen too', (status) => {
+    mockApprovalStatus = status;
+    process.env.EXPO_PUBLIC_WEBSITE_URL = 'https://kwikserve.example';
+    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    render(<ProviderProfileScreen />);
+    fireEvent.press(screen.getByTestId('profile-privacy-link'));
+    expect(open).toHaveBeenCalledWith('https://kwikserve.example/privacy/');
+    open.mockRestore();
+  });
+
+  it('shows no Privacy Policy link while the website address is not configured', async () => {
+    mockApprovalStatus = 'approved';
+    delete process.env.EXPO_PUBLIC_WEBSITE_URL;
+    render(<ProviderProfileScreen />);
+    await screen.findByText('Jane Smith');
+    expect(screen.queryByTestId('profile-privacy-link')).toBeNull();
   });
 });

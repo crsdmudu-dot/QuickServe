@@ -13,6 +13,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/auth/auth-context';
 import { useTermsGate } from '@/auth/terms-gate';
 import { Button } from '@/components/ui/button';
+import { PrivacyLink } from '@/components/ui/privacy-link';
 import { SupportLink } from '@/components/ui/support-link';
 import { Text } from '@/components/ui/text';
 
@@ -56,14 +57,17 @@ export default function AcceptTermsScreen() {
         </View>
 
         {url ? (
-          <Text
-            variant="label"
-            color="primary"
-            accessibilityRole="link"
-            onPress={() => void Linking.openURL(url)}
-            style={styles.link}>
-            Read the full Terms
-          </Text>
+          // D-12: the Privacy Policy link sits beside the Terms link (both come from the same website address).
+          <View style={styles.links}>
+            <Text
+              variant="label"
+              color="primary"
+              accessibilityRole="link"
+              onPress={() => void Linking.openURL(url)}>
+              Read the full Terms
+            </Text>
+            <PrivacyLink label="Read the Privacy Policy" testID="accept-terms-privacy-link" />
+          </View>
         ) : null}
 
         <View style={styles.actions}>
@@ -102,7 +106,8 @@ const styles = StyleSheet.create({
   points: { gap: Spacing.two },
   pointRow: { flexDirection: 'row', gap: Spacing.two },
   pointText: { flex: 1 },
-  link: { marginTop: Spacing.three },
+  // The two links share one row (wrapping on narrow screens).
+  links: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: Spacing.four, marginTop: Spacing.three },
   actions: { gap: Spacing.two, marginTop: Spacing.four },
   footer: { gap: Spacing.three, marginTop: Spacing.five, alignItems: 'center' },
   center: { textAlign: 'center' },

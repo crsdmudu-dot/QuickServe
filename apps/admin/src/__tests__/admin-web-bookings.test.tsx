@@ -26,7 +26,7 @@ jest.mock('@/lib/blocks', () => ({
   blockUser: jest.fn().mockResolvedValue({ ok: true }),
   isBookingChatBlocked: jest.fn().mockResolvedValue(false),
   adminBlockedProviderIds: jest.fn().mockResolvedValue([]),
-  CHAT_BLOCKED_NOTICE: "Chat isn't available for this booking. You can still cancel the booking or contact support.",
+  CHAT_BLOCKED_NOTICE: "Chat isn't available for this booking. To request cancellation, email KwikServe Support at support@kwikserve.co.ke.",
 }));
 
 jest.mock('@/lib/moderation', () => ({
