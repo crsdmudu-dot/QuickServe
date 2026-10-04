@@ -1,11 +1,12 @@
--- 0076_provisional_provider_location_visibility.sql - Update 74, hardening H3: provider-location visibility
+-- 0075_provider_location_visibility.sql - Update 74, hardening H3: provider-location visibility
 -- (M-93-4, owner decision of 2026-10-03 19:19, item 7: option (a)).
 --
--- PROVISIONAL NUMBER. The final number is assigned when this is merged (see H1's header, provisional
--- 0077). Two packages must never hold the same number.
+-- FINAL NUMBER 0075. U74 precedes the v1 activation on every environment (PM stage 119; numbering N1:
+-- H1 0073, H2 0074, H3 0075, the feature 0076). Two packages must never hold the same number, and the
+-- Supabase CLI refuses a lower number once a higher one is recorded on an environment.
 --
--- INDEPENDENTLY RELEASABLE. This file depends on nothing from Update 74: not on H1 (provisional 0077), not
--- on H2 (provisional 0078) and not on the customer cancellation feature (provisional 0079). It can ship
+-- INDEPENDENTLY RELEASABLE. This file depends on nothing from Update 74: not on H1 (0073), not
+-- on H2 (0074) and not on the customer cancellation feature (0076). It can ship
 -- alone, through its own QA and Production windows.
 --   Relation to H2: the visibility rule below holds on its own. Without H2, a location write in flight at
 --   the moment of a completion or cancellation can re-create the row after this file's trigger has deleted
@@ -92,12 +93,12 @@ begin
    where polrelid = 'public.provider_locations'::regclass and polname = 'provider_locations_select' and polcmd = 'r';
   if q is null or position('on_the_way' in q) = 0 or position('in_progress' in q) = 0
      or position('assigned_provider_id' in q) = 0 or position('is_admin()' in q) = 0 then
-    raise exception 'provisional 0076 self-check: provider_locations_select is not the status-restricted rule';
+    raise exception '0075 self-check: provider_locations_select is not the status-restricted rule';
   end if;
   -- Only PERMISSIVE policies can widen a read (the restrictive deny-deleted-identity policy of 0056 narrows it).
   if (select count(*) from pg_policy where polrelid = 'public.provider_locations'::regclass
         and polcmd in ('r', '*') and polpermissive) <> 1 then
-    raise exception 'provisional 0076 self-check: another SELECT policy on provider_locations would widen the rule';
+    raise exception '0075 self-check: another SELECT policy on provider_locations would widen the rule';
   end if;
   select tgfoid, tgtype, tgenabled into t
     from pg_trigger
@@ -106,9 +107,9 @@ begin
   -- function returns null would silently drop every booking update it fires on (PM stage 109, L-109-1).
   if not found or t.tgfoid <> fn or (t.tgtype & 1) = 0 or (t.tgtype & 2) <> 0 or (t.tgtype & 16) = 0
      or t.tgenabled <> 'O' then
-    raise exception 'provisional 0076 self-check: the clearing trigger is not an enabled AFTER UPDATE row trigger on its function';
+    raise exception '0075 self-check: the clearing trigger is not an enabled AFTER UPDATE row trigger on its function';
   end if;
   if has_function_privilege('authenticated', fn, 'EXECUTE') or has_function_privilege('anon', fn, 'EXECUTE') then
-    raise exception 'provisional 0076 self-check: the clearing function is executable by a client role';
+    raise exception '0075 self-check: the clearing function is executable by a client role';
   end if;
 end $$;

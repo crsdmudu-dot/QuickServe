@@ -1,7 +1,7 @@
 /**
  * Guard for Update 74's hardening H3, the provider-location visibility (M-93-4 option (a), owner decision of
- * 2026-10-03 19:19, item 7). Its number is PROVISIONAL (0076 locally); the final number is assigned at
- * merge, so this guard finds the file by name.
+ * 2026-10-03 19:19, item 7). Its number is final: 0075 (numbering N1,
+ * PM stage 119); this guard finds the file by name.
  *
  * Pins the reviewed shape:
  *   - H3 stands alone: it refers to nothing from H1, H2 or the cancellation feature;
@@ -20,7 +20,7 @@ import * as path from 'path';
 
 const MIGRATIONS = path.join(__dirname, '../../supabase/migrations');
 const files = fs.readdirSync(MIGRATIONS).filter((f) => /^\d{4}_.*\.sql$/.test(f)).sort();
-const matching = files.filter((f) => f.endsWith('_provisional_provider_location_visibility.sql'));
+const matching = files.filter((f) => f.endsWith('_provider_location_visibility.sql'));
 const raw = matching.length ? fs.readFileSync(path.join(MIGRATIONS, matching[0]), 'utf-8') : '';
 const flat = raw
   .split('\n')
@@ -30,11 +30,11 @@ const flat = raw
   .trim()
   .toLowerCase();
 
-describe('H3 (location visibility): provisional numbering and independence', () => {
-  it('exists exactly once, is byte-exact (no CR bytes) and is marked provisional', () => {
+describe('H3 (location visibility): final numbering and independence', () => {
+  it('exists exactly once, is byte-exact (no CR bytes) and carries its final number', () => {
     expect(matching).toHaveLength(1);
     expect(raw.includes('\r')).toBe(false);
-    expect(raw).toMatch(/PROVISIONAL NUMBER/);
+    expect(raw).toMatch(/FINAL NUMBER 0075\./);
   });
 
   it('creates only its clearing function and refers to nothing from H1, H2 or the feature', () => {
@@ -88,14 +88,14 @@ describe('H3: the position is deleted when the job ends or the provider changes'
   });
 
   it('stops itself unless the policy, the trigger and the privileges are exactly as intended', () => {
-    expect(flat).toContain("raise exception 'provisional 0076 self-check: provider_locations_select is not the status-restricted rule'");
-    expect(flat).toContain("raise exception 'provisional 0076 self-check: another select policy on provider_locations would widen the rule'");
-    expect(flat).toContain("raise exception 'provisional 0076 self-check: the clearing function is executable by a client role'");
+    expect(flat).toContain("raise exception '0075 self-check: provider_locations_select is not the status-restricted rule'");
+    expect(flat).toContain("raise exception '0075 self-check: another select policy on provider_locations would widen the rule'");
+    expect(flat).toContain("raise exception '0075 self-check: the clearing function is executable by a client role'");
   });
 
   it('its self-check refuses a BEFORE trigger (PM stage 109, L-109-1)', () => {
     expect(flat).toContain(
-      "or (t.tgtype & 1) = 0 or (t.tgtype & 2) <> 0 or (t.tgtype & 16) = 0 or t.tgenabled <> 'o' then raise exception 'provisional 0076 self-check: the clearing trigger is not an enabled after update row trigger on its function'",
+      "or (t.tgtype & 1) = 0 or (t.tgtype & 2) <> 0 or (t.tgtype & 16) = 0 or t.tgenabled <> 'o' then raise exception '0075 self-check: the clearing trigger is not an enabled after update row trigger on its function'",
     );
   });
 });
