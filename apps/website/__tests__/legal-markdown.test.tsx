@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 
 import { LegalMarkdownError, inlineText, isAllowedHref, parseLegalMarkdown, type Block } from '@/lib/legal-markdown';
 import LegalMarkdown from '@/components/LegalMarkdown';
-import { canonicalText, markdownCanonical } from '../scripts/check-legal-pages.mjs';
+import { canonicalText, markdownCanonical, markdownHrefs, pageHrefs } from '../scripts/check-legal-pages.mjs';
 
 const parse = (s: string) => parseLegalMarkdown(s, 'test.md');
 const render = (s: string) => renderToStaticMarkup(<LegalMarkdown blocks={parse(s)} />);
@@ -159,5 +159,29 @@ describe('the rendered HTML and the independent canonical form agree (what F-127
   ];
   it.each(samples.map((s, i) => [i, s]))('sample %i', (_i, source) => {
     expect(canonicalText(render(source as string))).toBe(markdownCanonical(source as string));
+  });
+});
+
+describe('the rendered link targets and the independent list of approved targets agree (F-127c-8)', () => {
+  const hrefsOf = (source: string) => pageHrefs(render(source));
+  const samples = [
+    '# Title\n\nA paragraph that\nwraps over lines, with **bold**, *italics* and a [link](/privacy/).\n\n## Section\n\n- One item\n- Two items\n  wrapped\n\n1. First\n2. Second\n',
+    'Write to support@kwikserve.co.ke, see [the Support page](/support/) or [mail us](mailto:support@kwikserve.co.ke?subject=Account%20deletion%20request).\n',
+    'Mail **support@kwikserve.co.ke** or *a@b.example*, and [text with support@kwikserve.co.ke](/support/) adds no second link.\n',
+    'Escaped: \\[not a link\\](/x/), first\\.last@example.com, and [a real one](#rights).\n',
+    '## Heading with [a link](https://kwikserve.co.ke/terms/)\n\n- item one@example.com\n- item [two](/two/)\n  continued two@example.com\n',
+    'No links at all.\n',
+  ];
+  it.each(samples.map((s, i) => [i, s]))('sample %i', (_i, source) => {
+    expect(hrefsOf(source as string)).toEqual(markdownHrefs(source as string));
+  });
+
+  it('lists links and auto-linked e-mail addresses in order, and no address inside link text', () => {
+    expect(markdownHrefs('[a](/x/) b@c.example [d e@f.example](/y/) g@h.example\n')).toEqual(['/x/', 'mailto:b@c.example', '/y/', 'mailto:g@h.example']);
+    expect(hrefsOf('[a](/x/) b@c.example [d e@f.example](/y/) g@h.example\n')).toEqual(['/x/', 'mailto:b@c.example', '/y/', 'mailto:g@h.example']);
+  });
+
+  it('an escaped "[" starts no link, and an escaped character inside an address is part of it', () => {
+    expect(markdownHrefs('\\[x\\](/x/) first\\.last@example.com\n')).toEqual(['mailto:first.last@example.com']);
   });
 });

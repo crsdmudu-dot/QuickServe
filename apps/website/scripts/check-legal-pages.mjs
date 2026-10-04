@@ -9,7 +9,8 @@
 // On the Terms, Privacy and account-deletion pages it also requires exactly one version line, equal to
 // "Version <version> · Effective <effectiveDate>" from content/terms-release.json, with the same values in the
 // data-terms-version and data-effective-date attributes of one element inside the container. For the Terms it checks the
-// approved file's raw bytes against the record's textSha256.
+// approved file's raw bytes against the record's textSha256. It also compares the ordered list of link targets (every
+// href inside the container) with the approved file's links and auto-linked e-mail addresses (PM stage 127c, F-127c-8).
 //
 //   node scripts/check-legal-pages.mjs [--website <apps/website folder>] [--out <built out folder>]
 //
@@ -135,7 +136,8 @@ function normaliseLine(line) {
   return s.replace(/ {2,}/g, ' ').trim();
 }
 
-export function markdownCanonical(source) {
+/** The approved Markdown file as raw logical lines: one per heading, paragraph and list item (continuations joined). */
+function markdownLogicalLines(source) {
   const lines = source.replace(/^\uFEFF/, '').split(/\r\n|\n|\r/);
   const out = [];
   let open = null; // 'paragraph' | 'item' | null: the kind of the last logical line while it can still continue
@@ -155,7 +157,46 @@ export function markdownCanonical(source) {
     out.push(t);
     open = 'paragraph';
   }
-  return out.map((l) => normaliseLine(mdInline(l))).filter(Boolean).join('\n');
+  return out;
+}
+
+export function markdownCanonical(source) {
+  return markdownLogicalLines(source).map((l) => normaliseLine(mdInline(l))).filter(Boolean).join('\n');
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// The approved file's link targets, in order (PM stage 127c, F-127c-8). Also worked out independently of the site's
+// renderer: every [text](target) link, and every e-mail address in the text outside link text, which the renderer turns
+// into a mailto: link (MD_EMAIL is the renderer's e-mail rule, lib/legal-markdown.ts). Backslash escapes are parked first,
+// as in mdInline, so an escaped "[" never starts a link; they are resolved before e-mail addresses are looked for.
+// ---------------------------------------------------------------------------------------------------------------------
+const MD_LINK = /\[([^\]]*)\]\(([^()\s]*)\)/g;
+const MD_EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/g;
+const parkEscapes = (s) => s.replace(/\\([!-/:-@[-`{-~])/g, (_m, ch) => String.fromCodePoint(PRIVATE_BASE + ch.charCodeAt(0)));
+const PARKED = new RegExp(`[${String.fromCodePoint(PRIVATE_BASE)}-${String.fromCodePoint(PRIVATE_BASE + 0x7f)}]`, 'gu');
+const unparkEscapes = (s) => s.replace(PARKED, (ch) => String.fromCharCode(ch.codePointAt(0) - PRIVATE_BASE));
+
+export function markdownHrefs(source) {
+  const hrefs = [];
+  const emails = (text) => {
+    for (const m of unparkEscapes(text).matchAll(MD_EMAIL)) hrefs.push(`mailto:${m[0]}`);
+  };
+  for (const line of markdownLogicalLines(source)) {
+    const s = parkEscapes(line);
+    let last = 0;
+    for (const m of s.matchAll(MD_LINK)) {
+      emails(s.slice(last, m.index));
+      hrefs.push(unparkEscapes(m[2]));
+      last = m.index + m[0].length;
+    }
+    emails(s.slice(last));
+  }
+  return hrefs;
+}
+
+/** The link targets inside a built container, in document order (every element with an href attribute). */
+export function pageHrefs(fragment) {
+  return findElements(fragment, 'href').map((e) => e.attrs.get('href'));
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -203,7 +244,15 @@ export function compareLegalPage({ html, id, approvedSource, marker }) {
   const pageText = pageLines.join('\n');
   const approved = markdownCanonical(approvedSource);
   if (sha256(pageText) !== sha256(approved)) problems.push(`the page text differs from the approved file: ${firstDifference(approved, pageText)}`);
-  return { ok: problems.length === 0, problems, lines: approved.split('\n').length, approvedSha256: sha256(approved) };
+  // F-127c-8: the same words can hide a different link, so the ordered link targets must be equal too.
+  const wantHrefs = markdownHrefs(approvedSource);
+  const gotHrefs = pageHrefs(inner);
+  for (let i = 0; i < Math.max(wantHrefs.length, gotHrefs.length); i++) {
+    if (wantHrefs[i] === gotHrefs[i]) continue;
+    problems.push(`the page's link targets differ from the approved file: link ${i + 1}: approved ${JSON.stringify(wantHrefs[i] ?? '(none)')} / page ${JSON.stringify(gotHrefs[i] ?? '(none)')} (${wantHrefs.length} approved, ${gotHrefs.length} on the page)`);
+    break;
+  }
+  return { ok: problems.length === 0, problems, lines: approved.split('\n').length, links: wantHrefs.length, approvedSha256: sha256(approved) };
 }
 
 const FINAL_LABEL = /^[a-z0-9][a-z0-9.-]{0,63}$/i;
@@ -233,7 +282,7 @@ export function checkBuild({ website, out }) {
     const bytes = readFileSync(approvedPath);
     if (!d.file && sha256(bytes) !== record.textSha256) problems.push(`${record.textFile} has sha256 ${sha256(bytes)}, but the record approves ${record.textSha256}`);
     const r = compareLegalPage({ html: readFileSync(page, 'utf8'), id: d.id, approvedSource: bytes.toString('utf8'), marker: d.versioned ? { version: record.version, effectiveDate: record.effectiveDate } : null });
-    results.push({ id: d.id, ok: r.ok && !problems.length, problems: [...problems, ...r.problems], lines: r.lines, approvedSha256: r.approvedSha256 });
+    results.push({ id: d.id, ok: r.ok && !problems.length, problems: [...problems, ...r.problems], lines: r.lines, links: r.links, approvedSha256: r.approvedSha256 });
   }
   return results;
 }
@@ -252,7 +301,7 @@ export function main(argv, print = (l) => process.stdout.write(`${l}\n`)) {
   print(`check-legal-pages (F-127-5): website ${website}; build ${out}`);
   const results = checkBuild({ website, out });
   for (const r of results) {
-    if (r.ok) print(`PASS  ${r.id}: the page text equals the approved file (${r.lines} canonical lines, sha256 ${r.approvedSha256})`);
+    if (r.ok) print(`PASS  ${r.id}: the page text and link targets equal the approved file (${r.lines} canonical lines, ${r.links} link targets, sha256 ${r.approvedSha256})`);
     else for (const p of r.problems) print(`FAIL  ${r.id}: ${p}`);
   }
   const failed = results.filter((r) => !r.ok).length;

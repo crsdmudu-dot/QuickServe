@@ -26,6 +26,7 @@ import {
   SERVICE_CATEGORIES,
   PROVIDER_BENEFITS,
 } from '@/content/site';
+import { H1_OLD_PHRASES, h1PhrasesIn } from './helpers/approved-texts';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -406,18 +407,20 @@ describe('Cross-page admin-link guard', () => {
 });
 
 // ── /delete-account — Google Play public deletion page ───────────────────────
-// The page renders the approved file content/delete-account.md (legal-pages.test.tsx tests it against FIXTURE texts).
+// The page renders the approved file content/delete-account.md (legal-pages.test.tsx tests it against FIXTURE texts;
+// approved-texts.test.tsx checks the store elements once the approved file exists).
 describe('DeleteAccountPage', () => {
   it('renders a single h1 about deleting the account', () => {
     render(<DeleteAccountPage />);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/delete/i);
   });
 
-  it('carries no placeholder wording and none of the withdrawn H-1 photo wording', () => {
+  it('carries no placeholder wording and none of the five withdrawn H-1 photo phrases (F-127c-10)', () => {
     render(<DeleteAccountPage />);
     const text = document.body.textContent ?? '';
     expect(text).not.toMatch(/placeholder|pending legal review/i);
-    expect(text).not.toMatch(/photos attached to those bookings|kept exactly as (?:they were )?uploaded|kept as uploaded/i);
+    expect(H1_OLD_PHRASES).toHaveLength(5);
+    expect(h1PhrasesIn(text)).toEqual([]);
   });
 
   it('has a defined, non-empty metadata title', () => {

@@ -7,7 +7,8 @@
 //   - the absent state: no record and no texts give a notice, no container and no version claim; a Privacy or
 //     account-deletion text without the record stops the build (PM stage 127c, F-127c-9);
 //   - fail-closed records: an invalid record, or a Terms file whose bytes differ from textSha256, stops the build;
-//   - F-127-5: the page text equals the approved file (scripts/check-legal-pages.mjs), with negative controls;
+//   - F-127-5: the page text equals the approved file (scripts/check-legal-pages.mjs), with negative controls, and so do
+//     the ordered link targets (PM stage 127c, F-127c-8);
 //   - compatibility with the repository's Terms release gate (scripts/check-terms-release.ts).
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -23,7 +24,7 @@ import SupportPage from '@/app/support/page';
 import FaqPage from '@/app/faq/page';
 import { LegalContentError } from '@/lib/legal-content';
 import { NOT_PUBLISHED_NOTICE } from '@/content/legal-pages';
-import { canonicalText, compareLegalPage, findElements, markdownCanonical } from '../scripts/check-legal-pages.mjs';
+import { canonicalText, compareLegalPage, findElements, markdownCanonical, markdownHrefs, pageHrefs } from '../scripts/check-legal-pages.mjs';
 import { checkTermsRelease } from '../../../scripts/check-terms-release';
 
 import {
@@ -266,6 +267,57 @@ describe('F-127-5 comparison: negative controls (each must fail)', () => {
     useRoot(makeFixtureSite());
     const page = html(SupportPage).replace('</article>', `<p>${FIXTURE_VERSION_LINE}</p></article>`);
     expect(compareLegalPage({ html: page, id: 'support', approvedSource: readFixture('support'), marker: null }).ok).toBe(false);
+  });
+
+  describe('F-127c-8: the link targets must equal the approved file too, not only the words', () => {
+    const termsMarker = { version: FIXTURE_LABEL, effectiveDate: FIXTURE_EFFECTIVE };
+    const termsPage = () => {
+      useRoot(makeFixtureSite());
+      return html(TermsPage);
+    };
+    const compareTerms = (page: string) => compareLegalPage({ html: page, id: 'terms', approvedSource: readFixture('terms'), marker: termsMarker });
+
+    it('passes on the unchanged Terms page, which carries site links and an auto-linked e-mail address (positive control)', () => {
+      const page = termsPage();
+      const r = compareTerms(page);
+      expect(r.problems).toEqual([]);
+      expect(r.links).toBeGreaterThanOrEqual(3);
+      expect(pageHrefs(findElements(page, 'data-legal-doc', 'terms')[0].inner ?? '')).toEqual(markdownHrefs(readFixture('terms')));
+    });
+
+    it('fails when the mailto address changes but the words stay the same', () => {
+      const page = termsPage();
+      const changed = page.replace('href="mailto:support@kwikserve.co.ke"', 'href="mailto:other@evil.example"');
+      expect(changed).not.toBe(page);
+      expect(canonicalText(changed)).toBe(canonicalText(page)); // the visible words are unchanged
+      const r = compareTerms(changed);
+      expect(r.ok).toBe(false);
+      expect(r.problems.join(' ')).toMatch(/link targets differ from the approved file: link \d+: approved "mailto:support@kwikserve\.co\.ke" \/ page "mailto:other@evil\.example"/);
+    });
+
+    it('fails when a site link points somewhere else', () => {
+      const page = termsPage();
+      const changed = page.replace('href="/privacy/"', 'href="https://evil.example/"');
+      expect(changed).not.toBe(page);
+      expect(compareTerms(changed).ok).toBe(false);
+    });
+
+    it('fails when a link is dropped (its words kept) or added', () => {
+      const page = termsPage();
+      const dropped = page.replace('<a href="/privacy/"', '<a');
+      expect(dropped).not.toBe(page);
+      expect(compareTerms(dropped).ok).toBe(false);
+      const added = page.replace('</article>', '<a href="https://evil.example/"></a></article>');
+      expect(canonicalText(added)).toBe(canonicalText(page));
+      expect(compareTerms(added).ok).toBe(false);
+    });
+
+    it('fails when the approved file has a different link target than the page', () => {
+      const page = termsPage();
+      const approved = readFixture('terms').replace('](/privacy/)', '](/support/)');
+      expect(approved).not.toBe(readFixture('terms'));
+      expect(compareLegalPage({ html: page, id: 'terms', approvedSource: approved, marker: termsMarker }).ok).toBe(false);
+    });
   });
 
   it('the Markdown canonical form is independent of line endings and wrapping', () => {
