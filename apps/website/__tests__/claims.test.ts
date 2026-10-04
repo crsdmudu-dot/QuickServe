@@ -8,6 +8,8 @@
 //   - D10 (b), H-93-1: the trust sentence "reviewed and approved by our team (before they can take jobs)" and its
 //     variants are removed everywhere, until the dispatch rule is adopted and enforced and an approval lists the sentence;
 //   - D9 (a): no speed promise; the "in Minutes" headings are reworded.
+// PM stage 127c (line review of PR #36) adds "in seconds" to the speed rule (F-127c-3), and rules for the provider-trust
+// SEO phrase, the promise of work to recruits and the absolute quality claim it had removed (F-127c-4 to F-127c-6).
 //
 // Scope: every website source file except the approved texts in content/ (content/*.md and the approval record
 // content/terms-release.json). Their wording is the owner's approved text, governed by the Terms release gate
@@ -41,13 +43,16 @@ const FORBIDDEN: [string, RegExp][] = [
   ['"vetted" claim', /\bvetted\b/i],
   ['team-approval trust claim (D10 (b), H-93-1)', /approved by our team|reviewed and approved|our team has approved|\bapproved (?:professionals?|providers?|pros)\b/i],
   ['provider-verification claim', /provider verification|verified (?:professionals?|providers?|pros)\b/i],
+  ['provider-trust claim (D10 (b) class, F-127c-4)', /trusted (?:plumbers?|electricians?|professionals?|providers?|pros)\b/i],
+  ['promise of work to providers (F-127c-5)', /steady stream/i],
+  ['absolute quality claim (F-127c-6)', /raise the bar/i],
   ['guarantee claim', /guaranteed quality|we're not done until/i],
   ['superlative', /most trusted/i],
   ['card payment claim', /m-?pesa (or|and) card|multiple payment options|card payments/i],
   ['in-app cancel claim', /cancel or reschedule from inside the app/i],
   ['24/7 claim', /24\/7/],
   ['unproven scale claim', /thousands of|hundreds of/i],
-  ['speed promise', /under a minute|within minutes|in under 5 minutes|\bin minutes\b|get paid fast/i],
+  ['speed promise', /under a minute|within minutes|in under 5 minutes|\bin minutes\b|\bin seconds\b|within seconds|get paid fast/i],
   ['web booking claim', /via the web today/i],
   ['placeholder content', /PLACEHOLDER|illustrative|lorem ipsum/i],
   ['old domain', /quickserve\.co\.ke|hello@quickserve|hiredcorp\.co\.ke|quickserve\.app/i],
@@ -94,6 +99,18 @@ describe('marketing claims', () => {
         'speed promise',
       ]),
     );
+  });
+
+  it('the rules added by PM stage 127c fire on the wording they replace (negative control)', () => {
+    const rule = (name: string) => FORBIDDEN.find(([n]) => n === name)![1];
+    expect(rule('speed promise').test('Book in seconds')).toBe(true);
+    expect(rule('speed promise').test('Booked within seconds')).toBe(true);
+    expect(rule('provider-trust claim (D10 (b) class, F-127c-4)').test('Trusted Plumbers Nairobi')).toBe(true);
+    expect(rule('promise of work to providers (F-127c-5)').test('access a steady stream of customers')).toBe(true);
+    expect(rule('absolute quality claim (F-127c-6)').test('We raise the bar on every booking')).toBe(true);
+    // Positive controls: the accepted wording does not fire.
+    expect(rule('speed promise').test('Book in the app')).toBe(false);
+    expect(rule('provider-trust claim (D10 (b) class, F-127c-4)').test('Trusted home services in Nairobi')).toBe(false);
   });
 
   it('the approved-text exclusion covers only content/*.md and the approval record', () => {

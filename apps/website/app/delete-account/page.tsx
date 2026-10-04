@@ -2,8 +2,8 @@
 // Server component, rendered once at build time — no client code, no Supabase, no credentials of any kind.
 //
 // The text is the approved file content/delete-account.md. The version line shows the version and effective date of
-// the owner's approval record content/terms-release.json. While a file is absent the page shows a short notice and
-// makes no version claim (components/LegalDocument.tsx).
+// the owner's approval record content/terms-release.json. While the text is absent the page shows a short notice and
+// makes no version claim; the text without the record stops the build (components/LegalDocument.tsx).
 
 import { buildMetadata } from '@/lib/site';
 import { readContentFile, readTermsRelease } from '@/lib/legal-content';

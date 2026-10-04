@@ -97,7 +97,7 @@ export const HOW_IT_WORKS_STEPS: { title: string; body: string }[] = [
     body: 'Pick from 19 home, auto, delivery & personal-care services.',
   },
   {
-    title: 'Book in seconds',
+    title: 'Book in the app',
     body: 'Set your location and preferred time.',
   },
   {
@@ -130,7 +130,7 @@ export const CUSTOMER_BENEFITS: { icon: string; title: string; text: string }[] 
   },
   {
     icon: '⚡',
-    title: 'Fast Booking',
+    title: 'Easy Booking',
     text: 'Book a service in a few taps, straight from your phone.',
   },
   {
@@ -195,7 +195,7 @@ export const TRUST_BADGES: { icon: string; label: string; description: string }[
   {
     icon: '⭐',
     label: 'Ratings & Reviews',
-    description: 'Customers rate every completed job.',
+    description: 'Customers can rate every completed job.',
   },
   {
     icon: '⏱️',
@@ -215,31 +215,16 @@ export const TRUST_BADGES: { icon: string; label: string; description: string }[
 ];
 
 // ---------------------------------------------------------------------------
-// FAQ preview — the first questions shown on the Home page (4 entries).
-// The FAQ page itself renders the approved FAQ text from content/faq.md (app/faq/page.tsx), not this list.
+// FAQ preview — the questions listed on the Home page (4 entries), each linking to the FAQ page.
+// Questions only, no answers: the answers are part of the approved FAQ text (content/faq.md), which only the FAQ
+// page renders (app/faq/page.tsx), so the Home page never restates them (PM stage 127c, F-127c-2).
 // ---------------------------------------------------------------------------
 
-export const FAQ_ITEMS: { question: string; answer: string }[] = [
-  {
-    question: 'What is KwikServe?',
-    answer:
-      'KwikServe is an on-demand services platform that connects customers in Nairobi with independent professionals for home, auto, delivery and personal-care services. It is operated by Hired Corp Limited.',
-  },
-  {
-    question: 'Which areas do you currently serve?',
-    answer:
-      'KwikServe is available only in Kenya. Not every service is available in every area or at every time, and we tell you if we cannot serve your booking.',
-  },
-  {
-    question: 'How does booking work?',
-    answer:
-      'Open the app, choose a service, and give your address, preferred time and job details. We send you a quote in the app. Once you accept it, we assign a provider, and you can follow the booking in the app.',
-  },
-  {
-    question: 'How do I get support?',
-    answer:
-      'You can reach our support team through the Contact page on this website, or by emailing support@kwikserve.co.ke.',
-  },
+export const FAQ_PREVIEW_QUESTIONS: string[] = [
+  'What is KwikServe?',
+  'Which areas do you currently serve?',
+  'How does booking work?',
+  'How do I get support?',
 ];
 
 // ---------------------------------------------------------------------------
@@ -257,7 +242,7 @@ export const DOWNLOAD_CTA: Cta = { label: 'Download the App', href: '/download' 
 
 export const SEO_PHRASES: string[] = [
   'Home Services Nairobi',
-  'Trusted Plumbers Nairobi',
+  'Plumbers Nairobi',
   'Electrician Nairobi',
   'Cleaning Services Nairobi',
   'Handyman Nairobi',

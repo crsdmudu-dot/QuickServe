@@ -80,7 +80,7 @@ describe('/how-it-works page', () => {
   it('renders all how-it-works step cards', () => {
     render(<HowItWorksPage />);
     expect(screen.getByText('Choose a service')).toBeInTheDocument();
-    expect(screen.getByText('Book in seconds')).toBeInTheDocument();
+    expect(screen.getByText('Book in the app')).toBeInTheDocument();
     expect(screen.getByText('Rate & review')).toBeInTheDocument();
   });
 
@@ -235,6 +235,13 @@ describe('/contact page', () => {
   it('advertises no social media channel (none exist)', () => {
     const { container } = render(<ContactPage />);
     expect(container.textContent ?? '').not.toMatch(/social media|twitter|facebook|instagram/i);
+  });
+
+  it('names no operating company while its registered name is open (CD1, F-127c-1), and keeps the safety sentence', () => {
+    const { container } = render(<ContactPage />);
+    const text = container.textContent ?? '';
+    expect(text).not.toMatch(/Hired Corp|operated by|registered in Kenya/i);
+    expect(text).toContain('If anyone is in danger, contact the police or emergency services first, and then tell us.');
   });
 
   it('has a defined, non-empty metadata title', () => {

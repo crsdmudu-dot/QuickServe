@@ -6,9 +6,11 @@
 // The Terms, Privacy and account-deletion pages also show the version line "Version <label> · Effective <date>",
 // rendered from that same record. The Support and FAQ pages have no version line.
 //
-// When a page's approved file (or, for the version line, the record) is not in content/ yet, the page shows the short
-// notice below and makes no version claim. It then has NO data-legal-doc container, so a build without the approved
-// texts can never be pinned or pass the release check (it fails closed).
+// When a page's approved file is not in content/ yet, the page shows the short notice below and makes no version claim.
+// It then has NO data-legal-doc container, so a build without the approved texts can never be pinned or pass the
+// release check (it fails closed). The Terms text is named by the record, so without the record the Terms page shows
+// the notice too. On the Privacy and account-deletion pages, a text without the record stops the build
+// (components/LegalDocument.tsx; PM stage 127c, F-127c-9).
 //
 // Nothing here is legal text: these are page titles, search descriptions and the notice.
 

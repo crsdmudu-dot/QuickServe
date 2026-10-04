@@ -3,7 +3,8 @@
 //
 // The text is the approved file content/privacy.md. The version line shows the version and effective date of the
 // owner's approval record content/terms-release.json (one release for the Terms, Privacy and account-deletion pages).
-// While a file is absent the page shows a short notice and makes no version claim (components/LegalDocument.tsx).
+// While the text is absent the page shows a short notice and makes no version claim; the text without the record stops
+// the build (components/LegalDocument.tsx).
 
 import { buildMetadata } from '@/lib/site';
 import { readContentFile, readTermsRelease } from '@/lib/legal-content';

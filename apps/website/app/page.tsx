@@ -10,7 +10,7 @@ import {
   CUSTOMER_BENEFITS,
   PROVIDER_BENEFITS,
   TRUST_BADGES,
-  FAQ_ITEMS,
+  FAQ_PREVIEW_QUESTIONS,
   PRIMARY_CTA,
   PROVIDER_CTA,
   DOWNLOAD_CTA,
@@ -23,7 +23,6 @@ import ServiceCategoryCard from '@/components/ServiceCategoryCard';
 import TrustBadge from '@/components/TrustBadge';
 import StepCard from '@/components/StepCard';
 import BenefitItem from '@/components/BenefitItem';
-import FaqItem from '@/components/FaqItem';
 import CtaSection from '@/components/CtaSection';
 
 // Page-level metadata overrides layout defaults for /
@@ -38,8 +37,6 @@ export const metadata = buildMetadata({
 // ---------------------------------------------------------------------------
 
 export default function Home() {
-  const faqPreview = FAQ_ITEMS.slice(0, 4);
-
   return (
     <>
       {/* ------------------------------------------------------------------ */}
@@ -109,7 +106,6 @@ export default function Home() {
           <SectionHeading
             eyebrow="Our Promise"
             title="Why Choose KwikServe"
-            subtitle="We raise the bar on every booking — so you can relax and let the pros handle it."
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
             {CUSTOMER_BENEFITS.slice(0, 3).map((benefit) => (
@@ -189,7 +185,7 @@ export default function Home() {
           <SectionHeading
             eyebrow="For Providers"
             title="Grow Your Business With KwikServe"
-            subtitle="Join a growing network of professionals and access a steady stream of customers."
+            subtitle="Offer your skills on KwikServe and take the bookings our team assigns to you."
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {PROVIDER_BENEFITS.map((benefit) => (
@@ -213,7 +209,8 @@ export default function Home() {
       </section>
 
       {/* ------------------------------------------------------------------ */}
-      {/* 10. FAQ Preview                                                     */}
+      {/* 10. FAQ Preview — questions only, each linking to the FAQ page,     */}
+      {/*     which shows the approved answers (F-127c-2)                     */}
       {/* ------------------------------------------------------------------ */}
       <section className="py-16 px-6 bg-background">
         <div className="max-w-3xl mx-auto flex flex-col gap-10">
@@ -222,11 +219,21 @@ export default function Home() {
             title="Frequently Asked Questions"
             align="center"
           />
-          <div className="flex flex-col gap-3">
-            {faqPreview.map((item) => (
-              <FaqItem key={item.question} question={item.question} answer={item.answer} />
+          <ul className="flex flex-col gap-3">
+            {FAQ_PREVIEW_QUESTIONS.map((question) => (
+              <li key={question}>
+                <Link
+                  href="/faq"
+                  className="flex items-center justify-between gap-4 px-6 py-4 border border-border rounded-lg bg-surface hover:bg-surfaceMuted transition-colors text-label font-semibold text-ink"
+                >
+                  <span>{question}</span>
+                  <span className="flex-shrink-0 text-textSecondary" aria-hidden="true">
+                    →
+                  </span>
+                </Link>
+              </li>
             ))}
-          </div>
+          </ul>
           <div className="text-center">
             <Link
               href="/faq"
@@ -243,7 +250,7 @@ export default function Home() {
       {/* ------------------------------------------------------------------ */}
       <CtaSection
         heading="Get the KwikServe App"
-        body="Coming soon to Android and iOS."
+        body="For Android and iOS."
         primaryCta={DOWNLOAD_CTA}
       />
 

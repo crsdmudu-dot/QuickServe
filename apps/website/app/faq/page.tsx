@@ -4,7 +4,7 @@
 // The questions and answers are the approved file content/faq.md, rendered in full (no collapsed answers, so every
 // word is in the page) inside one data-legal-doc="faq" container. It has no version line. While the file is absent
 // the page shows a short notice (components/LegalDocument.tsx). The closing call to action is page chrome, outside the
-// approved text. (The Home page's short FAQ preview still uses FAQ_ITEMS in content/site.ts.)
+// approved text. (The Home page lists a few questions only, FAQ_PREVIEW_QUESTIONS in content/site.ts, linking here.)
 
 import { buildMetadata } from '@/lib/site';
 import { readContentFile } from '@/lib/legal-content';

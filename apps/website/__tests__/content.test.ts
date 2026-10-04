@@ -8,7 +8,8 @@ import {
   PROVIDER_CTA,
   SECONDARY_CTA,
   DOWNLOAD_CTA,
-  FAQ_ITEMS,
+  FAQ_PREVIEW_QUESTIONS,
+  SEO_PHRASES,
 } from '@/content/site';
 
 // The 13 allowed marketing routes — no admin or app routes.
@@ -110,21 +111,28 @@ describe('placeholder social proof', () => {
   });
 });
 
-describe('FAQ_ITEMS (the Home page preview; the FAQ page renders content/faq.md)', () => {
-  it('holds exactly the 4 entries the Home page shows', () => {
-    expect(FAQ_ITEMS).toHaveLength(4);
+describe('FAQ_PREVIEW_QUESTIONS (the Home page preview; the FAQ page renders content/faq.md)', () => {
+  it('holds exactly the 4 questions the Home page lists', () => {
+    expect(FAQ_PREVIEW_QUESTIONS).toHaveLength(4);
+  });
+
+  it('holds questions only, no answers (F-127c-2: the answers live only in the approved FAQ text)', () => {
+    for (const question of FAQ_PREVIEW_QUESTIONS) {
+      expect(typeof question).toBe('string');
+      expect(question).toMatch(/^[^.?!]+\?$/);
+    }
   });
 
   it('carries no provider review or approval claim (D10 (b), H-93-1)', () => {
-    for (const item of FAQ_ITEMS) {
-      expect(`${item.question} ${item.answer}`).not.toMatch(/approved by our team|reviewed and approved|are providers checked/i);
+    for (const question of FAQ_PREVIEW_QUESTIONS) {
+      expect(question).not.toMatch(/approved by our team|reviewed and approved|are providers checked/i);
     }
   });
+});
 
-  it('every entry has a question and an answer', () => {
-    for (const item of FAQ_ITEMS) {
-      expect(item.question).toBeTruthy();
-      expect(item.answer).toBeTruthy();
-    }
+describe('SEO_PHRASES', () => {
+  it('makes no provider-trust claim in search snippets (D10 (b) class, F-127c-4)', () => {
+    expect(SEO_PHRASES).toContain('Plumbers Nairobi');
+    for (const phrase of SEO_PHRASES) expect(phrase).not.toMatch(/trusted/i);
   });
 });

@@ -49,7 +49,7 @@ These five pages have no words of their own. Each renders one approved Markdown 
 | `/support/` | `content/support.md` | no |
 | `/faq/` | `content/faq.md` | no |
 
-- The version line `Version <label> · Effective <date>` comes from the owner's approval record `content/terms-release.json`. Without the record there is no version line; an invalid record, or a Terms file whose bytes do not match `textSha256`, stops the build.
+- The version line `Version <label> · Effective <date>` comes from the owner's approval record `content/terms-release.json`. Without the record there is no version line. An invalid record, a Terms file whose bytes do not match `textSha256`, or a Privacy or account-deletion text without the record stops the build.
 - Without its approved file a page shows a short notice and has no `data-legal-doc` container, so such a build cannot pass the release check.
 - The Markdown reader (`lib/legal-markdown.ts`) supports a small subset (headings, paragraphs, one-level lists, bold, italics, links). Anything else stops the build with the file and line.
 - `scripts/check-legal-pages.mjs --out out` compares each built page's `data-legal-doc` text with its approved file (PM stage 127 F-127-5).

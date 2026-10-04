@@ -20,7 +20,8 @@
 // REFUSED (the build fails): raw HTML and comments, entities such as &amp;, block quotes, code (fenced, indented or
 // `inline`), tables, images, horizontal rules, underlined (setext) headings, nested lists, list items with more than one
 // paragraph, link reference definitions, hard line breaks, underscore emphasis, strikethrough, an unclosed * or **,
-// and any other link target. Tabs at the start of a line are refused because their indentation is ambiguous.
+// and any other link target, including any target with a backslash or a control character. Tabs at the start of a line
+// are refused because their indentation is ambiguous.
 //
 // This module only parses. It has no React and no file access, so it can be tested on its own.
 
@@ -61,9 +62,17 @@ const ENTITY = /&(?:#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[A-Za-z][A-Za-z0-9]{1,31})
 const ASCII_PUNCTUATION = /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/;
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/g;
 
+/**
+ * Characters no link target may contain (PM stage 127c, F-127c-7):
+ *   - a backslash: browsers read "\" as "/" in web addresses, so "/\evil.example" would leave the site;
+ *   - control characters (C0, DEL and C1): browsers drop or rewrite them, so the target would not be what it shows.
+ */
+const UNSAFE_HREF_CHARACTER = /[\\\x00-\x1f\x7f-\x9f]/;
+
 /** The link targets a legal page may use: site paths, anchors, e-mail and https. Nothing else. */
 export function isAllowedHref(href: string): boolean {
-  if (/^\/(?!\/)[^\s]*$/.test(href)) return true; // a path on this site (not "//host")
+  if (UNSAFE_HREF_CHARACTER.test(href)) return false;
+  if (/^\/(?![/\\])[^\s]*$/.test(href)) return true; // a path on this site (not "//host" or "/\host")
   if (/^#[A-Za-z0-9_-]+$/.test(href)) return true;
   if (/^mailto:[^\s@]+@[^\s@]+\.[A-Za-z]{2,}(?:\?[^\s]*)?$/.test(href)) return true;
   if (/^https:\/\/[A-Za-z0-9.-]+(?::\d+)?(?:[/?#][^\s]*)?$/.test(href)) return true;

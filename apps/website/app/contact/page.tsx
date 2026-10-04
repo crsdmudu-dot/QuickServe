@@ -90,13 +90,13 @@ export default function ContactPage() {
               </Link>
             </div>
 
-            {/* Who runs KwikServe */}
+            {/* Safety. No operator name here while the registered name is still to be confirmed
+                (CD1; PM stage 127c, F-127c-1). */}
             <div className="bg-surface border border-border rounded-lg p-6 flex flex-col gap-3">
-              <span className="text-3xl" role="img" aria-label="Company">🏢</span>
-              <h3 className="text-heading font-semibold text-ink">Who Runs KwikServe</h3>
+              <span className="text-3xl" role="img" aria-label="Emergency">🚨</span>
+              <h3 className="text-heading font-semibold text-ink">In an Emergency</h3>
               <p className="text-label text-textSecondary">
-                KwikServe is operated by Hired Corp Limited, a company registered in Kenya. If anyone
-                is in danger, contact the police or emergency services first, and then tell us.
+                If anyone is in danger, contact the police or emergency services first, and then tell us.
               </p>
             </div>
           </div>

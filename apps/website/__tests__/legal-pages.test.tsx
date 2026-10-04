@@ -4,7 +4,8 @@
 // apps/website/content/. It covers:
 //   - the markup contract (Update 73 73-SITE-MARKUP-CONTRACT.md R1-R4): one data-legal-doc container per page, one
 //     version marker inside it on the three versioned pages, rendered from content/terms-release.json;
-//   - the absent state: no record and no texts give a notice, no container and no version claim;
+//   - the absent state: no record and no texts give a notice, no container and no version claim; a Privacy or
+//     account-deletion text without the record stops the build (PM stage 127c, F-127c-9);
 //   - fail-closed records: an invalid record, or a Terms file whose bytes differ from textSha256, stops the build;
 //   - F-127-5: the page text equals the approved file (scripts/check-legal-pages.mjs), with negative controls;
 //   - compatibility with the repository's Terms release gate (scripts/check-terms-release.ts).
@@ -155,13 +156,22 @@ describe('without the record and the texts (commit A: nothing approved yet)', ()
     expect(text).not.toMatch(/placeholder|pending legal review|\bDRAFT\b/i);
   });
 
-  it.each(PAGES.filter((p) => p.versioned && p.id !== 'terms'))('$id: its text without the record shows the text but no version line (the release check then fails)', ({ id, Page }) => {
+  it.each(PAGES.filter((p) => p.versioned && p.id !== 'terms'))('$id: its text without the record stops the build (F-127c-9)', ({ id, Page }) => {
     useRoot(makeFixtureSite({ record: false }));
-    const page = html(Page);
-    expect(findElements(page, 'data-legal-doc', id)).toHaveLength(1);
-    expect(findElements(page, 'data-terms-version')).toHaveLength(0);
-    const r = compareLegalPage({ html: page, id, approvedSource: readFixture(id), marker: { version: FIXTURE_LABEL, effectiveDate: FIXTURE_EFFECTIVE } });
-    expect(r.ok).toBe(false);
+    expect(() => html(Page)).toThrow(LegalContentError);
+    expect(() => html(Page)).toThrow(new RegExp(`content/${id}\\.md is in content/, but content/terms-release\\.json is not`));
+  });
+
+  it('without the record, the Terms page shows the notice even when a Terms text file is present (the record names it)', () => {
+    useRoot(makeFixtureSite({ record: false }));
+    const page = html(TermsPage);
+    expect(findElements(page, 'data-legal-doc')).toHaveLength(0);
+    expect(canonicalText(page)).toContain(NOT_PUBLISHED_NOTICE);
+  });
+
+  it.each(PAGES.filter((p) => !p.versioned))('$id: its text needs no record (no version line)', ({ id, Page }) => {
+    useRoot(makeFixtureSite({ record: false }));
+    expect(findElements(html(Page), 'data-legal-doc', id)).toHaveLength(1);
   });
 
   it.each(PAGES.filter((p) => p.id !== 'terms'))('$id: the record alone (no text file) still shows only the notice', ({ Page }) => {

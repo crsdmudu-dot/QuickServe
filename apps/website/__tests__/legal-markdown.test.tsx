@@ -75,6 +75,40 @@ describe('supported constructs', () => {
     for (const ok of ['/terms/', '/delete-account/', '#rights', 'mailto:support@kwikserve.co.ke', 'https://kwikserve.co.ke/privacy/']) expect(isAllowedHref(ok)).toBe(true);
     for (const bad of ['javascript:alert(1)', 'http://kwikserve.co.ke/', '//evil.example/', 'data:text/html,x', 'terms', 'mailto:', 'ftp://x.y']) expect(isAllowedHref(bad)).toBe(false);
   });
+
+  it('refuses a backslash anywhere in a link target (F-127c-7: browsers read "\\" as "/")', () => {
+    const BS = String.fromCharCode(92); // a single backslash, built from its code so no escaping can change it
+    const bad = [
+      `/${BS}evil.example`, // "/\evil.example": resolves to https://evil.example/ in a browser
+      `/${BS}/evil.example`,
+      `/terms/${BS}`,
+      `https://a.example/${BS}@b`,
+      `https://kwikserve.co.ke${BS}@evil.example/`,
+      `mailto:support${BS}@kwikserve.co.ke`,
+      `#a${BS}b`,
+    ];
+    for (const href of bad) expect(isAllowedHref(href)).toBe(false);
+    // The browser behaviour the rule guards against (WHATWG URL parsing), shown on the first case.
+    expect(new URL(`/${BS}evil.example/path`, 'https://kwikserve.co.ke/terms/').host).toBe('evil.example');
+  });
+
+  it('refuses control characters (C0, DEL and C1) in a link target (F-127c-7)', () => {
+    for (const code of [0x00, 0x01, 0x08, 0x0e, 0x1b, 0x1f, 0x7f, 0x80, 0x85, 0x9f]) {
+      const c = String.fromCharCode(code);
+      for (const href of [`/a${c}b`, `https://kwikserve.co.ke/a${c}b`, `mailto:support@kwikserve.co.ke?subject=a${c}b`]) {
+        expect(isAllowedHref(href)).toBe(false);
+      }
+    }
+    // Positive control: the same targets without the character are allowed.
+    for (const href of ['/ab', 'https://kwikserve.co.ke/ab', 'mailto:support@kwikserve.co.ke?subject=ab']) expect(isAllowedHref(href)).toBe(true);
+  });
+
+  it('a Markdown link to "/\\evil.example" stops the build (F-127c-7)', () => {
+    const BS = String.fromCharCode(92);
+    expect(() => parse(`[Terms](/${BS}evil.example)\n`)).toThrow(LegalMarkdownError);
+    expect(() => parse(`[Terms](/${BS}evil.example)\n`)).toThrow(/not allowed/);
+    expect(() => parse(`[Terms](/a${String.fromCharCode(0)}b)\n`)).toThrow(/not allowed/);
+  });
 });
 
 describe('refused constructs stop the build, naming the file and line', () => {

@@ -8,9 +8,12 @@
 //
 // Without the approved text: a heading and a short notice, NO data-legal-doc container and NO version line, so such a
 // build can never be pinned or pass the release check.
+//
+// A versioned page (Privacy, account deletion) whose text is in content/ but whose record is not stops the build: it
+// would otherwise publish an approved text without its version line (PM stage 127c, F-127c-9).
 
 import { parseLegalMarkdown } from '@/lib/legal-markdown';
-import type { VersionMarker } from '@/lib/legal-content';
+import { LegalContentError, TERMS_RELEASE_PATH, type VersionMarker } from '@/lib/legal-content';
 import { BRAND } from '@/lib/site';
 import { NOT_PUBLISHED_NOTICE, type LegalPageDef } from '@/content/legal-pages';
 import LegalMarkdown from '@/components/LegalMarkdown';
@@ -38,6 +41,12 @@ export default function LegalDocument({ page, text, marker }: Props) {
           </p>
         </div>
       </section>
+    );
+  }
+
+  if (page.versioned && !marker) {
+    throw new LegalContentError(
+      `${text.label} is in content/, but ${TERMS_RELEASE_PATH} is not: the ${page.id} page needs the record for its version line, so it cannot be built without it`,
     );
   }
 
