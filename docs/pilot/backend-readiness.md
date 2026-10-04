@@ -141,7 +141,7 @@ supabase functions deploy mpesa-stk-push mpesa-callback register-device send-pus
 - [ ] `register-device` shows `verify_jwt: true` in its config.
 - [ ] `send-push` shows `verify_jwt: false` in its config.
 - [ ] Smoke test `register-device`: POST with a valid JWT and `{ push_token, platform }` body — returns `{ ok: true }`.
-- [ ] Smoke test `mpesa-stk-push` in mock mode: POST with valid JWT and `{ payment_id, phone }` — returns `{ ok: true, checkoutRequestId, status: 'pending' }`.
+- [ ] Smoke test `mpesa-stk-push` in mock mode (QA/local only — mock is refused on Production): POST with valid JWT and `{ payment_id, phone }` — returns `{ ok: true, checkoutRequestId, status: 'pending' }`.
 
 ---
 
@@ -154,7 +154,7 @@ Reference: `docs/superpowers/verification/slice-13-daraja.md`
 Set via:
 ```bash
 supabase secrets set \
-  MPESA_MODE=<mock|sandbox|live> \
+  MPESA_MODE=<disabled|mock|sandbox|live> \
   DARAJA_BASE_URL=https://sandbox.safaricom.co.ke \
   DARAJA_CONSUMER_KEY=<value> \
   DARAJA_CONSUMER_SECRET=<value> \
@@ -170,9 +170,13 @@ supabase secrets set \
 
 | Value | Behaviour |
 |-------|-----------|
-| `mock` | No Daraja secrets required. Returns synthetic `checkoutRequestId`. Safe for UI testing with zero credentials. |
-| `sandbox` | Hits `sandbox.safaricom.co.ke`. All Daraja secrets required. Use Safaricom test MSISDNs. |
-| `live` | Hits `api.safaricom.co.ke`. Real money moves. |
+| `disabled` | Payments off: 503 `payments_unavailable`, no attempt created. **Also used for an unset, empty or unknown value** (fail closed). The kill switch. |
+| `mock` | No Daraja secrets required. Returns synthetic `checkoutRequestId`. Safe for UI testing with zero credentials. **QA/local only: refused in code on Production (behaves as `disabled`).** |
+| `sandbox` | Hits `sandbox.safaricom.co.ke`. All Daraja secrets required; the production host is refused. Use Safaricom test MSISDNs. |
+| `live` | Hits `api.safaricom.co.ke`. All Daraja secrets required and `DARAJA_BASE_URL` must be exactly `https://api.safaricom.co.ke`. Real money moves. |
+
+Optional for a Till (Buy Goods): `DARAJA_TRANSACTION_TYPE=CustomerBuyGoodsOnline` and
+`DARAJA_PARTY_B=<till number>`. Unset, the request is a Paybill exactly as before.
 
 ### Callback URL format
 
@@ -191,7 +195,7 @@ Generate a strong secret:
 openssl rand -hex 32
 ```
 
-- [ ] `MPESA_MODE` secret set (start with `mock` for initial verification).
+- [ ] `MPESA_MODE` secret set (start with `mock` for initial verification on QA; on Production use `disabled` until live is certified — never `mock`).
 - [ ] In sandbox/live mode: `DARAJA_BASE_URL`, `DARAJA_CONSUMER_KEY`, `DARAJA_CONSUMER_SECRET`, `DARAJA_SHORTCODE`, `DARAJA_PASSKEY` all set.
 - [ ] `MPESA_CALLBACK_SECRET` set (≥32 random chars).
 - [ ] `DARAJA_CALLBACK_URL` includes `?token=<MPESA_CALLBACK_SECRET>` exactly.
@@ -337,11 +341,12 @@ Run each flow end-to-end on the pilot project before launch.
 ### Disable live M-Pesa (instant, no redeploy)
 
 ```bash
-supabase secrets set MPESA_MODE=mock
-supabase functions deploy mpesa-stk-push   # redeploy to pick up new secret value
+supabase secrets set MPESA_MODE=disabled
 ```
 
-Mock mode requires no Daraja credentials and makes no external calls.
+`disabled` answers 503 `payments_unavailable` and creates no attempt; requests already sent still
+settle through their callbacks. **Never switch Production to `mock`**: it is refused in code there
+(it behaves as `disabled`), and a mock "paid" is never a real payment.
 
 ### Disable push notifications (instant, no migration)
 
@@ -420,4 +425,4 @@ update private.push_config set webhook_secret = '<new-secret>' where id = 1;
 
 - [ ] Rollback procedures reviewed by at least one team member before launch.
 - [ ] Kill-switch SQL for push (`send_push_url = null`) tested in staging.
-- [ ] `MPESA_MODE=mock` toggle tested in staging (switches to mock with redeploy).
+- [ ] `MPESA_MODE=disabled` kill switch tested in staging (503 `payments_unavailable`, no attempt row, the app shows the unavailable text).

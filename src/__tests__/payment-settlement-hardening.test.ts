@@ -207,27 +207,34 @@ describe('mpesa-stk-push — reserve before contacting the provider', () => {
     expect(src).not.toContain('payment_attempts');
   });
 
-  it('reserves the attempt before any Daraja call', () => {
-    const reserveAt = src.indexOf("rpc('reserve_mpesa_attempt'");
-    const tokenAt = src.indexOf('getOAuthToken(');
-    const pushAt = src.indexOf('stkPush(');
+  it('reserves the attempt before the STK request (the OAuth token comes first since P5)', () => {
+    // Update 50 / P5: the OAuth token moves no money, so it is fetched BEFORE the reservation; a
+    // credential failure then creates no attempt. The STK request itself must still follow it.
+    const code = strip(src);
+    const reserveAt = code.indexOf("rpc('reserve_mpesa_attempt'");
+    const tokenAt = code.indexOf('getOAuthToken(');
+    const pushAt = code.indexOf('stkPush(');
     expect(reserveAt).toBeGreaterThan(-1);
-    expect(reserveAt).toBeLessThan(tokenAt);
+    expect(tokenAt).toBeGreaterThan(-1);
+    expect(tokenAt).toBeLessThan(reserveAt);
     expect(reserveAt).toBeLessThan(pushAt);
   });
 
   it('marks the attempt failed ONLY behind HTTP success, a parsed body and an explicit code', () => {
-    // A definitive rejection is the ONLY route to mark_attempt_failed. Every guard below must
-    // sit in front of it, in this order, or an externally transmitted request could be failed.
+    // Once the request is sent, a definitive rejection is the ONLY route to mark_attempt_failed.
+    // Every guard below must sit in front of it, in this order, or an externally transmitted
+    // request could be failed. Update 50 / P3 adds one earlier call that releases an attempt
+    // whose reserved amount M-PESA cannot take — before anything is sent to Daraja.
     const code = strip(src);
-    expect(code.match(/mark_attempt_failed/g) ?? []).toHaveLength(1);
+    expect(code.match(/mark_attempt_failed/g) ?? []).toHaveLength(2);
+    expect(code.indexOf('mark_attempt_failed')).toBeLessThan(code.indexOf('stkPush('));
 
     const okGuard = code.indexOf('if (!result.ok)');
     const bodyRead = code.indexOf('const resp = result.body');
     const bodyGuard = code.indexOf('if (!resp)');
     const codeRead = code.indexOf('const rawCode = resp.ResponseCode');
     const rejectGuard = code.indexOf("responseCode !== null && responseCode !== '0'");
-    const failAt = code.indexOf('mark_attempt_failed');
+    const failAt = code.lastIndexOf('mark_attempt_failed');
 
     expect(okGuard).toBeGreaterThan(-1);
     expect(bodyGuard).toBeGreaterThan(-1);
@@ -249,7 +256,8 @@ describe('mpesa-stk-push — reserve before contacting the provider', () => {
     // unparseable body, a missing ResponseCode - may still have reached the provider. Marking
     // it failed would release the freeze and permit a retry while the customer could be charged.
     const code = strip(src);
-    const failAt = code.indexOf('mark_attempt_failed');
+    // the definitive-rejection call site (the earlier P3 release happens before anything is sent)
+    const failAt = code.lastIndexOf('mark_attempt_failed');
 
     // 1. transport throw: the catch must answer ambiguously before any failure route.
     const afterSubmit = code.slice(code.indexOf('result = await stkPush(token, payload);'));
@@ -299,6 +307,12 @@ describe('mpesa-stk-push — reserve before contacting the provider', () => {
     // the pre-0045 client-side computation must stay gone
     expect(code).not.toContain('Number(payment.wallet_applied');
     expect(code).not.toContain('Number(payment.promo_discount');
+    // Update 50 / P3: the early amount check may compute the due, but ONLY to refuse early; its
+    // result is never sent. The reserved amount is checked again before anything is sent.
+    expect(code).toContain('checkMpesaAmount(externalAmountDue(payment))');
+    expect(code).not.toMatch(/amount:\s*externalAmountDue/);
+    expect(code).toContain('checkMpesaAmount(amountDue)');
+    expect(code).not.toContain('Math.round');
   });
 
   it('does not retry Daraja or create a second attempt when acceptance cannot be recorded', () => {

@@ -1,6 +1,12 @@
 // attempts.ts — Supabase helpers for payment attempts + M-Pesa STK Push.
 import { supabase } from '@/lib/supabase';
 import { isValidKenyanPhone, normalizeKenyanPhone } from '@/lib/mpesa';
+import {
+  GENERIC_PAY_ERROR_TEXT,
+  isMpesaErrorCode,
+  mpesaErrorText,
+  type MpesaErrorCode,
+} from '@/lib/mpesa-payment-status';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -54,13 +60,18 @@ export type PaymentAttempt = {
  * Note: `amount` and `accountReference` are kept in the signature so the
  * caller in `booking/[id].tsx` is untouched; the server derives them from
  * the payment and booking records.
+ *
+ * P7: every error from the function arrives as a non-2xx answer, which the Supabase client
+ * reports as `error` (its `context` is the HTTP response). We read the function's stable `code`
+ * from that response and return the matching customer text, instead of one generic sentence.
+ * This matters most for "status unknown", where the customer must NOT pay again.
  */
 export async function initiateMpesaPayment(input: {
   paymentId: string;
   amount: number;
   phone: string;
   accountReference: string;
-}): Promise<{ ok: boolean; error?: string }> {
+}): Promise<{ ok: boolean; error?: string; code?: MpesaErrorCode }> {
   // 1. Validate phone before any network call.
   if (!isValidKenyanPhone(input.phone)) {
     return { ok: false, error: 'Enter a valid M-Pesa phone number.' };
@@ -71,14 +82,38 @@ export async function initiateMpesaPayment(input: {
   const { data, error } = await supabase.functions.invoke('mpesa-stk-push', {
     body: { payment_id: input.paymentId, phone: normalized },
   });
-  if (error) return { ok: false, error: 'Could not start payment. Please try again.' };
+  if (error) {
+    // 4. Read the function's error code from the HTTP response, when there is one.
+    const code = await readFunctionErrorCode(error);
+    if (code) return { ok: false, code, error: mpesaErrorText(code) };
+    return { ok: false, error: GENERIC_PAY_ERROR_TEXT };
+  }
   if (!data?.ok) {
+    const code = isMpesaErrorCode(data?.code) ? data.code : undefined;
+    if (code) return { ok: false, code, error: mpesaErrorText(code) };
     return {
       ok: false,
-      error: typeof data?.error === 'string' ? data.error : 'Could not start payment. Please try again.',
+      error: typeof data?.error === 'string' ? data.error : GENERIC_PAY_ERROR_TEXT,
     };
   }
   return { ok: true };
+}
+
+/**
+ * The `code` field from an Edge Function error answer, or undefined when there is none.
+ *
+ * A non-2xx answer arrives as an error whose `context` is the HTTP response. A network failure
+ * or a relay error has no readable JSON body, and an unknown code is ignored. Never throws.
+ */
+async function readFunctionErrorCode(error: unknown): Promise<MpesaErrorCode | undefined> {
+  const context = (error as { context?: { json?: () => Promise<unknown> } } | null)?.context;
+  if (!context || typeof context.json !== 'function') return undefined;
+  try {
+    const body = (await context.json()) as { code?: unknown } | null;
+    return isMpesaErrorCode(body?.code) ? body.code : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 // ── Queries ────────────────────────────────────────────────────────────────

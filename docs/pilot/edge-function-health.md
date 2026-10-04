@@ -59,12 +59,15 @@ supabase secrets set PUSH_WEBHOOK_SECRET=<min-32-char-random>
 | Deploy | `supabase functions deploy mpesa-stk-push` |
 | `verify_jwt` | `true` — customer must supply a valid Supabase JWT |
 | Authentication | Supabase JWT in `Authorization: Bearer <token>` header |
-| Always-200 / kill switch | `MPESA_MODE=mock` makes the function return a synthetic `checkoutRequestId` with no external call. Set `MPESA_MODE=mock` + redeploy to disable live Daraja. |
+| Kill switch | Set `MPESA_MODE=disabled` (no redeploy): the function answers 503 `payments_unavailable` before reading or writing anything, so no attempt is created. Unset or unknown values also mean `disabled`. `mock` (synthetic `checkoutRequestId`, no external call) is for QA/local only and is refused in code on Production, where it behaves as `disabled`. |
 
-**Required secrets (sandbox/live modes):**
+**Required secrets (sandbox/live modes):** every `DARAJA_*` value below must be set, `live` must use
+`DARAJA_BASE_URL=https://api.safaricom.co.ke` and `sandbox` must not; otherwise the function answers
+503 `payments_unavailable`. Optional for a Till: `DARAJA_TRANSACTION_TYPE=CustomerBuyGoodsOnline`
+and `DARAJA_PARTY_B=<till>` (unset = Paybill, unchanged).
 ```bash
 supabase secrets set \
-  MPESA_MODE=<mock|sandbox|live> \
+  MPESA_MODE=<disabled|mock|sandbox|live> \
   DARAJA_BASE_URL=<url> \
   DARAJA_CONSUMER_KEY=<key> \
   DARAJA_CONSUMER_SECRET=<secret> \
@@ -74,7 +77,7 @@ supabase secrets set \
   MPESA_CALLBACK_SECRET=<min-32-char-random>
 ```
 
-**Smoke check (mock mode):**
+**Smoke check (mock mode, QA or local only — mock is refused on Production):**
 ```bash
 curl -X POST https://<ref>.supabase.co/functions/v1/mpesa-stk-push \
   -H "Authorization: Bearer <customer-jwt>" \
@@ -92,7 +95,7 @@ curl -X POST https://<ref>.supabase.co/functions/v1/mpesa-stk-push \
 | Deploy | `supabase functions deploy mpesa-callback` |
 | `verify_jwt` | `false` — Daraja cannot supply a Supabase JWT |
 | Authentication | `?token=<MPESA_CALLBACK_SECRET>` query param (constant-time comparison) |
-| Always-200 / kill switch | Returns HTTP 200 on idempotent replay (attempt already terminal — no DB change). Returns HTTP 401 for wrong/missing token. To disable: set `MPESA_MODE=mock` on `mpesa-stk-push` so no new STK pushes are initiated. |
+| Always-200 / kill switch | Returns HTTP 200 on idempotent replay (attempt already terminal — no DB change). Returns HTTP 401 for wrong/missing token. A success callback is first confirmed with an STK Push Query: a definite "not successful"/"unknown" answer returns 409 and nothing is applied (an unknown id is first recorded as orphan evidence with its admin alert); a `ResultCode` that is not a plain whole number is recorded as malformed evidence and never applied; an indeterminate answer (after 3 tries) returns 500 and the attempt follows the timeout path. To disable new payments: set `MPESA_MODE=disabled` on `mpesa-stk-push`; callbacks for requests already sent keep settling. |
 
 **Smoke check:**
 ```bash
@@ -205,8 +208,8 @@ curl -X POST https://<ref>.supabase.co/functions/v1/register-device \
 | Function | `verify_jwt` | Auth mechanism | Kill switch |
 |---|---|---|---|
 | `send-push` | false | `x-webhook-secret` header | `send_push_url = null` in `private.push_config` |
-| `mpesa-stk-push` | true | Supabase JWT | `MPESA_MODE=mock` + redeploy |
-| `mpesa-callback` | false | `?token=<secret>` param | Stop new STK pushes via mock mode |
+| `mpesa-stk-push` | true | Supabase JWT | `MPESA_MODE=disabled` (no redeploy; never `mock` on Production) |
+| `mpesa-callback` | false | `?token=<secret>` param + STK Push Query for success | Stop new STK pushes with `MPESA_MODE=disabled` |
 | `places-autocomplete` | true | Supabase JWT | Returns empty predictions if key absent |
 | `place-details` | true | Supabase JWT | Returns null result if key absent |
 | `tracking-map` | true | Supabase JWT | Returns null URL if key absent |

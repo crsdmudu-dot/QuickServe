@@ -13,10 +13,17 @@
  * When the booking is completed and has an assigned provider, a "Your review"
  * section lets the customer submit a star rating + comment, or view their
  * existing review via ReviewCard.
+ *
+ * M-PESA payment status (P7, update 50): after a payment request the screen
+ * refreshes the payment and its attempts every 5 s for up to 3 minutes (and
+ * whenever the screen regains focus), so Paid or Failed appears without
+ * reopening. Each attempt state has its own sentence, the Pay form is hidden
+ * while an attempt still blocks the payment, and errors use the function's
+ * error code (see src/lib/mpesa-payment-status.ts).
  */
 
-import { useLocalSearchParams, router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -35,6 +42,14 @@ import { redeemPromo } from '@/lib/promotions';
 import { formatKes } from '@/lib/currency';
 import { buildReceipt } from '@/lib/receipts';
 import { initiateMpesaPayment, getPaymentAttempts, type PaymentAttempt } from '@/lib/attempts';
+import {
+  PAYMENT_REFRESH_INTERVAL_MS,
+  PAYMENT_REFRESH_WINDOW_MS,
+  attemptStatusText,
+  isAwaitingMpesa,
+  isBlockingAttempt,
+  mayHaveOpenAttempt,
+} from '@/lib/mpesa-payment-status';
 import { AttemptStatusBadge } from '@/components/ui/attempt-status-badge';
 import { BookingSummaryCard } from '@/components/ui/booking-summary-card';
 import { DestinationSummary } from '@/components/ui/destination-summary';
@@ -98,6 +113,8 @@ export default function BookingDetailScreen() {
   const [submittingReview, setSubmittingReview] = useState(false);
   // Slice 34: review edit affordance visibility
   const [showEditReview, setShowEditReview] = useState(false);
+  // P7: while set, the payment and its attempts refresh automatically until this time (ms).
+  const [refreshUntil, setRefreshUntil] = useState<number | null>(null);
 
   const loadPhotos = useCallback(() => {
     if (id) {
@@ -129,6 +146,69 @@ export default function BookingDetailScreen() {
       getBookingActivity(id).then(setActivity);
     }
   }, [id, loadPhotos]);
+
+  // P7: reload the payment and its attempts (newest first). Returns what it loaded so the
+  // automatic refresh can decide whether to keep going, or null when the payment could not be
+  // read — then the screen keeps what it already shows instead of blanking the payment.
+  const refreshPayment = useCallback(async () => {
+    const p = await getPaymentForBooking(id);
+    if (!p) return null;
+    const list = await getPaymentAttempts(p.id);
+    setPayment(p);
+    setAttempts(list);
+    return { payment: p, attempts: list };
+  }, [id]);
+
+  // P7: after a payment request, refresh every 5 s. Stop when the payment is no longer pending,
+  // when the newest attempt is no longer waiting for M-PESA, or after 3 minutes. Each refresh is
+  // scheduled only after the previous one finished, so slow networks never pile up requests.
+  useEffect(() => {
+    if (refreshUntil === null) return;
+    const until = refreshUntil;
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    async function tick() {
+      const latest = await refreshPayment();
+      if (stopped) return;
+      // A failed read (null) tells us nothing, so it keeps refreshing.
+      const stillWaiting =
+        latest === null ||
+        (latest.payment.status === 'pending' && isAwaitingMpesa(latest.attempts[0]?.status));
+      if (stillWaiting && Date.now() < until) {
+        timer = setTimeout(tick, PAYMENT_REFRESH_INTERVAL_MS);
+      } else {
+        setRefreshUntil(null);
+        // Once nothing blocks the payment any more (paid, failed, cancelled), an earlier
+        // "do not pay again" message no longer applies.
+        if (latest && !latest.attempts.some((a) => isBlockingAttempt(a.status))) setPayError(null);
+      }
+    }
+
+    timer = setTimeout(tick, PAYMENT_REFRESH_INTERVAL_MS);
+    return () => {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [refreshUntil, refreshPayment]);
+
+  // P7: refresh when the screen regains focus (for example, coming back from the receipt).
+  // The first focus is skipped because the load effect above already fetched everything.
+  const firstFocus = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (firstFocus.current) {
+        firstFocus.current = false;
+        return;
+      }
+      void refreshPayment().then((latest) => {
+        // Still waiting for the PIN? Keep refreshing for another few minutes.
+        if (latest && latest.payment.status === 'pending' && isAwaitingMpesa(latest.attempts[0]?.status)) {
+          setRefreshUntil(Date.now() + PAYMENT_REFRESH_WINDOW_MS);
+        }
+      });
+    }, [refreshPayment]),
+  );
 
   async function reload() {
     const b = await getBookingById(id); if (b) setBooking(b);
@@ -193,10 +273,14 @@ export default function BookingDetailScreen() {
         phone,
         accountReference: booking!.id,
       });
-      if (r.ok) {
-        setAttempts(await getPaymentAttempts(payment.id));
-      } else {
+      if (!r.ok) {
         setPayError(r.error ?? 'Could not start payment.');
+      }
+      // P7: an attempt may now exist (sent, status unknown, or already in progress). Reload it so
+      // the Pay form hides while it blocks, and keep refreshing so Paid or Failed shows by itself.
+      if (r.ok || mayHaveOpenAttempt(r.code)) {
+        setAttempts(await getPaymentAttempts(payment.id));
+        setRefreshUntil(Date.now() + PAYMENT_REFRESH_WINDOW_MS);
       }
     } finally {
       setPayingMpesa(false);
@@ -350,14 +434,19 @@ export default function BookingDetailScreen() {
             {attempts.length > 0 && (
               <View style={styles.attemptBlock}>
                 <AttemptStatusBadge status={attempts[0].status} />
-                {(attempts[0].status === 'pending' || attempts[0].status === 'initiated') && (
-                  <Text variant="caption" color="textSecondary">
-                    Payment request sent. Awaiting confirmation.
+                {/* P7: one sentence per state (waiting for the PIN, confirming, failed). */}
+                {payment.status === 'pending' && attemptStatusText(attempts[0]) ? (
+                  <Text variant="caption" color="textSecondary" testID="attempt-status-text">
+                    {attemptStatusText(attempts[0])}
                   </Text>
-                )}
+                ) : null}
               </View>
             )}
-            {payment.status === 'pending' && booking.status === 'completed' && (
+            {/* P7: the Pay form is hidden while any attempt still blocks this payment (initiated,
+                pending or timed out): paying again then could charge the customer twice. */}
+            {payment.status === 'pending' &&
+              booking.status === 'completed' &&
+              !attempts.some((a) => isBlockingAttempt(a.status)) && (
               <View style={styles.mpesaBlock}>
                 {/* ── Promo discount display ──────────────────────────── */}
                 {payment.promo_discount && payment.promo_discount > 0 ? (
@@ -422,9 +511,11 @@ export default function BookingDetailScreen() {
                   autoCapitalize="none"
                 />
                 <Button label="Pay with M-Pesa" onPress={handlePayMpesa} disabled={payingMpesa} />
-                {payError ? <Text variant="caption" color="error">{payError}</Text> : null}
               </View>
             )}
+            {/* Outside the Pay form, so a "do not pay again" message stays visible after the form
+                is hidden by a blocking attempt. */}
+            {payError ? <Text variant="caption" color="error">{payError}</Text> : null}
           </View>
         ) : booking.quote_status === 'pending' ? (
           <Text variant="body" color="textSecondary">

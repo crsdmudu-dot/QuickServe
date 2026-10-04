@@ -253,9 +253,10 @@ The booking wizard runs across four screens in `src/app/booking/`:
   Accept/Decline buttons disappear. (qa-e2e C-09)
 - [ ] **M-Pesa payment** — enter a valid Kenyan phone number ("07XX XXX XXX") in the
   "M-Pesa phone number" field on the booking detail screen. Tap **Pay with M-Pesa**.
-  Expected: an `AttemptStatusBadge` shows `pending` / `initiated`; "Payment request sent.
-  Awaiting confirmation." message is displayed. A `payment_attempts` row is created.
-  With `MPESA_MODE=mock` this is immediate; with `MPESA_MODE=sandbox` a real STK Push is sent
+  Expected: an `AttemptStatusBadge` shows `pending` / `initiated`; "Check your phone and enter
+  your M-PESA PIN. The prompt will show Hired Corp Ltd." is displayed and the Pay form is hidden
+  while the attempt is open. A `payment_attempts` row is created.
+  With `MPESA_MODE=mock` (QA/local only) this is immediate; with `MPESA_MODE=sandbox` a real STK Push is sent
   to the test handset. (qa-e2e C-11, C-12)
 - [ ] **Invalid phone rejected** — entering "12345" shows "Enter a valid M-Pesa phone number."
   inline error; no network call is made. (qa-e2e C-13)

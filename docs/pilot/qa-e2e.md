@@ -148,7 +148,7 @@
   2. Scroll to the **Payment** section.
   3. Enter a valid Kenyan phone number in the "M-Pesa phone number" field (e.g. "0712 345 678").
   4. Tap **Pay with M-Pesa**.
-- **Expected result:** An `AttemptStatusBadge` appears showing `pending` or `initiated` status. The text "Payment request sent. Awaiting confirmation." is displayed below the badge.
+- **Expected result:** An `AttemptStatusBadge` appears showing `pending` or `initiated` status. The text "Check your phone and enter your M-PESA PIN. The prompt will show Hired Corp Ltd." is displayed below the badge, and the Pay form is hidden while the attempt is open. (QA or local only: `mock` is refused on Production.)
 - **Result:** [ ] Pass  [ ] Fail   Notes: ____
 
 ---
