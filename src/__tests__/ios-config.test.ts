@@ -26,7 +26,7 @@ describe('iOS splash', () => {
   test('splash screen has an iOS-visible image (not only a background color)', () => {
     const opts = pluginOpts('expo-splash-screen');
     expect(opts).toBeDefined();
-    // A top-level image applies to iOS (Android has its own override block).
+    // A top-level image applies to iOS, and to Android too unless an `android` block overrides it.
     expect(typeof opts.image).toBe('string');
     expect(opts.image.length).toBeGreaterThan(0);
     expect(fs.existsSync(path.resolve(__dirname, '../../', opts.image))).toBe(true);
