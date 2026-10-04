@@ -1,6 +1,6 @@
 /**
- * Guard for Update 74's hardening H2, the provider-location fix (P4). Its number is PROVISIONAL (0078
- * locally); the final number is assigned at merge, so this guard finds the file by name.
+ * Guard for Update 74's hardening H2, the provider-location fix (P4). Its number is final: 0074
+ * (numbering N1, PM stage 119); this guard finds the file by name.
  *
  * Pins the reviewed shape:
  *   - H2 stands alone: it re-creates only upsert_provider_location and refers to nothing from H1 (the
@@ -18,7 +18,7 @@ import * as path from 'path';
 
 const MIGRATIONS = path.join(__dirname, '../../supabase/migrations');
 const files = fs.readdirSync(MIGRATIONS).filter((f) => /^\d{4}_.*\.sql$/.test(f)).sort();
-const matching = files.filter((f) => f.endsWith('_provisional_provider_location_share_lock.sql'));
+const matching = files.filter((f) => f.endsWith('_provider_location_share_lock.sql'));
 const H2 = matching[0];
 const raw = fs.readFileSync(path.join(MIGRATIONS, H2), 'utf-8');
 const flatOf = (text: string) =>
@@ -37,11 +37,11 @@ const functionIn = (text: string) => {
   return text.slice(start, text.indexOf('$$;', start) + 3);
 };
 
-describe('H2 (location lock): provisional numbering and independence', () => {
-  it('exists exactly once, is byte-exact (no CR bytes) and is marked provisional', () => {
+describe('H2 (location lock): final numbering and independence', () => {
+  it('exists exactly once, is byte-exact (no CR bytes) and carries its final number', () => {
     expect(matching).toHaveLength(1);
     expect(raw.includes('\r')).toBe(false);
-    expect(raw).toMatch(/PROVISIONAL NUMBER/);
+    expect(raw).toMatch(/FINAL NUMBER 0074\./);
   });
 
   it('re-creates only upsert_provider_location and refers to nothing from H1 or the feature', () => {

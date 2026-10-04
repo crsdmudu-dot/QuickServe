@@ -1,10 +1,11 @@
--- 0078_provisional_provider_location_share_lock.sql - Update 74, hardening H2: the provider-location fix.
+-- 0074_provider_location_share_lock.sql - Update 74, hardening H2: the provider-location fix.
 --
--- PROVISIONAL NUMBER. The final number is assigned when this is merged (see H1's header, provisional
--- 0077). Two packages must never hold the same number.
+-- FINAL NUMBER 0074. U74 precedes the v1 activation on every environment (PM stage 119; numbering N1:
+-- H1 0073, H2 0074, H3 0075, the feature 0076). Two packages must never hold the same number, and the
+-- Supabase CLI refuses a lower number once a higher one is recorded on an environment.
 --
 -- INDEPENDENTLY RELEASABLE. This file depends on nothing from Update 74: not on H1 (the terminal guard,
--- provisional 0077) and not on the customer cancellation feature (provisional 0079). It can ship alone,
+-- 0073) and not on the customer cancellation feature (0076). It can ship alone,
 -- before or after H1, through its own QA and Production windows (owner instruction 2026-10-02 18:25, item
 -- 1). The feature does not require it, but without it the feature's "tracking stops" step can be undone
 -- by a location write in flight at the moment of cancellation (shown by the 74c harness).
@@ -80,12 +81,12 @@ declare
     'public.upsert_provider_location(uuid, double precision, double precision, double precision, double precision)'::regprocedure;
 begin
   if not has_function_privilege('authenticated', upsert, 'EXECUTE') then
-    raise exception 'provisional 0078 self-check: upsert_provider_location lost its authenticated grant';
+    raise exception '0074 self-check: upsert_provider_location lost its authenticated grant';
   end if;
   if has_function_privilege('anon', upsert, 'EXECUTE') then
-    raise exception 'provisional 0078 self-check: upsert_provider_location is executable by anon';
+    raise exception '0074 self-check: upsert_provider_location is executable by anon';
   end if;
   if position('for share' in pg_get_functiondef(upsert)) = 0 then
-    raise exception 'provisional 0078 self-check: upsert_provider_location does not take FOR SHARE';
+    raise exception '0074 self-check: upsert_provider_location does not take FOR SHARE';
   end if;
 end $$;
