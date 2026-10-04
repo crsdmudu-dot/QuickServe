@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { Linking } from 'react-native';
 import { router } from 'expo-router';
 
 import { CURRENT_TERMS_VERSION } from '@/constants/terms';
@@ -69,6 +70,24 @@ describe('RegisterScreen', () => {
     fireEvent.press(screen.getByText('Create account'));
     expect(screen.getByText('Please agree to the Terms of Service to create an account.')).toBeOnTheScreen();
     expect(mockSignUp).not.toHaveBeenCalled();
+  });
+
+  // D-12: the Privacy Policy link sits beside the Terms link on the register screen.
+  it('shows the Terms and Privacy Policy links side by side once the website address is configured', () => {
+    const savedUrl = process.env.EXPO_PUBLIC_WEBSITE_URL;
+    process.env.EXPO_PUBLIC_WEBSITE_URL = 'https://kwikserve.example';
+    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    try {
+      render(<RegisterScreen />);
+      expect(screen.getByRole('link', { name: 'Read the Terms' })).toBeOnTheScreen();
+      expect(screen.getByRole('link', { name: 'Read the Privacy Policy' })).toBeOnTheScreen();
+      fireEvent.press(screen.getByTestId('terms-consent-privacy-link'));
+      expect(open).toHaveBeenCalledWith('https://kwikserve.example/privacy/');
+    } finally {
+      open.mockRestore();
+      if (savedUrl === undefined) delete process.env.EXPO_PUBLIC_WEBSITE_URL;
+      else process.env.EXPO_PUBLIC_WEBSITE_URL = savedUrl;
+    }
   });
 });
 
