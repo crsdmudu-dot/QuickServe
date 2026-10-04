@@ -1,12 +1,11 @@
--- 0077_provisional_booking_terminal_status_guard.sql - Update 74, hardening H1: the cancellation race fix.
+-- 0073_booking_terminal_status_guard.sql - Update 74, hardening H1: the cancellation race fix.
 --
--- PROVISIONAL NUMBER. The final number is assigned when this is merged. 0072 is Update 71's Terms
--- registry and the next free number after it is earmarked for the v1 activation (PM stage 102, O-9), so
--- this file must be renumbered after those at merge time. Two packages must never hold the same number,
--- and the Supabase CLI refuses a lower number once a higher one is recorded on an environment.
+-- FINAL NUMBER 0073. U74 precedes the v1 activation on every environment (PM stage 119; numbering N1:
+-- H1 0073, H2 0074, H3 0075, the feature 0076). Two packages must never hold the same number, and the
+-- Supabase CLI refuses a lower number once a higher one is recorded on an environment.
 --
 -- INDEPENDENTLY RELEASABLE. This file depends on nothing from Update 74: not on H2 (the location lock,
--- provisional 0078) and not on the customer cancellation feature (provisional 0079). It can ship alone,
+-- 0074) and not on the customer cancellation feature (0076). It can ship alone,
 -- before or after H2, through its own QA and Production windows (owner instruction 2026-10-02 18:25, item
 -- 1; PM stage 102 (b): fix P1 before public launch whatever Update 74's release). The feature requires
 -- this file (its self-check stops without it).
@@ -35,7 +34,7 @@
 -- executable by any client role.
 --
 -- ROLLBACK (only if ever needed): drop trigger trg_bookings_terminal_guard on public.bookings; drop
--- function public.tg_bookings_terminal_guard(). The feature (0079) must be rolled back first if it is
+-- function public.tg_bookings_terminal_guard(). The feature (0076) must be rolled back first if it is
 -- applied, because its self-check requires this trigger. No data is involved.
 
 -- ── 1. Terminal-state guard (P1) ─────────────────────────────────────────────────────────────────
@@ -74,13 +73,13 @@ begin
     from pg_trigger
    where tgrelid = 'public.bookings'::regclass and tgname = 'trg_bookings_terminal_guard' and not tgisinternal;
   if not found then
-    raise exception 'provisional 0077 self-check: the terminal guard trigger is missing';
+    raise exception '0073 self-check: the terminal guard trigger is missing';
   end if;
   -- tgtype bits: 1 = ROW, 2 = BEFORE, 16 = UPDATE.
   if t.tgfoid <> guard or (t.tgtype & 1) = 0 or (t.tgtype & 2) = 0 or (t.tgtype & 16) = 0 or t.tgenabled <> 'O' then
-    raise exception 'provisional 0077 self-check: the terminal guard is not an enabled BEFORE UPDATE row trigger on its function';
+    raise exception '0073 self-check: the terminal guard is not an enabled BEFORE UPDATE row trigger on its function';
   end if;
   if has_function_privilege('authenticated', guard, 'EXECUTE') or has_function_privilege('anon', guard, 'EXECUTE') then
-    raise exception 'provisional 0077 self-check: the guard trigger function is executable by a client role';
+    raise exception '0073 self-check: the guard trigger function is executable by a client role';
   end if;
 end $$;

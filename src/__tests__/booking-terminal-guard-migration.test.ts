@@ -1,6 +1,6 @@
 /**
- * Guard for Update 74's hardening H1, the cancellation race fix (P1). Its number is PROVISIONAL (0077
- * locally); the final number is assigned at merge, so this guard finds the file by name.
+ * Guard for Update 74's hardening H1, the cancellation race fix (P1). Its number is final: 0073
+ * (numbering N1, PM stage 119); this guard finds the file by name.
  *
  * Pins the reviewed shape:
  *   - H1 stands alone: it creates only the terminal-status guard and its trigger, and refers to nothing
@@ -19,7 +19,7 @@ import * as path from 'path';
 
 const MIGRATIONS = path.join(__dirname, '../../supabase/migrations');
 const files = fs.readdirSync(MIGRATIONS).filter((f) => /^\d{4}_.*\.sql$/.test(f)).sort();
-const matching = files.filter((f) => f.endsWith('_provisional_booking_terminal_status_guard.sql'));
+const matching = files.filter((f) => f.endsWith('_booking_terminal_status_guard.sql'));
 const H1 = matching[0];
 const raw = fs.readFileSync(path.join(MIGRATIONS, H1), 'utf-8');
 const flat = raw
@@ -30,11 +30,11 @@ const flat = raw
   .trim()
   .toLowerCase();
 
-describe('H1 (terminal-status guard): provisional numbering and independence', () => {
-  it('exists exactly once, is byte-exact (no CR bytes) and is marked provisional', () => {
+describe('H1 (terminal-status guard): final numbering and independence', () => {
+  it('exists exactly once, is byte-exact (no CR bytes) and carries its final number', () => {
     expect(matching).toHaveLength(1);
     expect(raw.includes('\r')).toBe(false);
-    expect(raw).toMatch(/PROVISIONAL NUMBER/);
+    expect(raw).toMatch(/FINAL NUMBER 0073\./);
   });
 
   it('creates only the guard function and refers to nothing from H2 or the feature', () => {
