@@ -2,6 +2,14 @@
   "name": "quickserve",
   "main": "expo-router/entry",
   "version": "1.0.0",
+  "expo": {
+    "autolinking": {
+      "ios": {
+        "buildFromSource": ["expo-image"],
+        "exclude": ["expo-file-system"]
+      }
+    }
+  },
   "dependencies": {
     "@expo/ui": "~56.0.18",
     "@react-native-async-storage/async-storage": "2.2.0",
