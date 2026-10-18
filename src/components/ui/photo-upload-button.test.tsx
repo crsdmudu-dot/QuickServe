@@ -3,7 +3,8 @@ import { PhotoUploadButton } from '@/components/ui/photo-upload-button';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
-// Mock expo-image-picker so tests run without native modules.
+// Mock expo-image-picker so tests run without native modules. The permission request stays mocked
+// only so the tests can prove it is never called (C-124-7).
 jest.mock('expo-image-picker', () => ({
   requestMediaLibraryPermissionsAsync: jest.fn(),
   launchImageLibraryAsync: jest.fn(),
@@ -30,8 +31,6 @@ describe('PhotoUploadButton', () => {
   });
 
   it('calls uploadBookingPhoto with correct args and fires onUploaded after a successful pick', async () => {
-    // Simulate permission granted
-    mockRequestPermission.mockResolvedValue({ granted: true });
     // Simulate user picking an image
     mockLaunchLibrary.mockResolvedValue({ canceled: false, assets: [{ uri: 'file://x.jpg' }] });
     // Simulate a successful upload
@@ -55,7 +54,6 @@ describe('PhotoUploadButton', () => {
   });
 
   it('does not call uploadBookingPhoto when the user cancels the picker', async () => {
-    mockRequestPermission.mockResolvedValue({ granted: true });
     // Simulate user cancelling the picker
     mockLaunchLibrary.mockResolvedValue({ canceled: true });
 
@@ -70,8 +68,8 @@ describe('PhotoUploadButton', () => {
     expect(mockUpload).not.toHaveBeenCalled();
   });
 
-  it('does not call uploadBookingPhoto when permission is denied', async () => {
-    mockRequestPermission.mockResolvedValue({ granted: false });
+  it('opens the images-only system picker without asking for photo-library permission', async () => {
+    mockLaunchLibrary.mockResolvedValue({ canceled: true });
 
     render(
       <PhotoUploadButton bookingId="bk1" photoType="issue" label="Upload Photo" />,
@@ -79,13 +77,11 @@ describe('PhotoUploadButton', () => {
 
     fireEvent.press(screen.getByText('Upload Photo'));
 
-    await waitFor(() => expect(mockRequestPermission).toHaveBeenCalledTimes(1));
-    expect(mockLaunchLibrary).not.toHaveBeenCalled();
-    expect(mockUpload).not.toHaveBeenCalled();
+    await waitFor(() => expect(mockLaunchLibrary).toHaveBeenCalledWith({ mediaTypes: ['images'] }));
+    expect(mockRequestPermission).not.toHaveBeenCalled();
   });
 
   it('shows an inline error when the upload fails', async () => {
-    mockRequestPermission.mockResolvedValue({ granted: true });
     mockLaunchLibrary.mockResolvedValue({ canceled: false, assets: [{ uri: 'file://x.jpg' }] });
     mockUpload.mockResolvedValue({ ok: false, error: 'Upload failed. Please try again.' });
 

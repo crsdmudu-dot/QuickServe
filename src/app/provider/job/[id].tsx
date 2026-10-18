@@ -2,6 +2,8 @@
  * Provider job detail screen — shows booking info, lets the provider
  * advance the status forward one step at a time, and add before/after photos.
  * Slice 21: wires live-location sharing indicator and a Navigate button.
+ * Each photo the customer uploaded has a Report button, which reports the customer
+ * (a `user` report) with the title "Report this photo".
  */
 
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
@@ -23,6 +25,7 @@ import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { PhotoGallery } from '@/components/ui/photo-gallery';
 import { PhotoUploadButton } from '@/components/ui/photo-upload-button';
+import { ReportForm } from '@/components/ui/report-form';
 import { ActivityTimeline } from '@/components/ui/activity-timeline';
 import { SectionHeader } from '@/components/ui/section-header';
 import { DestinationSummary } from '@/components/ui/destination-summary';
@@ -37,6 +40,8 @@ export default function ProviderJobDetailScreen() {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [error, setError] = useState('');
   const [photos, setPhotos] = useState<BookingPhotoView[]>([]);
+  // The uploader of the photo being reported, while the "Report this photo" panel is open.
+  const [reportingPhotoBy, setReportingPhotoBy] = useState<string | null>(null);
   const [activity, setActivity] = useState<BookingActivity[]>([]);
 
   // Track screen focus so the sharing hook only runs while this screen is visible.
@@ -205,7 +210,30 @@ export default function ProviderJobDetailScreen() {
         {/* ── Photos section ───────────────────────────────────────────── */}
         <View style={styles.section}>
           <SectionHeader title="Photos" />
-          <PhotoGallery photos={photos} />
+          <PhotoGallery
+            photos={photos}
+            renderActions={(photo) =>
+              // Only photos from the other party can be reported. The server accepts a `user`
+              // report of the caller's counterpart on a shared booking (0065).
+              booking && photo.uploaded_by === booking.customer_id ? (
+                <Button
+                  label="Report"
+                  variant="ghost"
+                  size="sm"
+                  testID={`report-photo-${photo.id}`}
+                  onPress={() => setReportingPhotoBy(photo.uploaded_by)}
+                />
+              ) : null
+            }
+          />
+          {reportingPhotoBy ? (
+            <ReportForm
+              title="Report this photo"
+              targetType="user"
+              targetId={reportingPhotoBy}
+              onClose={() => setReportingPhotoBy(null)}
+            />
+          ) : null}
           <PhotoUploadButton
             bookingId={id}
             photoType="before"
