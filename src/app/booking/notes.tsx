@@ -29,10 +29,8 @@ export default function NotesScreen() {
     router.push('/booking/review');
   }
 
+  /** Opens the system photo picker. No photo-library permission is needed (C-124-7). */
   async function handlePickPhoto() {
-    const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!granted) return;
-
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'] });
     if (result.canceled) return;
 

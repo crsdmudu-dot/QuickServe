@@ -9,7 +9,9 @@
  * the name in a simple Card (no phone, no verified/skills).  Otherwise a muted
  * "No provider assigned yet" message is shown.
  * A "Photos" section at the bottom shows uploaded booking photos and lets the
- * customer add new issue photos via PhotoUploadButton.
+ * customer add new issue photos via PhotoUploadButton. Each photo the assigned
+ * provider uploaded has a Report button, which reports the provider (a `user`
+ * report) with the title "Report this photo".
  * When the booking is completed and has an assigned provider, a "Your review"
  * section lets the customer submit a star rating + comment, or view their
  * existing review via ReviewCard.
@@ -82,6 +84,8 @@ export default function BookingDetailScreen() {
   const [professional, setProfessional] = useState<Professional | null>(null);
   // True while the "Report provider" panel is open.
   const [reportingProvider, setReportingProvider] = useState(false);
+  // The uploader of the photo being reported, while the "Report this photo" panel is open.
+  const [reportingPhotoBy, setReportingPhotoBy] = useState<string | null>(null);
   const [photos, setPhotos] = useState<BookingPhotoView[]>([]);
   const [activity, setActivity] = useState<BookingActivity[]>([]);
   const [review, setReview] = useState<Review | null>(null);
@@ -593,7 +597,30 @@ export default function BookingDetailScreen() {
         {/* Photos section */}
         <View style={styles.section}>
           <SectionHeader title="Photos" />
-          <PhotoGallery photos={photos} />
+          <PhotoGallery
+            photos={photos}
+            renderActions={(photo) =>
+              // Only photos from the other party can be reported. The server accepts a `user`
+              // report of the caller's counterpart on a shared booking (0065).
+              booking.assigned_provider_id && photo.uploaded_by === booking.assigned_provider_id ? (
+                <Button
+                  label="Report"
+                  variant="ghost"
+                  size="sm"
+                  testID={`report-photo-${photo.id}`}
+                  onPress={() => setReportingPhotoBy(photo.uploaded_by)}
+                />
+              ) : null
+            }
+          />
+          {reportingPhotoBy ? (
+            <ReportForm
+              title="Report this photo"
+              targetType="user"
+              targetId={reportingPhotoBy}
+              onClose={() => setReportingPhotoBy(null)}
+            />
+          ) : null}
           <PhotoUploadButton
             bookingId={id}
             photoType="issue"
