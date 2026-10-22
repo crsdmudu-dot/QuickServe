@@ -192,16 +192,27 @@ anything on its own: a confirmed success still goes through the same certified 0
 | Success | Applied exactly as before | Nothing new |
 | Definite "unknown CheckoutRequestID" | **Not applied.** Recorded as orphan evidence (`unknown_checkout_request_id`, §6) with the usual "Unmatched M-PESA success callback — investigate" alert, then answered 409. Log line: `… answered unknown_request; recorded as evidence` | Treat as a possible **forged callback**: the callback secret may have leaked. Follow §6 for the evidence row; check the portal; if nothing was collected, rotate `MPESA_CALLBACK_SECRET` and `DARAJA_CALLBACK_URL` together. |
 | Definite "not successful" (a known request that failed) | **Not applied, not recorded**, answered 409. Log line: `success claim refused; M-PESA answered not_successful` | The same: a possible forged callback. The real attempt follows its own callback or the timeout path. |
-| Still processing, rate-limited, unreachable or unrecognised (after 3 tries) | **Not applied**, answered 500 so Safaricom may redeliver. Log line: `success not yet confirmed by M-PESA after retries` | Nothing special: the attempt times out and you reconcile it from the portal as in §4. This is **never** a forgery verdict. |
+| Still processing, rate-limited, unreachable or unrecognised (after 3 tries) | **Not applied**, answered 500 so Safaricom may redeliver. Log line: `success not yet confirmed by M-PESA after retries` | The attempt times out and you reconcile it from the portal as in §4. One line on its own is **not** a forgery verdict. **But** a forged success with a made-up CheckoutRequestID can also end here, with no evidence row and no alert (F-122e-3). So every such line must be explained by a real attempt (see the burst rule below and §8 step 1); a line that nothing explains counts toward the S45-1 burst. |
 
 **A burst means the token has leaked (lead PM S45-1).** A burst of callback-evidence alerts
-(refused or forged success claims: "Unmatched M-PESA success callback — investigate" alerts, or
-`success claim refused` lines in the `mpesa-callback` log) **with no matching transaction in the
+(refused or forged success claims: "Unmatched M-PESA success callback — investigate" alerts,
+`success claim refused` lines in the `mpesa-callback` log, or **`success not yet confirmed by
+M-PESA after retries` lines that no real attempt explains**) **with no matching transaction in the
 M-PESA portal** (the Utility Account statement, §8) means the callback token is assumed
 **leaked**. Rotate the callback token **at once** (§9), then re-check the portal, the Payment
 attempts page and the callback log. Do not wait for the daily check. The alert text "money may
 have moved" can appear on a forged claim; the portal decides. A single refused claim that the
 portal does not explain is handled the same way at the daily check (§8).
+
+**Why the `not yet confirmed` lines count (lead PM stage 122f, F-122f-2).** A forged success for a
+CheckoutRequestID that Safaricom does not know is recorded and alerted only when the STK Push Query
+answers in one exact "invalid CheckoutRequestID" shape. With any other answer (on 2026-10-04 the QA
+sandbox gave no definite answer at all) the forgery leaves **only** a `success not yet confirmed by M-PESA after
+retries` line: no evidence row and no alert. A `not yet confirmed` line is **explained** when an
+M-PESA attempt was waiting for its PIN at that time (Payment attempts page: an attempt created in
+the few minutes before the line, now timed out, failed or reconciled) or when the portal shows the
+matching transaction. The log line carries no CheckoutRequestID, so match by time only, and never
+confirm an attempt from the log line.
 
 Failure callbacks and callbacks without a CheckoutRequestID are not queried (they cannot settle
 anything). The query needs `DARAJA_BASE_URL`, `DARAJA_CONSUMER_KEY`, `DARAJA_CONSUMER_SECRET`,
@@ -232,8 +243,13 @@ receipt codes, so it never goes into a chat, a report or the repository.
      Account statement (step 2). **Any line the portal does not explain: treat it as a forged
      claim and rotate the callback token now (§9).** More than one in a short time is the S45-1
      burst in §7: rotate at once, without waiting for this check.
-   - A `not yet confirmed` line is not a forgery: its attempt follows the timeout path (§4).
-   - Log line: "callback log: N refused, all explained yes/no; M not confirmed".
+   - For every `not yet confirmed` line, check that a real attempt explains it (§7: an attempt
+     waiting for its PIN at that time, or a portal transaction). An explained line is not a
+     forgery: its attempt follows the timeout path (§4). **A line that nothing explains is handled
+     like a refused claim the portal does not explain: rotate the callback token now (§9).** More
+     than one in a short time is the S45-1 burst in §7.
+   - Log line: "callback log: N refused, all explained yes/no; M not confirmed, all explained
+     yes/no".
 2. **Statement check (collections).** The view-only portal operator signs in to the M-PESA
    Organization Portal → Transaction → Account Statement → **Utility Account** (customer Paybill
    payments land there), Completion Time = the previous day 00:00–23:59, Debit/Credit Both.
