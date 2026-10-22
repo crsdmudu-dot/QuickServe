@@ -21,10 +21,12 @@ export type PhotoUploadButtonProps = {
 
 /**
  * PhotoUploadButton — a single button that:
- *   1. Requests media-library permission.
- *   2. Opens the image picker.
- *   3. Uploads the chosen image via uploadBookingPhoto.
- *   4. Calls onUploaded() on success or shows an inline error on failure.
+ *   1. Opens the system photo picker.
+ *   2. Uploads the chosen image via uploadBookingPhoto.
+ *   3. Calls onUploaded() on success or shows an inline error on failure.
+ *
+ * No photo-library permission is requested: the system picker runs outside the app
+ * and returns only the photo the user picks (Apple 5.1.1(iii), PM stage 124 C-124-7).
  *
  * The button is disabled while the upload is in progress to prevent
  * double-submissions.
@@ -41,11 +43,7 @@ export function PhotoUploadButton({
   async function handlePress() {
     setError(null);
 
-    // Step 1 — ask for media library permission
-    const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!granted) return;
-
-    // Step 2 — open the image picker
+    // Step 1 — open the system photo picker (no permission needed)
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
     });
@@ -53,7 +51,7 @@ export function PhotoUploadButton({
     // If the user cancelled, do nothing
     if (result.canceled) return;
 
-    // Step 3 — upload the selected image
+    // Step 2 — upload the selected image
     setBusy(true);
     const uri = result.assets[0].uri;
     const { ok, error: uploadError } = await uploadBookingPhoto({

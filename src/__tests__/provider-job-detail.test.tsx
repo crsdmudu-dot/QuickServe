@@ -12,6 +12,15 @@ jest.mock('expo-router', () => ({
   useFocusEffect: jest.fn(),
 }));
 
+// The photo report panel (C-124-2) imports @/lib/moderation, which creates the Supabase client.
+// Mock it so this suite needs no Supabase env; the report form itself is tested in report-form.test.tsx.
+const mockReportContent = jest.fn().mockResolvedValue({ ok: true });
+jest.mock('@/lib/moderation', () => ({
+  REPORT_REASONS: [{ key: 'harassment', label: 'Harassment or bullying' }],
+  REPORT_CONFIRMATION: 'Thanks for letting us know. Our team reviews every report within 24 hours.',
+  reportContent: (...args: unknown[]) => mockReportContent(...args),
+}));
+
 // Mock the sharing hook so no expo-location runs in tests.
 jest.mock('@/hooks/use-provider-location-sharing', () => ({
   useProviderLocationSharing: () => ({ sharing: false, permission: 'undetermined' }),
@@ -39,6 +48,7 @@ const mockGetBookingById = jest.fn().mockImplementation(() =>
     assigned_provider_phone: null,
     admin_notes: null,
     assigned_provider_id: null,
+    customer_id: 'c1',
     scheduling_type: 'tomorrow',
     time_window: null,
     window_start: null,
@@ -200,7 +210,7 @@ describe('ProviderJobDetailScreen', () => {
     );
   });
 
-  it('does NOT render any delete or verify controls (no renderActions)', async () => {
+  it('does NOT render any delete or verify controls', async () => {
     mockBookingStatus = 'provider_assigned';
     render(<ProviderJobDetailScreen />);
     await screen.findByText('House Cleaning');
@@ -208,6 +218,44 @@ describe('ProviderJobDetailScreen', () => {
     expect(screen.queryByText('✓ Verified')).toBeNull();
     // No delete button
     expect(screen.queryByText('Delete')).toBeNull();
+  });
+
+  // ── Photo report (C-124-2) ──────────────────────────────────────────────
+
+  const PHOTO = {
+    booking_id: 'j1',
+    photo_url: 'path/to/photo.jpg',
+    caption: null,
+    is_verified: false,
+    created_at: '2026-06-21T00:00:00Z',
+    signedUrl: 'https://example.com/signed.jpg',
+  };
+
+  it("offers Report only on photos the customer uploaded, not on the provider's own", async () => {
+    mockBookingStatus = 'provider_assigned';
+    mockGetBookingPhotos.mockResolvedValue([
+      { ...PHOTO, id: 'ph-customer', uploaded_by: 'c1', photo_type: 'issue' },
+      { ...PHOTO, id: 'ph-own', uploaded_by: 'u1', photo_type: 'before' },
+    ]);
+    render(<ProviderJobDetailScreen />);
+    expect(await screen.findByTestId('report-photo-ph-customer')).toBeOnTheScreen();
+    expect(screen.queryByTestId('report-photo-ph-own')).toBeNull();
+  });
+
+  it('Report on a customer photo opens "Report this photo" and reports the customer as a person', async () => {
+    mockBookingStatus = 'provider_assigned';
+    mockReportContent.mockClear();
+    mockGetBookingPhotos.mockResolvedValue([
+      { ...PHOTO, id: 'ph-customer', uploaded_by: 'c1', photo_type: 'issue' },
+    ]);
+    render(<ProviderJobDetailScreen />);
+    fireEvent.press(await screen.findByTestId('report-photo-ph-customer'));
+
+    expect(screen.getByText('Report this photo')).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('report-reason-harassment'));
+    fireEvent.press(screen.getByTestId('report-send'));
+
+    await waitFor(() => expect(mockReportContent).toHaveBeenCalledWith('user', 'c1', 'harassment'));
   });
 
   // ── Activity timeline tests ─────────────────────────────────────────────

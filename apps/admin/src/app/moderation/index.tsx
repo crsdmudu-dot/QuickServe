@@ -55,6 +55,14 @@ function reasonLabel(key: string): string {
   return REPORT_REASONS.find((r) => r.key === key)?.label ?? key;
 }
 
+/**
+ * The apps report a booking photo as a report of the person who uploaded it (C-124-2), and the
+ * report does not say which photo. So every person report gets this procedure line.
+ */
+const PERSON_REPORT_PHOTO_CHECK =
+  'This may be about a booking photo. Check the photos on the bookings these two people share, ' +
+  'delete any that break the rules (Bookings, then the booking), then decide on suspension.';
+
 // ── One report ─────────────────────────────────────────────────────────────
 
 function ReportCard({
@@ -123,6 +131,11 @@ function ReportCard({
         <Text variant="body" testID={`report-content-${report.report_id}`}>
           {report.content_text ?? '(No text)'}
         </Text>
+        {report.target_type === 'user' ? (
+          <Text variant="caption" color="textSecondary" testID={`report-photo-check-${report.report_id}`}>
+            {PERSON_REPORT_PHOTO_CHECK}
+          </Text>
+        ) : null}
         {report.content_hidden ? (
           <Text variant="caption" color="error">
             Hidden by moderation

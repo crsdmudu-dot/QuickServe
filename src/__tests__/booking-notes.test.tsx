@@ -43,7 +43,8 @@ describe('NotesScreen', () => {
     mockRemoveIssuePhoto.mockClear();
     mockNotes = '';
     mockIssuePhotos = [];
-    mockRequestMediaLibraryPermissionsAsync.mockResolvedValue({ granted: true });
+    mockRequestMediaLibraryPermissionsAsync.mockClear();
+    mockLaunchImageLibraryAsync.mockClear();
     mockLaunchImageLibraryAsync.mockResolvedValue({ canceled: true });
   });
 
@@ -69,7 +70,7 @@ describe('NotesScreen', () => {
     expect(mockSetNotes).toHaveBeenCalledWith('Bring gloves');
   });
 
-  it('calls addIssuePhoto with the picked URI when permission granted and image selected', async () => {
+  it('calls addIssuePhoto with the picked URI when an image is selected', async () => {
     mockLaunchImageLibraryAsync.mockResolvedValue({
       canceled: false,
       assets: [{ uri: 'file://picked.jpg' }],
@@ -87,17 +88,15 @@ describe('NotesScreen', () => {
     render(<NotesScreen />);
     fireEvent.press(screen.getByText('Pick photo from library'));
 
-    await waitFor(() => expect(mockRequestMediaLibraryPermissionsAsync).toHaveBeenCalled());
+    await waitFor(() => expect(mockLaunchImageLibraryAsync).toHaveBeenCalled());
     expect(mockAddIssuePhoto).not.toHaveBeenCalled();
   });
 
-  it('does NOT call addIssuePhoto when permission is denied', async () => {
-    mockRequestMediaLibraryPermissionsAsync.mockResolvedValue({ granted: false });
-
+  it('opens the images-only system picker without asking for photo-library permission (C-124-7)', async () => {
     render(<NotesScreen />);
     fireEvent.press(screen.getByText('Pick photo from library'));
 
-    await waitFor(() => expect(mockRequestMediaLibraryPermissionsAsync).toHaveBeenCalled());
-    expect(mockAddIssuePhoto).not.toHaveBeenCalled();
+    await waitFor(() => expect(mockLaunchImageLibraryAsync).toHaveBeenCalledWith({ mediaTypes: ['images'] }));
+    expect(mockRequestMediaLibraryPermissionsAsync).not.toHaveBeenCalled();
   });
 });

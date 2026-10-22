@@ -333,6 +333,67 @@ describe('BookingDetailScreen', () => {
     expect(screen.getByText('Add issue photos')).toBeOnTheScreen();
   });
 
+  // ── Photo report (C-124-2) ──
+  const PROVIDER_BOOKING = {
+    ...BASE_BOOKING,
+    status: 'in_progress' as const,
+    assigned_provider_id: 'p1',
+    assigned_provider_name: 'Jane',
+  };
+  const PHOTO = {
+    booking_id: 'b1',
+    photo_url: 'path/to/photo.jpg',
+    caption: null,
+    is_verified: false,
+    created_at: '2026-06-21T00:00:00Z',
+    signedUrl: 'https://example.com/signed-photo.jpg',
+  };
+
+  it('Case D2: offers Report only on photos the assigned provider uploaded', async () => {
+    mockGetBookingById.mockResolvedValue(PROVIDER_BOOKING);
+    mockGetBookingProfessional.mockResolvedValue(null);
+    mockGetBookingPhotos.mockResolvedValue([
+      { ...PHOTO, id: 'ph-provider', uploaded_by: 'p1', photo_type: 'after' },
+      { ...PHOTO, id: 'ph-own', uploaded_by: 'c1', photo_type: 'issue' },
+    ]);
+
+    render(<BookingDetailScreen />);
+
+    expect(await screen.findByTestId('report-photo-ph-provider')).toBeOnTheScreen();
+    expect(screen.queryByTestId('report-photo-ph-own')).toBeNull();
+  });
+
+  it('Case D3: Report on a provider photo opens "Report this photo" and reports the provider as a person', async () => {
+    const { reportContent } = jest.requireMock('@/lib/moderation') as { reportContent: jest.Mock };
+    reportContent.mockClear();
+    mockGetBookingById.mockResolvedValue(PROVIDER_BOOKING);
+    mockGetBookingProfessional.mockResolvedValue(null);
+    mockGetBookingPhotos.mockResolvedValue([
+      { ...PHOTO, id: 'ph-provider', uploaded_by: 'p1', photo_type: 'after' },
+    ]);
+
+    render(<BookingDetailScreen />);
+    fireEvent.press(await screen.findByTestId('report-photo-ph-provider'));
+
+    expect(screen.getByText('Report this photo')).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('report-reason-harassment'));
+    fireEvent.press(screen.getByTestId('report-send'));
+
+    await waitFor(() => expect(reportContent).toHaveBeenCalledWith('user', 'p1', 'harassment'));
+  });
+
+  it('Case D4: a manually dispatched provider (no app account) gives no photo a Report button', async () => {
+    mockGetBookingById.mockResolvedValue({ ...BASE_BOOKING, assigned_provider_name: 'Bob' });
+    mockGetBookingPhotos.mockResolvedValue([
+      { ...PHOTO, id: 'ph-staff', uploaded_by: 'staff-1', photo_type: 'after' },
+    ]);
+
+    render(<BookingDetailScreen />);
+
+    await screen.findByText('Bob');
+    expect(screen.queryByTestId('report-photo-ph-staff')).toBeNull();
+  });
+
   it('Case E: shows activity timeline event message', async () => {
     mockGetBookingById.mockResolvedValue(BASE_BOOKING);
     mockGetBookingActivity.mockResolvedValue([

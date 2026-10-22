@@ -126,10 +126,12 @@ Only verified usage; absent features explicitly marked.
 - **Camera** — **Not implemented.** No camera capture is used and **no camera permission** is
   declared in `app.json` (camera was removed; confirmed by `docs/pilot/ios-release.md` and
   `src/__tests__/ios-permissions.test.ts`).
-- **Photo library** — `src/components/ui/photo-upload-button.tsx` uses
-  `ImagePicker.requestMediaLibraryPermissionsAsync()` + `launchImageLibraryAsync()`
-  (library only). iOS `NSPhotoLibraryUsageDescription` comes from the `expo-image-picker`
-  plugin's `photosPermission` in `app.json`.
+- **Photo library** — `src/components/ui/photo-upload-button.tsx`, `src/app/booking/notes.tsx`
+  and `src/app/booking/service-details.tsx` call only `launchImageLibraryAsync()` (images only).
+  No photo-library permission is requested: the system picker runs outside the app (Apple
+  5.1.1(iii); `src/__tests__/photo-picker-no-permission.test.ts`). iOS
+  `NSPhotoLibraryUsageDescription` still comes from the `expo-image-picker` plugin's
+  `photosPermission` in `app.json`.
 - **Location** — `src/hooks/use-provider-location-sharing.ts` uses
   `Location.requestForegroundPermissionsAsync()` + `watchPositionAsync` (`Accuracy.Balanced`)
   to share a provider's live location during an active job. **Foreground only** — there is **no
