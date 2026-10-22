@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   ...buildMetadata({
     title: 'KwikServe — Trusted Home Services in Nairobi',
-    description: `KwikServe is your on-demand platform for ${SEO_PHRASES[0]}, ${SEO_PHRASES[2]}, and more. Book verified professionals in minutes — transparent pricing, real-time tracking.`,
+    description: `KwikServe is your on-demand platform for ${SEO_PHRASES[0]}, ${SEO_PHRASES[2]}, and more. Upfront quotes, real-time tracking and M-PESA payment after the job.`,
     path: '/',
   }),
 };

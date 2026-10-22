@@ -19,7 +19,7 @@ import CtaSection from '@/components/CtaSection';
 export const metadata = buildMetadata({
   title: 'Simple, Transparent Pricing — KwikServe',
   description:
-    'No hidden fees, no surprises. KwikServe shows you the full price before you confirm every booking. Pay securely per service — fair rates, upfront quotes, guaranteed quality.',
+    'No hidden fees, no surprises. KwikServe sends you a quote before any work starts, and you pay with M-PESA only after the job is done.',
   path: '/pricing',
 });
 
@@ -35,7 +35,7 @@ export default function PricingPage() {
             as="h1"
             eyebrow="Pricing"
             title="Simple, Transparent Pricing"
-            subtitle="You see the exact price before you confirm. No subscriptions, no hidden fees — just fair, upfront rates for every service."
+            subtitle="You get a quote before any work starts. No subscriptions and no hidden fees."
             align="center"
           />
         </div>
@@ -55,17 +55,17 @@ export default function PricingPage() {
               {
                 icon: '💰',
                 title: 'Upfront Quotes',
-                body: 'Every booking shows a clear price estimate before you confirm. What you see is what you pay.',
+                body: 'Every booking gets a quote in the app before any work starts. Once you accept it, the price does not go up.',
               },
               {
                 icon: '🔒',
                 title: 'Secure Payment',
-                body: 'Pay through the app after the job is done — via M-Pesa or card. Your payment details are always encrypted.',
+                body: 'Pay in the app with M-PESA after the job is done. We do not take cards or cash.',
               },
               {
                 icon: '🚫',
                 title: 'No Hidden Fees',
-                body: 'No call-out charges, no platform subscription, no surprise extras. The quoted price is the final price.',
+                body: 'No call-out fee and no subscription. You pay only the price in the quote you accepted.',
               },
               {
                 icon: '📋',
@@ -95,7 +95,7 @@ export default function PricingPage() {
             title="Value You Can Count On"
             align="center"
           />
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
             {TRUST_BADGES.map((badge) => (
               <TrustBadge
                 key={badge.label}
@@ -116,7 +116,7 @@ export default function PricingPage() {
           <SectionHeading
             eyebrow="Browse & Compare"
             title="Explore Services"
-            subtitle="Select a service in the app to see live pricing in your area before you confirm."
+            subtitle="Request a service in the app to get a quote before you confirm."
             align="center"
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -137,7 +137,7 @@ export default function PricingPage() {
       {/* ------------------------------------------------------------------ */}
       <CtaSection
         heading="See Prices in the App"
-        body="Download KwikServe to view live, upfront pricing for every service in your area."
+        body="Request a quote in the KwikServe app."
         primaryCta={PRIMARY_CTA}
         secondaryCta={PROVIDER_CTA}
       />

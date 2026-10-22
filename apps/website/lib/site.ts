@@ -3,22 +3,16 @@
 
 import type { Metadata } from 'next';
 
-export const SITE_URL = 'https://quickserve.co.ke';
+export const SITE_URL = 'https://kwikserve.co.ke';
 
-// PLACEHOLDER — update social handles before public launch
 export const BRAND = {
   name: 'KwikServe',
   tagline: 'Trusted home services in Nairobi',
   description:
-    'KwikServe connects customers in Nairobi with verified professionals for home, auto, delivery, and personal-care services.',
+    'KwikServe connects customers in Nairobi with independent professionals for home, auto, delivery and personal-care services.',
   email: 'support@kwikserve.co.ke',
   // The name shown with the address; the app uses the same (SUPPORT_NAME in src/lib/support.ts).
   supportName: 'KwikServe Support',
-  socials: [
-    'https://twitter.com/quickserveke', // PLACEHOLDER
-    'https://facebook.com/quickserveke', // PLACEHOLDER
-    'https://instagram.com/quickserveke', // PLACEHOLDER
-  ],
 } as const;
 
 const DEFAULT_OG_IMAGE = `${SITE_URL}/og-default.png`;
@@ -75,9 +69,7 @@ export function organizationJsonLd(): Record<string, unknown> {
     url: SITE_URL,
     description: BRAND.description,
     areaServed: 'Nairobi, Kenya',
-    // sameAs is intentionally empty while social handles are unclaimed placeholders.
-    // TODO: restore real handles into sameAs once accounts are claimed:
-    //   sameAs: BRAND.socials,
+    // No social media accounts exist. Add a handle here only once the account is real and claimed.
     sameAs: [],
   };
 }

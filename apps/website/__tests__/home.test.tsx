@@ -2,7 +2,7 @@
 
 import { render, screen, getAllByRole } from '@testing-library/react';
 import Home from '@/app/page';
-import { STAT_PLACEHOLDERS } from '@/content/site';
+import { FAQ_PREVIEW_QUESTIONS } from '@/content/site';
 
 describe('Home page', () => {
   // -------------------------------------------------------------------------
@@ -61,24 +61,15 @@ describe('Home page', () => {
   // -------------------------------------------------------------------------
   // How It Works steps
   // -------------------------------------------------------------------------
-  it('renders how-it-works step titles', () => {
+  it('renders how-it-works step titles, with no speed promise (D9 (a), F-127c-3)', () => {
     render(<Home />);
     expect(screen.getByText('Choose a service')).toBeInTheDocument();
-    expect(screen.getByText('Book in seconds')).toBeInTheDocument();
+    expect(screen.getByText('Book in the app')).toBeInTheDocument();
+    expect(screen.queryByText(/in seconds/i)).toBeNull();
   });
 
   // -------------------------------------------------------------------------
-  // Stat placeholder value
-  // -------------------------------------------------------------------------
-  it('renders a stat placeholder value from STAT_PLACEHOLDERS', () => {
-    render(<Home />);
-    // At least one stat value (e.g. "10,000+") should be present
-    const firstStat = STAT_PLACEHOLDERS[0];
-    expect(screen.getByText(firstStat.value)).toBeInTheDocument();
-  });
-
-  // -------------------------------------------------------------------------
-  // FAQ "See all FAQs" link
+  // FAQ preview: questions only, each linking to the FAQ page (F-127c-2)
   // -------------------------------------------------------------------------
   it('renders a "See all FAQs" link pointing to /faq', () => {
     render(<Home />);
@@ -87,25 +78,44 @@ describe('Home page', () => {
     expect(faqLink).toHaveAttribute('href', '/faq');
   });
 
-  // -------------------------------------------------------------------------
-  // Social proof placeholder caption
-  // -------------------------------------------------------------------------
-  it('labels social-proof stats as illustrative placeholders', () => {
-    render(<Home />);
-    // The caption containing "Illustrative placeholder figures" should be present
-    expect(
-      screen.getByText(/illustrative placeholder figures/i)
-    ).toBeInTheDocument();
+  it('lists the FAQ preview questions as links to /faq, with no answers and no accordion', () => {
+    const { container } = render(<Home />);
+    for (const question of FAQ_PREVIEW_QUESTIONS) {
+      expect(screen.getByRole('link', { name: question })).toHaveAttribute('href', '/faq');
+    }
+    // No collapsible rows: the answers are only on the FAQ page, from the approved text.
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
+    // Words of the answers that the preview used to restate (and the operator line) are gone.
+    const text = container.textContent ?? '';
+    expect(text).not.toMatch(/Hired Corp|operated by|support@kwikserve\.co\.ke|available only in Kenya|job details/i);
   });
 
   // -------------------------------------------------------------------------
-  // Testimonial placeholder caption
+  // Wording ruled on by PM stage 127c
   // -------------------------------------------------------------------------
-  it('labels testimonials as illustrative', () => {
-    render(<Home />);
-    // Both the testimonials section and stats section have "Illustrative" captions —
-    // use getAllByText since duplicates are expected and intentional.
-    const illustrativeNodes = screen.getAllByText(/illustrative/i, { selector: 'p' });
-    expect(illustrativeNodes.length).toBeGreaterThanOrEqual(1);
+  it('the app call to action says nothing about launch timing (switch-neutral, F-127c-11)', () => {
+    const { container } = render(<Home />);
+    const text = container.textContent ?? '';
+    expect(text).toContain('For Android and iOS.');
+    expect(text).not.toMatch(/coming soon|available now|out now/i);
+  });
+
+  it('makes no absolute quality claim and promises providers no flow of work (F-127c-5, F-127c-6)', () => {
+    const { container } = render(<Home />);
+    const text = container.textContent ?? '';
+    expect(text).not.toMatch(/raise the bar|steady stream|growing network/i);
+    expect(text).toContain('Customers can rate every completed job.');
+  });
+
+  // -------------------------------------------------------------------------
+  // No placeholder social proof (stage-04 F2-2 / M6): no invented figures or testimonials
+  // -------------------------------------------------------------------------
+  it('renders no placeholder figures, testimonials or "illustrative" captions', () => {
+    const { container } = render(<Home />);
+    const text = container.textContent ?? '';
+    expect(text).not.toMatch(/illustrative|placeholder|testimonial/i);
+    expect(text).not.toContain('10,000+');
+    expect(text).not.toContain('4.9');
+    expect(container.querySelector('blockquote')).toBeNull();
   });
 });

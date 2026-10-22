@@ -8,8 +8,8 @@ import {
   PROVIDER_CTA,
   SECONDARY_CTA,
   DOWNLOAD_CTA,
-  STAT_PLACEHOLDERS,
-  FAQ_ITEMS,
+  FAQ_PREVIEW_QUESTIONS,
+  SEO_PHRASES,
 } from '@/content/site';
 
 // The 13 allowed marketing routes — no admin or app routes.
@@ -103,21 +103,36 @@ describe('CTA hrefs', () => {
   });
 });
 
-describe('STAT_PLACEHOLDERS', () => {
-  it('is non-empty', () => {
-    expect(STAT_PLACEHOLDERS.length).toBeGreaterThan(0);
+describe('placeholder social proof', () => {
+  it('exports no placeholder stats or testimonials (stage-04 F2-2 / M6)', async () => {
+    const content = await import('@/content/site');
+    expect('STAT_PLACEHOLDERS' in content).toBe(false);
+    expect('TESTIMONIAL_PLACEHOLDERS' in content).toBe(false);
   });
 });
 
-describe('FAQ_ITEMS', () => {
-  it('has at least 6 entries', () => {
-    expect(FAQ_ITEMS.length).toBeGreaterThanOrEqual(6);
+describe('FAQ_PREVIEW_QUESTIONS (the Home page preview; the FAQ page renders content/faq.md)', () => {
+  it('holds exactly the 4 questions the Home page lists', () => {
+    expect(FAQ_PREVIEW_QUESTIONS).toHaveLength(4);
   });
 
-  it('every entry has a question and an answer', () => {
-    for (const item of FAQ_ITEMS) {
-      expect(item.question).toBeTruthy();
-      expect(item.answer).toBeTruthy();
+  it('holds questions only, no answers (F-127c-2: the answers live only in the approved FAQ text)', () => {
+    for (const question of FAQ_PREVIEW_QUESTIONS) {
+      expect(typeof question).toBe('string');
+      expect(question).toMatch(/^[^.?!]+\?$/);
     }
+  });
+
+  it('carries no provider review or approval claim (D10 (b), H-93-1)', () => {
+    for (const question of FAQ_PREVIEW_QUESTIONS) {
+      expect(question).not.toMatch(/approved by our team|reviewed and approved|are providers checked/i);
+    }
+  });
+});
+
+describe('SEO_PHRASES', () => {
+  it('makes no provider-trust claim in search snippets (D10 (b) class, F-127c-4)', () => {
+    expect(SEO_PHRASES).toContain('Plumbers Nairobi');
+    for (const phrase of SEO_PHRASES) expect(phrase).not.toMatch(/trusted/i);
   });
 });

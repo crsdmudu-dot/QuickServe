@@ -77,11 +77,11 @@ export const SERVICE_CATEGORIES: {
   { id: 'movers-packers', title: 'Movers & Packers', subtitle: 'Pack, move & unpack', icon: '📦' },
   { id: 'mechanic', title: 'Mechanic On Demand', subtitle: 'Roadside & at-home', icon: '🚗' },
   { id: 'tire-replacement', title: 'Tire Replacement', subtitle: 'Change & balancing', icon: '🛞' },
-  { id: 'car-towing', title: 'Car Towing', subtitle: '24/7 recovery', icon: '🚙' },
+  { id: 'car-towing', title: 'Car Towing', subtitle: 'Vehicle recovery', icon: '🚙' },
   { id: 'grocery-delivery', title: 'Grocery Delivery', subtitle: 'Fresh to your door', icon: '🛒' },
   { id: 'food-delivery', title: 'Food Delivery', subtitle: 'From local restaurants', icon: '🍔' },
   { id: 'medicine-delivery', title: 'Medicine Delivery', subtitle: 'Pharmacy on demand', icon: '💊' },
-  { id: 'package-delivery', title: 'Package Delivery', subtitle: 'Send anything, fast', icon: '📮' },
+  { id: 'package-delivery', title: 'Package Delivery', subtitle: 'Parcels and documents', icon: '📮' },
   { id: 'haircuts', title: 'Haircuts', subtitle: 'Barbers & stylists', icon: '✂️' },
   { id: 'makeup', title: 'Makeup', subtitle: 'Events & occasions', icon: '💄' },
   { id: 'massage', title: 'Massage', subtitle: 'Relax at home', icon: '💆' },
@@ -94,23 +94,23 @@ export const SERVICE_CATEGORIES: {
 export const HOW_IT_WORKS_STEPS: { title: string; body: string }[] = [
   {
     title: 'Choose a service',
-    body: 'Pick from 19+ home, auto, delivery & personal-care services.',
+    body: 'Pick from 19 home, auto, delivery & personal-care services.',
   },
   {
-    title: 'Book in seconds',
+    title: 'Book in the app',
     body: 'Set your location and preferred time.',
   },
   {
-    title: 'Get matched',
-    body: 'We connect you with a nearby verified professional.',
+    title: 'Get a quote',
+    body: 'We send you the price in the app. Once you accept it, we assign a provider to your booking.',
   },
   {
     title: 'Track in real time',
     body: "Follow your pro's arrival on the map.",
   },
   {
-    title: 'Job done',
-    body: 'Your pro completes the work to a high standard.',
+    title: 'Job done, then pay',
+    body: 'Your provider completes the job, and you pay with M-PESA in the app.',
   },
   {
     title: 'Rate & review',
@@ -124,24 +124,19 @@ export const HOW_IT_WORKS_STEPS: { title: string; body: string }[] = [
 
 export const CUSTOMER_BENEFITS: { icon: string; title: string; text: string }[] = [
   {
-    icon: '✅',
-    title: 'Verified Professionals',
-    text: 'Every provider is background-checked and skill-verified before joining the platform.',
-  },
-  {
     icon: '💰',
     title: 'Transparent Pricing',
     text: 'See the full price upfront — no hidden fees, no surprises.',
   },
   {
     icon: '⚡',
-    title: 'Fast Booking',
-    text: 'Book a service in under a minute, straight from your phone.',
+    title: 'Easy Booking',
+    text: 'Book a service in a few taps, straight from your phone.',
   },
   {
     icon: '🔒',
     title: 'Secure Payments',
-    text: 'Pay safely through the app with multiple payment options.',
+    text: 'Pay with M-PESA in the app after the job is done. We never see your M-PESA PIN.',
   },
   {
     icon: '📍',
@@ -151,7 +146,7 @@ export const CUSTOMER_BENEFITS: { icon: string; title: string; text: string }[] 
   {
     icon: '⭐',
     title: 'Ratings & Reviews',
-    text: 'Read honest reviews from real customers before you book.',
+    text: 'Rate your provider after every job. Ratings help us keep standards high.',
   },
 ];
 
@@ -162,8 +157,8 @@ export const CUSTOMER_BENEFITS: { icon: string; title: string; text: string }[] 
 export const PROVIDER_BENEFITS: { icon: string; title: string; text: string }[] = [
   {
     icon: '📋',
-    title: 'Steady Stream of Jobs',
-    text: 'Get matched with customers in your area every day.',
+    title: 'Bookings for Your Skills',
+    text: 'Our team assigns you bookings for the services you offer.',
   },
   {
     icon: '🕐',
@@ -172,8 +167,8 @@ export const PROVIDER_BENEFITS: { icon: string; title: string; text: string }[] 
   },
   {
     icon: '💸',
-    title: 'Fast Payouts',
-    text: 'Earnings are paid out quickly and reliably.',
+    title: 'Clear Earnings',
+    text: 'The app shows what each job earned you and whether it has been paid out by M-PESA.',
   },
   {
     icon: '📈',
@@ -181,14 +176,9 @@ export const PROVIDER_BENEFITS: { icon: string; title: string; text: string }[] 
     text: 'Build a reputation, collect reviews, and attract more clients.',
   },
   {
-    icon: '🤑',
-    title: 'Keep More of Your Earnings',
-    text: 'Competitive commission rates so you keep the majority of every job.',
-  },
-  {
     icon: '🆓',
     title: 'Free to Join',
-    text: 'Sign up and start accepting jobs with no upfront cost.',
+    text: 'Signing up is free. You can take bookings once your provider account is active.',
   },
 ];
 
@@ -198,11 +188,6 @@ export const PROVIDER_BENEFITS: { icon: string; title: string; text: string }[] 
 
 export const TRUST_BADGES: { icon: string; label: string; description: string }[] = [
   {
-    icon: '✅',
-    label: 'Verified Providers',
-    description: 'All professionals are vetted and background-checked.',
-  },
-  {
     icon: '🔒',
     label: 'Secure Payments',
     description: 'Your payment data is encrypted and protected.',
@@ -210,12 +195,12 @@ export const TRUST_BADGES: { icon: string; label: string; description: string }[
   {
     icon: '⭐',
     label: 'Ratings & Reviews',
-    description: 'Transparent feedback from real customers.',
+    description: 'Customers can rate every completed job.',
   },
   {
     icon: '⏱️',
-    label: 'On-Time Service',
-    description: 'Providers are held to punctuality standards.',
+    label: 'Live Job Status',
+    description: 'Follow each booking in the app, from assigned to completed.',
   },
   {
     icon: '🎧',
@@ -224,95 +209,22 @@ export const TRUST_BADGES: { icon: string; label: string; description: string }[
   },
   {
     icon: '😊',
-    label: 'Satisfaction Focused',
-    description: "We're not done until you're happy with the result.",
+    label: 'Help If It Goes Wrong',
+    description: 'If a job was not done as agreed, email us and we will look into it.',
   },
 ];
 
 // ---------------------------------------------------------------------------
-// FAQ — 8 entries
+// FAQ preview — the questions listed on the Home page (4 entries), each linking to the FAQ page.
+// Questions only, no answers: the answers are part of the approved FAQ text (content/faq.md), which only the FAQ
+// page renders (app/faq/page.tsx), so the Home page never restates them (PM stage 127c, F-127c-2).
 // ---------------------------------------------------------------------------
 
-export const FAQ_ITEMS: { question: string; answer: string }[] = [
-  {
-    question: 'What is KwikServe?',
-    answer:
-      'KwikServe is an on-demand services platform that connects customers in Nairobi with trusted, verified professionals for home, auto, delivery, and personal-care services.',
-  },
-  {
-    question: 'Which areas do you currently serve?',
-    answer:
-      'We currently operate in Nairobi and are actively expanding to other cities across Kenya. Check the app for the latest coverage in your area.',
-  },
-  {
-    question: 'How does booking work?',
-    answer:
-      'Open the app, choose a service, set your location and preferred time, and confirm — you will be matched with a nearby verified provider within minutes.',
-  },
-  {
-    question: 'Are providers vetted?',
-    answer:
-      'Yes. Every provider goes through an identity verification and background check before they can accept jobs on the platform.',
-  },
-  {
-    question: 'How does payment work?',
-    answer:
-      'You pay securely through the app after the job is completed. We support M-Pesa and card payments, and your payment details are always encrypted.',
-  },
-  {
-    question: 'How do I become a provider?',
-    answer:
-      "Visit the Become a Provider page, fill in your details, complete the verification steps, and start accepting jobs once approved. It's free to join.",
-  },
-  {
-    question: 'Is there a mobile app?',
-    answer:
-      'Yes — KwikServe is available for both Android and iOS. Download it from the App Store or Google Play Store.',
-  },
-  {
-    question: 'How do I get support?',
-    answer:
-      'You can reach our support team through the Contact page on this website, or by emailing support@kwikserve.co.ke.',
-  },
-];
-
-// ---------------------------------------------------------------------------
-// Stats — PLACEHOLDER; replace before public launch
-// ---------------------------------------------------------------------------
-
-// PLACEHOLDER — not live data; replace before public launch
-export const STAT_PLACEHOLDERS: { value: string; label: string }[] = [
-  { value: '10,000+', label: 'Jobs Completed' },
-  { value: '4.9★', label: 'Average Rating' },
-  { value: '500+', label: 'Verified Providers' },
-  { value: '19+', label: 'Services' },
-  { value: '30 min', label: 'Avg Response Time' },
-];
-
-// ---------------------------------------------------------------------------
-// Testimonials — PLACEHOLDER; replace before public launch
-// ---------------------------------------------------------------------------
-
-// PLACEHOLDER — illustrative, not real customers
-export const TESTIMONIAL_PLACEHOLDERS: { quote: string; author: string; role: string }[] = [
-  {
-    quote:
-      'KwikServe sent a plumber to my house in under 30 minutes. The work was clean and the pricing was exactly what I was quoted. I will not call anyone else.',
-    author: 'Amina W.',
-    role: 'Customer, Nairobi',
-  },
-  {
-    quote:
-      'I booked a house cleaning for Saturday morning and the team arrived on time, were professional, and left my apartment spotless. Absolutely worth it.',
-    author: 'Brian O.',
-    role: 'Customer, Nairobi',
-  },
-  {
-    quote:
-      'As a provider, KwikServe keeps my schedule full and pays me reliably. The app is simple and I love being able to set my own hours.',
-    author: 'David K.',
-    role: 'Service Provider, Nairobi',
-  },
+export const FAQ_PREVIEW_QUESTIONS: string[] = [
+  'What is KwikServe?',
+  'Which areas do you currently serve?',
+  'How does booking work?',
+  'How do I get support?',
 ];
 
 // ---------------------------------------------------------------------------
@@ -330,7 +242,7 @@ export const DOWNLOAD_CTA: Cta = { label: 'Download the App', href: '/download' 
 
 export const SEO_PHRASES: string[] = [
   'Home Services Nairobi',
-  'Trusted Plumbers Nairobi',
+  'Plumbers Nairobi',
   'Electrician Nairobi',
   'Cleaning Services Nairobi',
   'Handyman Nairobi',

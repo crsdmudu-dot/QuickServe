@@ -19,13 +19,13 @@ describe('buildMetadata', () => {
 
   it('sets alternates.canonical to SITE_URL + path', () => {
     expect((meta.alternates as { canonical: string }).canonical).toBe(
-      'https://quickserve.co.ke/services',
+      'https://kwikserve.co.ke/services',
     );
   });
 
   it('sets openGraph.url to SITE_URL + path', () => {
     const og = meta.openGraph as { url: string };
-    expect(og.url).toBe('https://quickserve.co.ke/services');
+    expect(og.url).toBe('https://kwikserve.co.ke/services');
   });
 
   it('sets openGraph.siteName to KwikServe', () => {
@@ -38,10 +38,10 @@ describe('buildMetadata', () => {
       title: 'Test',
       description: 'Test',
       path: '/test',
-      ogImage: 'https://quickserve.co.ke/og-test.png',
+      ogImage: 'https://kwikserve.co.ke/og-test.png',
     });
     const og = metaWithImage.openGraph as { images: string[] };
-    expect(og.images[0]).toBe('https://quickserve.co.ke/og-test.png');
+    expect(og.images[0]).toBe('https://kwikserve.co.ke/og-test.png');
   });
 });
 
@@ -57,7 +57,7 @@ describe('organizationJsonLd', () => {
   });
 
   it('url is the site URL', () => {
-    expect(ld['url']).toBe('https://quickserve.co.ke');
+    expect(ld['url']).toBe('https://kwikserve.co.ke');
   });
 
   it('name is KwikServe', () => {
@@ -90,6 +90,6 @@ describe('websiteJsonLd', () => {
   });
 
   it('url is the site URL', () => {
-    expect(ld['url']).toBe('https://quickserve.co.ke');
+    expect(ld['url']).toBe('https://kwikserve.co.ke');
   });
 });

@@ -1,6 +1,6 @@
 // app/download/page.tsx — App download landing page.
 // Server component — no data fetching, no hooks, no Supabase.
-// Store badges are PLACEHOLDERS — "Coming soon" — no fake store URLs.
+// Store badges say "Coming soon" until the store listings exist — no fake store URLs.
 
 import { buildMetadata } from '@/lib/site';
 import { PRIMARY_CTA, DOWNLOAD_CTA, PROVIDER_CTA } from '@/content/site';
@@ -11,7 +11,7 @@ import CtaSection from '@/components/CtaSection';
 export const metadata = buildMetadata({
   title: 'Download the KwikServe App — Android & iOS',
   description:
-    'Get the KwikServe app on Android or iOS and book trusted home services in Nairobi in under a minute. Coming soon to Google Play and the App Store.',
+    'The KwikServe app for Android and iOS is coming soon to Google Play and the App Store. Book home services in Nairobi in a few taps.',
   path: '/download',
 });
 
@@ -30,12 +30,12 @@ export default function DownloadPage() {
             Get the KwikServe App
           </h1>
           <p className="text-body text-textSecondary max-w-2xl">
-            Book trusted home services in Nairobi from the palm of your hand. Available for both
-            Android and iOS — browse 19+ services, get upfront pricing, and track your professional
+            Book home services in Nairobi from the palm of your hand. Coming soon to Android and
+            iOS — browse 19 services, get a quote before any work starts, and track your provider
             in real time.
           </p>
 
-          {/* Store badge placeholders */}
+          {/* Store badges: coming soon, no store links yet */}
           <div className="flex flex-col sm:flex-row items-center gap-4 mt-2">
             <div
               className="flex items-center gap-3 bg-ink text-white rounded-xl px-6 py-3 opacity-70 cursor-not-allowed"
@@ -61,7 +61,7 @@ export default function DownloadPage() {
             </div>
           </div>
           <p className="text-caption text-textTertiary">
-            App launch coming soon — enter your details to be notified first.
+            App launch coming soon. Store links will appear here when the app is available.
           </p>
         </div>
       </section>
@@ -79,8 +79,8 @@ export default function DownloadPage() {
             {[
               {
                 icon: '⚡',
-                title: 'Book in Under a Minute',
-                body: 'Choose a service, set your location, confirm — and your professional is on the way.',
+                title: 'Book in a Few Taps',
+                body: 'Choose a service, give your address and time, and accept your quote.',
               },
               {
                 icon: '📍',
@@ -90,12 +90,12 @@ export default function DownloadPage() {
               {
                 icon: '💰',
                 title: 'See Prices Upfront',
-                body: 'No hidden fees — the price shown before you confirm is the price you pay.',
+                body: 'No hidden fees — you pay only the price in the quote you accept.',
               },
               {
                 icon: '🔒',
                 title: 'Secure In-App Payment',
-                body: 'Pay via M-Pesa or card after the job is done. All transactions are encrypted.',
+                body: 'Pay with M-PESA after the job is done. We never see your M-PESA PIN.',
               },
               {
                 icon: '⭐',
@@ -105,7 +105,7 @@ export default function DownloadPage() {
               {
                 icon: '📱',
                 title: 'Android & iOS',
-                body: 'KwikServe runs natively on both Android and iOS — optimised for performance on every device.',
+                body: 'KwikServe is built for both Android and iOS.',
               },
             ].map(({ icon, title, body }) => (
               <div key={title} className="bg-surface border border-border rounded-lg p-6 flex items-start gap-4">
@@ -128,7 +128,7 @@ export default function DownloadPage() {
           <SectionHeading
             eyebrow="Stay Updated"
             title="Be First to Know When We Launch"
-            subtitle="The KwikServe app is coming soon to Google Play and the App Store. Contact us to register your interest and we'll notify you at launch."
+            subtitle="The KwikServe app is coming soon to Google Play and the App Store. Check this page for the store links."
             align="center"
           />
         </div>
@@ -139,7 +139,7 @@ export default function DownloadPage() {
       {/* ------------------------------------------------------------------ */}
       <CtaSection
         heading="Ready to Experience KwikServe?"
-        body="Book services via the web today, or contact us to be notified when the app launches on Android and iOS."
+        body="The KwikServe app is coming soon to Android and iOS. Questions? Contact us."
         primaryCta={DOWNLOAD_CTA}
         secondaryCta={PROVIDER_CTA}
       />
