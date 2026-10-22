@@ -158,7 +158,10 @@ export default function DeleteAccountScreen() {
               <Text variant="body" color="textSecondary">
                 All bookings must be completed or cancelled, all payments settled
                 {isProvider ? ', all earnings paid out' : ', your wallet balance must be zero'}, and
-                no support case may be open. We will tell you exactly what still needs attention.
+                no support case may be open.
+                {/* Update 74 (DRAFT): customers can cancel a booking in the app before work starts. */}
+                {isProvider ? '' : ' You can cancel a booking from its screen before work starts.'} We will
+                tell you exactly what still needs attention.
               </Text>
             </View>
 

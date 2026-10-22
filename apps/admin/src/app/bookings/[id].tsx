@@ -62,6 +62,7 @@ import { ServiceDetailsSummary } from '@/components/booking/service-details-summ
 import { AdminLiveLocation } from '@/components/ui/admin-live-location';
 import { AdminWalletPanel } from '@admin/components/admin-wallet-panel';
 import { InternalNotesPanel } from '@admin/components/operations/internal-notes-panel';
+import { CancellationCard } from '@admin/components/cancellation-card';
 
 // ── Layout breakpoint ──────────────────────────────────────────────────────
 
@@ -279,6 +280,9 @@ export default function AdminWebBookingDetailScreen() {
           ) : null}
         </View>
       </Card>
+
+      {/* Update 74: who cancelled a cancelled booking, and what the cancellation did. */}
+      {booking.status === 'cancelled' ? <CancellationCard bookingId={booking.id} /> : null}
 
       {/* Service Details (V1.4) — the full structured request, rendered from the immutable
           snapshot. Ops reads this to dispatch manually, to fulfil grocery requests and to spot a

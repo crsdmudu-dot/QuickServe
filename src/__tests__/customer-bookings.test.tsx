@@ -7,6 +7,7 @@
 
 jest.mock('expo-router', () => ({
   router: { push: jest.fn(), replace: jest.fn() },
+  useFocusEffect: jest.fn(),
 }));
 
 // Mock ServicesProvider — BookingStatusCard (used by bookings screen) uses useServices()

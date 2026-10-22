@@ -1,0 +1,24 @@
+# Update 74 — once work has started, the app offers "Get help with this booking", not Cancel booking.
+#
+# NOT RUN YET (written 2026-10-02; to run later on a QA build).
+# Prerequisite (QA only, set up by qa/native/backend.mjs): the customer's ${SERVICE} booking is
+# in_progress with an in-app provider.
+#
+# Params via -e: CUST_EMAIL, CUST_PW, SERVICE. Credentials are never stored here.
+appId: ke.co.hiredcorp.kwikserve
+---
+- runFlow: steps/login-customer.yaml
+- tapOn: "My Bookings"
+- extendedWaitUntil: { visible: ".*${SERVICE}.*", timeout: 15000 }
+- tapOn: ".*${SERVICE}.*"
+- extendedWaitUntil: { visible: "Booking Detail", timeout: 15000 }
+- runFlow: { when: { visible: "No thanks" }, commands: [ { tapOn: "No thanks" } ] }
+- scrollUntilVisible: { element: { id: "booking-help" }, direction: DOWN, timeout: 15000 }
+- assertNotVisible: { id: "booking-cancel" }
+- tapOn: { id: "booking-help" }
+- extendedWaitUntil: { visible: "Get help with this booking", timeout: 15000 }
+- assertVisible: { id: "help-intro" }
+- assertVisible: { id: "help-reference" }
+- assertVisible: "support@kwikserve.co.ke"
+# An email is a request; the screen never promises an automatic cancellation or refund.
+- assertNotVisible: ".*[Aa]utomatic.*"

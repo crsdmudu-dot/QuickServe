@@ -16,6 +16,9 @@ jest.mock('@/lib/blocks', () => ({
   isBookingChatBlocked: jest.fn().mockResolvedValue(false),
   adminBlockedProviderIds: jest.fn().mockResolvedValue([]),
   CHAT_BLOCKED_NOTICE: "Chat isn't available for this booking. To request cancellation, email KwikServe Support at support@kwikserve.co.ke.",
+  // Update 74: the notice is role-specific.
+  CHAT_BLOCKED_NOTICE_PROVIDER: "Chat isn't available for this booking. To request cancellation, email KwikServe Support at support@kwikserve.co.ke.",
+  CHAT_BLOCKED_NOTICE_CUSTOMER: "Chat isn't available for this booking. On the booking screen you can use Cancel booking before work starts, or Get help with this booking. For anything else, email KwikServe Support at support@kwikserve.co.ke.",
 }));
 
 jest.mock('@/lib/moderation', () => ({
@@ -275,6 +278,8 @@ describe('ChatThread — blocking', () => {
     blockUser: jest.Mock;
     isBookingChatBlocked: jest.Mock;
     CHAT_BLOCKED_NOTICE: string;
+    CHAT_BLOCKED_NOTICE_CUSTOMER: string;
+    CHAT_BLOCKED_NOTICE_PROVIDER: string;
   };
 
   beforeEach(() => {
@@ -292,7 +297,8 @@ describe('ChatThread — blocking', () => {
     expect(screen.getByText('Block Provider Name?')).toBeOnTheScreen();
     expect(blocks.blockUser).not.toHaveBeenCalled();
     fireEvent.press(screen.getByTestId('chat-block-yes'));
-    expect(await screen.findByTestId('chat-blocked-notice')).toHaveTextContent(blocks.CHAT_BLOCKED_NOTICE);
+    // The signed-in user ('me') is the booking's customer, so the customer's notice shows (Update 74).
+    expect(await screen.findByTestId('chat-blocked-notice')).toHaveTextContent(blocks.CHAT_BLOCKED_NOTICE_CUSTOMER);
     expect(blocks.blockUser).toHaveBeenCalledWith('prov');
     expect(screen.queryByPlaceholderText('Type a message…')).toBeNull();
     expect(screen.queryByTestId('chat-block-person')).toBeNull();

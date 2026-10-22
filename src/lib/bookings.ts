@@ -4,6 +4,7 @@ import { CONTENT_NOT_ALLOWED_MESSAGE, isContentNotAllowed } from '@/lib/content-
 import type { QuoteStatus } from '@/lib/quotes';
 import type { SchedulingType, TimeWindow, Recurrence } from '@/lib/scheduling';
 import { serviceDetailsPrimaryValue, type ServiceDetailsSnapshot } from '@/lib/service-details';
+import { PROVIDER_STATUS_FINAL } from '@/constants/cancellation-copy';
 
 /** Curated provider details returned for a booking's assigned professional. */
 export type Professional = {
@@ -278,11 +279,16 @@ export async function getBookingById(id: string): Promise<Booking | null> {
 export async function updateBookingStatus(
   id: string,
   status: BookingStatus,
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; code?: 'booking_final' }> {
   const { error } = await supabase
     .from('bookings')
     .update({ status })
     .eq('id', id);
+  // Update 74: the database's terminal-state guard refuses a non-admin's change of a cancelled or completed
+  // booking (hardening H1, migration 0073). Say so plainly, so the provider's screen can reload.
+  if (error?.message === 'booking_status_final') {
+    return { ok: false, error: PROVIDER_STATUS_FINAL, code: 'booking_final' };
+  }
   if (error) return { ok: false, error: 'Could not update booking. Please try again.' };
   return { ok: true };
 }

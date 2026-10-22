@@ -47,6 +47,10 @@ const LEGITIMATE_CALLERS = [
   'record_mpesa_callback_event',
   // 0065: alerts the approved admins when a user reports content (no content, no names).
   'report_content',
+  // Update 74 (0076): the customer's cancellation tells the provider and the admins.
+  'customer_cancel_booking',
+  // Update 74 (0076; owner item 6): the customer is told when anyone else cancels.
+  'tg_bookings_customer_cancel_notice',
   'tg_push_bookings',
   'tg_push_payments',
   'tg_push_booking_messages',

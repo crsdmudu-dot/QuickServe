@@ -72,6 +72,7 @@ import { QuoteCard } from '@/components/ui/quote-card';
 import { ServiceDetailsSummary } from '@/components/booking/service-details-summary';
 import { hasServiceDetails } from '@/lib/service-details-view';
 import { BookingProgressTracker } from '@/components/customer/booking-progress-tracker';
+import { BookingCancelActions } from '@/components/customer/booking-cancel-actions';
 import { PaymentBreakdownCard } from '@/components/customer/payment-breakdown-card';
 import { ReviewEditForm } from '@/components/customer/review-edit-form';
 
@@ -198,6 +199,8 @@ export default function BookingDetailScreen() {
 
   // P7: refresh when the screen regains focus (for example, coming back from the receipt).
   // The first focus is skipped because the load effect above already fetched everything.
+  // Update 74: the same focus refresh also reloads the booking and its activity (for example back from
+  // Cancel booking), so the status and the Cancel booking / Get help action are current.
   const firstFocus = useRef(true);
   useFocusEffect(
     useCallback(() => {
@@ -211,7 +214,11 @@ export default function BookingDetailScreen() {
           setRefreshUntil(Date.now() + PAYMENT_REFRESH_WINDOW_MS);
         }
       });
-    }, [refreshPayment]),
+      getBookingById(id).then((b) => {
+        if (b) setBooking(b);
+      });
+      getBookingActivity(id).then(setActivity);
+    }, [id, refreshPayment]),
   );
 
   async function reload() {
@@ -397,6 +404,9 @@ export default function BookingDetailScreen() {
         {/* Slice 34: booking progress tracker */}
         <BookingProgressTracker status={booking.status} />
 
+        {/* Update 74: Cancel booking, or Get help with this booking (the server decides on confirm). */}
+        <BookingCancelActions booking={booking} payment={payment} attempts={attempts} />
+
         {/* Slice 34: service summary — display-only */}
         <View style={styles.serviceSummaryRow}>
           <Text style={styles.serviceIcon}>{service.icon}</Text>
@@ -425,7 +435,8 @@ export default function BookingDetailScreen() {
 
         {/* Payment section */}
         <SectionHeader title="Payment" />
-        {booking.quote_status === 'sent' ? (
+        {/* A cancelled booking's quote can no longer be accepted (the server refuses it too). */}
+        {booking.quote_status === 'sent' && booking.status !== 'cancelled' ? (
           <QuoteCard
             amount={booking.quoted_amount}
             quoteStatus="sent"

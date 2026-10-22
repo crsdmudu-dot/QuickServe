@@ -5,7 +5,7 @@
  * calls are made. Uses findBy* for async data loads.
  */
 
-jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
+jest.mock('expo-router', () => ({ router: { push: jest.fn() }, useFocusEffect: jest.fn() }));
 
 // Mock ServicesProvider — provider home screen uses useServices() for getServiceBySlug
 jest.mock('@/services/services-provider', () => {
