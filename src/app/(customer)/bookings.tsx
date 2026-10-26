@@ -8,9 +8,13 @@
  *
  * Slice 34: replaced inline Card+StatusBadge row with BookingStatusCard;
  * in-progress bookings also show a compact BookingProgressTracker.
+ *
+ * Update 74 (owner decision 2026-10-03, item 6): the list reloads whenever the tab regains focus, so a
+ * cancellation (by the customer, or by KwikServe) shows its new status without restarting the app.
  */
 
-import { router } from 'expo-router';
+import { useCallback, useRef } from 'react';
+import { router, useFocusEffect } from 'expo-router';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -36,7 +40,20 @@ export default function CustomerBookingsScreen() {
     loading,
     hasMore,
     loadMore,
+    reload,
   } = usePaginatedList((p, s) => getCustomerBookings(p, s));
+
+  // The first focus is the mount, which already loads; later focuses reload.
+  const firstFocus = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (firstFocus.current) {
+        firstFocus.current = false;
+        return;
+      }
+      void reload();
+    }, [reload]),
+  );
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>

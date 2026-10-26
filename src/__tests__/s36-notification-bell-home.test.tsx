@@ -16,6 +16,7 @@ jest.mock('expo-router', () => ({
   router: { push: jest.fn(), replace: jest.fn() },
   useRouter: () => ({ push: jest.fn() }),
   useLocalSearchParams: () => ({}),
+  useFocusEffect: jest.fn(),
 }));
 
 const mockGetUnreadNotificationCount = jest.fn().mockResolvedValue(5);

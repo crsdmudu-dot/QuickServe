@@ -1,4 +1,5 @@
 import { roleHref, type Role } from '@/constants/roles';
+import { TERMS_GATE_EXEMPTS_CANCELLATION } from '@/constants/cancellation';
 
 export type RootRedirectInput = {
   isLoading: boolean;
@@ -24,7 +25,9 @@ export type RootRedirectTarget = '/welcome' | '/accept-terms' | ReturnType<typeo
  *  - Otherwise: signed out outside onboarding → welcome.
  *  - Signed in without the current Terms accepted (F5.4) → the Terms screen, wherever they are,
  *    except account deletion: someone who declines the Terms must still be able to delete their
- *    account (store rule; the Terms screen links to it).
+ *    account (store rule; the Terms screen links to it). Update 74 (OD-74-8 DEFAULT): the same for a
+ *    customer cancelling an existing booking (booking/cancel and booking/help), so cancelling is never
+ *    trapped behind new Terms; the Terms screen links to booking/cancel.
  *  - Signed in with a role inside onboarding, or on the Terms screen once accepted → role home.
  */
 export function resolveRootRedirect(input: RootRedirectInput): RootRedirectTarget | null {
@@ -38,8 +41,13 @@ export function resolveRootRedirect(input: RootRedirectInput): RootRedirectTarge
   const inOnboarding = first === '(onboarding)';
   const onTermsScreen = first === 'accept-terms';
   const onAccountDeletion = first === 'account' && segments[1] === 'delete';
+  const onCancellation =
+    TERMS_GATE_EXEMPTS_CANCELLATION &&
+    role === 'customer' &&
+    first === 'booking' &&
+    (segments[1] === 'cancel' || segments[1] === 'help');
   if (!signedIn && !inOnboarding) return '/welcome';
-  if (signedIn && termsRequired && !onTermsScreen && !onAccountDeletion) return '/accept-terms';
+  if (signedIn && termsRequired && !onTermsScreen && !onAccountDeletion && !onCancellation) return '/accept-terms';
   if (signedIn && role && (inOnboarding || (onTermsScreen && !termsRequired))) return roleHref(role);
   return null;
 }

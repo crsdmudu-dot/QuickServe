@@ -3,8 +3,8 @@
  * approval status: pending, rejected, or approved (shows assigned jobs).
  */
 
-import { useEffect, useState } from 'react';
-import { router } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -34,7 +34,21 @@ export default function ProviderHomeScreen() {
     loading: jobsLoading,
     hasMore: jobsHasMore,
     loadMore: loadMoreJobs,
+    reload: reloadJobs,
   } = usePaginatedList((p, s) => getProviderJobs(p, s));
+
+  // Update 74 (owner decision 2026-10-03, item 6): reload the jobs when the tab regains focus, so a
+  // cancelled job shows its new status. The first focus is the mount, which already loads.
+  const firstFocus = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (firstFocus.current) {
+        firstFocus.current = false;
+        return;
+      }
+      void reloadJobs();
+    }, [reloadJobs]),
+  );
 
   // ── Notification bell unread count ────────────────────────────────────────
   const [unreadNotifications, setUnreadNotifications] = useState(0);

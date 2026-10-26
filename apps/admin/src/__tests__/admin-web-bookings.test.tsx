@@ -27,6 +27,9 @@ jest.mock('@/lib/blocks', () => ({
   isBookingChatBlocked: jest.fn().mockResolvedValue(false),
   adminBlockedProviderIds: jest.fn().mockResolvedValue([]),
   CHAT_BLOCKED_NOTICE: "Chat isn't available for this booking. To request cancellation, email KwikServe Support at support@kwikserve.co.ke.",
+  // Update 74: the notice is role-specific (the admin's read-only thread shows neither).
+  CHAT_BLOCKED_NOTICE_PROVIDER: "Chat isn't available for this booking. To request cancellation, email KwikServe Support at support@kwikserve.co.ke.",
+  CHAT_BLOCKED_NOTICE_CUSTOMER: "Chat isn't available for this booking. On the booking screen you can use Cancel booking before work starts, or Get help with this booking. For anything else, email KwikServe Support at support@kwikserve.co.ke.",
 }));
 
 jest.mock('@/lib/moderation', () => ({
@@ -82,6 +85,12 @@ jest.mock('@/lib/bookings', () => ({
   updateBookingStatus: (...args: unknown[]) => mockUpdateBookingStatus(...args),
   assignProvider: (...args: unknown[]) => mockAssignProvider(...args),
   updateAdminNotes: (...args: unknown[]) => mockUpdateAdminNotes(...args),
+}));
+
+// Update 74: the booking page shows who cancelled a cancelled booking (src/lib/cancellation).
+const mockGetBookingCancellation = jest.fn().mockResolvedValue(null);
+jest.mock('@/lib/cancellation', () => ({
+  getBookingCancellation: (...args: unknown[]) => mockGetBookingCancellation(...args),
 }));
 
 jest.mock('@/lib/payments', () => ({
@@ -620,6 +629,73 @@ describe('AdminWebBookingsScreen — desktop layout', () => {
     expect(row != null).toBe(true);
     const style = flatStyle(row.props.style);
     expect(style.paddingHorizontal ?? 0).toBe(0);
+  });
+});
+
+describe('AdminWebBookingDetailScreen — cancellation card (Update 74)', () => {
+  beforeEach(() => {
+    mockGetBookingCancellation.mockReset();
+    mockGetBookingCancellation.mockResolvedValue(null);
+  });
+
+  it('a booking the customer cancelled in the app shows who, from which status, the reason and the effects', async () => {
+    mockGetBookingById.mockResolvedValueOnce({ ...MOCK_BOOKING, status: 'cancelled' });
+    mockGetBookingCancellation.mockResolvedValueOnce({
+      booking_id: 'bk1',
+      cancelled_by: 'cust1',
+      actor_role: 'customer',
+      from_status: 'on_the_way',
+      reason_code: 'plans_changed',
+      provider_id: 'prov1',
+      manual_provider: false,
+      quote_status: 'accepted',
+      payment_id: 'pay1',
+      payment_status_before: 'pending',
+      location_cleared: true,
+      cancelled_at: '2026-10-02T09:00:00Z',
+    });
+    render(<AdminWebBookingDetailScreen />);
+    expect(await screen.findByText('Cancelled by the customer in the app')).toBeOnTheScreen();
+    expect(screen.getByText('Was: On the way')).toBeOnTheScreen();
+    expect(screen.getByText('Reason: My plans changed')).toBeOnTheScreen();
+    expect(screen.getByText('Provider: told in the app')).toBeOnTheScreen();
+    expect(screen.getByText('Payment: request cancelled')).toBeOnTheScreen();
+    expect(screen.getByText('Location cleared: yes')).toBeOnTheScreen();
+    expect(mockGetBookingCancellation).toHaveBeenCalledWith('bk1');
+  });
+
+  it('a manually dispatched provider: the card tells the admin to phone them (owner item 3)', async () => {
+    mockGetBookingById.mockResolvedValueOnce({ ...MOCK_BOOKING, status: 'cancelled' });
+    mockGetBookingCancellation.mockResolvedValueOnce({
+      booking_id: 'bk1',
+      cancelled_by: 'cust1',
+      actor_role: 'customer',
+      from_status: 'provider_assigned',
+      reason_code: null,
+      provider_id: null,
+      manual_provider: true,
+      quote_status: 'pending',
+      payment_id: null,
+      payment_status_before: null,
+      location_cleared: false,
+      cancelled_at: '2026-10-03T09:00:00Z',
+    });
+    render(<AdminWebBookingDetailScreen />);
+    expect(await screen.findByText('Provider: arranged by phone: phone them to tell them')).toBeOnTheScreen();
+    expect(screen.getByText('Reason: not given')).toBeOnTheScreen();
+  });
+
+  it('a cancelled booking with no customer record was cancelled by KwikServe', async () => {
+    mockGetBookingById.mockResolvedValueOnce({ ...MOCK_BOOKING, status: 'cancelled' });
+    render(<AdminWebBookingDetailScreen />);
+    expect(await screen.findByText('Cancelled by KwikServe (admin)')).toBeOnTheScreen();
+  });
+
+  it('a booking that is not cancelled shows no card and reads nothing', async () => {
+    render(<AdminWebBookingDetailScreen />);
+    await screen.findByText('House Cleaning');
+    expect(screen.queryByTestId('admin-cancellation-card')).toBeNull();
+    expect(mockGetBookingCancellation).not.toHaveBeenCalled();
   });
 });
 

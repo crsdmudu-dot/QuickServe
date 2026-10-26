@@ -9,6 +9,8 @@ import { router, type Href } from 'expo-router';
 
 import { Spacing } from '@/constants/theme';
 import { TERMS_KEY_POINTS, termsUrl } from '@/constants/terms';
+import { TERMS_GATE_EXEMPTS_CANCELLATION } from '@/constants/cancellation';
+import { TERMS_SCREEN_CANCEL_LINK } from '@/constants/cancellation-copy';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/auth/auth-context';
 import { useTermsGate } from '@/auth/terms-gate';
@@ -19,7 +21,7 @@ import { Text } from '@/components/ui/text';
 
 export default function AcceptTermsScreen() {
   const theme = useTheme();
-  const { signOut } = useAuth();
+  const { signOut, role } = useAuth();
   const { accept } = useTermsGate();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,8 +82,20 @@ export default function AcceptTermsScreen() {
           <Button testID="accept-terms-sign-out" label="Sign out" variant="ghost" fullWidth onPress={() => void signOut()} />
         </View>
 
-        {/* Declining the Terms must never trap anyone: deletion and support stay reachable (store rule). */}
+        {/* Declining the Terms must never trap anyone: deletion and support stay reachable (store rule).
+            Update 74 (OD-74-8 DEFAULT): a customer can also cancel an existing booking from here. */}
         <View style={styles.footer}>
+          {role === 'customer' && TERMS_GATE_EXEMPTS_CANCELLATION ? (
+            <Text
+              testID="accept-terms-cancel-booking"
+              variant="label"
+              color="textSecondary"
+              accessibilityRole="link"
+              onPress={() => router.push('/booking/cancel' as Href)}
+              style={styles.center}>
+              {TERMS_SCREEN_CANCEL_LINK}
+            </Text>
+          ) : null}
           <Text
             testID="accept-terms-delete-account"
             variant="label"

@@ -7,11 +7,12 @@
  */
 
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Linking, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PROVIDER_NEXT_STATUSES, STATUS_LABELS } from '@/constants/booking-status';
+import { PROVIDER_CANCELLED_BANNER } from '@/constants/cancellation-copy';
 import { useServices } from '@/services/services-provider';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -45,12 +46,21 @@ export default function ProviderJobDetailScreen() {
   const [activity, setActivity] = useState<BookingActivity[]>([]);
 
   // Track screen focus so the sharing hook only runs while this screen is visible.
+  // Update 74: when the screen regains focus, reload the job, so a cancellation made meanwhile shows (the
+  // first focus is skipped: the load effect below fetches the job).
   const [focused, setFocused] = useState(false);
+  const firstFocus = useRef(true);
   useFocusEffect(
     useCallback(() => {
       setFocused(true);
+      if (firstFocus.current) firstFocus.current = false;
+      else if (id) {
+        getBookingById(id).then((b) => {
+          if (b) setBooking(b);
+        });
+      }
       return () => setFocused(false);
-    }, []),
+    }, [id]),
   );
 
   // Live-location sharing — hook handles all gating (assigned provider, active status, focus).
@@ -90,6 +100,11 @@ export default function ProviderJobDetailScreen() {
       setBooking((prev) => (prev ? { ...prev, status: nextStatus } : prev));
     } else {
       setError(result.error ?? 'Could not update status.');
+      // Update 74: the booking was cancelled (or completed) meanwhile; show its current state.
+      if (result.code === 'booking_final') {
+        const fresh = await getBookingById(id);
+        if (fresh) setBooking(fresh);
+      }
     }
   }
 
@@ -167,6 +182,11 @@ export default function ProviderJobDetailScreen() {
         <View style={styles.statusRow}>
           <StatusBadge status={booking.status} />
         </View>
+        {booking.status === 'cancelled' ? (
+          <Text variant="body" color="error" accessibilityRole="alert" testID="provider-job-cancelled">
+            {PROVIDER_CANCELLED_BANNER}
+          </Text>
+        ) : null}
 
         {/* ── Live-location sharing indicator ──────────────────────────── */}
         {permission === 'denied' ? (
