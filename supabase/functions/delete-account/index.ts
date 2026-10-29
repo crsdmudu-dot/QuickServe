@@ -29,6 +29,7 @@
 //      a retry of this endpoint completes the job idempotently.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
+import { logApiKeyFailure, publishableKeyFrom, secretKeyFrom } from '../_shared/supabase-keys.ts';
 import { handleDeleteAccount } from './handler.ts';
 import type { AdminClient, DeleteAccountDatabase, Deps } from './handler.ts';
 
@@ -43,9 +44,12 @@ function json(body: unknown, status: number): Response {
 
 Deno.serve(async (req: Request) => {
   try {
+    const env = (name: string) => Deno.env.get(name);
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    // Publishable key: the caller and verifier clients. Secret key: the admin client. A missing or
+    // unusable key throws here, before any client exists, and the catch below answers 500.
+    const anonKey = publishableKeyFrom(env);
+    const serviceKey = secretKeyFrom(env);
 
     const service = createClient<DeleteAccountDatabase>(supabaseUrl, serviceKey, AUTH_OPTS);
 
@@ -83,8 +87,10 @@ Deno.serve(async (req: Request) => {
       deps,
     );
     return json(body, status);
-  } catch {
-    // Deliberately no detail: nothing about the request may reach the logs.
+  } catch (error) {
+    // Deliberately no detail: nothing about the request may reach the logs. The one exception is a
+    // key-configuration failure, logged as fixed words only (no key text) so a deploy can be diagnosed.
+    logApiKeyFailure('delete-account', error, (line) => console.error(line));
     return json({ ok: false, error: 'Unexpected error.' }, 500);
   }
 });

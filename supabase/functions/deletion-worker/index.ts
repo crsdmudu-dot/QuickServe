@@ -19,6 +19,7 @@
 // decision needs. The only Storage API call is the delete, made with the service key.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
+import { logApiKeyFailure, secretKeyFrom } from '../_shared/supabase-keys.ts';
 import { BAN_DURATION, STORAGE_TIMEOUT_MS, runDeletionWorker } from './handler.ts';
 import type { WorkerDeps } from './handler.ts';
 
@@ -52,7 +53,8 @@ function statusOf(error: unknown): number {
 Deno.serve(async (req: Request) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    // The secret key (fails closed: a missing or unusable key throws and the catch answers 500).
+    const serviceKey = secretKeyFrom((name: string) => Deno.env.get(name));
     const expectedSecret = Deno.env.get('DELETION_WORKER_SECRET') ?? null;
 
     const service = createClient<WorkerDatabase>(supabaseUrl, serviceKey, AUTH_OPTS);
@@ -99,8 +101,9 @@ Deno.serve(async (req: Request) => {
       deps,
     );
     return json(body, status);
-  } catch {
-    // Deliberately no detail.
+  } catch (error) {
+    // Deliberately no detail, except a key-configuration failure: fixed words only, no key text.
+    logApiKeyFailure('deletion-worker', error, (line) => console.error(line));
     return json({ ok: false, error: 'Unexpected error.' }, 500);
   }
 });

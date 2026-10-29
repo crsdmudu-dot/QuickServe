@@ -51,6 +51,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { confirmStkSuccess, parseStkCallback } from '../_shared/daraja.ts';
 import { stkQuery } from '../_shared/daraja-client.ts';
 import { classifyAuthenticatedCallback, parseJsonBody, sha256Hex } from '../_shared/callback-evidence.ts';
+import { secretKeyFrom } from '../_shared/supabase-keys.ts';
 
 /** Wait for the given number of milliseconds (used between STK Push Query retries). */
 function sleep(ms: number): Promise<void> {
@@ -111,11 +112,18 @@ Deno.serve(async (req: Request) => {
     ? 'malformed_authenticated_callback'
     : classifyAuthenticatedCallback(body, p, rawText);
 
-  // The service-role client. Creating it opens no connection; the first RPC below does.
-  const admin = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  );
+  // The service-role client, signed with the secret key. Creating it opens no connection; the
+  // first RPC below does. A missing or unusable key writes nothing and the ACK is refused, so a
+  // redelivery, if any, can apply once the configuration is fixed. Redelivery is NOT verified and
+  // nothing relies on it: the timeout → alert → portal reconciliation path covers the rest.
+  let serviceKey: string;
+  try {
+    serviceKey = secretKeyFrom((name: string) => Deno.env.get(name));
+  } catch {
+    console.warn('mpesa-callback: server key unavailable; answered 500.');
+    return json({ ResultCode: 1, ResultDesc: 'Service unavailable; retry' }, 500);
+  }
+  const admin = createClient(Deno.env.get('SUPABASE_URL')!, serviceKey);
 
   // 4. P4a — confirm a SUCCESS claim with Safaricom before the database sees it. Only a callback
   //    the database would settle is queried: it carries a CheckoutRequestID ('apply') and

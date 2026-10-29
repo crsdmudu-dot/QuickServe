@@ -18,6 +18,7 @@
  */
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { logApiKeyFailure, publishableKeyFrom, secretKeyFrom } from '../_shared/supabase-keys.ts';
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
@@ -63,10 +64,14 @@ Deno.serve(async (req: Request) => {
 
     // 3. Build a user-scoped client that respects RLS.
     //    This client acts as the authenticated user — it cannot write rows
-    //    owned by other users.
+    //    owned by other users. Both keys are read first: a missing or unusable
+    //    key throws before any client exists, and the catch below answers 500.
+    const env = (name: string) => Deno.env.get(name);
+    const publishableKey = publishableKeyFrom(env);
+    const secretKey = secretKeyFrom(env);
     const client = createClient(
       Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
+      publishableKey,
       { global: { headers: { Authorization: authHeader } } },
     );
 
@@ -84,10 +89,7 @@ Deno.serve(async (req: Request) => {
     //    Scoped to push_token = <this token> AND user_id != <caller> — it never
     //    touches the caller's row, other tokens, or the caller's other devices.
     //    Best-effort: a claim failure must not block the caller's own registration.
-    const admin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    );
+    const admin = createClient(Deno.env.get('SUPABASE_URL')!, secretKey);
     const { error: claimError } = await admin
       .from('device_tokens')
       .delete()
@@ -117,7 +119,9 @@ Deno.serve(async (req: Request) => {
     }
 
     return json({ ok: true });
-  } catch {
+  } catch (error) {
+    // A key-configuration failure is logged as fixed words only (no key text); nothing else is.
+    logApiKeyFailure('register-device', error, (line) => console.error(line));
     return json({ ok: false, error: 'Unexpected error.' }, 500);
   }
 });
