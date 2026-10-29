@@ -279,7 +279,8 @@ describe('BookingDetailScreen', () => {
 
     expect(await screen.findByText('Jane')).toBeOnTheScreen();
     expect(screen.getByText('Plumbing')).toBeOnTheScreen();
-    expect(screen.getByText('Verified by KwikServe')).toBeOnTheScreen();
+    // No Verified badge at launch, even for a provider with is_verified = true.
+    expect(screen.queryByText('Verified by KwikServe')).toBeNull();
     expect(screen.getByText('5 jobs completed')).toBeOnTheScreen();
     expect(screen.queryByText('0700')).toBeNull();
   });

@@ -85,7 +85,6 @@ export const ACHIEVEMENTS: {
   { key: 'jobs_10',            label: '10 Jobs Completed',    icon: '🔟', kind: 'jobs',        threshold: 10  },
   { key: 'jobs_50',            label: '50 Jobs Completed',    icon: '🏅', kind: 'jobs',        threshold: 50  },
   { key: 'jobs_100',           label: '100 Jobs Completed',   icon: '💯', kind: 'jobs',        threshold: 100 },
-  { key: 'verified_provider',  label: 'Verified Provider',    icon: '✅', kind: 'verified'                    },
   { key: 'rating_4_8',         label: 'Top Rated Provider',   icon: '⭐', kind: 'rating',      threshold: 4.8 },
   { key: 'profile_complete',   label: 'Profile Complete',     icon: '📋', kind: 'completeness'                },
   { key: 'five_star_streak',   label: 'Five-Star Streak',     icon: '🌟', kind: 'feedback'                    },

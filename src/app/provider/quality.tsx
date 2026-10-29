@@ -41,7 +41,6 @@ import { ReviewCard } from '@/components/ui/review-card';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
 import { Card } from '@/components/ui/card';
-import { VerifiedBadge } from '@/components/ui/verified-badge';
 
 // ── Screen ─────────────────────────────────────────────────────────────────────
 
@@ -117,20 +116,6 @@ export default function ProviderQualityDashboardScreen() {
 
           {/* Completeness card */}
           <CompletenessCard completeness={dashboard.completeness} />
-
-          {/* Verification status */}
-          <Card style={styles.verificationCard}>
-            <Text variant="label" weight="semibold">
-              Verification
-            </Text>
-            {dashboard.profile?.is_verified ? (
-              <VerifiedBadge />
-            ) : (
-              <Text variant="caption" color="textSecondary">
-                Not yet verified
-              </Text>
-            )}
-          </Card>
 
           {/* Achievements grid */}
           <SectionHeader title="Achievements" />
@@ -274,7 +259,6 @@ const styles = StyleSheet.create({
     padding: Spacing.four,
   },
   section: { gap: Spacing.three },
-  verificationCard: { gap: Spacing.two },
   jobsCard: { gap: Spacing.two },
   jobCard: { gap: Spacing.one },
   statusCard: { gap: Spacing.two },

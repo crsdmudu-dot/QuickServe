@@ -182,7 +182,8 @@ export function parsePrice(text: string | null): number | undefined {
  * - name → title
  * - short_description → subtitle (undefined when null)
  * - icon → icon (defaults to '🧩' when null)
- * - featured → badge 'Popular'; trending → badge 'New' (featured takes precedence)
+ * - no badge: featured/trending only pick the Home sections; no Popular/New label
+ *   is shown on a card (owner decision OD-S5-17)
  * - startingPrice from parsePrice(starting_price_text)
  * - category from the optional categorySlug argument (defaults to 'home')
  */
@@ -194,7 +195,6 @@ export function toService(db: DbService, categorySlug?: string): Service {
     icon: db.icon ?? '🧩',
     category: (categorySlug as any) ?? 'home',
     startingPrice: parsePrice(db.starting_price_text),
-    badge: db.featured ? 'Popular' : db.trending ? 'New' : undefined,
   };
 }
 

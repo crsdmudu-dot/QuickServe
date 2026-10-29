@@ -36,7 +36,6 @@ export function ProviderFilterControls({ value, onChange }: ProviderFilterContro
   }
 
   const boolFilters: { key: keyof Pick<ProviderFilters, 'verifiedOnly' | 'availableOnly' | 'favoritesOnly' | 'recentlyUsedOnly'>; label: string }[] = [
-    { key: 'verifiedOnly', label: 'Verified only' },
     { key: 'availableOnly', label: 'Available now' },
     { key: 'favoritesOnly', label: 'Favorites' },
     { key: 'recentlyUsedOnly', label: 'Recently used' },

@@ -7,14 +7,14 @@ import type { Professional } from '@/lib/bookings';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Avatar } from '@/components/ui/avatar';
-import { VerifiedBadge } from '@/components/ui/verified-badge';
 
 export type ProfessionalCardProps = {
   professional: Professional;
 };
 
 export function ProfessionalCard({ professional }: ProfessionalCardProps) {
-  const { full_name, skills, is_verified, completed_jobs_count, profile_photo_url } = professional;
+  // No Verified badge at launch (owner direction 2026-10-28 20:27, item 1).
+  const { full_name, skills, completed_jobs_count, profile_photo_url } = professional;
   const displayName = full_name ?? 'Provider';
   const primarySkill = skills?.[0] ?? null;
 
@@ -29,7 +29,6 @@ export function ProfessionalCard({ professional }: ProfessionalCardProps) {
               {primarySkill}
             </Text>
           ) : null}
-          {is_verified ? <VerifiedBadge /> : null}
           <Text variant="caption" color="textSecondary">
             {completed_jobs_count} jobs completed
           </Text>

@@ -12,9 +12,9 @@ import { ProviderFilterControls } from '@/components/ui/provider-filter-controls
 const EMPTY_FILTERS: ProviderFilters = {};
 
 describe('ProviderFilterControls', () => {
-  it('renders all boolean filter chips', () => {
+  it('renders all boolean filter chips, with no "Verified only" chip (no badges at launch)', () => {
     render(<ProviderFilterControls value={EMPTY_FILTERS} onChange={jest.fn()} />);
-    expect(screen.getByText('Verified only')).toBeOnTheScreen();
+    expect(screen.queryByText('Verified only')).toBeNull();
     expect(screen.getByText('Available now')).toBeOnTheScreen();
     expect(screen.getByText('Favorites')).toBeOnTheScreen();
     expect(screen.getByText('Recently used')).toBeOnTheScreen();
@@ -28,12 +28,12 @@ describe('ProviderFilterControls', () => {
     expect(screen.getByText('5★')).toBeOnTheScreen();
   });
 
-  it('toggling verifiedOnly emits updated filters with only that key changed', () => {
+  it('toggling recentlyUsedOnly emits updated filters with only that key changed', () => {
     const onChange = jest.fn();
     const initial: ProviderFilters = { availableOnly: true };
     render(<ProviderFilterControls value={initial} onChange={onChange} />);
-    fireEvent.press(screen.getByText('Verified only'));
-    expect(onChange).toHaveBeenCalledWith({ availableOnly: true, verifiedOnly: true });
+    fireEvent.press(screen.getByText('Recently used'));
+    expect(onChange).toHaveBeenCalledWith({ availableOnly: true, recentlyUsedOnly: true });
   });
 
   it('toggling availableOnly from true emits false for that key only', () => {
@@ -71,15 +71,15 @@ describe('ProviderFilterControls', () => {
     expect(onChange).toHaveBeenCalledWith({ minRating: undefined });
   });
 
-  it('marks verifiedOnly chip as selected when active', () => {
-    render(<ProviderFilterControls value={{ verifiedOnly: true }} onChange={jest.fn()} />);
-    const button = screen.getByRole('button', { name: 'Verified only' });
+  it('marks availableOnly chip as selected when active', () => {
+    render(<ProviderFilterControls value={{ availableOnly: true }} onChange={jest.fn()} />);
+    const button = screen.getByRole('button', { name: 'Available now' });
     expect(button.props.accessibilityState?.selected).toBe(true);
   });
 
-  it('marks verifiedOnly chip as not selected when inactive', () => {
+  it('marks availableOnly chip as not selected when inactive', () => {
     render(<ProviderFilterControls value={EMPTY_FILTERS} onChange={jest.fn()} />);
-    const button = screen.getByRole('button', { name: 'Verified only' });
+    const button = screen.getByRole('button', { name: 'Available now' });
     expect(button.props.accessibilityState?.selected).toBe(false);
   });
 });

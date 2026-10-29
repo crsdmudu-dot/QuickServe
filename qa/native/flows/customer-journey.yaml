@@ -37,8 +37,8 @@ appId: ke.co.hiredcorp.kwikserve
 - assertNotVisible: "Sign in with your admin account."
 - assertNotVisible: "Not authorized"
 - takeScreenshot: c1-customer-home
-# Browse services on the home screen, then select "House Cleaning" (a Popular card).
-- assertVisible: "Popular"
+# Browse services on the home screen, then select "House Cleaning" (a Featured card).
+- assertVisible: "Featured"
 - assertVisible: ".*House Cleaning.*"
 - tapOn: ".*House Cleaning.*"
 # Booking step 1 of 5 — Service Details (V1.3). Shared subflow; leaves us on Address.

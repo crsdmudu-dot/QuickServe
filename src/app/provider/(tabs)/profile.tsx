@@ -40,7 +40,6 @@ const PROVIDER_PAYOUT_LABELS: Record<string, string> = {
 };
 import { formatKes } from '@/lib/currency';
 import { Avatar } from '@/components/ui/avatar';
-import { VerifiedBadge } from '@/components/ui/verified-badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -198,7 +197,7 @@ export default function ProviderProfileScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Hero: avatar, name, verified, job count ─────────────────── */}
+        {/* ── Hero: avatar, name, job count (no Verified badge at launch) ─ */}
         <View style={styles.hero}>
           <Avatar
             name={state.profile?.full_name ?? ''}
@@ -206,7 +205,6 @@ export default function ProviderProfileScreen() {
             size={80}
           />
           <Text variant="title">{state.profile?.full_name ?? ''}</Text>
-          {state.profile?.is_verified && <VerifiedBadge />}
           <Text variant="caption" color="textSecondary">
             {state.profile?.completed_jobs_count ?? 0} jobs completed
           </Text>

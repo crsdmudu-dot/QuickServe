@@ -56,10 +56,9 @@ describe('HomeScreen', () => {
     expect(screen.getByText('Personal Care')).toBeOnTheScreen();
   });
 
-  it('renders a Popular section', () => {
+  it('renders the Featured section and no Popular section (OD-S5-17)', () => {
     renderHome();
-    // Multiple elements can match "Popular" (section header + card badges).
-    const matches = screen.getAllByText('Popular');
-    expect(matches.length).toBeGreaterThan(0);
+    expect(screen.getByText('Featured')).toBeOnTheScreen();
+    expect(screen.queryByText('Popular')).toBeNull();
   });
 });

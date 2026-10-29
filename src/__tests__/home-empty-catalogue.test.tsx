@@ -52,7 +52,7 @@ describe('HomeScreen — empty service catalogue (admin has zero active services
     }
     // Category section headers and service sections are hidden in the empty state.
     expect(screen.queryByText('Home Services')).toBeNull();
-    expect(screen.queryByText('Trending')).toBeNull();
+    expect(screen.queryByText('More services')).toBeNull();
     // Sanity: the hardcoded list is non-trivial, so its absence is meaningful.
     expect(SERVICES.length).toBeGreaterThan(0);
   });

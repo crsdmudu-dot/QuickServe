@@ -58,7 +58,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "KwikServe shares your live location with the customer only while you are travelling to and performing an active job.",
+          "locationWhenInUsePermission": "KwikServe shares your live location with the customer for the job and with KwikServe staff only while you are travelling to and working on an active job.",
           "locationAlwaysAndWhenInUsePermission": false,
           "locationAlwaysPermission": false,
           "motionUsagePermission": false

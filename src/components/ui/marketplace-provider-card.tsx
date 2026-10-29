@@ -12,7 +12,6 @@ import { Avatar } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
 import { FavoriteButton } from '@/components/ui/favorite-button';
 import { Text } from '@/components/ui/text';
-import { VerifiedBadge } from '@/components/ui/verified-badge';
 
 export type MarketplaceProviderCardProps = {
   provider: PublicProvider;
@@ -30,7 +29,7 @@ export type MarketplaceProviderCardProps = {
  * Fields shown (all from PublicProvider, no PII):
  *  - Avatar (profile_photo_url or initials)
  *  - Display name (full_name ?? 'Provider')
- *  - VerifiedBadge (when is_verified)
+ *  - No Verified badge at launch (owner direction 2026-10-28 20:27, item 1)
  *  - Rating + review count (when average_rating is not null)
  *  - Completed jobs count
  *  - Years experience (when present)
@@ -64,7 +63,6 @@ export function MarketplaceProviderCard({
           <Text variant="label" weight="semibold" numberOfLines={1}>
             {displayName}
           </Text>
-          {provider.is_verified ? <VerifiedBadge /> : null}
         </View>
 
         <FavoriteButton

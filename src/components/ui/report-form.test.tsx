@@ -45,7 +45,7 @@ describe('ReportForm', () => {
       p_target_id: 'msg-1',
       p_reason: 'scam',
     });
-    expect(REPORT_CONFIRMATION).toContain('within 24 hours');
+    expect(REPORT_CONFIRMATION).toBe('Thanks for letting us know. Our team aims to review every report within 24 hours.');
   });
 
   it('shows a friendly error and stays open when the server refuses', async () => {

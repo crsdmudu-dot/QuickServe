@@ -31,9 +31,13 @@ describe('service catalog', () => {
     expect(getServicesByCategory('delivery')).toHaveLength(4);
     expect(getServicesByCategory('personal')).toHaveLength(3);
   });
-  it('exposes at least one popular service', () => {
-    expect(getPopularServices().length).toBeGreaterThan(0);
-    expect(getPopularServices().every((s) => s.badge === 'Popular')).toBe(true);
+  it('carries no promotional badges (owner decision OD-S5-17)', () => {
+    expect(SERVICES.filter((s) => s.badge !== undefined)).toEqual([]);
+    expect(getPopularServices()).toEqual([]);
+  });
+  it('makes no time, speed, 24/7, availability, safety or freshness claim in any subtitle', () => {
+    const claim = /24\s*\/\s*7|\bfast\b|\bquick|\binstant|\bminutes?\b|\bhours?\b|\bguarantee|\bon[\s-]demand\b|\bsafe|\bfresh/i;
+    expect(SERVICES.filter((s) => claim.test(s.subtitle ?? ''))).toEqual([]);
   });
   it('labels every category', () => {
     for (const c of CATEGORY_ORDER) expect(CATEGORY_LABELS[c]).toBeTruthy();

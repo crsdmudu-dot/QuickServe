@@ -27,7 +27,7 @@ export type ReportReason = (typeof REPORT_REASONS)[number]['key'];
  * notes, so the 24-hour commitment reads identically everywhere.
  */
 export const REPORT_CONFIRMATION =
-  'Thanks for letting us know. Our team reviews every report within 24 hours.';
+  'Thanks for letting us know. Our team aims to review every report within 24 hours.';
 
 /**
  * Reports a message, review or person. Reporting the same thing again while the first report is
