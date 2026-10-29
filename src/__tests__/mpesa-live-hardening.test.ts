@@ -85,8 +85,9 @@ const CALLBACK_SECRET = 'fake-callback-secret-for-tests';
 /** Fake Daraja settings for live mode. None of these is a real value. */
 const LIVE_ENV: Record<string, string> = {
   SUPABASE_URL: PROD_URL,
-  SUPABASE_ANON_KEY: 'fake-anon',
-  SUPABASE_SERVICE_ROLE_KEY: 'fake-service-role',
+  // The new injected key dictionaries (package 262); fake values only.
+  SUPABASE_PUBLISHABLE_KEYS: JSON.stringify({ default: 'sb_publishable_fake-anon' }),
+  SUPABASE_SECRET_KEYS: JSON.stringify({ default: 'sb_secret_fake-service-role' }),
   MPESA_MODE: 'live',
   DARAJA_BASE_URL: 'https://api.safaricom.co.ke',
   DARAJA_CONSUMER_KEY: 'fake-consumer-key',

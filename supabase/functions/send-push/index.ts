@@ -27,6 +27,7 @@ import {
 } from '../_shared/notifications.ts';
 import type { NotificationSpec } from '../_shared/notifications.ts';
 import { sendExpoPush } from '../_shared/expo-push-client.ts';
+import { secretKeyFrom } from '../_shared/supabase-keys.ts';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -75,10 +76,12 @@ Deno.serve(async (req: Request) => {
     const old_record = body?.old_record ?? {};
 
     // 3. Service-role client — needed to read bookings and delete stale tokens.
-    //    This bypasses RLS (intentional: webhooks are server-side).
+    //    This bypasses RLS (intentional: webhooks are server-side). It is signed
+    //    with the secret key; a missing or unusable key throws into the catch
+    //    below, whose log line carries the helper's fixed message (no key text).
     const admin = createClient(
       Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      secretKeyFrom((name: string) => Deno.env.get(name)),
     );
 
     // 4. Derive notification specs from the table + payload.

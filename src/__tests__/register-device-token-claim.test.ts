@@ -37,7 +37,9 @@ describe('register-device token claim (Phase 4E.1 P1)', () => {
   });
 
   it('claims the token from other accounts via a service-role delete', () => {
-    expect(src).toContain('SUPABASE_SERVICE_ROLE_KEY');
+    // The service client is signed with the secret key from the shared helper (package 262).
+    expect(src).toContain('const secretKey = secretKeyFrom(env);');
+    expect(n).toContain("const admin = createclient(deno.env.get('supabase_url')!, secretkey);");
     expect(n).toContain('.delete()');
   });
 
@@ -56,7 +58,10 @@ describe('register-device token claim (Phase 4E.1 P1)', () => {
 
   it('writes the user row through the RLS (anon + JWT) client, not service-role', () => {
     expect(n).toContain("client.from('device_tokens').upsert");
-    expect(src).toContain('SUPABASE_ANON_KEY');
+    // The user client is signed with the publishable key from the shared helper (package 262).
+    expect(src).toContain('const publishableKey = publishableKeyFrom(env);');
+    expect(n).toMatch(/const client = createclient\( deno\.env\.get\('supabase_url'\)!, publishablekey, \{ global: \{ headers: \{ authorization: authheader \} \} \}/);
+    expect(src).not.toMatch(/SUPABASE_SERVICE_ROLE_KEY|SUPABASE_ANON_KEY/);
   });
 });
 

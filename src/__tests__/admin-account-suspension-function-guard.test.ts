@@ -33,7 +33,10 @@ describe('admin-account-suspension: gateway and configuration', () => {
 describe('admin-account-suspension: keys and clients', () => {
   it('signs exactly one client with the service key, and the caller client with the anon key plus the caller header', () => {
     const e = code(edge);
-    expect(e.match(/SUPABASE_SERVICE_ROLE_KEY/g)).toHaveLength(1);
+    // Keys come from the shared helper (package 262): one secret key, one publishable key, no legacy name.
+    expect(e.match(/const serviceKey = secretKeyFrom\(env\)/g)).toHaveLength(1);
+    expect(e.match(/const anonKey = publishableKeyFrom\(env\)/g)).toHaveLength(1);
+    expect(e).not.toMatch(/SUPABASE_SERVICE_ROLE_KEY|SUPABASE_ANON_KEY/);
     expect(e.match(/createClient\(supabaseUrl, serviceKey/g)).toHaveLength(1);
     expect(e).toMatch(/createClient\(supabaseUrl, anonKey, \{\s*global: \{ headers: \{ Authorization: authHeader \} \}/);
   });
@@ -51,8 +54,14 @@ describe('admin-account-suspension: keys and clients', () => {
 });
 
 describe('admin-account-suspension: no decisions or logging in the wrong place', () => {
-  it('logs nothing, in either file', () => {
-    for (const s of [handler, edge]) expect(code(s)).not.toMatch(/console\.|Deno\.stdout|Deno\.stderr/);
+  it('logs nothing in either file, except the one fixed key-failure line in the Deno file (package 265)', () => {
+    // That line holds only fixed words (function name, key kind, reason word): see
+    // supabase-keys-helper.test.ts. It must appear exactly once; nothing else may log.
+    const allowed = "logApiKeyFailure('admin-account-suspension', error, (line) => console.error(line));";
+    expect(code(edge).split(allowed)).toHaveLength(2);
+    for (const s of [handler, code(edge).replace(allowed, '')]) {
+      expect(code(s)).not.toMatch(/console\.|Deno\.stdout|Deno\.stderr/);
+    }
   });
 
   it('keeps the handler free of Deno, imports and globals', () => {

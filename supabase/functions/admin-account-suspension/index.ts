@@ -6,11 +6,13 @@
 // can reach. See handler.ts for the security model.
 //
 // ENVIRONMENT
-//   SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY  provided by the platform
+//   SUPABASE_URL, SUPABASE_PUBLISHABLE_KEYS, SUPABASE_SECRET_KEYS  provided by the platform (read through
+//                 ../_shared/supabase-keys.ts, which fails closed)
 //   ADMIN_ORIGIN  the admin web's exact origin (https://…, no path). Set as a secret only within the suspension
 //                 rollout's authorisation. Unset or malformed means every browser request is refused.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
+import { logApiKeyFailure, publishableKeyFrom, secretKeyFrom } from '../_shared/supabase-keys.ts';
 import { handleSuspension, parseAdminOrigin } from './handler.ts';
 import type { BanState, Deps } from './handler.ts';
 
@@ -19,9 +21,11 @@ const AUTH_OPTS = { auth: { persistSession: false, autoRefreshToken: false } } a
 Deno.serve(async (req: Request) => {
   const adminOrigin = parseAdminOrigin(Deno.env.get('ADMIN_ORIGIN'));
   try {
+    const env = (name: string) => Deno.env.get(name);
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    // The publishable key signs the caller client; the secret key signs the service client.
+    const anonKey = publishableKeyFrom(env);
+    const serviceKey = secretKeyFrom(env);
 
     const service = createClient(supabaseUrl, serviceKey, AUTH_OPTS);
 
@@ -67,8 +71,10 @@ Deno.serve(async (req: Request) => {
       deps,
     );
     return new Response(body === null ? null : JSON.stringify(body), { status, headers });
-  } catch {
-    // Deliberately no detail: nothing about the request may reach the logs.
+  } catch (error) {
+    // Deliberately no detail: nothing about the request may reach the logs. The one exception is a
+    // key-configuration failure, logged as fixed words only (no key text) so a deploy can be diagnosed.
+    logApiKeyFailure('admin-account-suspension', error, (line) => console.error(line));
     return new Response(JSON.stringify({ ok: false, error: 'Unexpected error.' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', Vary: 'Origin' },

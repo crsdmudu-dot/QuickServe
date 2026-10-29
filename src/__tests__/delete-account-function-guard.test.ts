@@ -163,8 +163,12 @@ describe('delete-account: the edge file stays free of decisions', () => {
 });
 
 describe('delete-account: nothing personal reaches the logs', () => {
-  it('never logs at all', () => {
-    for (const source of [handler, edge]) {
+  it('never logs, except the one fixed key-failure line in the Deno file (package 265)', () => {
+    // That line holds only fixed words (function name, key kind, reason word): see
+    // supabase-keys-helper.test.ts. It must appear exactly once; nothing else may log.
+    const allowed = "logApiKeyFailure('delete-account', error, (line) => console.error(line));";
+    expect(edge.split(allowed)).toHaveLength(2);
+    for (const source of [handler, edge.replace(allowed, '')]) {
       expect(source).not.toMatch(/console\.(log|error|warn|info|debug)/);
     }
   });

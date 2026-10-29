@@ -74,6 +74,7 @@ import {
   type DarajaSettings,
 } from '../_shared/daraja.ts';
 import { getOAuthToken, stkPush, type StkPushResult } from '../_shared/daraja-client.ts';
+import { logApiKeyFailure, publishableKeyFrom, secretKeyFrom } from '../_shared/supabase-keys.ts';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -154,8 +155,11 @@ Deno.serve(async (req: Request) => {
     }
 
     // 2. User-scoped client (respects RLS — confirms ownership).
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    //    Publishable key for this client, secret key for the reservation client below. A missing
+    //    or unusable key throws before any attempt exists; the outer catch answers 500.
+    const env = (name: string) => Deno.env.get(name);
+    const anonKey = publishableKeyFrom(env);
+    const serviceRoleKey = secretKeyFrom(env);
 
     const userClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
@@ -350,7 +354,9 @@ Deno.serve(async (req: Request) => {
 
     // 9. Success — the app refreshes every few seconds and also gets the payment push (P7).
     return json({ ok: true, checkoutRequestId, status: 'pending' });
-  } catch {
+  } catch (error) {
+    // A key-configuration failure is logged as fixed words only (no key text); nothing else is.
+    logApiKeyFailure('mpesa-stk-push', error, (line) => console.error(line));
     return fail('unexpected_error', 'Unexpected error.', 500);
   }
 });
