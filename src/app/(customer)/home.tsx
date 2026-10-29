@@ -134,37 +134,7 @@ export default function HomeScreen() {
           </View>
         ) : (
         <>
-        {/* ── Popular (horizontal scroll) ──────────────────────────── */}
-        <View style={styles.section}>
-          <SectionHeader title="Popular" />
-          {servicesLoading ? (
-            <View style={styles.popularRow}>
-              <Skeleton width={220} height={120} radius={16} />
-              <Skeleton width={220} height={120} radius={16} />
-            </View>
-          ) : (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.popularRow}
-            >
-              {featured.map((service) => (
-                <View key={service.id} style={styles.popularItem}>
-                  <ServiceCard
-                    icon={service.icon}
-                    title={service.title}
-                    subtitle={service.subtitle}
-                    startingPrice={service.startingPrice}
-                    badge={service.badge}
-                    onPress={() => handleServicePress(service)}
-                  />
-                </View>
-              ))}
-            </ScrollView>
-          )}
-        </View>
-
-        {/* ── Featured ─────────────────────────────────────────────── */}
+        {/* ── Featured (no separate "Popular" row: it repeated this list; OD-S5-17) ── */}
         <View style={styles.section}>
           <SectionHeader title="Featured" />
           {servicesLoading ? (
@@ -194,9 +164,9 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* ── Trending ─────────────────────────────────────────────── */}
+        {/* ── More services (DB trending flag; neutral header, OD-S5-17) ── */}
         <View style={styles.section}>
-          <SectionHeader title="Trending" />
+          <SectionHeader title="More services" />
           {servicesLoading ? (
             <View style={styles.popularRow}>
               <Skeleton width={220} height={120} radius={16} />
@@ -343,7 +313,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
   },
-  // Each named section (Popular, Home Services, etc.).
+  // Each named section (Featured, Home Services, etc.).
   section: {
     gap: Spacing.three,
   },

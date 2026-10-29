@@ -14,6 +14,7 @@
  */
 
 import { SERVICES, getServiceById, type Service } from '@/constants/services';
+import { FEATURED_SERVICE_IDS, TRENDING_SERVICE_IDS } from '@/constants/discovery';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -79,12 +80,14 @@ export function mockServicesProviderModule(overrides: MockServicesOverrides = {}
     return services.filter((s) => s.category === catSlug);
   }
 
+  // Services no longer carry a badge (OD-S5-17), so featured/trending use the same
+  // id lists as the real provider's fallback (constants/discovery.ts).
   function getFeatured(): Service[] {
-    return services.filter((s) => s.badge === 'Popular');
+    return services.filter((s) => FEATURED_SERVICE_IDS.includes(s.id));
   }
 
   function getTrending(): Service[] {
-    return services.filter((s) => s.badge === 'New');
+    return services.filter((s) => TRENDING_SERVICE_IDS.includes(s.id));
   }
 
   function getPopular(): Service[] {

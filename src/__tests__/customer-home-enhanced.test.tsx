@@ -1,7 +1,7 @@
 /**
  * Tests for the enhanced src/app/(customer)/index.tsx (Home).
  *
- * Verifies the NEW additive sections (Featured, Trending, Recently Used)
+ * Verifies the NEW additive sections (Featured, More services, Recently Used)
  * and entry links (search, providers, favorites). Keeps all existing behavior.
  *
  * Mocks: expo-router, booking-draft, lib/recent-services, constants/discovery.
@@ -79,10 +79,9 @@ describe('HomeScreen (enhanced — additive sections)', () => {
     expect(screen.getByText('Personal Care')).toBeOnTheScreen();
   });
 
-  it('renders a Popular section', () => {
+  it('renders no Popular section or badge (OD-S5-17)', () => {
     render(<HomeScreen />);
-    const matches = screen.getAllByText('Popular');
-    expect(matches.length).toBeGreaterThan(0);
+    expect(screen.queryByText('Popular')).toBeNull();
   });
 
   it('renders Featured section', () => {
@@ -90,9 +89,10 @@ describe('HomeScreen (enhanced — additive sections)', () => {
     expect(screen.getByText('Featured')).toBeOnTheScreen();
   });
 
-  it('renders Trending section', () => {
+  it('renders the More services section (was Trending)', () => {
     render(<HomeScreen />);
-    expect(screen.getByText('Trending')).toBeOnTheScreen();
+    expect(screen.getByText('More services')).toBeOnTheScreen();
+    expect(screen.queryByText('Trending')).toBeNull();
   });
 
   it('renders Browse all categories footer link', () => {

@@ -130,11 +130,11 @@ describe('ProviderProfileScreen — approved', () => {
     mockGetMyPayoutLedger.mockResolvedValue([]);
   });
 
-  it('shows name, verified badge and completed jobs count after data loads', async () => {
+  it('shows name and completed jobs count, and no Verified badge, after data loads', async () => {
     render(<ProviderProfileScreen />);
     // Wait for profile to load
     expect(await screen.findByText('Jane Smith')).toBeOnTheScreen();
-    expect(screen.getByText('Verified by KwikServe')).toBeOnTheScreen();
+    expect(screen.queryByText('Verified by KwikServe')).toBeNull();
     // "5 jobs completed" — tightened from /5/ to avoid matching breakdown averages (e.g. 4.5)
     expect(screen.getByText(/5 jobs completed/)).toBeOnTheScreen();
   });

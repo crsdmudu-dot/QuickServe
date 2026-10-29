@@ -2,7 +2,8 @@
  * Trust & Safety screen (Slice 34 Task 5 — pushed route).
  *
  * Sections:
- *   1. Verified provider explanation — what the verified badge means (static copy + VerifiedBadge).
+ *   1. Provider approval — how providers are approved (static copy). No Verified badge is shown at
+ *      launch (owner direction 2026-10-28 20:27, item 1).
  *   2. ServiceGuaranteesCard — KwikServe's platform guarantees.
  *   3. SafetyTipsCard — SAFETY_REMINDERS + CUSTOMER_TIPS.
  *
@@ -24,7 +25,6 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { SectionHeader } from '@/components/ui/section-header';
 import { Text } from '@/components/ui/text';
-import { VerifiedBadge } from '@/components/ui/verified-badge';
 import { ServiceGuaranteesCard } from '@/components/customer/service-guarantees-card';
 import { SafetyTipsCard } from '@/components/customer/safety-tips-card';
 
@@ -47,19 +47,14 @@ export default function TrustScreen() {
           How KwikServe keeps you safe and your bookings reliable.
         </Text>
 
-        {/* ── 1. Verified provider explanation ────────────────────────── */}
+        {/* ── 1. Provider approval ─────────────────────────────────────── */}
         <View style={styles.section}>
-          <SectionHeader title="Verified providers" />
+          <SectionHeader title="How providers are approved" />
           <Card elevation="e1">
             <View style={styles.verifiedBlock}>
-              <VerifiedBadge />
               <Text variant="body" color="textSecondary" style={styles.verifiedBody}>
-                Every provider on KwikServe is reviewed and approved by our team before they can
-                take jobs. The{' '}
-                <Text variant="body" weight="semibold">
-                  Verified by KwikServe
-                </Text>{' '}
-                badge is added by our team after it reviews a provider.
+                Every provider with a KwikServe account is reviewed and approved by our team before
+                they can take jobs in the app.
               </Text>
             </View>
           </Card>

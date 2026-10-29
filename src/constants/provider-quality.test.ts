@@ -143,18 +143,17 @@ describe('ACHIEVEMENTS', () => {
     'jobs_10',
     'jobs_50',
     'jobs_100',
-    'verified_provider',
     'rating_4_8',
     'profile_complete',
     'five_star_streak',
     'excellent_feedback',
   ];
 
-  it('has exactly 9 entries', () => {
-    expect(ACHIEVEMENTS).toHaveLength(9);
+  it('has exactly 8 entries (no Verified Provider achievement at launch)', () => {
+    expect(ACHIEVEMENTS).toHaveLength(8);
   });
 
-  it('contains all 9 required AchievementKey values', () => {
+  it('contains all 8 required AchievementKey values', () => {
     const keys = ACHIEVEMENTS.map((a) => a.key);
     for (const expected of EXPECTED_KEYS) {
       expect(keys).toContain(expected);

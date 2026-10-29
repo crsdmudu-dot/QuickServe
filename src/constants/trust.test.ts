@@ -22,6 +22,11 @@ describe('SERVICE_GUARANTEES', () => {
       expect(g.body.length).toBeGreaterThan(0);
     }
   });
+
+  it('makes no vetting, verification or background-check claim (no badges at launch)', () => {
+    const text = SERVICE_GUARANTEES.map((g) => `${g.title} ${g.body}`).join(' ');
+    expect(text).not.toMatch(/vetted|verified|background check|identity verification|skills assessment/i);
+  });
 });
 
 describe('SAFETY_REMINDERS', () => {

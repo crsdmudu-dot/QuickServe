@@ -69,9 +69,9 @@ describe('MarketplaceProviderCard', () => {
     expect(screen.getByText('150 jobs')).toBeOnTheScreen();
   });
 
-  it('renders VerifiedBadge when is_verified is true', () => {
+  it('does NOT render a Verified badge even when is_verified is true (no badges at launch)', () => {
     renderCard({ is_verified: true });
-    expect(screen.getByText('Verified by KwikServe')).toBeOnTheScreen();
+    expect(screen.queryByText('Verified by KwikServe')).toBeNull();
   });
 
   it('does NOT render VerifiedBadge when is_verified is false', () => {

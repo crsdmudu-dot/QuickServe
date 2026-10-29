@@ -6,7 +6,7 @@
  *   - The vetting text claims only team review and approval (owner, 2026-09-26)
  *   - ServiceGuaranteesCard is rendered
  *   - SafetyTipsCard is rendered
- *   - Verified provider explanation section (VerifiedBadge) is rendered
+ *   - The provider approval section is rendered, with no Verified badge or wording (owner, 2026-10-28)
  */
 
 import { render, screen, waitFor } from '@testing-library/react-native';
@@ -40,8 +40,6 @@ jest.mock('@/components/customer/safety-tips-card', () => ({
   },
 }));
 
-// VerifiedBadge — keep real component (it's a simple View+Text, no side effects)
-
 import TrustScreen from '@/app/trust';
 
 // ── Tests ──────────────────────────────────────────────────────────────────────
@@ -52,15 +50,14 @@ describe('TrustScreen', () => {
     expect(screen.getByText('Trust & Safety')).toBeOnTheScreen();
   });
 
-  it('renders the verified providers section', () => {
+  it('renders the provider approval section', () => {
     render(<TrustScreen />);
-    expect(screen.getByText('Verified providers')).toBeOnTheScreen();
+    expect(screen.getByText('How providers are approved')).toBeOnTheScreen();
   });
 
-  it('renders "Verified by KwikServe" badge text', () => {
+  it('shows no Verified badge and no Verified wording (no badges at launch)', () => {
     render(<TrustScreen />);
-    // VerifiedBadge + body text both contain "Verified by KwikServe" — at least one present
-    expect(screen.getAllByText('Verified by KwikServe').length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText(/Verified/)).toBeNull();
   });
 
   it('shows no sample provider card with invented figures', () => {

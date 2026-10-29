@@ -46,7 +46,6 @@ jest.mock('@/lib/services-catalog', () => ({
       icon: db.icon ?? '🧩',
       category: categorySlug ?? 'home',
       startingPrice: parseP(db.starting_price_text),
-      badge: db.featured ? 'Popular' : db.trending ? 'New' : undefined,
     };
   },
 }));

@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react-native';
 import { ProfessionalCard } from '@/components/ui/professional-card';
 
 describe('ProfessionalCard', () => {
-  it('shows name, skill, verified badge, and job count', () => {
+  it('shows name, skill and job count, and no Verified badge even when is_verified is true', () => {
     render(
       <ProfessionalCard
         professional={{
@@ -16,7 +16,7 @@ describe('ProfessionalCard', () => {
     );
     expect(screen.getByText('Jane')).toBeOnTheScreen();
     expect(screen.getByText('Plumbing')).toBeOnTheScreen();
-    expect(screen.getByText('Verified by KwikServe')).toBeOnTheScreen();
+    expect(screen.queryByText('Verified by KwikServe')).toBeNull();
     expect(screen.getByText('5 jobs completed')).toBeOnTheScreen();
   });
 

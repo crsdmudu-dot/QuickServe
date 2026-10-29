@@ -6,9 +6,9 @@
 /** What KwikServe guarantees to customers on every booking. */
 export const SERVICE_GUARANTEES: { title: string; body: string }[] = [
   {
-    title: 'Vetted professionals',
+    title: 'Provider approval',
     // Owner confirmed 2026-09-26: team review and approval, not background checks (App Store 2.3.1).
-    body: 'Every provider on KwikServe is reviewed and approved by our team before they can take jobs.',
+    body: 'Every provider with a KwikServe account is reviewed and approved by our team before they can take jobs in the app.',
   },
   {
     title: 'Secure payment',

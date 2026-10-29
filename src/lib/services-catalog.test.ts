@@ -353,24 +353,12 @@ describe('toService', () => {
     expect(toService(db2).icon).toBe('🧩');
   });
 
-  it('sets badge to "Popular" when featured=true', () => {
-    const db = makeDbService({ featured: true, trending: false });
-    expect(toService(db).badge).toBe('Popular');
-  });
-
-  it('sets badge to "New" when trending=true and featured=false', () => {
-    const db = makeDbService({ featured: false, trending: true });
-    expect(toService(db).badge).toBe('New');
-  });
-
-  it('featured takes precedence over trending for badge', () => {
-    const db = makeDbService({ featured: true, trending: true });
-    expect(toService(db).badge).toBe('Popular');
-  });
-
-  it('sets badge to undefined when neither featured nor trending', () => {
-    const db = makeDbService({ featured: false, trending: false });
-    expect(toService(db).badge).toBeUndefined();
+  it('never sets a badge, whatever the featured/trending flags (OD-S5-17)', () => {
+    for (const featured of [true, false]) {
+      for (const trending of [true, false]) {
+        expect(toService(makeDbService({ featured, trending })).badge).toBeUndefined();
+      }
+    }
   });
 
   it('passes startingPrice from parsePrice(starting_price_text)', () => {

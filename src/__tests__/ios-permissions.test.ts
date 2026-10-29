@@ -37,6 +37,13 @@ describe('declared capabilities (used)', () => {
     expect(opts.motionUsagePermission).toBe(false);
     expect(opts.isIosBackgroundLocationEnabled).not.toBe(true);
   });
+  test('Location: the purpose string names everyone who sees the location (RB-16, owner 2026-10-14 21:37)', () => {
+    // App Store 5.1.1(ii): purpose strings must clearly and completely describe the use of the data.
+    // The provider's location is shared with the job's customer and with KwikServe staff (admin) only while a job is active.
+    expect(pluginOpts('expo-location').locationWhenInUsePermission).toBe(
+      'KwikServe shares your live location with the customer for the job and with KwikServe staff only while you are travelling to and working on an active job.',
+    );
+  });
   test('Notifications: expo-notifications present and system-managed (no usage string)', () => {
     const entry = (expo.plugins as any[]).find(
       (p) => p === 'expo-notifications' || (Array.isArray(p) && p[0] === 'expo-notifications'),

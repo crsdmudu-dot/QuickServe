@@ -50,12 +50,12 @@ function getAchievement(
   return a;
 }
 
-// ── All 9 achievements returned ────────────────────────────────────────────
+// ── All 8 achievements returned ────────────────────────────────────────────
 
 describe('deriveProviderAchievements — output shape', () => {
-  it('always returns exactly 9 achievements', () => {
+  it('always returns exactly 8 achievements', () => {
     const result = deriveProviderAchievements({ profile: null });
-    expect(result).toHaveLength(9);
+    expect(result).toHaveLength(8);
   });
 
   it('each achievement has key, label, icon, and earned fields', () => {
@@ -145,19 +145,9 @@ describe('deriveProviderAchievements — jobs achievements', () => {
 // ── verified_provider ──────────────────────────────────────────────────────
 
 describe('deriveProviderAchievements — verified_provider', () => {
-  it('not earned when is_verified is false', () => {
-    const result = deriveProviderAchievements({ profile: makeProfile({ is_verified: false }) });
-    expect(getAchievement(result, 'verified_provider').earned).toBe(false);
-  });
-
-  it('earned when is_verified is true', () => {
+  it('is not offered at launch, even when is_verified is true (no badges at launch)', () => {
     const result = deriveProviderAchievements({ profile: makeProfile({ is_verified: true }) });
-    expect(getAchievement(result, 'verified_provider').earned).toBe(true);
-  });
-
-  it('not earned for null profile', () => {
-    const result = deriveProviderAchievements({ profile: null });
-    expect(getAchievement(result, 'verified_provider').earned).toBe(false);
+    expect(result.find((r) => r.key === 'verified_provider')).toBeUndefined();
   });
 });
 

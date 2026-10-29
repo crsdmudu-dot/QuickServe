@@ -31,8 +31,9 @@ describe('mpesaErrorText', () => {
   it('uses the plan text when payments are unavailable (disabled)', () => {
     expect(mpesaErrorText('payments_unavailable')).toBe(PAYMENTS_UNAVAILABLE_TEXT);
     expect(PAYMENTS_UNAVAILABLE_TEXT).toBe(
-      'M-PESA payments are temporarily unavailable. Your booking is safe. Please do not pay by any other method; we will notify you when you can pay.',
+      'M-PESA payments are temporarily unavailable. Your booking is safe. Please do not pay by any other method; try again later.',
     );
+    expect(PAYMENTS_UNAVAILABLE_TEXT).not.toMatch(/notify/i);
   });
 
   it('tells the customer NOT to pay again when the outcome is unknown', () => {

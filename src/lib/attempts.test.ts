@@ -127,7 +127,7 @@ describe('initiateMpesaPayment', () => {
       ok: false,
       code: 'payments_unavailable',
       error:
-        'M-PESA payments are temporarily unavailable. Your booking is safe. Please do not pay by any other method; we will notify you when you can pay.',
+        'M-PESA payments are temporarily unavailable. Your booking is safe. Please do not pay by any other method; try again later.',
     });
   });
 

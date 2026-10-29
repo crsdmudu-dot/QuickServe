@@ -28,7 +28,7 @@ export const PAYMENT_REFRESH_WINDOW_MS = 3 * 60 * 1000;
 
 /** Shown when payments are switched off (`MPESA_MODE=disabled`) or cannot run right now. */
 export const PAYMENTS_UNAVAILABLE_TEXT =
-  'M-PESA payments are temporarily unavailable. Your booking is safe. Please do not pay by any other method; we will notify you when you can pay.';
+  'M-PESA payments are temporarily unavailable. Your booking is safe. Please do not pay by any other method; try again later.';
 
 /** The fallback text for any error we cannot explain better. */
 export const GENERIC_PAY_ERROR_TEXT = 'Could not start payment. Please try again.';
