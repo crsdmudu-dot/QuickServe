@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/auth/auth-context';
@@ -19,28 +19,52 @@ import { useRootNavigationReady } from '@/hooks/use-root-navigation-ready';
  * Reads the one-time token hash once, strips it from the visible route, and asks the auth
  * context to verify it. A successful verification signs the new user in; the screen then hands
  * off to the root dispatcher ("/"), which routes by the verified profile role. Invalid, expired
- * or reused links show one safe error state and never affect an existing session.
+ * or reused links show one safe error state.
+ * If this phone is already signed in, the link is not used: the screen asks first. "Stay signed in"
+ * drops the link and changes nothing; only an explicit "Sign out and continue" signs out on this
+ * phone and then uses the link.
  * On web this route is the HTTPS bridge (`AuthLinkBridge`): fragment read once, stripped, app
  * opened only on an explicit action; no auth request is made.
  */
+
+// Approved wording (AL-WORDING). Any change, even punctuation, needs a new wording approval.
+const SIGNED_IN_MESSAGE = "You're already signed in on this phone. To use this link, sign out first.";
+const STAY_SIGNED_IN = 'Stay signed in';
+const SIGN_OUT_AND_CONTINUE = 'Sign out and continue';
+
+function announce(text: string) {
+  try {
+    AccessibilityInfo.announceForAccessibility(text);
+  } catch {
+    /* announcements are best-effort */
+  }
+}
+
 export default function ConfirmScreen() {
   const theme = useTheme();
   const params = useLocalSearchParams<Record<string, string | string[]>>();
-  const { verifyAuthLink } = useAuth();
+  const { verifyAuthLink, signOutAndVerifyAuthLink } = useAuth();
   // Snapshot of the params this screen instance opened with (read once, then stripped).
   const [initialParams] = useState(params);
   const hadLinkParams = initialParams != null && ('token_hash' in initialParams || 'type' in initialParams);
   const parsed = useMemo(() => parseAuthLinkParams(initialParams, 'signup'), [initialParams]);
-  const [result, setResult] = useState<'pending' | 'invalid' | 'confirmed'>('pending');
+  // 'choice': this phone is already signed in, so the link was not used and the person is asked first.
+  const [result, setResult] = useState<'pending' | 'choice' | 'invalid' | 'confirmed'>('pending');
+  // While the choice is shown, the link's code is kept here, in this screen's memory only.
+  const pendingLink = useRef<string | null>(null);
+  const switchStarted = useRef(false);
+  const [switching, setSwitching] = useState(false);
   const handled = useRef(false);
   const alive = useRef(true);
   const isWeb = Platform.OS === 'web';
   const navigationReady = useRootNavigationReady();
 
-  // Unmount-only liveness flag (see the verification callback below).
+  // Unmount-only liveness flag (see the verification callback below). Leaving the screen also
+  // drops a link that is still waiting for the person's choice.
   useEffect(
     () => () => {
       alive.current = false;
+      pendingLink.current = null;
     },
     [],
   );
@@ -70,17 +94,49 @@ export default function ConfirmScreen() {
       return;
     }
     if (!parsed.ok) return;
-    void verifyAuthLink({ tokenHash: parsed.tokenHash, type: 'signup' }).then((ok) => {
+    const tokenHash = parsed.tokenHash;
+    void verifyAuthLink({ tokenHash, type: 'signup' }).then((outcome) => {
       // Guard on real unmount only. An effect-scoped flag cleared by this effect's own cleanup
       // would also fire whenever a dependency changes — `verifyAuthLink` is a fresh closure on
       // every provider render — and would silently discard a completed verification.
       if (!alive.current) return;
-      setResult(ok ? 'confirmed' : 'invalid');
-      if (ok) router.replace('/');
+      if (outcome === 'signed-in') {
+        // Nothing was verified and nothing changed. Wait for the person's choice: no timer, no default.
+        pendingLink.current = tokenHash;
+        setResult('choice');
+        announce(SIGNED_IN_MESSAGE);
+        return;
+      }
+      setResult(outcome ? 'confirmed' : 'invalid');
+      if (outcome) router.replace('/');
     });
   }, [isWeb, hadLinkParams, navigationReady, parsed, verifyAuthLink]);
 
-  const state: 'checking' | 'invalid' | 'confirmed' = !parsed.ok || result === 'invalid' ? 'invalid' : result === 'confirmed' ? 'confirmed' : 'checking';
+  // "Stay signed in": drop the link and go home. The sign-in on this phone is not touched.
+  function staySignedIn() {
+    if (switchStarted.current) return;
+    pendingLink.current = null;
+    router.replace('/');
+  }
+
+  // "Sign out and continue": acts only on this explicit tap, and only on the first one.
+  function signOutAndContinue() {
+    const tokenHash = pendingLink.current;
+    if (switchStarted.current || tokenHash == null) return;
+    switchStarted.current = true;
+    setSwitching(true);
+    void signOutAndVerifyAuthLink({ tokenHash, type: 'signup' })
+      .catch(() => false)
+      .then((ok) => {
+        pendingLink.current = null;
+        if (!alive.current) return;
+        setResult(ok ? 'confirmed' : 'invalid');
+        if (ok) router.replace('/');
+      });
+  }
+
+  const state: 'checking' | 'choice' | 'invalid' | 'confirmed' =
+    !parsed.ok || result === 'invalid' ? 'invalid' : result === 'pending' ? 'checking' : result;
 
   let body: React.ReactNode;
   if (isWeb) {
@@ -104,6 +160,24 @@ export default function ConfirmScreen() {
         <SupportLink />
       </View>
     );
+  } else if (state === 'choice') {
+    // Only the heading, the message and the two buttons. "Stay signed in" is first and primary.
+    body = (
+      <View style={styles.form}>
+        <Text variant="body" color="text">
+          {SIGNED_IN_MESSAGE}
+        </Text>
+        <Button label={STAY_SIGNED_IN} fullWidth size="lg" onPress={staySignedIn} disabled={switching} />
+        <Button
+          label={SIGN_OUT_AND_CONTINUE}
+          variant="secondary"
+          fullWidth
+          size="lg"
+          onPress={signOutAndContinue}
+          disabled={switching}
+        />
+      </View>
+    );
   } else if (state === 'confirmed') {
     body = (
       <Text variant="body" color="text">
@@ -121,7 +195,7 @@ export default function ConfirmScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
       <View style={styles.header}>
-        <Text variant="display" style={styles.heading}>
+        <Text variant="display" style={styles.heading} accessibilityRole="header">
           Confirm your email
         </Text>
       </View>

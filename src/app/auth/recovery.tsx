@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -24,8 +24,10 @@ import { validateSetPassword } from '@/lib/validation';
  *   2. The parameters are read ONCE, validated, and immediately stripped from the visible route
  *      (`router.setParams`, which keeps the route key) so the one-time secret does not linger in history.
  *   3. The auth context verifies the hash (`verifyOtp`), which creates the recovery session.
- *      A replayed link during an active recovery is ignored. Invalid, expired or reused links
- *      leave any existing session untouched and show one safe error state.
+ *      A replayed link during an active recovery is ignored. If this phone is already signed in,
+ *      the link is not used: the screen asks first. "Stay signed in" drops the link and changes
+ *      nothing; only an explicit "Sign out and continue" signs out on this phone and then uses the
+ *      link. Invalid, expired or reused links show one safe error state.
  *   4. The set-password form is shown only in the `ready` stage; on success the screen hands off
  *      to the root dispatcher ("/"), which routes by the verified profile role. The destination
  *      is never taken from the link. Cancel abandons the recovery explicitly.
@@ -34,10 +36,25 @@ import { validateSetPassword } from '@/lib/validation';
  * fragment once, strips it, and opens the app only on an explicit action. It performs no auth
  * request; the admin web has no browser reset surface in this slice.
  */
+
+// Approved wording (AL-WORDING). Any change, even punctuation, needs a new wording approval.
+const SIGNED_IN_MESSAGE = "You're already signed in on this phone. To use this link, sign out first.";
+const STAY_SIGNED_IN = 'Stay signed in';
+const SIGN_OUT_AND_CONTINUE = 'Sign out and continue';
+
+function announce(text: string) {
+  try {
+    AccessibilityInfo.announceForAccessibility(text);
+  } catch {
+    /* announcements are best-effort */
+  }
+}
+
 export default function RecoveryScreen() {
   const theme = useTheme();
   const params = useLocalSearchParams<Record<string, string | string[]>>();
-  const { recovery, authError, session, verifyAuthLink, completePasswordReset, abandonRecovery } = useAuth();
+  const { recovery, authError, session, verifyAuthLink, signOutAndVerifyAuthLink, completePasswordReset, abandonRecovery } =
+    useAuth();
   // Snapshot of the params this screen instance opened with: read once, never re-read after the
   // one-time secret has been stripped from the route.
   const [initialParams] = useState(params);
@@ -47,12 +64,29 @@ export default function RecoveryScreen() {
   const [confirm, setConfirm] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  // The signed-in choice: 'asking' while it is shown, 'switching' from the "Sign out and continue"
+  // tap until the result. While it is shown, the link's code is kept in this screen's memory only.
+  const [choice, setChoice] = useState<'none' | 'asking' | 'switching'>('none');
+  const [switchFailed, setSwitchFailed] = useState(false);
+  const pendingLink = useRef<string | null>(null);
+  const switchStarted = useRef(false);
+  const alive = useRef(true);
   const handled = useRef(false);
   const isWeb = Platform.OS === 'web';
   const navigationReady = useRootNavigationReady();
   const stage = recovery.stage;
 
-  // Link intake — runs once per screen instance; side effects only (no state writes here).
+  // Unmount-only: leaving the screen drops a link that is still waiting for the person's choice.
+  useEffect(
+    () => () => {
+      alive.current = false;
+      pendingLink.current = null;
+    },
+    [],
+  );
+
+  // Link intake — runs once per screen instance. Its only state write is the signed-in choice,
+  // made after the auth context answers.
   useEffect(() => {
     if (isWeb || handled.current || !hadLinkParams) return;
     // Wait for the root navigator before touching the route. `router.setParams` asserts readiness
@@ -75,7 +109,15 @@ export default function RecoveryScreen() {
     }
     if (!parsed.ok) return;
     if (stage === 'verifying' || stage === 'ready' || stage === 'updating') return; // replayed delivery
-    void verifyAuthLink({ tokenHash: parsed.tokenHash, type: 'recovery' });
+    const tokenHash = parsed.tokenHash;
+    void verifyAuthLink({ tokenHash, type: 'recovery' }).then((outcome) => {
+      // This phone is already signed in, so nothing was verified and nothing changed. Wait for the
+      // person's choice: no timer, no default.
+      if (outcome !== 'signed-in' || !alive.current) return;
+      pendingLink.current = tokenHash;
+      setChoice('asking');
+      announce(SIGNED_IN_MESSAGE);
+    });
   }, [isWeb, hadLinkParams, navigationReady, parsed, stage, verifyAuthLink]);
 
   // Arrived with a bad link, or with no link while nothing is in progress → nothing to verify.
@@ -108,6 +150,30 @@ export default function RecoveryScreen() {
     router.replace('/signin');
   }
 
+  // "Stay signed in": drop the link and go home. The sign-in on this phone is not touched.
+  function staySignedIn() {
+    if (switchStarted.current) return;
+    pendingLink.current = null;
+    router.replace('/');
+  }
+
+  // "Sign out and continue": acts only on this explicit tap, and only on the first one. On success
+  // the recovery stage becomes 'ready' and today's set-password form follows.
+  function signOutAndContinue() {
+    const tokenHash = pendingLink.current;
+    if (switchStarted.current || tokenHash == null) return;
+    switchStarted.current = true;
+    setChoice('switching');
+    void signOutAndVerifyAuthLink({ tokenHash, type: 'recovery' })
+      .catch(() => false)
+      .then((ok) => {
+        pendingLink.current = null;
+        if (!alive.current) return;
+        setChoice('none');
+        if (!ok) setSwitchFailed(true);
+      });
+  }
+
   let body: React.ReactNode;
   if (isWeb) {
     return (
@@ -117,7 +183,26 @@ export default function RecoveryScreen() {
         </ScrollView>
       </SafeAreaView>
     );
-  } else if (linkInvalid || stage === 'invalid') {
+  } else if (choice !== 'none') {
+    // Only the heading, the message and the two buttons: the set-password form is not rendered at
+    // all. "Stay signed in" is first and primary.
+    body = (
+      <View style={styles.form}>
+        <Text variant="body" color="text">
+          {SIGNED_IN_MESSAGE}
+        </Text>
+        <Button label={STAY_SIGNED_IN} fullWidth size="lg" onPress={staySignedIn} disabled={choice === 'switching'} />
+        <Button
+          label={SIGN_OUT_AND_CONTINUE}
+          variant="secondary"
+          fullWidth
+          size="lg"
+          onPress={signOutAndContinue}
+          disabled={choice === 'switching'}
+        />
+      </View>
+    );
+  } else if (linkInvalid || stage === 'invalid' || switchFailed) {
     body = (
       <View style={styles.form}>
         <Text variant="body" color="text" accessibilityRole="alert">
@@ -191,7 +276,7 @@ export default function RecoveryScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <Text variant="display" style={styles.heading}>
+          <Text variant="display" style={styles.heading} accessibilityRole="header">
             Reset your password
           </Text>
         </View>
