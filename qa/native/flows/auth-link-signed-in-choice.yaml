@@ -1,0 +1,93 @@
+# FX-AL (L-M1) — an emailed link opened while this phone is signed in is never used silently.
+#
+# Android first (block VERIFY). The customer stays signed in while the deep links fire, so the link and
+# the session must be in ONE flow: `openLink` is used for that, as in item-m-customer-rejection.yaml. On
+# iOS the system asks "Open in KwikServe?" first; the conditional tap below confirms it (see
+# auth-recovery-no-token.yaml for why). `back` is Android-only and is skipped on iOS.
+#
+# The link is a DUMMY of the shape the Jest fixtures use: 64 letters, never a real link, never emailed.
+# It can never verify. The link steps 1 to 3 send nothing about the link to QA: the app decides on this
+# phone before any link check. The flow as a whole does contact QA: the QA customer signs in with QA Auth
+# (steps/login-customer.yaml), the app registers for push and loads home data, and reading the stored
+# session may refresh a token. Step 4 ("Sign out and continue") also calls QA Auth's logout for this
+# phone only, removes this phone's push registration for the QA customer, and sends the dummy link
+# once, which QA Auth rejects. Nothing else is created or changed. Step 4 runs last because it signs out.
+#
+# STOP rule (Part L): if any step shows the customer home without the choice first, or the reset
+# screen's password form, the link was used silently. That is a STOP: FX-AL is not release-ready.
+#
+# Params via -e: CUST_EMAIL, CUST_PW.
+appId: ke.co.hiredcorp.kwikserve
+env:
+  DUMMY_HASH: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+---
+- runFlow: { file: steps/login-customer.yaml }
+- assertVisible: "What service do you need today?"
+
+# ── Step 1-2: the confirmation link asks first; "Stay signed in" keeps the customer ─────────────
+- openLink: "kwikserve://auth/confirm?token_hash=${DUMMY_HASH}&type=signup"
+- runFlow: { when: { visible: "Open" }, commands: [ { tapOn: "Open" } ] }
+- extendedWaitUntil: { visible: "You.re already signed in on this phone.*", timeout: 20000 }
+- assertVisible: "Confirm your email"
+- assertVisible: "Stay signed in"
+- assertVisible: "Sign out and continue"
+- assertNotVisible: "This link is invalid or has expired."
+- assertNotVisible: "Email confirmed.*"
+- takeScreenshot: fxal-01-confirm-choice
+
+# ML-b: nothing happens by itself. Wait about 15 s for the choice to go away; it must not.
+- extendedWaitUntil: { notVisible: "You.re already signed in on this phone.*", timeout: 15000, optional: true }
+- assertVisible: "You.re already signed in on this phone.*"
+- assertVisible: "Sign out and continue"
+- assertNotVisible: "This link is invalid or has expired."
+
+- tapOn: "Stay signed in"
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 20000 }
+- assertNotVisible: "You.re already signed in on this phone.*"
+- takeScreenshot: fxal-02-stayed-signed-in
+
+# ── ML-a: Back counts as "Stay signed in" (Android) ─────────────────────────────────────────────
+- runFlow:
+    when: { platform: Android }
+    commands:
+      - openLink: "kwikserve://auth/confirm?token_hash=${DUMMY_HASH}&type=signup"
+      - extendedWaitUntil: { visible: "You.re already signed in on this phone.*", timeout: 20000 }
+      - back
+      - extendedWaitUntil: { visible: "What service do you need today?", timeout: 20000 }
+      - assertNotVisible: "This link is invalid or has expired."
+      - assertNotVisible: "New password"
+      - takeScreenshot: fxal-03-back-stayed-signed-in
+
+# ── Step 3: the reset link asks first and shows no password field ───────────────────────────────
+- openLink: "kwikserve://auth/recovery?token_hash=${DUMMY_HASH}&type=recovery"
+- runFlow: { when: { visible: "Open" }, commands: [ { tapOn: "Open" } ] }
+- extendedWaitUntil: { visible: "You.re already signed in on this phone.*", timeout: 20000 }
+- assertVisible: "Reset your password"
+- assertVisible: "Stay signed in"
+- assertVisible: "Sign out and continue"
+- assertNotVisible: "New password"
+- assertNotVisible: "Confirm password"
+- assertNotVisible: "Set new password"
+- assertNotVisible: "This link is invalid or has expired."
+- takeScreenshot: fxal-04-recovery-choice
+- tapOn: "Stay signed in"
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 20000 }
+- takeScreenshot: fxal-05-recovery-stayed-signed-in
+
+# ── Step 4 (last): "Sign out and continue" signs out on this phone, then the dummy link fails ───
+- openLink: "kwikserve://auth/confirm?token_hash=${DUMMY_HASH}&type=signup"
+- runFlow: { when: { visible: "Open" }, commands: [ { tapOn: "Open" } ] }
+- extendedWaitUntil: { visible: "You.re already signed in on this phone.*", timeout: 20000 }
+- tapOn: "Sign out and continue"
+- extendedWaitUntil: { visible: "This link is invalid or has expired.", timeout: 30000 }
+- assertVisible: "Go to sign in"
+- assertNotVisible: "What service do you need today?"
+- takeScreenshot: fxal-06-signed-out-invalid-link
+
+# Signed out: "Go to sign in" must stay on the sign-in screen (a signed-in customer would be sent home).
+- tapOn: "Go to sign in"
+- extendedWaitUntil: { visible: "Welcome back", timeout: 15000 }
+- extendedWaitUntil: { visible: "What service do you need today?", timeout: 5000, optional: true }
+- assertVisible: "Welcome back"
+- assertNotVisible: "What service do you need today?"
+- takeScreenshot: fxal-07-signed-out

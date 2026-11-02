@@ -28,6 +28,12 @@ export type RecoveryState = { stage: RecoveryStage; sessionFromLink: boolean };
 /** Outcome of an email-link request (see src/lib/auth-link-request.ts); never reveals account existence. */
 export type AuthLinkRequestResult = AuthLinkRequestOutcome;
 export type AuthLink = { tokenHash: string; type: AuthLinkType };
+/**
+ * Outcome of `verifyAuthLink`. `true` / `false`: the link was checked (or a replayed recovery link was
+ * ignored), as before. `'signed-in'`: this phone already has a session, so the link was NOT used and
+ * nothing changed. The screen then asks the person first; only `signOutAndVerifyAuthLink` may use it.
+ */
+export type AuthLinkResult = boolean | 'signed-in';
 
 const IDLE_RECOVERY: RecoveryState = { stage: 'idle', sessionFromLink: false };
 
@@ -48,7 +54,9 @@ type AuthState = {
   signIn: (email: string, password: string) => Promise<boolean>;
   signOut: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<AuthLinkRequestResult>;
-  verifyAuthLink: (link: AuthLink) => Promise<boolean>;
+  verifyAuthLink: (link: AuthLink) => Promise<AuthLinkResult>;
+  /** After the person chose "Sign out and continue": signs out on this phone only, then uses the link once. */
+  signOutAndVerifyAuthLink: (link: AuthLink) => Promise<boolean>;
   completePasswordReset: (password: string) => Promise<boolean>;
   abandonRecovery: () => Promise<void>;
   resendConfirmation: (email: string) => Promise<AuthLinkRequestResult>;
@@ -88,6 +96,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     recoveryRef.current = next;
     setRecoveryState(next);
   }
+  // True while a recovery link's sign-in check (below) is still running, so a duplicate delivery
+  // of the link in that moment is ignored like any other replay.
+  const recoveryLinkCheckRef = useRef(false);
 
   // The user id whose role/profile is currently resolved. Used so a session change for
   // a NEW user re-enters the loading state while the role is fetched (making "role
@@ -207,18 +218,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function verifyAuthLink(link: AuthLink): Promise<boolean> {
+  /**
+   * True when this phone has a stored session, or may have one. Fails closed: when getSession()
+   * reports an error, the stored session could not be read, so it counts as present and no link is
+   * used. (A thrown error is handled by the callers, which then use no link either.)
+   */
+  async function hasStoredSession(): Promise<boolean> {
+    // Read the client's stored session, never the React `session` state: that stays null until the
+    // first getSession() resolves, and a link screen can start before then (cold start). getSession()
+    // itself waits for the client to finish starting up.
+    const { data, error } = await supabase.auth.getSession();
+    if (error) return true;
+    return data?.session != null;
+  }
+
+  /** Checks the one-time link. Callers have already made sure this phone has no session. */
+  async function verifyLinkOnce(link: AuthLink): Promise<boolean> {
     const isRecovery = link.type === 'recovery';
-    if (isRecovery) {
-      const cur = recoveryRef.current;
-      // Replayed / duplicate delivery while a recovery is already active: nothing to do.
-      if (cur.stage === 'verifying' || cur.stage === 'ready' || cur.stage === 'updating') return true;
-      setRecovery({ stage: 'verifying', sessionFromLink: false });
-    }
+    if (isRecovery) setRecovery({ stage: 'verifying', sessionFromLink: false });
     try {
       // verifyOtp consumes the one-time token hash; on success auth-js stores the session and
-      // emits PASSWORD_RECOVERY (recovery) or SIGNED_IN (signup). On failure nothing changes —
-      // an existing session is never signed out because of a bad link.
+      // emits PASSWORD_RECOVERY (recovery) or SIGNED_IN (signup). It is only reached when this phone
+      // has no session: either none was stored, or the person chose to sign out first. On failure
+      // nothing changes.
       const { error } = await supabase.auth.verifyOtp({ token_hash: link.tokenHash, type: link.type });
       if (error) {
         if (isRecovery) setRecovery({ stage: 'invalid', sessionFromLink: false });
@@ -230,6 +252,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (isRecovery) setRecovery({ stage: 'invalid', sessionFromLink: false });
       return false;
     }
+  }
+
+  async function verifyAuthLink(link: AuthLink): Promise<AuthLinkResult> {
+    const isRecovery = link.type === 'recovery';
+    if (isRecovery) {
+      const cur = recoveryRef.current;
+      // Replayed / duplicate delivery while a recovery is already active (or its link is still
+      // being checked below): nothing to do. This guard stays first.
+      if (recoveryLinkCheckRef.current || cur.stage === 'verifying' || cur.stage === 'ready' || cur.stage === 'updating') return true;
+      recoveryLinkCheckRef.current = true;
+    }
+    try {
+      // Never use an emailed link while this phone is signed in: verifying it would silently replace
+      // this phone's sign-in with the link's account. Nothing is verified and the recovery stage is not
+      // changed; the screen asks the person first. A session that cannot be read counts as signed in.
+      if (await hasStoredSession()) return 'signed-in';
+    } catch {
+      // Fail closed: if reading this phone's sign-in throws, the link is not used.
+      if (isRecovery) setRecovery({ stage: 'invalid', sessionFromLink: false });
+      return false;
+    } finally {
+      if (isRecovery) recoveryLinkCheckRef.current = false;
+    }
+    return verifyLinkOnce(link);
+  }
+
+  /**
+   * After the person chose "Sign out and continue": signs out on THIS phone only (other devices stay
+   * signed in), checks that no session remains, then uses the link once. If the sign-out does not
+   * succeed, the link is not used and false is returned.
+   */
+  async function signOutAndVerifyAuthLink(link: AuthLink): Promise<boolean> {
+    // 1. Remove this phone's push registration for the current account first, as signOut does.
+    try {
+      await unregisterForPushNotifications();
+    } catch {
+      // best-effort; never blocks the sign-out
+    }
+    try {
+      // 2. Sign out on this phone only, as abandonRecovery does.
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      if (error) return false;
+      // 3. Use the link only if no session remains (a session that cannot be read counts as remaining).
+      if (await hasStoredSession()) return false;
+    } catch {
+      return false;
+    }
+    // Any recovery the old session belonged to has ended with it.
+    setRecovery(IDLE_RECOVERY);
+    // 4. Use the link once.
+    return verifyLinkOnce(link);
   }
 
   async function completePasswordReset(password: string): Promise<boolean> {
@@ -332,6 +405,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signOut,
         requestPasswordReset,
         verifyAuthLink,
+        signOutAndVerifyAuthLink,
         completePasswordReset,
         abandonRecovery,
         resendConfirmation,

@@ -2,7 +2,8 @@
  * auth-context-recovery.test.tsx — AuthProvider recovery/confirmation behaviour against a mocked
  * Supabase client. Pins the token-hash flow: the client is never switched to PKCE, tokens from
  * URL fragments are never accepted, invalid links never sign anyone out, and passwords / token
- * hashes never reach the console.
+ * hashes never reach the console. FX-AL: a link opened while this phone is signed in is never used
+ * without the person's choice.
  */
 import { act, render, screen, waitFor } from '@testing-library/react-native';
 import { useEffect } from 'react';
@@ -11,11 +12,16 @@ import { Text } from 'react-native';
 import appJson from '../../app.json';
 
 import { AuthProvider, useAuth } from '@/auth/auth-context';
+import { unregisterForPushNotifications } from '@/lib/push';
 
 const SCHEME = (appJson as { expo: { scheme: string[] } }).expo.scheme[0];
 const HASH = 'b'.repeat(64);
 const SECRET_PASSWORD = 'CorrectHorse42';
+const mockUnregister = unregisterForPushNotifications as jest.Mock;
 
+// The session stored on this phone, as getSession() reports it (per test; null = signed out).
+let mockStoredSession: unknown = null;
+const mockGetSession = jest.fn();
 const mockResetPasswordForEmail = jest.fn();
 const mockVerifyOtp = jest.fn();
 const mockUpdateUser = jest.fn();
@@ -41,7 +47,7 @@ jest.mock('@/lib/supabase', () => {
     supabase: {
       from: jest.fn(() => chain),
       auth: {
-        getSession: jest.fn().mockResolvedValue({ data: { session: null } }),
+        getSession: (...a: unknown[]) => mockGetSession(...a),
         onAuthStateChange: jest.fn((cb: (event: string, session: unknown) => void) => {
           mockAuthListener = cb;
           return { data: { subscription: { unsubscribe: jest.fn() } } };
@@ -60,10 +66,11 @@ jest.mock('@/lib/supabase', () => {
 
 
 type Api = ReturnType<typeof useAuth>;
-const probe: { api: Api | null } = { api: null };
+const probe: { api: Api | null; stages: string[] } = { api: null, stages: [] };
 
 function Probe() {
   const a = useAuth();
+  probe.stages.push(a.recovery.stage); // every recovery stage ever rendered
   useEffect(() => {
     probe.api = a;
   }, [a]);
@@ -90,8 +97,12 @@ async function mount() {
 beforeEach(() => {
   jest.clearAllMocks();
   probe.api = null;
+  probe.stages = [];
   mockAuthListener = null;
+  mockStoredSession = null;
+  mockGetSession.mockImplementation(async () => ({ data: { session: mockStoredSession } }));
   mockSignOut.mockResolvedValue({ error: null });
+  mockUnregister.mockResolvedValue(undefined);
 });
 
 describe('requestPasswordReset', () => {
@@ -328,7 +339,274 @@ describe('email confirmation', () => {
   });
 });
 
+describe('a link opened while this phone is signed in (FX-AL)', () => {
+  const probeText = () => screen.getByTestId('probe').props.children as string;
+
+  it('J-1: a confirmation link returns "signed-in": nothing is verified, signed out or unregistered', async () => {
+    mockStoredSession = SESSION;
+    const a = await mount();
+    await act(async () => {
+      await expect(a.verifyAuthLink({ tokenHash: HASH, type: 'signup' })).resolves.toBe('signed-in');
+    });
+    expect(mockVerifyOtp).not.toHaveBeenCalled();
+    expect(mockSignOut).not.toHaveBeenCalled();
+    expect(mockUnregister).not.toHaveBeenCalled();
+  });
+
+  it('J-2: a reset link returns "signed-in" and the recovery stage never leaves idle', async () => {
+    mockStoredSession = SESSION;
+    const a = await mount();
+    await act(async () => {
+      await expect(a.verifyAuthLink({ tokenHash: HASH, type: 'recovery' })).resolves.toBe('signed-in');
+    });
+    expect(probeText()).toContain('stage=idle');
+    expect([...new Set(probe.stages)]).toEqual(['idle']);
+    expect(mockVerifyOtp).not.toHaveBeenCalled();
+    expect(mockSignOut).not.toHaveBeenCalled();
+  });
+
+  it('J-3: the replay guard stays first, so the stored recovery session does not turn a replay into a choice', async () => {
+    mockVerifyOtp.mockImplementation(async () => {
+      mockStoredSession = SESSION; // the recovery session is now stored on this phone
+      mockAuthListener?.('PASSWORD_RECOVERY', SESSION);
+      return { data: { session: SESSION, user: SESSION.user }, error: null };
+    });
+    const a = await mount();
+    await act(async () => {
+      await expect(a.verifyAuthLink({ tokenHash: HASH, type: 'recovery' })).resolves.toBe(true);
+    });
+    await act(async () => {
+      await expect(a.verifyAuthLink({ tokenHash: HASH, type: 'recovery' })).resolves.toBe(true);
+    });
+    expect(mockVerifyOtp).toHaveBeenCalledTimes(1);
+    expect(mockSignOut).not.toHaveBeenCalled();
+  });
+
+  it('a duplicate reset link delivered while the first is still being checked is ignored', async () => {
+    const a = await mount();
+    let release: () => void = () => {};
+    mockGetSession.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = () => resolve({ data: { session: null } });
+        }),
+    );
+    mockVerifyOtp.mockResolvedValue({ data: { session: SESSION, user: SESSION.user }, error: null });
+    await act(async () => {
+      const first = a.verifyAuthLink({ tokenHash: HASH, type: 'recovery' });
+      await expect(a.verifyAuthLink({ tokenHash: HASH, type: 'recovery' })).resolves.toBe(true);
+      release();
+      await expect(first).resolves.toBe(true);
+    });
+    expect(mockVerifyOtp).toHaveBeenCalledTimes(1);
+  });
+
+  it('J-4: the switch unregisters push, signs out on this phone only (exactly once), then verifies once, in that order', async () => {
+    const order: string[] = [];
+    mockStoredSession = SESSION;
+    mockUnregister.mockImplementationOnce(async () => {
+      order.push('unregister');
+    });
+    mockSignOut.mockImplementationOnce(async () => {
+      order.push('signOut');
+      mockStoredSession = null;
+      return { error: null };
+    });
+    mockVerifyOtp.mockImplementationOnce(async () => {
+      order.push('verifyOtp');
+      return { data: { session: SESSION, user: SESSION.user }, error: null };
+    });
+    const a = await mount();
+    await act(async () => {
+      await expect(a.signOutAndVerifyAuthLink({ tokenHash: HASH, type: 'signup' })).resolves.toBe(true);
+    });
+    expect(order).toEqual(['unregister', 'signOut', 'verifyOtp']);
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+    expect(mockSignOut.mock.calls[0]).toEqual([{ scope: 'local' }]); // never the all-devices default
+    expect(mockVerifyOtp).toHaveBeenCalledTimes(1);
+    expect(mockVerifyOtp).toHaveBeenCalledWith({ token_hash: HASH, type: 'signup' });
+  });
+
+  it('J-4: for a reset link the switch then enters the recovery session, as today', async () => {
+    mockStoredSession = SESSION;
+    mockSignOut.mockImplementationOnce(async () => {
+      mockStoredSession = null;
+      return { error: null };
+    });
+    mockVerifyOtp.mockImplementationOnce(async () => {
+      mockAuthListener?.('PASSWORD_RECOVERY', SESSION);
+      return { data: { session: SESSION, user: SESSION.user }, error: null };
+    });
+    const a = await mount();
+    await act(async () => {
+      await expect(a.signOutAndVerifyAuthLink({ tokenHash: HASH, type: 'recovery' })).resolves.toBe(true);
+    });
+    expect(mockSignOut.mock.calls).toEqual([[{ scope: 'local' }]]);
+    expect(mockVerifyOtp).toHaveBeenCalledWith({ token_hash: HASH, type: 'recovery' });
+    await waitFor(() => expect(probeText()).toContain('stage=ready'));
+  });
+
+  const SIGN_OUT_FAILURES: [string, () => Promise<unknown>][] = [
+    [
+      'the sign-out reports an error (even with the stored session gone)',
+      async () => {
+        mockStoredSession = null; // so only the error check can stop the link
+        return { error: { message: 'offline', status: 0 } };
+      },
+    ],
+    [
+      'the sign-out throws',
+      async () => {
+        throw new Error('offline');
+      },
+    ],
+    ['a session is still stored after the sign-out', async () => ({ error: null })],
+  ];
+
+  it.each(SIGN_OUT_FAILURES)('J-5: the link is not used when %s', async (_label, signOutResult) => {
+    mockStoredSession = SESSION;
+    mockSignOut.mockImplementationOnce(signOutResult);
+    const a = await mount();
+    await act(async () => {
+      await expect(a.signOutAndVerifyAuthLink({ tokenHash: HASH, type: 'recovery' })).resolves.toBe(false);
+    });
+    expect(mockVerifyOtp).not.toHaveBeenCalled();
+    expect(probeText()).toContain('stage=idle');
+  });
+
+  it('J-6: the link is still held back when the stored session can only be read after it arrives (cold start)', async () => {
+    let release: () => void = () => {};
+    const stored = new Promise((resolve) => {
+      release = () => resolve({ data: { session: SESSION } });
+    });
+    mockGetSession.mockImplementation(() => stored);
+    const a = await mount();
+    expect(a.session).toBeNull(); // the React state does not know about the session yet
+    let outcome: unknown;
+    await act(async () => {
+      const pending = a.verifyAuthLink({ tokenHash: HASH, type: 'signup' });
+      release();
+      outcome = await pending;
+    });
+    expect(outcome).toBe('signed-in');
+    expect(mockVerifyOtp).not.toHaveBeenCalled();
+  });
+
+  it('a confirmation link used after signing out of an active reset leaves no stale recovery state', async () => {
+    mockVerifyOtp.mockImplementationOnce(async () => {
+      mockStoredSession = SESSION;
+      mockAuthListener?.('PASSWORD_RECOVERY', SESSION);
+      return { data: { session: SESSION, user: SESSION.user }, error: null };
+    });
+    const a = await mount();
+    await act(async () => {
+      await a.verifyAuthLink({ tokenHash: HASH, type: 'recovery' });
+    });
+    await waitFor(() => expect(probeText()).toContain('stage=ready'));
+    // The reset's session is stored, so a confirmation link now asks first and changes nothing.
+    await act(async () => {
+      await expect(a.verifyAuthLink({ tokenHash: HASH, type: 'signup' })).resolves.toBe('signed-in');
+    });
+    expect(probeText()).toContain('stage=ready');
+    mockSignOut.mockImplementationOnce(async () => {
+      mockStoredSession = null;
+      return { error: null };
+    });
+    mockVerifyOtp.mockResolvedValueOnce({ data: { session: SESSION, user: SESSION.user }, error: null });
+    await act(async () => {
+      await expect(a.signOutAndVerifyAuthLink({ tokenHash: HASH, type: 'signup' })).resolves.toBe(true);
+    });
+    await waitFor(() => expect(probeText()).toContain('stage=idle'));
+  });
+
+  // C-1: a stored session that cannot be read never lets a link through (fail closed).
+  const LINK_TYPES: ('signup' | 'recovery')[] = ['signup', 'recovery'];
+  const READ_ERROR = { name: 'AuthRetryableFetchError', message: 'Failed to fetch', status: 0 };
+
+  it.each(LINK_TYPES)('C-1 (a): when reading the stored session throws, a %s link is not used', async (type) => {
+    const a = await mount();
+    mockGetSession.mockRejectedValueOnce(new Error('storage unavailable'));
+    await act(async () => {
+      await expect(a.verifyAuthLink({ tokenHash: HASH, type })).resolves.toBe(false);
+    });
+    expect(mockVerifyOtp).not.toHaveBeenCalled();
+    expect(mockSignOut).not.toHaveBeenCalled();
+  });
+
+  it.each(LINK_TYPES)('C-1 (b): when getSession() reports an error, a %s link asks first and is not used', async (type) => {
+    const a = await mount();
+    mockGetSession.mockResolvedValueOnce({ data: { session: null }, error: READ_ERROR });
+    await act(async () => {
+      await expect(a.verifyAuthLink({ tokenHash: HASH, type })).resolves.toBe('signed-in');
+    });
+    expect(mockVerifyOtp).not.toHaveBeenCalled();
+    expect(mockSignOut).not.toHaveBeenCalled();
+    expect(probeText()).toContain('stage=idle');
+  });
+
+  const STEP3_READ_FAILURES: [string, () => void][] = [
+    ['reports an error', () => mockGetSession.mockResolvedValueOnce({ data: { session: null }, error: READ_ERROR })],
+    ['throws', () => mockGetSession.mockRejectedValueOnce(new Error('storage unavailable'))],
+  ];
+
+  it.each(STEP3_READ_FAILURES)('C-1 (c): when the session check after the sign-out %s, the link is not used', async (_label, failNextRead) => {
+    mockStoredSession = SESSION;
+    const a = await mount();
+    mockSignOut.mockImplementationOnce(async () => {
+      mockStoredSession = null;
+      failNextRead(); // the next getSession() is the switch's step 3
+      return { error: null };
+    });
+    await act(async () => {
+      await expect(a.signOutAndVerifyAuthLink({ tokenHash: HASH, type: 'signup' })).resolves.toBe(false);
+    });
+    expect(mockSignOut.mock.calls).toEqual([[{ scope: 'local' }]]);
+    expect(mockVerifyOtp).not.toHaveBeenCalled();
+  });
+
+  it('C-6: after a completed reset (stage done) with its session stored, a new reset link asks first and is not used', async () => {
+    mockVerifyOtp.mockImplementationOnce(async () => {
+      mockStoredSession = SESSION;
+      mockAuthListener?.('PASSWORD_RECOVERY', SESSION);
+      return { data: { session: SESSION, user: SESSION.user }, error: null };
+    });
+    mockUpdateUser.mockResolvedValueOnce({ data: { user: SESSION.user }, error: null });
+    const a = await mount();
+    await act(async () => {
+      await a.verifyAuthLink({ tokenHash: HASH, type: 'recovery' });
+    });
+    await act(async () => {
+      await expect(a.completePasswordReset(SECRET_PASSWORD)).resolves.toBe(true);
+    });
+    await waitFor(() => expect(probeText()).toContain('stage=done'));
+    await act(async () => {
+      await expect(a.verifyAuthLink({ tokenHash: 'e'.repeat(64), type: 'recovery' })).resolves.toBe('signed-in');
+    });
+    expect(mockVerifyOtp).toHaveBeenCalledTimes(1);
+    expect(probeText()).toContain('stage=done');
+  });
+});
+
 describe('secrets never reach the console', () => {
+  it('J-7: logs no token hash on the signed-in and sign-out-and-continue paths', async () => {
+    const spies = [jest.spyOn(console, 'log'), jest.spyOn(console, 'error'), jest.spyOn(console, 'warn'), jest.spyOn(console, 'info')].map((s) => s.mockImplementation(() => {}));
+    mockStoredSession = SESSION;
+    mockSignOut.mockResolvedValueOnce({ error: { message: `sign-out failed ${HASH}`, status: 500 } });
+    mockVerifyOtp.mockResolvedValueOnce({ data: { session: null, user: null }, error: { message: `bad token ${HASH}`, code: 'otp_expired', status: 403 } });
+    const a = await mount();
+    await act(async () => {
+      await a.verifyAuthLink({ tokenHash: HASH, type: 'signup' });
+      await a.verifyAuthLink({ tokenHash: HASH, type: 'recovery' });
+      await a.signOutAndVerifyAuthLink({ tokenHash: HASH, type: 'signup' }); // the sign-out fails
+      mockStoredSession = null;
+      await a.signOutAndVerifyAuthLink({ tokenHash: HASH, type: 'recovery' }); // the link is rejected
+    });
+    expect(mockVerifyOtp).toHaveBeenCalledTimes(1);
+    const all = spies.flatMap((s) => s.mock.calls.flat()).map((v) => (typeof v === 'string' ? v : JSON.stringify(v) ?? String(v)));
+    for (const line of all) expect(line).not.toContain(HASH);
+    spies.forEach((s) => s.mockRestore());
+  });
+
   it('logs neither the token hash nor the password on any path', async () => {
     const spies = [jest.spyOn(console, 'log'), jest.spyOn(console, 'error'), jest.spyOn(console, 'warn'), jest.spyOn(console, 'info')].map((s) => s.mockImplementation(() => {}));
     mockVerifyOtp.mockResolvedValueOnce({ data: { session: null, user: null }, error: { message: `bad token ${HASH}`, code: 'otp_expired', status: 403 } });
